@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "HANDA",
+    "slug": "handa-evacuation",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B3A63"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTabletMode": false,
+      "bundleIdentifier": "com.handa.evacuation"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B3A63"
+      },
+      "package": "com.handa.evacuation"
+    },
+    "scheme": "handa",
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://handa.local"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow HANDA to access your location for evacuation coordination."
+        }
+      ],
+      "expo-asset"
+    ],
+    "experiments": {
+      "tsconfigPaths": true
+    }
+  }
+}
