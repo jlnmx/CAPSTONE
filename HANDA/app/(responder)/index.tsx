@@ -2,48 +2,26 @@
  * Responder Dashboard / Home Screen
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
-  FlatList,
   Text,
   Alert,
   SafeAreaView,
+  TouchableOpacity,
 } from 'react-native';
-import { useAuth } from '@hooks/useAuth';
-import { Colors, Typography, Spacing } from '@constants/colors';
-import { ConnectivityStatus, StatCard, ActivityItem } from '@components/StatusBadge';
-import { Card } from '@components/ScreenHeader';
-import { IconButton } from '@components/Buttons';
-import { HandaLogo } from '@components/HandaLogo';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { Colors } from '@constants/colors';
 import {
   MOCK_DASHBOARD_STATS,
-  MOCK_RECENT_ACTIVITY,
-  MOCK_ACTIVE_DISASTERS,
 } from '@data/mockData';
 
 export default function ResponderDashboard() {
-  const { user, logout } = useAuth();
-  const [isOnline, setIsOnline] = useState(true);
-
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
-        {
-          text: 'Logout',
-          onPress: async () => {
-            await logout();
-          },
-          style: 'destructive',
-        },
-      ]
-    );
-  };
+  const showComingSoon = (label: string) =>
+    Alert.alert('Coming Soon', `${label} module coming soon.`);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -52,212 +30,239 @@ export default function ResponderDashboard() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <HandaLogo size="small" />
-          </View>
-          <ConnectivityStatus isOnline={isOnline} />
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutText}>👋</Text>
+          <Text style={styles.headerLogo}>HANDA</Text>
+          <TouchableOpacity
+            onPress={() => Alert.alert('Notifications', 'No new notifications.')}
+            style={styles.notificationButton}
+          >
+            <MaterialCommunityIcons name="bell-outline" size={29} color={Colors.white} />
+            <View style={styles.notificationDot} />
           </TouchableOpacity>
         </View>
 
-        {/* Active Disaster */}
-        {MOCK_ACTIVE_DISASTERS.length > 0 && (
-          <Card isEmergency={true} style={styles.disasterCard}>
-            <View style={styles.disasterHeader}>
-              <View>
-                <Text style={styles.disasterLabel}>ACTIVE DISASTER</Text>
-                <Text style={styles.disasterName}>
-                  {MOCK_ACTIVE_DISASTERS[0].name}
-                </Text>
-              </View>
-              <View style={styles.disasterStatus}>
-                <Text style={styles.statusBadge}>{MOCK_ACTIVE_DISASTERS[0].status.toUpperCase()}</Text>
-              </View>
-            </View>
-            <Text style={styles.disasterDescription}>
-              {MOCK_ACTIVE_DISASTERS[0].description}
-            </Text>
-          </Card>
-        )}
-
-        {/* Statistics */}
-        <View style={styles.statsContainer}>
-          <StatCard
-            icon="👨‍👩‍👧‍👦"
-            title="Total Evacuees"
-            value={MOCK_DASHBOARD_STATS.totalEvacuees}
+        <View style={styles.disasterCard}>
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={39}
+            color={Colors.white}
           />
-          <StatCard
-            icon="🚨"
-            title="Active Incidents"
-            value={MOCK_DASHBOARD_STATS.activeIncidents}
-          />
+          <View style={styles.disasterCopy}>
+            <Text style={styles.disasterName}>Flood Response</Text>
+            <Text style={styles.disasterDescription}>Active Disaster</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={31} color={Colors.white} />
         </View>
 
         <View style={styles.statsContainer}>
-          <StatCard
-            icon="🏠"
-            title="Evacuation Centers"
-            value={MOCK_DASHBOARD_STATS.evacuationCenters}
-          />
-          <StatCard
-            icon="⏳"
-            title="Pending Sync"
-            value={MOCK_DASHBOARD_STATS.pendingSync}
-            isWarning={true}
-          />
+          <StatTile icon="account-group-outline" value={MOCK_DASHBOARD_STATS.totalEvacuees} label="Total Evacuees" color="#218B25" />
+          <StatTile icon="alert-outline" value={MOCK_DASHBOARD_STATS.activeIncidents} label="Active Incidents" color="#D63F43" />
         </View>
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>
-            <IconButton
-              icon="📝"
-              label="Register Evacuee"
-              description="Register new evacuees"
-              onPress={() =>
-                Alert.alert('Coming Soon', 'Register Evacuee module coming soon.')
-              }
-            />
-            <IconButton
-              icon="📢"
-              label="Report Incident"
-              description="Report an incident"
-              onPress={() =>
-                Alert.alert('Coming Soon', 'Report Incident module coming soon.')
-              }
-            />
-          </View>
-          <View style={styles.quickActionsGrid}>
-            <IconButton
-              icon="🗺️"
-              label="View Map"
-              description="View operational map"
-              onPress={() => Alert.alert('Coming Soon', 'Map module coming soon.')}
-            />
-            <IconButton
-              icon="🏢"
-              label="Evacuation Centers"
-              description="Manage centers"
-              onPress={() =>
-                Alert.alert('Coming Soon', 'Evacuation Centers module coming soon.')
-              }
-            />
-          </View>
+        <View style={styles.statsContainer}>
+          <StatTile icon="home-city-outline" value={MOCK_DASHBOARD_STATS.evacuationCenters} label="Evacuation Centers" color="#1E5987" />
+          <StatTile icon="account-outline" value="58" label="Available Capacity" color="#C9431B" />
         </View>
 
-        {/* Recent Activity */}
+        <View style={styles.pendingTile}>
+          <MaterialCommunityIcons name="plus-circle-outline" size={31} color="#D92BC4" />
+          <Text style={styles.pendingValue}>{MOCK_DASHBOARD_STATS.pendingSync}</Text>
+          <Text style={styles.pendingLabel}>Pending Sync Records</Text>
+        </View>
+
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <Card>
-            <FlatList
-              data={MOCK_RECENT_ACTIVITY}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <ActivityItem
-                  icon={item.icon}
-                  description={item.description}
-                  timestamp={item.timestamp}
-                  status={item.status}
-                />
-              )}
-            />
-          </Card>
+          <Text style={styles.sectionTitle}>QUICK ACTION</Text>
+          <View style={styles.quickActionsGrid}>
+            <ActionButton icon="account-plus-outline" label="Register Evacuee" onPress={() => router.push('/evacuees')} />
+            <ActionButton icon="checkbox-marked-outline" label="Verify Check-in" onPress={() => showComingSoon('Verify Check-in')} />
+          </View>
+          <View style={styles.quickActionsGrid}>
+            <ActionButton icon="alert-circle-outline" label="Report Incident" onPress={() => router.push('/incidents')} />
+            <ActionButton icon="home-city-outline" label="Center status" onPress={() => showComingSoon('Center status')} />
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-import { TouchableOpacity } from 'react-native';
+interface StatTileProps {
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  value: number | string;
+  label: string;
+  color: string;
+}
+
+function StatTile({ icon, value, label, color }: StatTileProps) {
+  return (
+    <View style={styles.statTile}>
+      <MaterialCommunityIcons name={icon} size={31} color={color} style={styles.statIcon} />
+      <View>
+        <Text style={[styles.statValue, { color }]}>{value}</Text>
+        <Text style={[styles.statLabel, { color }]}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
+interface ActionButtonProps {
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  label: string;
+  onPress: () => void;
+}
+
+function ActionButton({ icon, label, onPress }: ActionButtonProps) {
+  return (
+    <TouchableOpacity style={styles.actionButton} onPress={onPress} activeOpacity={0.75}>
+      <MaterialCommunityIcons name={icon} size={25} color="#218B25" style={styles.actionIcon} />
+      <Text style={styles.actionLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#FFFFFF',
   },
   contentContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
+    paddingBottom: 12,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.xl,
+    height: 86,
+    paddingHorizontal: 16,
+    backgroundColor: '#218B25',
+  },
+  headerLogo: {
+    color: Colors.white,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  notificationButton: {
+    width: 34,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 5,
+    right: 6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: Colors.white,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderRadius: 12,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  logoutButton: {
-    padding: Spacing.md,
-  },
-  logoutText: {
-    fontSize: 20,
   },
   disasterCard: {
-    marginBottom: Spacing.xl,
-  },
-  disasterHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  disasterLabel: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: '600',
-    color: Colors.emergency,
-    marginBottom: Spacing.xs,
+    alignItems: 'center',
+    marginHorizontal: 18,
+    marginTop: 12,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    height: 102,
+    borderRadius: 9,
+    backgroundColor: '#D63F43',
   },
   disasterName: {
-    fontSize: Typography.sizes.lg,
+    fontSize: 18,
     fontWeight: '700',
-    color: Colors.text,
-  },
-  disasterStatus: {
-    backgroundColor: Colors.emergency,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: 6,
-  },
-  statusBadge: {
     color: Colors.white,
-    fontSize: Typography.sizes.xs,
-    fontWeight: '600',
+  },
+  disasterCopy: {
+    flex: 1,
+    marginLeft: 10,
   },
   disasterDescription: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textMuted,
-    marginTop: Spacing.md,
+    fontSize: 12,
+    color: Colors.white,
   },
   statsContainer: {
     flexDirection: 'row',
-    marginBottom: Spacing.lg,
+    marginHorizontal: 18,
+    gap: 8,
+    marginBottom: 10,
+  },
+  statTile: {
+    flex: 1,
+    height: 100,
+    borderRadius: 9,
+    backgroundColor: '#EEF2EF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  statIcon: {
+    marginRight: 8,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 3,
+  },
+  statLabel: {
+    fontSize: 9,
+  },
+  pendingTile: {
+    height: 51,
+    marginHorizontal: 18,
+    marginBottom: 12,
+    borderRadius: 9,
+    backgroundColor: '#EEF2EF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  pendingIcon: {
+    marginRight: 8,
+  },
+  pendingValue: {
+    color: '#D92BC4',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: 3,
+  },
+  pendingLabel: {
+    color: '#D92BC4',
+    fontSize: 9,
+    marginLeft: 6,
   },
   section: {
-    marginBottom: Spacing.xl,
+    marginHorizontal: 18,
   },
   sectionTitle: {
-    fontSize: Typography.sizes.lg,
+    fontSize: 18,
     fontWeight: '700',
-    color: Colors.text,
-    marginBottom: Spacing.md,
+    color: '#218B25',
+    marginBottom: 7,
   },
   quickActionsGrid: {
     flexDirection: 'row',
-    marginBottom: Spacing.md,
+    gap: 9,
+    marginBottom: 8,
+  },
+  actionButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: 8,
+    backgroundColor: '#EEF2EF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 11,
+  },
+  actionIcon: {
+    marginRight: 6,
+  },
+  actionLabel: {
+    color: '#218B25',
+    fontSize: 9,
   },
 });

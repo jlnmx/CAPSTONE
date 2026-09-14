@@ -5,10 +5,10 @@
 import { DashboardStats, RecentActivity, EvacuationCenter, IncidentReport } from '@types/index';
 
 export const MOCK_DASHBOARD_STATS: DashboardStats = {
-  totalEvacuees: 124,
-  activeIncidents: 8,
+  totalEvacuees: 140,
+  activeIncidents: 14,
   evacuationCenters: 3,
-  pendingSync: 47,
+  pendingSync: 9,
 };
 
 export const MOCK_RECENT_ACTIVITY: RecentActivity[] = [
