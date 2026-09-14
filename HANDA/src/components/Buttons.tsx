@@ -19,6 +19,7 @@ interface ButtonProps {
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
+  textStyle?: TextStyle;
 }
 
 interface PrimaryButtonProps extends ButtonProps {}
@@ -29,6 +30,7 @@ export function PrimaryButton({
   disabled = false,
   loading = false,
   style,
+  textStyle,
 }: PrimaryButtonProps) {
   return (
     <TouchableOpacity
@@ -44,7 +46,7 @@ export function PrimaryButton({
       {loading ? (
         <ActivityIndicator color={Colors.white} size="small" />
       ) : (
-        <Text style={styles.primaryButtonText}>{label}</Text>
+        <Text style={[styles.primaryButtonText, textStyle]}>{label}</Text>
       )}
     </TouchableOpacity>
   );
@@ -56,6 +58,7 @@ export function SecondaryButton({
   disabled = false,
   loading = false,
   style,
+  textStyle,
 }: ButtonProps) {
   return (
     <TouchableOpacity
@@ -71,7 +74,7 @@ export function SecondaryButton({
       {loading ? (
         <ActivityIndicator color={Colors.primary} size="small" />
       ) : (
-        <Text style={styles.secondaryButtonText}>{label}</Text>
+        <Text style={[styles.secondaryButtonText, textStyle]}>{label}</Text>
       )}
     </TouchableOpacity>
   );

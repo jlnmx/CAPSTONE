@@ -12,9 +12,8 @@ import {
 } from 'react-native';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
-import { HandaLogo } from '@components/HandaLogo';
 import { TextInput, PasswordInput } from '@components/TextInputs';
-import { PrimaryButton, SecondaryButton, LinkButton } from '@components/Buttons';
+import { PrimaryButton } from '@components/Buttons';
 
 export default function LoginScreen() {
   const { login, loginAsDemo, error, isLoading } = useAuth();
@@ -43,43 +42,36 @@ export default function LoginScreen() {
     }
   };
 
-  const handleDemoLogin = async (role: 'responder' | 'resident') => {
-    try {
-      await loginAsDemo(role);
-    } catch (err) {
-      Alert.alert('Error', 'Failed to login as demo user.');
-    }
-  };
-
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Logo Section */}
-      <View style={styles.logoSection}>
-        <HandaLogo size="large" showTagline={true} />
+      <View style={styles.brandSection}>
+        <Text style={styles.sparkles}>✦</Text>
+        <Text style={styles.brandName}>HANDA</Text>
+        <Text style={styles.tagline}>Laging handa para sayo.</Text>
       </View>
 
-      {/* Form Section */}
       <View style={styles.formSection}>
         <TextInput
-          label="Email or Username"
-          placeholder="Enter your email"
+          placeholder="Username or Email"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
           containerStyle={styles.inputContainer}
+          inputStyle={styles.referenceInput}
           error={validationError ? undefined : undefined}
         />
 
         <PasswordInput
-          label="Password"
-          placeholder="Enter your password"
+          placeholder="Password"
           value={password}
           onChangeText={setPassword}
           containerStyle={styles.inputContainer}
+          inputStyle={styles.referenceInput}
+          showVisibilityToggle={false}
           error={validationError ? undefined : undefined}
         />
 
@@ -90,61 +82,22 @@ export default function LoginScreen() {
           </View>
         )}
 
-        {/* Login Button */}
         <PrimaryButton
           label="Login"
           onPress={handleLogin}
           loading={isLoading}
           disabled={isLoading}
           style={styles.loginButton}
+          textStyle={styles.referenceButtonText}
         />
 
-        {/* Forgot Password */}
-        <View style={styles.forgotContainer}>
-          <LinkButton
-            label="Forgot Password?"
-            onPress={() => Alert.alert('Info', 'Password reset feature coming soon.')}
-          />
-        </View>
-
-        {/* Divider */}
-        <View style={styles.dividerContainer}>
-          <View style={styles.divider} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.divider} />
-        </View>
-
-        {/* Demo Login */}
-        <View style={styles.demoSection}>
-          <Text style={styles.demoTitle}>Try Demo Account</Text>
-          <SecondaryButton
-            label="Continue as Responder"
-            onPress={() => handleDemoLogin('responder')}
-            loading={isLoading}
-            disabled={isLoading}
-            style={styles.demoButton}
-          />
-          <SecondaryButton
-            label="Continue as Resident"
-            onPress={() => handleDemoLogin('resident')}
-            loading={isLoading}
-            disabled={isLoading}
-            style={styles.demoButton}
-          />
-        </View>
-      </View>
-
-      {/* Test Credentials Info */}
-      <View style={styles.testCredsSection}>
-        <Text style={styles.testCredsTitle}>Test Credentials</Text>
-        <Text style={styles.testCredsMuted}>
-          Email: responder@handa.local{'\n'}
-          Password: responder123
-        </Text>
-        <Text style={styles.testCredsMuted}>
-          Email: resident@handa.local{'\n'}
-          Password: resident123
-        </Text>
+        <Text style={styles.createPrompt}>Don&apos;t have an account yet?</Text>
+        <PrimaryButton
+          label="Create an Account"
+          onPress={() => Alert.alert('Info', 'Account creation coming soon.')}
+          style={styles.createButton}
+          textStyle={styles.referenceButtonText}
+        />
       </View>
     </ScrollView>
   );
@@ -153,23 +106,62 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.white,
   },
   contentContainer: {
     flexGrow: 1,
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.xl,
-  },
-  logoSection: {
     alignItems: 'center',
-    marginBottom: Spacing.xl,
-    marginTop: Spacing.lg,
+    paddingTop: 30,
+    paddingBottom: 40,
+  },
+  brandSection: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  sparkles: {
+    position: 'absolute',
+    top: -30,
+    left: '17%',
+    color: '#F5D14B',
+    fontSize: 46,
+    lineHeight: 50,
+  },
+  brandName: {
+    color: '#218B25',
+    fontSize: 44,
+    fontWeight: '800',
+    letterSpacing: 1,
+    lineHeight: 54,
+  },
+  tagline: {
+    color: '#218B25',
+    fontSize: 14,
+    marginTop: 2,
   },
   formSection: {
-    paddingHorizontal: Spacing.lg,
+    width: 286,
+    maxWidth: '90%',
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#8BC58B',
+    borderRadius: 10,
+    backgroundColor: '#F0F2F5',
+    marginTop: 0,
   },
   inputContainer: {
-    marginBottom: Spacing.lg,
+    marginBottom: 16,
+  },
+  referenceInput: {
+    height: 36,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+    borderColor: '#D5D5D5',
+    borderRadius: 7,
+    backgroundColor: Colors.white,
+    fontSize: 12,
+    color: Colors.text,
   },
   errorContainer: {
     backgroundColor: Colors.emergency,
@@ -184,58 +176,35 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   loginButton: {
-    marginBottom: Spacing.md,
+    height: 35,
+    minHeight: 35,
+    paddingVertical: 0,
+    borderRadius: 6,
+    backgroundColor: '#2D2D2D',
+    marginBottom: 23,
+    shadowOpacity: 0,
+    elevation: 0,
+    shadowColor: 'transparent',
   },
-  forgotContainer: {
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: Spacing.xl,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Colors.textMuted,
-    opacity: 0.3,
-  },
-  dividerText: {
-    marginHorizontal: Spacing.md,
-    color: Colors.textMuted,
-    fontSize: Typography.sizes.sm,
-  },
-  demoSection: {
-    marginBottom: Spacing.lg,
-  },
-  demoTitle: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: Spacing.md,
+  createPrompt: {
+    color: '#218B25',
+    fontSize: 12,
     textAlign: 'center',
+    marginBottom: 8,
   },
-  demoButton: {
-    marginBottom: Spacing.md,
+  referenceButtonText: {
+    fontSize: 12,
+    fontWeight: '400',
+    letterSpacing: 0,
   },
-  testCredsSection: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-    backgroundColor: Colors.white,
-    marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
-  },
-  testCredsTitle: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: '600',
-    color: Colors.text,
-    marginBottom: Spacing.md,
-  },
-  testCredsMuted: {
-    fontSize: Typography.sizes.xs,
-    color: Colors.textMuted,
-    marginBottom: Spacing.md,
-    fontFamily: 'SpaceMono',
+  createButton: {
+    height: 35,
+    minHeight: 35,
+    paddingVertical: 0,
+    borderRadius: 6,
+    backgroundColor: '#2D2D2D',
+    shadowOpacity: 0,
+    elevation: 0,
+    shadowColor: 'transparent',
   },
 });

@@ -9,6 +9,8 @@ import {
   Text,
   StyleSheet,
   ViewStyle,
+  TextStyle,
+  StyleProp,
   TouchableOpacity,
 } from 'react-native';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
@@ -21,6 +23,7 @@ interface TextInputProps {
   editable?: boolean;
   error?: string;
   containerStyle?: ViewStyle;
+  inputStyle?: StyleProp<TextStyle>;
   keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
 }
 
@@ -32,6 +35,7 @@ export function TextInput({
   editable = true,
   error,
   containerStyle,
+  inputStyle,
   keyboardType = 'default',
 }: TextInputProps) {
   return (
@@ -40,6 +44,7 @@ export function TextInput({
       <RNTextInput
         style={[
           styles.input,
+          inputStyle,
           error && styles.inputError,
           !editable && styles.inputDisabled,
         ]}
@@ -62,6 +67,8 @@ interface PasswordInputProps {
   onChangeText: (text: string) => void;
   error?: string;
   containerStyle?: ViewStyle;
+  inputStyle?: StyleProp<TextStyle>;
+  showVisibilityToggle?: boolean;
 }
 
 export function PasswordInput({
@@ -71,6 +78,8 @@ export function PasswordInput({
   onChangeText,
   error,
   containerStyle,
+  inputStyle,
+  showVisibilityToggle = true,
 }: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -82,6 +91,7 @@ export function PasswordInput({
           style={[
             styles.input,
             styles.passwordInput,
+            inputStyle,
             error && styles.inputError,
           ]}
           placeholder={placeholder}
@@ -90,14 +100,16 @@ export function PasswordInput({
           onChangeText={onChangeText}
           secureTextEntry={!showPassword}
         />
-        <TouchableOpacity
-          style={styles.visibilityToggle}
-          onPress={() => setShowPassword(!showPassword)}
-        >
-          <Text style={styles.visibilityIcon}>
-            {showPassword ? '👁️' : '👁️‍🗨️'}
-          </Text>
-        </TouchableOpacity>
+        {showVisibilityToggle && (
+          <TouchableOpacity
+            style={styles.visibilityToggle}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Text style={styles.visibilityIcon}>
+              {showPassword ? '👁️' : '👁️‍🗨️'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
