@@ -15,6 +15,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '@constants/colors';
+import { AnimatedPressable } from '@components/Buttons';
 import {
   MOCK_DASHBOARD_STATS,
 } from '@data/mockData';
@@ -32,13 +33,13 @@ export default function ResponderDashboard() {
       >
         <View style={styles.header}>
           <Text style={styles.headerLogo}>HANDA</Text>
-          <TouchableOpacity
+          <AnimatedPressable
             onPress={() => Alert.alert('Notifications', 'No new notifications.')}
             style={styles.notificationButton}
           >
             <MaterialCommunityIcons name="bell-outline" size={29} color={Colors.white} />
             <View style={styles.notificationDot} />
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
 
         <View style={styles.disasterCard}>
@@ -113,10 +114,10 @@ interface ActionButtonProps {
 
 function ActionButton({ icon, label, onPress }: ActionButtonProps) {
   return (
-    <TouchableOpacity style={styles.actionButton} onPress={onPress} activeOpacity={0.75}>
+    <AnimatedPressable style={styles.actionButton} onPress={onPress}>
       <MaterialCommunityIcons name={icon} size={25} color="#218B25" style={styles.actionIcon} />
       <Text style={styles.actionLabel}>{label}</Text>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 

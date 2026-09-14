@@ -3,16 +3,22 @@
  */
 
 import React from 'react';
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { AuthProvider } from '@hooks/useAuth';
+import { initializeLocalDatabase } from '@services/localDatabase';
 
 export default function RootLayout() {
+  useEffect(() => {
+    initializeLocalDatabase();
+  }, []);
+
   return (
     <AuthProvider>
       <Stack
         screenOptions={{
           headerShown: false,
-          animationEnabled: true,
+          animation: 'fade',
         }}
       >
         <Stack.Screen name="index" />

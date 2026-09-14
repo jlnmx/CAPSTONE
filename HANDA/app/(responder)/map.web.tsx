@@ -1,0 +1,51 @@
+import React from 'react';
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Colors } from '@constants/colors';
+
+const GREEN = '#218B25';
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+
+export default function MapScreen() {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>MAP</Text>
+        <Text style={styles.headerSubtitle}>Biñan City, Laguna</Text>
+      </View>
+      <View style={styles.webMap}>
+        {React.createElement('iframe', {
+          title: 'Biñan City map',
+          src: 'https://www.openstreetmap.org/export/embed.html?bbox=121.02%2C14.25%2C121.14%2C14.36&layer=mapnik&marker=14.3036%2C121.0781',
+          style: styles.mapFrame,
+        })}
+      </View>
+      <View style={styles.controls}>
+        <MapControl label="Barangay Centers" icon="home-city-outline" />
+        <MapControl label="Incidents" icon="alert-outline" />
+        <MapControl label="Your location" icon="crosshairs-gps" />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function MapControl({ label, icon }: { label: string; icon: IconName }) {
+  return (
+    <TouchableOpacity style={styles.control} activeOpacity={0.75}>
+      <MaterialCommunityIcons name={icon} size={17} color={GREEN} />
+      <Text style={styles.controlText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.white },
+  header: { backgroundColor: GREEN, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12 },
+  headerTitle: { color: Colors.white, fontSize: 28, fontWeight: '800' },
+  headerSubtitle: { color: '#DFF1DF', fontSize: 12, marginTop: 2 },
+  controls: { gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
+  control: { height: 34, borderWidth: 1, borderColor: GREEN, borderRadius: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  controlText: { color: GREEN, fontSize: 12 },
+  webMap: { flex: 1, margin: 14, borderWidth: 1, borderColor: GREEN, borderRadius: 8, overflow: 'hidden', backgroundColor: '#EAF2EF' },
+  mapFrame: { width: '100%', height: '100%', borderWidth: 0 },
+});

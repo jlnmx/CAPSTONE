@@ -16,6 +16,7 @@
     "build:ios": "eas build --platform ios"
   },
   "dependencies": {
+    "@maplibre/maplibre-react-native": "^10.0.0",
     "expo": "^52.0.0",
     "expo-asset": "~11.0.5",
     "expo-camera": "~16.0.18",

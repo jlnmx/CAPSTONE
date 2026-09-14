@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
+import { AnimatedPressable } from '@components/Buttons';
 
 const GREEN = '#218B25';
 
@@ -52,9 +53,9 @@ export default function EvacueesScreen() {
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
           {['ALL', 'CHECKED IN', 'PENDING SYNC', 'SYNCED'].map((item) => (
-            <TouchableOpacity key={item} style={[styles.filterChip, filter === item && styles.activeFilter]} onPress={() => setFilter(item)}>
+            <AnimatedPressable key={item} style={[styles.filterChip, filter === item && styles.activeFilter]} onPress={() => setFilter(item)}>
               <Text style={[styles.filterText, filter === item && styles.activeFilterText]}>{item === 'ALL' ? '✧  ALL' : item}</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           ))}
         </ScrollView>
 
@@ -69,7 +70,7 @@ export default function EvacueesScreen() {
 
 function EvacueeRow({ evacuee }: { evacuee: PlaceholderEvacuee }) {
   return (
-    <TouchableOpacity style={styles.row} activeOpacity={0.75}>
+    <AnimatedPressable style={styles.row} onPress={() => {}}>
       <View style={styles.avatar}><MaterialCommunityIcons name="account" size={25} color="#6F9E72" /></View>
       <View style={styles.rowCopy}>
         <Text style={styles.name}>{evacuee.name}</Text>
@@ -77,7 +78,7 @@ function EvacueeRow({ evacuee }: { evacuee: PlaceholderEvacuee }) {
         <Text style={styles.details}>{evacuee.barangay} · <Text style={styles.status}>{evacuee.status}</Text></Text>
       </View>
       <View style={[styles.statusDot, { backgroundColor: evacuee.color }]} />
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 

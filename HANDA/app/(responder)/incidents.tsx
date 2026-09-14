@@ -14,11 +14,30 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
 import { Colors } from '@constants/colors';
+import { saveLocalIncident } from '@services/localDatabase';
+import { AnimatedPressable } from '@components/Buttons';
 
 const GREEN = '#218B25';
 const BORDER_GREEN = '#79B879';
 const FIELD_GREEN = '#548B56';
 const SEVERITIES = ['Low', 'Moderity', 'High', 'Critical'];
+const INCIDENT_TYPES = [
+  'Flooding',
+  'Typhoon',
+  'Storm Surge',
+  'Earthquake',
+  'Landslide',
+  'Fire',
+  'Building Collapse',
+  'Road Accident',
+  'Road Obstruction',
+  'Infrastructure Damage',
+  'Power Outage',
+  'Water Supply Issue',
+  'Medical Emergency',
+  'Missing Person',
+  'Other / Manual Entry',
+];
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -27,6 +46,8 @@ export default function IncidentsScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [incidentType, setIncidentType] = useState('');
+  const [isIncidentTypeOpen, setIsIncidentTypeOpen] = useState(false);
+  const [manualIncidentType, setManualIncidentType] = useState('');
   const [description, setDescription] = useState('');
   const [severity, setSeverity] = useState('Low');
   const [location, setLocation] = useState('');
@@ -57,11 +78,19 @@ export default function IncidentsScreen() {
   };
 
   const submitIncident = () => {
-    if (!incidentType || !description || !location) {
+    const selectedIncidentType = incidentType === 'Other / Manual Entry' ? manualIncidentType.trim() : incidentType;
+    if (!selectedIncidentType || !description || !location) {
       Alert.alert('Missing information', 'Complete the incident type, description, and location.');
       return;
     }
-    Alert.alert('Incident submitted', 'The incident has been saved for response coordination.');
+    saveLocalIncident({
+      type: selectedIncidentType,
+      description,
+      severity: severity.toLowerCase() as 'low' | 'moderity' | 'high' | 'critical',
+      location,
+      photoUris: photos,
+    });
+    Alert.alert('Incident saved offline', 'The incident is stored on this device and queued for synchronization.');
   };
 
   if (isCameraOpen) {
@@ -69,12 +98,12 @@ export default function IncidentsScreen() {
       <SafeAreaView style={styles.cameraScreen}>
         <CameraView ref={cameraRef} style={styles.camera} facing="back">
           <View style={styles.cameraControls}>
-            <TouchableOpacity style={styles.cameraClose} onPress={() => setIsCameraOpen(false)}>
+            <AnimatedPressable style={styles.cameraClose} onPress={() => setIsCameraOpen(false)}>
               <MaterialCommunityIcons name="close" size={28} color={Colors.white} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.captureButton} onPress={capturePhoto}>
+            </AnimatedPressable>
+            <AnimatedPressable style={styles.captureButton} onPress={capturePhoto}>
               <View style={styles.captureButtonInner} />
-            </TouchableOpacity>
+            </AnimatedPressable>
             <View style={styles.cameraSpacer} />
           </View>
         </CameraView>
@@ -92,10 +121,39 @@ export default function IncidentsScreen() {
 
         <View style={styles.form}>
           <FieldLabel label="Incident Type" required />
-          <TouchableOpacity style={styles.selectField} onPress={() => setIncidentType(incidentType ? '' : 'Flooding')}>
+          <AnimatedPressable style={styles.selectField} onPress={() => setIsIncidentTypeOpen((open) => !open)}>
             <Text style={[styles.fieldText, !incidentType && styles.placeholder]}>{incidentType || 'Enter Name'}</Text>
-            <MaterialCommunityIcons name="chevron-down" size={18} color={GREEN} />
-          </TouchableOpacity>
+            <MaterialCommunityIcons name={isIncidentTypeOpen ? 'chevron-up' : 'chevron-down'} size={18} color={GREEN} />
+          </AnimatedPressable>
+          {isIncidentTypeOpen && (
+            <ScrollView
+              style={styles.typeOptions}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+            >
+              {INCIDENT_TYPES.map((type) => (
+                <AnimatedPressable
+                  key={type}
+                  style={styles.typeOption}
+                  onPress={() => {
+                    setIncidentType(type);
+                    setIsIncidentTypeOpen(false);
+                  }}
+                >
+                  <Text style={styles.typeOptionText}>{type}</Text>
+                </AnimatedPressable>
+              ))}
+            </ScrollView>
+          )}
+          {incidentType === 'Other / Manual Entry' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Type incident or disaster"
+              placeholderTextColor="#A6C1A7"
+              value={manualIncidentType}
+              onChangeText={setManualIncidentType}
+            />
+          )}
 
           <FieldLabel label="Description" />
           <TextInput
@@ -110,34 +168,34 @@ export default function IncidentsScreen() {
           <FieldLabel label="Severity" required />
           <View style={styles.severityRow}>
             {SEVERITIES.map((item) => (
-              <TouchableOpacity key={item} style={[styles.severityPill, severity === item && styles.selectedSeverity]} onPress={() => setSeverity(item)}>
+              <AnimatedPressable key={item} style={[styles.severityPill, severity === item && styles.selectedSeverity]} onPress={() => setSeverity(item)}>
                 <Text style={styles.severityText}>{item}</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             ))}
           </View>
 
           <FieldLabel label="Location" />
-          <TouchableOpacity style={styles.locationBox} onPress={() => setLocation('Current Location')}>
+          <AnimatedPressable style={styles.locationBox} onPress={() => setLocation('Current Location')}>
             <MaterialCommunityIcons name="map-marker" size={34} color="#D6A91D" />
             <View>
               <Text style={styles.locationLink}>{location || 'Get Current Location'}</Text>
               <Text style={styles.locationDetail}>Coordinates</Text>
               <Text style={styles.locationDetail}>Coordinates</Text>
             </View>
-          </TouchableOpacity>
+          </AnimatedPressable>
 
           <FieldLabel label="Photos (optional)" />
           <View style={styles.photoRow}>
             {[0, 1, 2].map((index) => (
-              <TouchableOpacity key={index} style={styles.photoSlot} onPress={openCamera}>
+              <AnimatedPressable key={index} style={styles.photoSlot} onPress={openCamera}>
                 {photos[index] ? <Image source={{ uri: photos[index] }} style={styles.photoPreview} /> : <MaterialCommunityIcons name="plus" size={38} color={GREEN} />}
-              </TouchableOpacity>
+              </AnimatedPressable>
             ))}
           </View>
 
-          <TouchableOpacity style={styles.submitButton} onPress={submitIncident}>
+          <AnimatedPressable style={styles.submitButton} onPress={submitIncident}>
             <Text style={styles.submitText}>Submit Incident</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -161,6 +219,9 @@ const styles = StyleSheet.create({
   input: { height: 31, borderWidth: 1, borderColor: '#D9D9D9', borderRadius: 6, paddingHorizontal: 12, color: FIELD_GREEN, fontSize: 10, backgroundColor: Colors.white },
   descriptionInput: { height: 52, paddingTop: 10, textAlignVertical: 'top' },
   selectField: { height: 31, borderWidth: 1, borderColor: '#D9D9D9', borderRadius: 6, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  typeOptions: { borderWidth: 1, borderColor: BORDER_GREEN, borderRadius: 6, backgroundColor: Colors.white, marginTop: 3, maxHeight: 150 },
+  typeOption: { minHeight: 27, justifyContent: 'center', paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#E3EDE3' },
+  typeOptionText: { color: FIELD_GREEN, fontSize: 10 },
   severityRow: { flexDirection: 'row', justifyContent: 'space-between' },
   severityPill: { borderWidth: 1, borderColor: BORDER_GREEN, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 2 },
   selectedSeverity: { backgroundColor: '#E6F2E6' },

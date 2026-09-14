@@ -39,6 +39,7 @@
           "locationAlwaysAndWhenInUsePermission": "Allow HANDA to access your location for evacuation coordination."
         }
       ],
+      "@maplibre/maplibre-react-native",
       "expo-asset"
     ],
     "experiments": {

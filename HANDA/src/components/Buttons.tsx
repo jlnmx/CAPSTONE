@@ -2,8 +2,10 @@
  * Button Components
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
+  Animated,
+  StyleProp,
   TouchableOpacity,
   Text,
   StyleSheet,
@@ -24,6 +26,41 @@ interface ButtonProps {
 
 interface PrimaryButtonProps extends ButtonProps {}
 
+interface AnimatedPressableProps {
+  children: React.ReactNode;
+  onPress: () => void;
+  style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
+}
+
+export function AnimatedPressable({ children, onPress, style, disabled = false }: AnimatedPressableProps) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const animateTo = (value: number) => {
+    Animated.spring(scale, {
+      toValue: value,
+      speed: 28,
+      bounciness: 4,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={[style, { transform: [{ scale }] }]}>
+      <TouchableOpacity
+        style={styles.pressableFill}
+        onPress={onPress}
+        onPressIn={() => animateTo(0.96)}
+        onPressOut={() => animateTo(1)}
+        disabled={disabled}
+        activeOpacity={0.85}
+      >
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export function PrimaryButton({
   label,
   onPress,
@@ -33,7 +70,7 @@ export function PrimaryButton({
   textStyle,
 }: PrimaryButtonProps) {
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       style={[
         styles.primaryButton,
         disabled && styles.primaryButtonDisabled,
@@ -41,14 +78,13 @@ export function PrimaryButton({
       ]}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.7}
     >
       {loading ? (
         <ActivityIndicator color={Colors.white} size="small" />
       ) : (
         <Text style={[styles.primaryButtonText, textStyle]}>{label}</Text>
       )}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -61,7 +97,7 @@ export function SecondaryButton({
   textStyle,
 }: ButtonProps) {
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       style={[
         styles.secondaryButton,
         disabled && styles.secondaryButtonDisabled,
@@ -69,14 +105,13 @@ export function SecondaryButton({
       ]}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.7}
     >
       {loading ? (
         <ActivityIndicator color={Colors.primary} size="small" />
       ) : (
         <Text style={[styles.secondaryButtonText, textStyle]}>{label}</Text>
       )}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -123,6 +158,9 @@ export function IconButton({
 }
 
 const styles = StyleSheet.create({
+  pressableFill: {
+    flex: 1,
+  },
   primaryButton: {
     backgroundColor: Colors.primary,
     paddingVertical: Spacing.md,
