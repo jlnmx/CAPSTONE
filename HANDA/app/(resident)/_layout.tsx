@@ -3,17 +3,17 @@
  */
 
 import React from 'react';
-import { Text } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { Colors } from '@constants/colors';
 
 interface TabBarIconProps {
-  name: string;
+  name: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   color: string;
 }
 
 function TabBarIcon({ name, color }: TabBarIconProps) {
-  return <Text style={{ fontSize: 20, color }}>{name}</Text>;
+  return <MaterialCommunityIcons name={name} size={23} color={color} />;
 }
 
 export default function ResidentLayout() {
@@ -21,18 +21,20 @@ export default function ResidentLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarActiveTintColor: '#218B25',
+        tabBarInactiveTintColor: '#218B25',
         tabBarStyle: {
           backgroundColor: Colors.white,
-          borderTopColor: Colors.background,
+          borderTopColor: '#8BC58B',
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: 64,
+          marginHorizontal: 5,
+          borderRadius: 10,
+          paddingBottom: 5,
+          paddingTop: 3,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 8,
           fontWeight: '500',
         },
       }}
@@ -41,35 +43,35 @@ export default function ResidentLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <TabBarIcon name="🏠" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="home-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="map"
         options={{
           title: 'Map',
-          tabBarIcon: ({ color }) => <TabBarIcon name="🗺️" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="map-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="report"
         options={{
           title: 'Report',
-          tabBarIcon: ({ color }) => <TabBarIcon name="📢" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="alert-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="alerts"
         options={{
           title: 'Alerts',
-          tabBarIcon: ({ color }) => <TabBarIcon name="🔔" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="bell-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="more"
         options={{
           title: 'More',
-          tabBarIcon: ({ color }) => <TabBarIcon name="⋯" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="dots-horizontal" color={color} />,
         }}
       />
     </Tabs>

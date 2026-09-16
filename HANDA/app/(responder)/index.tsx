@@ -247,11 +247,11 @@ const styles = StyleSheet.create({
   },
   quickActionsGrid: {
     flexDirection: 'row',
-    gap: 9,
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
   actionButton: {
-    flex: 1,
+    width: '48%',
     height: 46,
     borderRadius: 8,
     backgroundColor: '#EEF2EF',

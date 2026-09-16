@@ -1,282 +1,71 @@
-/**
- * Resident Dashboard / Home Screen
- */
+import React from 'react';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
+import { Colors } from '@constants/colors';
+import { MOCK_ACTIVE_DISASTERS } from '@data/mockData';
 
-import React, { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Text,
-  Alert,
-  SafeAreaView,
-  TouchableOpacity,
-} from 'react-native';
-import { useAuth } from '@hooks/useAuth';
-import { Colors, Typography, Spacing } from '@constants/colors';
-import { ConnectivityStatus } from '@components/StatusBadge';
-import { Card } from '@components/ScreenHeader';
-import { HandaLogo } from '@components/HandaLogo';
-import { MOCK_ACTIVE_DISASTERS, MOCK_EVACUATION_CENTERS } from '@data/mockData';
+const actions = [
+  { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/report' },
+  { icon: 'checkbox-marked-outline' as const, label: 'Verify Check-in', route: '/(resident)/alerts' },
+  { icon: 'alert-circle-outline' as const, label: 'Report incident', route: '/(resident)/report' },
+  { icon: 'home-city-outline' as const, label: 'Center status', route: '/(resident)/map' },
+];
 
 export default function ResidentDashboard() {
-  const { user, logout } = useAuth();
-  const [isOnline, setIsOnline] = useState(true);
-
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
-        {
-          text: 'Logout',
-          onPress: async () => {
-            await logout();
-          },
-          style: 'destructive',
-        },
-      ]
-    );
-  };
+  const activeDisaster = MOCK_ACTIVE_DISASTERS[0];
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <HandaLogo size="small" />
-          </View>
-          <ConnectivityStatus isOnline={isOnline} />
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Text style={styles.logoutText}>👋</Text>
-          </TouchableOpacity>
+          <View style={styles.brandRow}><Text style={styles.brand}>HANDA</Text></View>
+          <TouchableOpacity style={styles.notificationButton} onPress={() => Alert.alert('Notifications', 'No new notifications.')} accessibilityLabel="Notifications"><MaterialCommunityIcons name="bell-outline" size={29} color={Colors.white} /><View style={styles.notificationDot} /></TouchableOpacity>
         </View>
 
-        {/* Welcome Message */}
-        <Card>
-          <Text style={styles.welcomeTitle}>Welcome, {user?.name}!</Text>
-          <Text style={styles.welcomeSubtitle}>
-            You are logged in as a Community Resident. Stay informed about evacuation
-            procedures and emergency alerts.
-          </Text>
-        </Card>
+        <TouchableOpacity style={styles.disasterCard} onPress={() => router.push('/(resident)/alerts')} activeOpacity={0.85}>
+          <View style={styles.alertIcon}><MaterialCommunityIcons name="alert-outline" size={29} color={Colors.white} /></View>
+          <View style={styles.disasterCopy}><Text style={styles.disasterName}>{activeDisaster?.name || 'Flood Response'}</Text><Text style={styles.disasterStatus}>Active Disaster</Text></View>
+          <MaterialCommunityIcons name="chevron-right" size={30} color={Colors.white} />
+        </TouchableOpacity>
 
-        {/* Active Disaster */}
-        {MOCK_ACTIVE_DISASTERS.length > 0 && (
-          <Card isEmergency={true} style={styles.disasterCard}>
-            <View style={styles.disasterHeader}>
-              <View>
-                <Text style={styles.disasterLabel}>ACTIVE ALERT</Text>
-                <Text style={styles.disasterName}>
-                  {MOCK_ACTIVE_DISASTERS[0].name}
-                </Text>
-              </View>
-              <View style={styles.disasterStatus}>
-                <Text style={styles.statusBadge}>{MOCK_ACTIVE_DISASTERS[0].status.toUpperCase()}</Text>
-              </View>
-            </View>
-            <Text style={styles.disasterDescription}>
-              {MOCK_ACTIVE_DISASTERS[0].description}
-            </Text>
-            <Text style={styles.actionText}>
-              Please follow emergency procedures and stay tuned to official channels for updates.
-            </Text>
-          </Card>
-        )}
-
-        {/* Evacuation Centers */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Nearby Evacuation Centers</Text>
-          {MOCK_EVACUATION_CENTERS.map((center) => (
-            <Card key={center.id}>
-              <Text style={styles.centerName}>{center.name}</Text>
-              <Text style={styles.centerLocation}>📍 {center.location}</Text>
-              <View style={styles.centerStats}>
-                <Text style={styles.centerStat}>
-                  Capacity: {center.currentOccupancy}/{center.capacity}
-                </Text>
-                <View
-                  style={[
-                    styles.capacityBar,
-                    {
-                      width:
-                        `${Math.min((center.currentOccupancy / center.capacity) * 100, 100)}%` as any,
-                    },
-                  ]}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.centerStatus,
-                  {
-                    color:
-                      center.status === 'full' ? Colors.emergency : Colors.success,
-                  },
-                ]}
-              >
-                Status: {center.status.charAt(0).toUpperCase() + center.status.slice(1)}
-              </Text>
-            </Card>
-          ))}
+        <View style={styles.statusRow}>
+          <StatusTile icon="account-outline" title="MY STATUS" detail="Checked in" />
+          <StatusTile icon="account-multiple-outline" title="HOUSEHOLD" detail="4 members" />
         </View>
 
-        {/* Info Section */}
-        <Card>
-          <Text style={styles.infoTitle}>Important Information</Text>
-          <Text style={styles.infoText}>
-            • Keep your phone charged and make sure you have this app installed
-          </Text>
-          <Text style={styles.infoText}>
-            • Follow instructions from local authorities
-          </Text>
-          <Text style={styles.infoText}>
-            • Have an evacuation plan ready for your family
-          </Text>
-          <Text style={styles.infoText}>
-            • Know your nearest evacuation center
-          </Text>
-        </Card>
+        <Text style={styles.sectionTitle}>QUICK ACTION</Text>
+        <View style={styles.actionGrid}>{actions.map((action) => <TouchableOpacity key={action.label} style={styles.actionButton} onPress={() => router.push(action.route)} activeOpacity={0.75}><MaterialCommunityIcons name={action.icon} size={25} color="#218B25" /><Text style={styles.actionLabel}>{action.label}</Text></TouchableOpacity>)}</View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+function StatusTile({ icon, title, detail }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string }) {
+  return <View style={styles.statusTile}><MaterialCommunityIcons name={icon} size={29} color="#1E5987" /><View style={styles.statusCopy}><Text style={styles.statusTitle}>{title}</Text><Text style={styles.statusDetail}>{detail}</Text></View></View>;
+}
+
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  contentContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.xl,
-    backgroundColor: Colors.white,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderRadius: 12,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  logoutButton: {
-    padding: Spacing.md,
-  },
-  logoutText: {
-    fontSize: 20,
-  },
-  welcomeTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  welcomeSubtitle: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textMuted,
-    marginTop: Spacing.sm,
-  },
-  disasterCard: {
-    marginBottom: Spacing.xl,
-  },
-  disasterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  disasterLabel: {
-    fontSize: Typography.sizes.xs,
-    fontWeight: '600',
-    color: Colors.emergency,
-    marginBottom: Spacing.xs,
-  },
-  disasterName: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  disasterStatus: {
-    backgroundColor: Colors.emergency,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: 6,
-  },
-  statusBadge: {
-    color: Colors.white,
-    fontSize: Typography.sizes.xs,
-    fontWeight: '600',
-  },
-  disasterDescription: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textMuted,
-    marginTop: Spacing.md,
-  },
-  actionText: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.emergency,
-    marginTop: Spacing.md,
-    fontWeight: '600',
-  },
-  section: {
-    marginBottom: Spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: Spacing.md,
-  },
-  centerName: {
-    fontSize: Typography.sizes.base,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  centerLocation: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textMuted,
-    marginTop: Spacing.sm,
-  },
-  centerStats: {
-    marginTop: Spacing.md,
-  },
-  centerStat: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.text,
-    marginBottom: Spacing.sm,
-  },
-  capacityBar: {
-    height: 6,
-    backgroundColor: Colors.success,
-    borderRadius: 3,
-  },
-  centerStatus: {
-    fontSize: Typography.sizes.sm,
-    fontWeight: '600',
-    marginTop: Spacing.md,
-  },
-  infoTitle: {
-    fontSize: Typography.sizes.base,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: Spacing.md,
-  },
-  infoText: {
-    fontSize: Typography.sizes.sm,
-    color: Colors.textMuted,
-    marginBottom: Spacing.md,
-    lineHeight: 20,
-  },
+  safeArea: { flex: 1, backgroundColor: Colors.white },
+  container: { flex: 1, backgroundColor: Colors.white },
+  content: { paddingBottom: 22 },
+  header: { height: 86, paddingHorizontal: 18, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  brandRow: { flexDirection: 'row', alignItems: 'center' },
+  brand: { color: Colors.white, fontSize: 32, fontWeight: '800', letterSpacing: 1 },
+  notificationButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
+  notificationDot: { position: 'absolute', top: 6, right: 5, width: 6, height: 6, borderRadius: 3, backgroundColor: '#F5D14B' },
+  disasterCard: { minHeight: 103, marginHorizontal: 18, marginTop: 12, marginBottom: 30, paddingHorizontal: 14, borderRadius: 9, backgroundColor: '#D63F43', flexDirection: 'row', alignItems: 'center' },
+  alertIcon: { width: 38, height: 38, borderWidth: 3, borderColor: Colors.white, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  disasterCopy: { flex: 1, marginLeft: 10 },
+  disasterName: { color: Colors.white, fontSize: 18, fontWeight: '800' },
+  disasterStatus: { color: Colors.white, fontSize: 13, marginTop: 2 },
+  statusRow: { flexDirection: 'row', gap: 9, marginHorizontal: 18, marginBottom: 14 },
+  statusTile: { flex: 1, minHeight: 87, paddingHorizontal: 12, borderRadius: 9, backgroundColor: '#EEF2EF', flexDirection: 'row', alignItems: 'center' },
+  statusCopy: { marginLeft: 8 },
+  statusTitle: { color: '#1E5987', fontSize: 12, fontWeight: '800' },
+  statusDetail: { color: '#218B25', fontSize: 9, marginTop: 3 },
+  sectionTitle: { color: '#218B25', fontSize: 18, fontWeight: '800', marginHorizontal: 18, marginTop: 0, marginBottom: 8 },
+  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: 18 },
+  actionButton: { width: '48%', minHeight: 46, borderRadius: 8, backgroundColor: '#EEF2EF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10 },
+  actionLabel: { color: '#218B25', fontSize: 9, marginLeft: 6, flexShrink: 1 },
 });

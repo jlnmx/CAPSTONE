@@ -1,0 +1,39 @@
+import React, { useState } from 'react';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
+
+type AccessRole = 'Responder' | 'Resident' | 'Administrator';
+interface Account { id: string; name: string; email: string; role: AccessRole; status: 'Active' | 'Inactive' | 'Pending'; }
+
+const initialAccounts: Account[] = [
+  { id: 'USR-001', name: 'Juan Dela Cruz', email: 'responder@handa.local', role: 'Responder', status: 'Active' },
+  { id: 'USR-002', name: 'Maria Santos', email: 'resident@handa.local', role: 'Resident', status: 'Active' },
+  { id: 'USR-003', name: 'Carla Reyes', email: 'carla.reyes@handa.local', role: 'Responder', status: 'Pending' },
+  { id: 'USR-004', name: 'HANDA Administrator', email: 'admin@handa.local', role: 'Administrator', status: 'Active' },
+];
+
+export default function AdminUsers() {
+  const [accounts, setAccounts] = useState(initialAccounts);
+  const [query, setQuery] = useState('');
+  const visibleAccounts = accounts.filter((account) => `${account.name} ${account.email} ${account.role}`.toLowerCase().includes(query.toLowerCase()));
+
+  const addAccount = () => Alert.prompt('Create account', 'Enter the new user name', (name) => {
+    if (name?.trim()) setAccounts((current) => [...current, { id: `USR-00${current.length + 1}`, name: name.trim(), email: `${name.trim().toLowerCase().replace(/\s+/g, '.')}@handa.local`, role: 'Responder', status: 'Pending' }]);
+  });
+  const removeAccount = (account: Account) => Alert.alert('Delete account', `Remove ${account.name}?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => setAccounts((current) => current.filter((item) => item.id !== account.id)) }]);
+  const toggleAccount = (account: Account) => setAccounts((current) => current.map((item) => item.id === account.id ? { ...item, status: item.status === 'Active' ? 'Inactive' : 'Active' } : item));
+  const assignRole = (account: Account) => Alert.alert('Assign role', `Choose a role for ${account.name}`, [
+    ...(['Responder', 'Resident', 'Administrator'] as AccessRole[]).map((role) => ({ text: role, onPress: () => setAccounts((current) => current.map((item) => item.id === account.id ? { ...item, role } : item)) })),
+    { text: 'Cancel', style: 'cancel' },
+  ]);
+
+  return <SafeAreaView style={styles.safeArea}><ScrollView contentContainerStyle={styles.content}><View style={styles.heading}><View><Text style={styles.eyebrow}>ACCESS CONTROL</Text><Text style={styles.title}>User accounts</Text><Text style={styles.subtitle}>Create and manage access for responders, residents, and authorized officials.</Text></View><TouchableOpacity style={styles.primaryButton} onPress={addAccount}><MaterialCommunityIcons name="account-plus-outline" color={Colors.white} size={18} /><Text style={styles.primaryText}>Create account</Text></TouchableOpacity></View>
+    <View style={styles.summary}><Summary label="All accounts" value={accounts.length} /><Summary label="Responders" value={accounts.filter((account) => account.role === 'Responder').length} /><Summary label="Pending approval" value={accounts.filter((account) => account.status === 'Pending').length} /></View>
+    <View style={styles.panel}><View style={styles.toolbar}><View style={styles.search}><MaterialCommunityIcons name="magnify" size={19} color={Colors.textMuted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search users" placeholderTextColor={Colors.textMuted} style={styles.searchInput} /></View><Text style={styles.resultCount}>{visibleAccounts.length} accounts</Text></View>{visibleAccounts.map((account) => <View key={account.id} style={styles.row}><View style={styles.userAvatar}><Text style={styles.avatarText}>{account.name.split(' ').map((word) => word[0]).join('').slice(0, 2)}</Text></View><View style={styles.userInfo}><Text style={styles.userName}>{account.name}</Text><Text style={styles.userEmail}>{account.email}</Text></View><View style={styles.roleWrap}><Text style={styles.role}>{account.role}</Text><Text style={[styles.status, { color: account.status === 'Active' ? '#167A5B' : account.status === 'Inactive' ? Colors.emergency : '#8B5E00' }]}>{account.status}</Text></View><TouchableOpacity style={styles.iconButton} onPress={() => assignRole(account)}><MaterialCommunityIcons name="account-switch-outline" size={19} color={Colors.secondary} /></TouchableOpacity><TouchableOpacity style={styles.iconButton} onPress={() => toggleAccount(account)}><MaterialCommunityIcons name={account.status === 'Active' ? 'account-cancel-outline' : 'account-check-outline'} size={19} color={account.status === 'Active' ? Colors.emergency : '#167A5B'} /></TouchableOpacity><TouchableOpacity style={styles.iconButton} onPress={() => Alert.alert('Edit account', `${account.name} is ready to be updated.`)}><MaterialCommunityIcons name="pencil-outline" size={19} color={Colors.secondary} /></TouchableOpacity><TouchableOpacity style={styles.iconButton} onPress={() => removeAccount(account)}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></TouchableOpacity></View>)}</View>
+  </ScrollView></SafeAreaView>;
+}
+
+function Summary({ label, value }: { label: string; value: number }) { return <View style={styles.summaryItem}><Text style={styles.summaryValue}>{value}</Text><Text style={styles.summaryLabel}>{label}</Text></View>; }
+
+const styles = StyleSheet.create({ safeArea: { flex: 1, backgroundColor: '#F4F7F9' }, content: { padding: Spacing.xl, paddingBottom: 48, maxWidth: 1100, width: '100%', alignSelf: 'center' }, heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 22 }, eyebrow: { color: Colors.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 }, title: { color: Colors.text, fontSize: 30, fontWeight: '800', marginTop: 5 }, subtitle: { color: Colors.textMuted, fontSize: 14, marginTop: 6 }, primaryButton: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.primary, paddingHorizontal: 15, paddingVertical: 12, borderRadius: BorderRadius.md }, primaryText: { color: Colors.white, fontWeight: '700', fontSize: 12 }, summary: { flexDirection: 'row', gap: 12, marginBottom: 16 }, summaryItem: { flex: 1, backgroundColor: Colors.white, padding: 16, borderRadius: BorderRadius.md, ...Shadows.sm }, summaryValue: { fontSize: 25, fontWeight: '800', color: Colors.text }, summaryLabel: { color: Colors.textMuted, fontSize: 12, marginTop: 4 }, panel: { backgroundColor: Colors.white, borderRadius: BorderRadius.md, padding: 18, ...Shadows.sm }, toolbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }, search: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 10, width: 260 }, searchInput: { flex: 1, paddingVertical: 9, paddingHorizontal: 8, color: Colors.text, fontSize: 13 }, resultCount: { color: Colors.textMuted, fontSize: 12 }, row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#EDF1F4', gap: 12 }, userAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E4EEF4', justifyContent: 'center', alignItems: 'center' }, avatarText: { color: Colors.primary, fontSize: 12, fontWeight: '800' }, userInfo: { flex: 1 }, userName: { color: Colors.text, fontSize: 13, fontWeight: '700' }, userEmail: { color: Colors.textMuted, fontSize: 11, marginTop: 3 }, roleWrap: { width: 120 }, role: { color: Colors.text, fontSize: 12, fontWeight: '600' }, status: { fontSize: 11, marginTop: 4, fontWeight: '700' }, iconButton: { padding: 8 } });

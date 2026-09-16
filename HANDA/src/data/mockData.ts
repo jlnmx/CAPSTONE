@@ -2,7 +2,7 @@
  * Mock Data for Dashboard
  */
 
-import { DashboardStats, RecentActivity, EvacuationCenter, IncidentReport } from '@types/index';
+import { DashboardStats, RecentActivity, EvacuationCenter, IncidentReport } from '@/types/index';
 
 export const MOCK_DASHBOARD_STATS: DashboardStats = {
   totalEvacuees: 140,

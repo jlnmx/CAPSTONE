@@ -9,6 +9,7 @@ import {
   ScrollView,
   Alert,
   Text,
+  Platform,
 } from 'react-native';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
@@ -71,7 +72,6 @@ export default function LoginScreen() {
           onChangeText={setPassword}
           containerStyle={styles.inputContainer}
           inputStyle={styles.referenceInput}
-          showVisibilityToggle={false}
           error={validationError ? undefined : undefined}
         />
 
@@ -111,13 +111,13 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
     alignItems: 'center',
-    paddingTop: 30,
-    paddingBottom: 40,
+    paddingTop: 56,
+    paddingBottom: 56,
   },
   brandSection: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 28,
     position: 'relative',
   },
   sparkles: {
@@ -130,37 +130,41 @@ const styles = StyleSheet.create({
   },
   brandName: {
     color: '#218B25',
-    fontSize: 44,
+    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
+    fontSize: 42,
     fontWeight: '800',
-    letterSpacing: 1,
-    lineHeight: 54,
+    letterSpacing: 2,
+    lineHeight: 50,
   },
   tagline: {
     color: '#218B25',
-    fontSize: 14,
-    marginTop: 2,
+    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 4,
   },
   formSection: {
-    width: 286,
-    maxWidth: '90%',
-    padding: 14,
+    width: 360,
+    maxWidth: '92%',
+    padding: 22,
     borderWidth: 1,
     borderColor: '#8BC58B',
-    borderRadius: 10,
+    borderRadius: 16,
     backgroundColor: '#F0F2F5',
     marginTop: 0,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   referenceInput: {
-    height: 36,
-    paddingVertical: 7,
-    paddingHorizontal: 13,
+    height: 48,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderColor: '#D5D5D5',
-    borderRadius: 7,
+    borderRadius: 9,
     backgroundColor: Colors.white,
-    fontSize: 12,
+    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
+    fontSize: 14,
     color: Colors.text,
   },
   errorContainer: {
@@ -176,32 +180,35 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   loginButton: {
-    height: 35,
-    minHeight: 35,
+    height: 48,
+    minHeight: 48,
     paddingVertical: 0,
-    borderRadius: 6,
+    borderRadius: 9,
     backgroundColor: '#2D2D2D',
-    marginBottom: 23,
+    marginBottom: 20,
     shadowOpacity: 0,
     elevation: 0,
     shadowColor: 'transparent',
   },
   createPrompt: {
     color: '#218B25',
-    fontSize: 12,
+    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
+    fontSize: 13,
+    fontWeight: '500',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   referenceButtonText: {
-    fontSize: 12,
-    fontWeight: '400',
+    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
+    fontSize: 14,
+    fontWeight: '600',
     letterSpacing: 0,
   },
   createButton: {
-    height: 35,
-    minHeight: 35,
+    height: 48,
+    minHeight: 48,
     paddingVertical: 0,
-    borderRadius: 6,
+    borderRadius: 9,
     backgroundColor: '#2D2D2D',
     shadowOpacity: 0,
     elevation: 0,

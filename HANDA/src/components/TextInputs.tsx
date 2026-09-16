@@ -3,6 +3,7 @@
  */
 
 import React, { useState } from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   View,
   TextInput as RNTextInput,
@@ -99,15 +100,20 @@ export function PasswordInput({
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={!showPassword}
+          autoCapitalize="none"
         />
         {showVisibilityToggle && (
           <TouchableOpacity
             style={styles.visibilityToggle}
             onPress={() => setShowPassword(!showPassword)}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            accessibilityRole="button"
           >
-            <Text style={styles.visibilityIcon}>
-              {showPassword ? '👁️' : '👁️‍🗨️'}
-            </Text>
+            <MaterialCommunityIcons
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={20}
+              color={Colors.textMuted}
+            />
           </TouchableOpacity>
         )}
       </View>
@@ -158,8 +164,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: Spacing.md,
     paddingHorizontal: Spacing.sm,
-  },
-  visibilityIcon: {
-    fontSize: 20,
   },
 });

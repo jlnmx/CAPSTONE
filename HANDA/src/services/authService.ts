@@ -3,9 +3,16 @@
  * For development and demo purposes only
  */
 
-import { AuthUser, UserRole } from '@types/index';
+import { AuthUser, UserRole } from '@/types/index';
 
 const MOCK_USERS = {
+  admin: {
+    id: 'admin-001',
+    email: 'admin@handa.local',
+    password: 'admin123',
+    name: 'HANDA Administrator',
+    role: 'admin' as UserRole,
+  },
   responder: {
     id: 'responder-001',
     email: 'responder@handa.local',
@@ -23,6 +30,13 @@ const MOCK_USERS = {
 };
 
 const DEMO_USERS = {
+  admin: {
+    id: 'demo-admin-001',
+    email: 'demo-admin@handa.local',
+    name: 'Demo Administrator',
+    role: 'admin' as UserRole,
+    isDemo: true,
+  },
   responder: {
     id: 'demo-responder-001',
     email: 'demo-responder@handa.local',

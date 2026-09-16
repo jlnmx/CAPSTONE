@@ -160,6 +160,8 @@ export function IconButton({
 const styles = StyleSheet.create({
   pressableFill: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryButton: {
     backgroundColor: Colors.primary,

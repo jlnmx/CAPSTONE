@@ -77,9 +77,19 @@ This is the **initial foundation** of the HANDA system with:
 - **Password:** `resident123`
 - **Dashboard:** Simplified resident view (evacuation centers, alerts, etc.)
 
+### Administrator Account
+
+- **Email:** `admin@handa.local`
+- **Password:** `admin123`
+- **Dashboard:** Web-friendly command overview, analytics, access control, evacuation centers, and operations records
+
 ### Demo Login
 
-Both login screens include a "Continue as Demo User" button for quick testing without entering credentials.
+All user roles include demo login support for quick testing without entering credentials.
+
+### Administrator Console
+
+Administrators can manage authorized user accounts, responder access, evacuation center information, incidents, and evacuee records. The overview includes registration charts, incident status, center capacity, personnel counts, and attention queues.
 
 ## 📁 Project Structure
 

@@ -3,9 +3,9 @@
  * Provides authentication context to the app
  */
 
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, ReactNode, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AuthUser, AuthContextType, UserRole } from '@types/index';
+import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,34 +16,8 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Check for existing session on mount
-  useEffect(() => {
-    bootstrapAsync();
-  }, []);
-
-  const bootstrapAsync = async () => {
-    try {
-      setIsLoading(true);
-      const storedUserId = await AsyncStorage.getItem('userId');
-
-      if (storedUserId) {
-        const validatedUser = await AuthService.validateSession(storedUserId);
-        if (validatedUser) {
-          setUser(validatedUser);
-        } else {
-          // Session invalid, clear storage
-          await AsyncStorage.removeItem('userId');
-        }
-      }
-    } catch (e) {
-      console.error('Failed to restore session:', e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const login = async (email: string, password: string) => {
     try {
