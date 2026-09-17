@@ -1,0 +1,11 @@
+/**
+ * Mock Data Index
+ */
+
+export {
+  MOCK_DASHBOARD_STATS,
+  MOCK_RECENT_ACTIVITY,
+  MOCK_EVACUATION_CENTERS,
+  MOCK_ACTIVE_DISASTERS,
+  MOCK_INCIDENTS,
+} from './mockData';
