@@ -6,7 +6,7 @@ import { Colors } from '@constants/colors';
 import { MOCK_ACTIVE_DISASTERS } from '@data/mockData';
 
 const actions = [
-  { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/report' },
+  { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/register-evacuee' },
   { icon: 'checkbox-marked-outline' as const, label: 'Verify Check-in', route: '/(resident)/alerts' },
   { icon: 'alert-circle-outline' as const, label: 'Report incident', route: '/(resident)/report' },
   { icon: 'home-city-outline' as const, label: 'Center status', route: '/(resident)/map' },

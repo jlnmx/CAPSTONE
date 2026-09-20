@@ -74,6 +74,7 @@ export default function ResidentLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="dots-horizontal" color={color} />,
         }}
       />
+      <Tabs.Screen name="register-evacuee" options={{ href: null }} />
     </Tabs>
   );
 }
