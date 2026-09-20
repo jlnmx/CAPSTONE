@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: handa
+      POSTGRES_USER: handa
+      POSTGRES_PASSWORD: handa_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - handa_postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U handa -d handa"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://handa:handa_dev_password@db:5432/handa
+      CORS_ORIGINS: http://localhost:8081,http://localhost:19006
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  handa_postgres_data:

@@ -1,0 +1,30 @@
+{
+  "events": [
+    {
+      "entityType": "incident",
+      "operation": "create",
+      "payload": {
+        "id": "incident-example-001",
+        "type": "Flooding",
+        "description": "Water is entering the ground floor.",
+        "severity": "high",
+        "location": "Barangay Hall",
+        "photoUris": [],
+        "createdAt": "2026-09-20T10:00:00Z"
+      }
+    },
+    {
+      "entityType": "evacuee",
+      "operation": "create",
+      "payload": {
+        "id": "evacuee-example-001",
+        "firstName": "Maria",
+        "lastName": "Santos",
+        "age": 34,
+        "sex": "Female",
+        "barangay": "San Antonio",
+        "createdAt": "2026-09-20T10:01:00Z"
+      }
+    }
+  ]
+}

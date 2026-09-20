@@ -14,16 +14,16 @@ This is the **initial foundation** of the HANDA system with:
 - ✅ Role-aware navigation
 - ✅ Reusable component architecture
 - ✅ Professional UI with emergency-response design
+- ✅ SQLite local database and offline outbox
+- ✅ FastAPI + PostgreSQL/PostGIS backend scaffold
 
 **Coming Next:**
-- SQLite offline database integration
 - Real GPS tracking with expo-location
 - Evacuation center management
 - Incident reporting module
 - Advanced mapping with real-time data
-- Data synchronization system
 - Push notifications
-- FastAPI backend integration
+- Mobile-to-API synchronization worker
 
 ## 🚀 Quick Start
 
@@ -141,6 +141,13 @@ HANDA/
 ├── assets/                       # Images, icons, fonts
 │   └── fonts/
 ├── app.json                      # Expo configuration
+├── backend/                      # FastAPI service
+│   ├── app/                      # API, schemas, and database connection
+│   ├── requirements.txt
+│   └── Dockerfile
+├── database/
+│   └── init.sql                  # PostgreSQL/PostGIS schema
+├── docker-compose.yml             # Local API + PostGIS stack
 ├── package.json                  # Dependencies
 ├── tsconfig.json                 # TypeScript configuration
 ├── .babelrc                      # Babel configuration
@@ -316,7 +323,7 @@ Currently, manual testing is the primary method:
 
 **Note:** Full test suite will be added in future releases.
 
-## 📋 Offline-First Architecture (Future)
+## 📋 Offline-First Architecture
 
 The app is designed to support:
 
@@ -328,26 +335,39 @@ Online Mode:
 SQLite (Local) → Sync Queue → FastAPI Backend → PostgreSQL/PostGIS
 ```
 
-Currently, this infrastructure is **not implemented**, but the UI and navigation are ready for it.
+The mobile SQLite database and outbox are implemented. The FastAPI service and PostGIS schema are available locally through Docker Compose. The remaining client-side step is a network-aware sync worker that reads pending outbox rows, posts them to `/api/v1/sync`, and marks accepted rows as synced.
+
+### Start the backend locally
+
+From `c:\Codes\HANDA`:
+
+```powershell
+docker compose up --build
+```
+
+- API: `http://localhost:8000`
+- Health check: `http://localhost:8000/health`
+- API docs: `http://localhost:8000/docs`
+- PostgreSQL/PostGIS: `localhost:5432`, database `handa`, user `handa`
+
+See [backend/README.md](backend/README.md) for the sync contract.
 
 ## 🚀 Next Steps
 
-1. **Implement SQLite database** for local data storage
+1. **Implement the mobile sync worker** for pending SQLite outbox records
 2. **Integrate expo-location** for GPS tracking
 3. **Build evacuee management module** (full CRUD operations)
 4. **Build incident reporting module** with photo/video capture
 5. **Implement real map view** with evacuation centers and routes
-6. **Create data synchronization system** for offline→online sync
-7. **Build FastAPI backend** for centralized data management
-8. **Implement push notifications** for emergency alerts
-9. **Add role-based access control** (RBAC)
-10. **Create admin web dashboard** for supervision
+6. **Implement push notifications** for emergency alerts
+7. **Add role-based access control** (RBAC)
+8. **Create admin web dashboard** for supervision
 
 ## 📝 Notes
 
 - This is a **demonstration/capstone project**, not production-ready software
 - All authentication is mocked using local data
-- No real backend is integrated yet
+- The mobile app is not yet wired to call the backend automatically
 - GPS, maps, and synchronization are placeholders
 - This app is designed for Android devices; iOS support is available but not actively tested
 
