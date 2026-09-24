@@ -5,6 +5,7 @@
 import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@constants/colors';
 
 interface TabBarIconProps {
@@ -14,6 +15,10 @@ interface TabBarIconProps {
 
 function TabBarIcon({ name, color }: TabBarIconProps) {
   return <MaterialCommunityIcons name={name} size={23} color={color} />;
+}
+
+function SosTabIcon() {
+  return <View style={styles.sosTab}><Text style={styles.sosTabText}>SOS</Text></View>;
 }
 
 export default function ResidentLayout() {
@@ -42,39 +47,46 @@ export default function ResidentLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: '',
           tabBarIcon: ({ color }) => <TabBarIcon name="home-outline" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: 'Map',
-          tabBarIcon: ({ color }) => <TabBarIcon name="map-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="report"
         options={{
-          title: 'Report',
+          title: '',
           tabBarIcon: ({ color }) => <TabBarIcon name="alert-outline" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="alerts"
+        name="sos"
         options={{
-          title: 'Alerts',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bell-outline" color={color} />,
+          title: '',
+          tabBarShowLabel: false,
+          tabBarIcon: () => <SosTabIcon />,
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: '',
+          tabBarIcon: ({ color }) => <TabBarIcon name="map-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="more"
         options={{
-          title: 'More',
+          title: '',
           tabBarIcon: ({ color }) => <TabBarIcon name="dots-horizontal" color={color} />,
         }}
       />
+      <Tabs.Screen name="alerts" options={{ href: null }} />
       <Tabs.Screen name="register-evacuee" options={{ href: null }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  sosTab: { width: 42, height: 42, marginTop: -10, borderRadius: 22, borderWidth: 2, borderColor: '#E33E48', backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center' },
+  sosTabText: { color: '#E33E48', fontSize: 13, fontWeight: '900' },
+});
