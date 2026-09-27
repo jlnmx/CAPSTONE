@@ -1,66 +1,40 @@
-import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
+import { AdminDataSnapshot, getAdminData } from '@services/adminData';
 
 const GREEN = '#218B25';
-
-type EvacueeStatus = 'Synced' | 'Pending Sync' | 'Checked In';
-
-interface PlaceholderEvacuee {
-  name: string;
-  details: string;
-  barangay: string;
-  status: EvacueeStatus;
-  color: string;
-}
-
-const PLACEHOLDER_EVACUEES: PlaceholderEvacuee[] = [
-  { name: 'Juan Dela Cruz', details: 'Male · 27 years old', barangay: 'Brgy. Zapote', status: 'Synced', color: '#218B25' },
-  { name: 'Maria Santos', details: 'Female · 27 years old', barangay: 'Brgy. San Antonio', status: 'Pending Sync', color: '#D6A91D' },
-  { name: 'Pedro Reyes', details: 'Male · 5 years old', barangay: 'Brgy. Poblacion', status: 'Synced', color: '#218B25' },
-  { name: 'Ana Garcia', details: 'Female · 32 years old', barangay: 'Brgy. San Pedro', status: 'Checked In', color: '#1E5987' },
-  { name: 'Jose Cruz', details: 'Male · 19 years old', barangay: 'Brgy. Timbao', status: 'Synced', color: '#218B25' },
-];
+const FILTERS = ['ALL', 'PENDING SYNC', 'SYNCED'];
 
 export default function EvacueesScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('ALL');
+  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], source: 'unavailable' });
 
-  const evacuees = useMemo(() => PLACEHOLDER_EVACUEES.filter((evacuee) => {
-    const matchesSearch = evacuee.name.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === 'ALL' || evacuee.status.toUpperCase() === filter;
+  useEffect(() => {
+    void getAdminData().then(setData);
+  }, []);
+
+  const evacuees = useMemo(() => data.evacuees.filter((evacuee) => {
+    const name = `${evacuee.firstName} ${evacuee.middleName ?? ''} ${evacuee.lastName}`.toLowerCase();
+    const matchesSearch = `${name} ${evacuee.barangay ?? ''}`.includes(search.toLowerCase());
+    const matchesFilter = filter === 'ALL' || evacuee.syncStatus.toUpperCase() === filter;
     return matchesSearch && matchesFilter;
-  }), [filter, search]);
+  }), [data.evacuees, filter, search]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.heading}><Text style={styles.headingText}>EVACUEES</Text></View>
-
-        <View style={styles.searchBar}>
-          <MaterialCommunityIcons name="menu" size={19} color={Colors.white} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search residents"
-            placeholderTextColor="#D9F0D9"
-            style={styles.searchInput}
-          />
-          <MaterialCommunityIcons name="magnify" size={20} color={Colors.white} />
-        </View>
-
+        <View style={styles.source}><MaterialCommunityIcons name="database-check-outline" size={16} color={data.source === 'remote' ? '#167A5B' : '#8B5E00'} /><Text style={styles.sourceText}>{data.source === 'remote' ? 'PostgreSQL records' : 'PostgreSQL unavailable'} · {data.evacuees.length} total</Text></View>
+        <View style={styles.searchBar}><MaterialCommunityIcons name="magnify" size={20} color={Colors.white} /><TextInput value={search} onChangeText={setSearch} placeholder="Search residents" placeholderTextColor="#D9F0D9" style={styles.searchInput} /></View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-          {['ALL', 'CHECKED IN', 'PENDING SYNC', 'SYNCED'].map((item) => (
-            <AnimatedPressable key={item} style={[styles.filterChip, filter === item && styles.activeFilter]} onPress={() => setFilter(item)}>
-              <Text style={[styles.filterText, filter === item && styles.activeFilterText]}>{item === 'ALL' ? '✧  ALL' : item}</Text>
-            </AnimatedPressable>
-          ))}
+          {FILTERS.map((item) => <AnimatedPressable key={item} style={[styles.filterChip, filter === item && styles.activeFilter]} onPress={() => setFilter(item)}><Text style={[styles.filterText, filter === item && styles.activeFilterText]}>{item}</Text></AnimatedPressable>)}
         </ScrollView>
-
         <View style={styles.list}>
-          {evacuees.map((evacuee) => <EvacueeRow key={evacuee.name} evacuee={evacuee} />)}
+          {evacuees.map((evacuee) => <EvacueeRow key={evacuee.id} evacuee={evacuee} />)}
           {evacuees.length === 0 && <Text style={styles.emptyText}>No evacuees found.</Text>}
         </View>
       </ScrollView>
@@ -68,18 +42,8 @@ export default function EvacueesScreen() {
   );
 }
 
-function EvacueeRow({ evacuee }: { evacuee: PlaceholderEvacuee }) {
-  return (
-    <AnimatedPressable style={styles.row} onPress={() => {}}>
-      <View style={styles.avatar}><MaterialCommunityIcons name="account" size={25} color="#6F9E72" /></View>
-      <View style={styles.rowCopy}>
-        <Text style={styles.name}>{evacuee.name}</Text>
-        <Text style={styles.details}>{evacuee.details}</Text>
-        <Text style={styles.details}>{evacuee.barangay} · <Text style={styles.status}>{evacuee.status}</Text></Text>
-      </View>
-      <View style={[styles.statusDot, { backgroundColor: evacuee.color }]} />
-    </AnimatedPressable>
-  );
+function EvacueeRow({ evacuee }: { evacuee: AdminDataSnapshot['evacuees'][number] }) {
+  return <View style={styles.row}><View style={styles.avatar}><MaterialCommunityIcons name="account" size={25} color="#6F9E72" /></View><View style={styles.rowCopy}><Text style={styles.name}>{evacuee.firstName} {evacuee.lastName}</Text><Text style={styles.details}>{evacuee.sex} · {evacuee.age} years old</Text><Text style={styles.details}>{evacuee.barangay || 'Barangay not provided'} · <Text style={styles.status}>{evacuee.syncStatus}</Text></Text></View><View style={[styles.statusDot, { backgroundColor: evacuee.syncStatus === 'pending' ? '#D6A91D' : '#218B25' }]} /></View>;
 }
 
 const styles = StyleSheet.create({
@@ -88,20 +52,22 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 12 },
   heading: { backgroundColor: GREEN, height: 86, justifyContent: 'center', paddingHorizontal: 16 },
   headingText: { color: Colors.white, fontSize: 25, fontWeight: '800' },
-  searchBar: { height: 32, marginHorizontal: 14, marginTop: 9, borderRadius: 16, backgroundColor: '#6AA86B', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8 },
-  searchInput: { flex: 1, color: Colors.white, fontSize: 10, paddingVertical: 0, paddingHorizontal: 8 },
-  filters: { paddingHorizontal: 14, gap: 5, paddingVertical: 7 },
-  filterChip: { borderWidth: 1, borderColor: '#6AA86B', borderRadius: 9, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: Colors.white },
-  activeFilter: { backgroundColor: '#E8F4E8' },
-  filterText: { color: '#4B854D', fontSize: 7 },
-  activeFilterText: { fontWeight: '700' },
-  list: { marginHorizontal: 14, gap: 6 },
-  row: { minHeight: 48, borderWidth: 1, borderColor: '#6AA86B', borderRadius: 4, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 5 },
-  avatar: { width: 31, height: 31, borderRadius: 16, backgroundColor: '#DDEBDD', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
-  rowCopy: { flex: 1 },
-  name: { color: '#246727', fontSize: 9, fontWeight: '700' },
-  details: { color: '#548B56', fontSize: 7, lineHeight: 10 },
-  status: { color: '#D6A91D' },
-  statusDot: { width: 12, height: 12, borderRadius: 6, marginRight: 5 },
-  emptyText: { color: '#548B56', textAlign: 'center', padding: 24, fontSize: 11 },
+  source: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingTop: 12 },
+  sourceText: { color: Colors.textMuted, fontSize: 11 },
+  searchBar: { margin: 16, height: 40, borderRadius: 7, backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+  searchInput: { flex: 1, color: Colors.white, fontSize: 12, paddingHorizontal: 9 },
+  filters: { gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
+  filterChip: { paddingHorizontal: 13, paddingVertical: 7, borderRadius: 14, backgroundColor: '#E7F0E7' },
+  activeFilter: { backgroundColor: GREEN },
+  filterText: { color: '#548B56', fontSize: 10, fontWeight: '700' },
+  activeFilterText: { color: Colors.white },
+  list: { paddingHorizontal: 16 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, borderTopWidth: 1, borderTopColor: '#E8EFE8' },
+  avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EAF3EA', alignItems: 'center', justifyContent: 'center' },
+  rowCopy: { flex: 1, marginLeft: 12 },
+  name: { color: Colors.text, fontSize: 13, fontWeight: '700' },
+  details: { color: Colors.textMuted, fontSize: 11, marginTop: 3 },
+  status: { color: GREEN, fontWeight: '700' },
+  statusDot: { width: 9, height: 9, borderRadius: 5 },
+  emptyText: { color: Colors.textMuted, paddingVertical: 24, textAlign: 'center', fontSize: 12 },
 });

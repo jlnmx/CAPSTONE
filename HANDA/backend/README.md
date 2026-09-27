@@ -12,6 +12,24 @@ docker compose up --build
 
 The API is available at `http://localhost:8000`. OpenAPI documentation is at `http://localhost:8000/docs`.
 
+## Supabase connection
+
+Copy `backend/.env.example` to `backend/.env`, replace `[YOUR-PASSWORD]`, and start the API from the `backend/` directory:
+
+```powershell
+Copy-Item .env.example .env
+uvicorn app.main:app --reload --port 8000
+```
+
+The connection string uses `sslmode=require` for Supabase. Before starting the API, run `database/init.sql` in the Supabase SQL Editor so the `incidents` and `evacuees` tables and PostGIS indexes exist.
+
+When using Docker Compose, set `DATABASE_URL` in the shell before starting it; Compose will use that value instead of the local Postgres fallback:
+
+```powershell
+$env:DATABASE_URL = "postgresql://postgres:[YOUR-PASSWORD]@db.dvqgxrlkqdlqzsrqeqtb.supabase.co:5432/postgres?sslmode=require"
+docker compose up --build api
+```
+
 Check the service:
 
 ```powershell

@@ -47,3 +47,40 @@ CREATE TABLE IF NOT EXISTS evacuees (
 
 CREATE INDEX IF NOT EXISTS evacuees_location_gix ON evacuees USING GIST (location);
 CREATE INDEX IF NOT EXISTS evacuees_barangay_idx ON evacuees (barangay);
+
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  birthday DATE NOT NULL,
+  mobile_number TEXT NOT NULL,
+  current_address TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('Responder', 'Resident', 'Administrator')),
+  status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive', 'Pending')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS birthday DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS current_address TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+
+CREATE INDEX IF NOT EXISTS users_role_idx ON users (role);
+CREATE INDEX IF NOT EXISTS users_status_idx ON users (status);
+
+CREATE TABLE IF NOT EXISTS disasters (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+  status TEXT NOT NULL DEFAULT 'Upcoming' CHECK (status IN ('Upcoming', 'Active', 'Archived')),
+  affected_areas INTEGER NOT NULL DEFAULT 0 CHECK (affected_areas >= 0),
+  started_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS disasters_status_idx ON disasters (status);
+CREATE INDEX IF NOT EXISTS disasters_started_at_idx ON disasters (started_at DESC);

@@ -19,7 +19,7 @@ services:
   api:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql://handa:handa_dev_password@db:5432/handa
+      DATABASE_URL: ${DATABASE_URL:-postgresql://handa:handa_dev_password@db:5432/handa}
       CORS_ORIGINS: http://localhost:8081,http://localhost:19006
     ports:
       - "8000:8000"

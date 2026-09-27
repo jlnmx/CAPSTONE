@@ -12,12 +12,14 @@ import {
   Platform,
 } from 'react-native';
 import { useAuth } from '@hooks/useAuth';
+import { useRouter } from 'expo-router';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
 import { TextInput, PasswordInput } from '@components/TextInputs';
 import { PrimaryButton } from '@components/Buttons';
 
 export default function LoginScreen() {
   const { login, loginAsDemo, error, isLoading } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState('');
@@ -93,7 +95,7 @@ export default function LoginScreen() {
         <Text style={styles.createPrompt}>Don&apos;t have an account yet?</Text>
         <PrimaryButton
           label="Create an Account"
-          onPress={() => Alert.alert('Info', 'Account creation coming soon.')}
+          onPress={() => router.push('/(auth)/register')}
           style={styles.createButton}
           textStyle={styles.referenceButtonText}
         />

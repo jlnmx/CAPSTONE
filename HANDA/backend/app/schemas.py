@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -40,3 +40,27 @@ class SyncEvent(BaseModel):
 
 class SyncBatch(BaseModel):
     events: list[SyncEvent] = Field(default_factory=list, max_length=100)
+
+
+class UserRegistration(BaseModel):
+    firstName: str = Field(min_length=1, max_length=120)
+    lastName: str = Field(min_length=1, max_length=120)
+    birthday: date
+    mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
+    currentAddress: str = Field(min_length=1, max_length=500)
+    email: str = Field(pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    password: str = Field(min_length=8, max_length=128)
+
+
+class UserLogin(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class DisasterCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    description: str = Field(default='', max_length=2000)
+    severity: Literal['low', 'medium', 'high', 'critical'] = 'medium'
+    status: Literal['Upcoming', 'Active', 'Archived'] = 'Upcoming'
+    affectedAreas: int = Field(default=0, ge=0)
+    startedAt: datetime | None = None

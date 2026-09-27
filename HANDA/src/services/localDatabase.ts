@@ -25,6 +25,18 @@ export interface LocalEvacueeInput {
   barangay?: string;
 }
 
+export interface LocalIncidentRecord extends LocalIncidentInput {
+  id: string;
+  syncStatus: string;
+  createdAt: string;
+}
+
+export interface LocalEvacueeRecord extends LocalEvacueeInput {
+  id: string;
+  syncStatus: string;
+  createdAt: string;
+}
+
 function getDatabase() {
   if (Platform.OS === 'web') {
     return null;
@@ -175,7 +187,7 @@ export function getLocalEvacuees() {
   }
 
   initializeLocalDatabase();
-  return db.getAllSync<LocalEvacueeInput & { id: string; syncStatus: string; createdAt: string }>(
+  return db.getAllSync<LocalEvacueeRecord>(
     `SELECT
        id,
        first_name AS firstName,
@@ -194,6 +206,31 @@ export function getLocalEvacuees() {
   );
 }
 
+export function getLocalIncidents() {
+  const db = getDatabase();
+  if (!db) {
+    return [];
+  }
+
+  initializeLocalDatabase();
+  return db.getAllSync<LocalIncidentRecord>(
+    `SELECT
+       id,
+       type,
+       description,
+       severity,
+       location,
+       photo_uris AS photoUris,
+       sync_status AS syncStatus,
+       created_at AS createdAt
+     FROM incidents
+     ORDER BY created_at DESC`,
+  ).map((incident) => ({
+    ...incident,
+    photoUris: typeof incident.photoUris === 'string' ? JSON.parse(incident.photoUris) as string[] : incident.photoUris,
+  }));
+}
+
 export function getPendingSyncCount() {
   const db = getDatabase();
   if (!db) {
@@ -205,4 +242,33 @@ export function getPendingSyncCount() {
     "SELECT COUNT(*) AS count FROM outbox WHERE status = 'pending'",
   );
   return result?.count ?? 0;
+}
+
+export function getPendingOutboxEvents() {
+  const db = getDatabase();
+  if (!db) {
+    return [];
+  }
+
+  initializeLocalDatabase();
+  return db.getAllSync<{ id: number; entityType: string; entityId: string; operation: string; payload: string }>(
+    `SELECT id, entity_type AS entityType, entity_id AS entityId, operation, payload
+     FROM outbox
+     WHERE status = 'pending'
+     ORDER BY id ASC
+     LIMIT 100`,
+  );
+}
+
+export function markOutboxEventSynced(outboxId: number, entityType: string, entityId: string) {
+  const db = getDatabase();
+  if (!db) {
+    return;
+  }
+
+  initializeLocalDatabase();
+  db.withTransactionSync(() => {
+    db.runSync("UPDATE outbox SET status = 'synced' WHERE id = ?", outboxId);
+    db.runSync(`UPDATE ${entityType === 'incident' ? 'incidents' : 'evacuees'} SET sync_status = 'synced' WHERE id = ?`, entityId);
+  });
 }

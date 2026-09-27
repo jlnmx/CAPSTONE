@@ -13,9 +13,11 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router';
+import * as Location from 'expo-location';
 import { Colors } from '@constants/colors';
 import { saveLocalIncident } from '@services/localDatabase';
 import { AnimatedPressable } from '@components/Buttons';
+import CurrentLocationMap, { LocationCoordinate } from '@components/CurrentLocationMap';
 
 const GREEN = '#218B25';
 const BORDER_GREEN = '#79B879';
@@ -51,12 +53,42 @@ export default function IncidentsScreen() {
   const [description, setDescription] = useState('');
   const [severity, setSeverity] = useState('Low');
   const [location, setLocation] = useState('');
+  const [locationCoordinate, setLocationCoordinate] = useState<LocationCoordinate>();
+  const [locationStatus, setLocationStatus] = useState('Getting current location...');
   const [photos, setPhotos] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({ tabBarStyle: isCameraOpen ? { display: 'none' } : undefined });
   }, [isCameraOpen, navigation]);
+
+  const getCurrentLocation = async () => {
+    setLocationStatus('Getting current location...');
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (permission.status !== 'granted') {
+      setLocationStatus('Location permission is required');
+      Alert.alert('Location permission needed', 'Allow location access to identify where the incident happened.');
+      return;
+    }
+
+    try {
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const coordinate = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+      setLocationCoordinate(coordinate);
+      setLocation(`Lat ${coordinate.latitude.toFixed(6)}, Lon ${coordinate.longitude.toFixed(6)}`);
+      setLocationStatus('Exact current location');
+    } catch {
+      setLocationStatus('Unable to get current location');
+      Alert.alert('Location unavailable', 'Try again where your device has a clear GPS signal.');
+    }
+  };
+
+  useEffect(() => {
+    void getCurrentLocation();
+  }, []);
 
   const openCamera = async () => {
     if (!permission?.granted) {
@@ -175,14 +207,17 @@ export default function IncidentsScreen() {
           </View>
 
           <FieldLabel label="Location" />
-          <AnimatedPressable style={styles.locationBox} onPress={() => setLocation('Current Location')}>
+          <AnimatedPressable style={styles.locationBox} onPress={() => void getCurrentLocation()}>
             <MaterialCommunityIcons name="map-marker" size={34} color="#D6A91D" />
             <View>
               <Text style={styles.locationLink}>{location || 'Get Current Location'}</Text>
-              <Text style={styles.locationDetail}>Coordinates</Text>
-              <Text style={styles.locationDetail}>Coordinates</Text>
+              <Text style={styles.locationDetail}>{locationStatus}</Text>
             </View>
           </AnimatedPressable>
+
+          <View style={styles.mapBox}>
+            <CurrentLocationMap coordinate={locationCoordinate} />
+          </View>
 
           <FieldLabel label="Photos (optional)" />
           <View style={styles.photoRow}>
@@ -229,6 +264,7 @@ const styles = StyleSheet.create({
   locationBox: { height: 65, borderWidth: 1, borderColor: GREEN, borderRadius: 7, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
   locationLink: { color: FIELD_GREEN, textDecorationLine: 'underline', fontSize: 9 },
   locationDetail: { color: FIELD_GREEN, fontSize: 8 },
+  mapBox: { height: 220, marginTop: 8, borderWidth: 1, borderColor: GREEN, borderRadius: 7, overflow: 'hidden' },
   photoRow: { flexDirection: 'row', justifyContent: 'space-between', borderWidth: 1, borderColor: GREEN, borderRadius: 7, padding: 8 },
   photoSlot: { width: '30%', height: 45, borderWidth: 2, borderColor: GREEN, borderRadius: 5, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   photoPreview: { width: '100%', height: '100%' },

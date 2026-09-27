@@ -9,11 +9,13 @@ import { Stack, usePathname } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthProvider } from '@hooks/useAuth';
 import { initializeLocalDatabase } from '@services/localDatabase';
+import { syncPendingLocalData } from '@services/syncService';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 
 export default function RootLayout() {
   useEffect(() => {
     initializeLocalDatabase();
+    void syncPendingLocalData();
   }, []);
 
   return (

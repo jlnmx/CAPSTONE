@@ -61,10 +61,19 @@ export class AuthService {
     email: string,
     password: string
   ): Promise<AuthUser | null> {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000'}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password }),
+      });
+      if (response.ok) {
+        return await response.json() as AuthUser;
+      }
+    } catch {
+      // Keep temporary credentials usable while the API is offline.
+    }
 
-    // Check against mock users
     for (const user of Object.values(MOCK_USERS)) {
       if (user.email.toLowerCase() === email.toLowerCase() && user.password === password) {
         // Don't return the password

@@ -1,16 +1,28 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, BorderRadius, Shadows, Spacing, Typography } from '@constants/colors';
-import { MOCK_EVACUATION_CENTERS, MOCK_INCIDENTS } from '@data/mockData';
+import { getAdminData, AdminDataSnapshot } from '@services/adminData';
 
-const weeklyActivity = [42, 58, 51, 76, 64, 88, 72];
 const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function AdminOverview() {
   const { user, logout } = useAuth();
+  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], source: 'unavailable' });
+
+  useEffect(() => {
+    void getAdminData().then(setData);
+  }, []);
+
+  const weeklyActivity = dayLabels.map((_, index) => {
+    const day = new Date();
+    day.setDate(day.getDate() - (6 - index));
+    const dayKey = day.toISOString().slice(0, 10);
+    return data.evacuees.filter((evacuee) => evacuee.createdAt.slice(0, 10) === dayKey).length;
+  });
+  const highSeverityIncidents = data.incidents.filter((incident) => incident.severity === 'high' || incident.severity === 'critical').length;
 
   const handleLogout = () => {
     Alert.alert('Sign out', 'End this administrator session?', [
@@ -36,31 +48,30 @@ export default function AdminOverview() {
         </View>
 
         <View style={styles.statGrid}>
-          <Metric icon="account-group-outline" label="Registered evacuees" value="1,284" delta="+12.4%" color="#167A5B" />
-          <Metric icon="alert-circle-outline" label="Active incidents" value="14" delta="3 high priority" color={Colors.emergency} />
-          <Metric icon="home-city-outline" label="Evacuation centers" value={String(MOCK_EVACUATION_CENTERS.length)} delta="86% available" color={Colors.secondary} />
-          <Metric icon="account-multiple-outline" label="Active personnel" value="38" delta="6 responders online" color="#8B5E00" />
+          <Metric icon="account-group-outline" label="Registered evacuees" value={String(data.evacuees.length)} delta={data.source === 'remote' ? 'From PostgreSQL' : 'Database unavailable'} color="#167A5B" />
+          <Metric icon="alert-circle-outline" label="Reported incidents" value={String(data.incidents.length)} delta={`${highSeverityIncidents} high severity`} color={Colors.emergency} />
+          <Metric icon="home-city-outline" label="Evacuation centers" value="—" delta="No database records" color={Colors.secondary} />
+          <Metric icon="account-multiple-outline" label="Active personnel" value="—" delta="No database records" color="#8B5E00" />
         </View>
 
         <View style={styles.mainGrid}>
           <View style={[styles.panel, styles.chartPanel]}>
             <View style={styles.panelHeader}><View><Text style={styles.panelTitle}>Evacuee registrations</Text><Text style={styles.panelMeta}>Last 7 days · all centers</Text></View><Text style={styles.period}>THIS WEEK⌄</Text></View>
             <View style={styles.chart}>
-              {weeklyActivity.map((value, index) => <View key={dayLabels[index]} style={styles.barColumn}><Text style={styles.barValue}>{value}</Text><View style={styles.barTrack}><View style={[styles.bar, { height: `${value}%` }]} /></View><Text style={styles.day}>{dayLabels[index]}</Text></View>)}
+              {weeklyActivity.map((value, index) => <View key={dayLabels[index]} style={styles.barColumn}><Text style={styles.barValue}>{value}</Text><View style={styles.barTrack}><View style={[styles.bar, { height: `${Math.min(value * 20, 100)}%` }]} /></View><Text style={styles.day}>{dayLabels[index]}</Text></View>)}
             </View>
           </View>
           <View style={styles.panel}>
             <View style={styles.panelHeader}><View><Text style={styles.panelTitle}>Incident status</Text><Text style={styles.panelMeta}>Current response workload</Text></View></View>
-            <View style={styles.donut}><Text style={styles.donutValue}>14</Text><Text style={styles.donutLabel}>total</Text></View>
-            <View style={styles.legend}><Legend color={Colors.emergency} label="High priority" value="3" /><Legend color="#F4A261" label="Acknowledged" value="6" /><Legend color="#2E8B57" label="Resolved" value="5" /></View>
+            <View style={styles.donut}><Text style={styles.donutValue}>{data.incidents.length}</Text><Text style={styles.donutLabel}>reported</Text></View>
+            <View style={styles.legend}><Legend color={Colors.emergency} label="High severity" value={String(highSeverityIncidents)} /><Legend color="#F4A261" label="Other severity" value={String(data.incidents.length - highSeverityIncidents)} /><Legend color="#2E8B57" label="Status data" value="N/A" /></View>
           </View>
         </View>
 
         <View style={styles.sectionHeading}><Text style={styles.panelTitle}>Needs attention</Text><TouchableOpacity onPress={() => router.push('/(admin)/operations')}><Text style={styles.link}>View operations</Text></TouchableOpacity></View>
         <View style={styles.alertList}>
-          <Attention icon="alert-octagon-outline" title="High priority incidents" detail={`${MOCK_INCIDENTS.filter((incident) => incident.severity === 'high' || incident.severity === 'critical').length} reports need review`} color={Colors.emergency} />
-          <Attention icon="account-clock-outline" title="Personnel access" detail="4 responder accounts are awaiting approval" color="#8B5E00" />
-          <Attention icon="home-alert-outline" title="Center capacity" detail="Barangay Gym is at full capacity" color={Colors.secondary} />
+          <Attention icon="alert-octagon-outline" title="High severity incidents" detail={`${highSeverityIncidents} reports need review`} color={Colors.emergency} />
+          <Attention icon="database-check-outline" title="Data source" detail={data.source === 'remote' ? 'Connected to PostgreSQL' : 'PostgreSQL unavailable'} color={data.source === 'remote' ? '#167A5B' : '#8B5E00'} />
         </View>
       </ScrollView>
     </SafeAreaView>

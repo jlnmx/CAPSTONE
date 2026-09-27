@@ -61,6 +61,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const setAuthenticatedUser = async (authUser: AuthUser) => {
+    setError(null);
+    setUser(authUser);
+    await AsyncStorage.setItem('userId', authUser.id);
+  };
+
   const logout = async () => {
     try {
       setIsLoading(true);
@@ -80,6 +86,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: !!user,
     login,
     loginAsDemo,
+    setAuthenticatedUser,
     logout,
     error,
   };

@@ -7,5 +7,5 @@ from .config import settings
 
 
 def get_connection() -> Generator[psycopg.Connection, None, None]:
-    with psycopg.connect(settings.database_url, row_factory=dict_row) as connection:
+    with psycopg.connect(settings.database_url, row_factory=dict_row, connect_timeout=10) as connection:
         yield connection
