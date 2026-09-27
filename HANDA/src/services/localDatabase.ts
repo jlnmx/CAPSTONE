@@ -168,6 +168,32 @@ export function saveLocalEvacuee(input: LocalEvacueeInput) {
   return id;
 }
 
+export function getLocalEvacuees() {
+  const db = getDatabase();
+  if (!db) {
+    return [];
+  }
+
+  initializeLocalDatabase();
+  return db.getAllSync<LocalEvacueeInput & { id: string; syncStatus: string; createdAt: string }>(
+    `SELECT
+       id,
+       first_name AS firstName,
+       middle_name AS middleName,
+       last_name AS lastName,
+       age,
+       sex,
+       contact_number AS contactNumber,
+       address,
+       household_size AS householdSize,
+       barangay,
+       sync_status AS syncStatus,
+       created_at AS createdAt
+     FROM evacuees
+     ORDER BY created_at DESC`,
+  );
+}
+
 export function getPendingSyncCount() {
   const db = getDatabase();
   if (!db) {

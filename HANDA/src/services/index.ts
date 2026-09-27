@@ -5,6 +5,7 @@
 export { AuthService } from './authService';
 export {
 	getPendingSyncCount,
+	getLocalEvacuees,
 	initializeLocalDatabase,
 	saveLocalEvacuee,
 	saveLocalIncident,

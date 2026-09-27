@@ -23,12 +23,22 @@ export default function RegisterEvacueeScreen() {
 
   const submitRegistration = () => {
     const parsedAge = Number(age);
-    if (!firstName.trim() || !lastName.trim() || !age.trim() || !Number.isInteger(parsedAge) || parsedAge < 0 || !sex) {
+    const parsedHouseholdSize = householdSize.trim() ? Number(householdSize) : undefined;
+    if (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !age.trim() ||
+      !Number.isInteger(parsedAge) ||
+      parsedAge < 0 ||
+      parsedAge > 150 ||
+      (parsedHouseholdSize !== undefined && (!Number.isInteger(parsedHouseholdSize) || parsedHouseholdSize < 1)) ||
+      !sex
+    ) {
       Alert.alert('Missing information', 'Complete the first name, last name, age, and sex.');
       return;
     }
 
-    saveLocalEvacuee({
+    const savedId = saveLocalEvacuee({
       firstName: firstName.trim(),
       middleName: middleName.trim() || undefined,
       lastName: lastName.trim(),
@@ -36,9 +46,14 @@ export default function RegisterEvacueeScreen() {
       sex,
       contactNumber: contactNumber.trim() || undefined,
       address: address.trim() || undefined,
-      householdSize: householdSize.trim() ? Number(householdSize) : undefined,
+      householdSize: parsedHouseholdSize,
       barangay: barangay.trim() || undefined,
     });
+    if (!savedId) {
+      Alert.alert('Registration unavailable', 'The evacuee could not be saved on this device.');
+      return;
+    }
+
     Alert.alert('Evacuee registered', 'The registration is saved on this device and queued for synchronization.');
     setFirstName('');
     setMiddleName('');
