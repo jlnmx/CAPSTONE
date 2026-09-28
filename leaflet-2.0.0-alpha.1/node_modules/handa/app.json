@@ -37,6 +37,7 @@
       [
         "expo-location",
         {
+          "locationWhenInUsePermission": "Allow HANDA to use your location for nearby evacuation areas and emergency coordination.",
           "locationAlwaysAndWhenInUsePermission": "Allow HANDA to access your location for evacuation coordination."
         }
       ],

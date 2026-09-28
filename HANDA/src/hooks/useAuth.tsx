@@ -5,6 +5,7 @@
 
 import { createContext, useContext, ReactNode, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
 
@@ -19,6 +20,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const finishLogin = async (authUser: AuthUser) => {
+    setUser(authUser);
+    await AsyncStorage.setItem('userId', authUser.id);
+
+    try {
+      await Location.requestForegroundPermissionsAsync();
+    } catch (locationError) {
+      console.warn('Location permission request was unavailable:', locationError);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
@@ -27,8 +39,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const authUser = await AuthService.login(email, password);
 
       if (authUser) {
-        setUser(authUser);
-        await AsyncStorage.setItem('userId', authUser.id);
+        await finishLogin(authUser);
       } else {
         setError('Invalid email or password.');
       }
@@ -48,8 +59,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const authUser = await AuthService.loginAsDemo(role);
 
       if (authUser) {
-        setUser(authUser);
-        await AsyncStorage.setItem('userId', authUser.id);
+        await finishLogin(authUser);
       } else {
         setError('Failed to login as demo user.');
       }

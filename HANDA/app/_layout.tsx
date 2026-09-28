@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, Modal, StyleSheet, Text, View } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthProvider } from '@hooks/useAuth';
@@ -15,7 +15,19 @@ import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 export default function RootLayout() {
   useEffect(() => {
     initializeLocalDatabase();
-    void syncPendingLocalData();
+    const sync = () => void syncPendingLocalData();
+    sync();
+    const retryTimer = setInterval(sync, 30_000);
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        sync();
+      }
+    });
+
+    return () => {
+      clearInterval(retryTimer);
+      appStateSubscription.remove();
+    };
   }, []);
 
   return (

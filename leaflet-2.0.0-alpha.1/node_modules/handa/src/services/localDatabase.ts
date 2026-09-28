@@ -12,6 +12,8 @@ export interface LocalIncidentInput {
   description: string;
   severity: 'low' | 'moderity' | 'high' | 'critical';
   location: string;
+  latitude?: number;
+  longitude?: number;
   photoUris: string[];
 }
 
@@ -88,6 +90,8 @@ export function initializeLocalDatabase() {
       description TEXT NOT NULL,
       severity TEXT NOT NULL,
       location TEXT NOT NULL,
+      latitude REAL,
+      longitude REAL,
       photo_uris TEXT NOT NULL DEFAULT '[]',
       sync_status TEXT NOT NULL DEFAULT 'pending',
       created_at TEXT NOT NULL
@@ -104,6 +108,8 @@ export function initializeLocalDatabase() {
       created_at TEXT NOT NULL
     );
   `);
+  try { db.execSync('ALTER TABLE incidents ADD COLUMN latitude REAL;'); } catch { }
+  try { db.execSync('ALTER TABLE incidents ADD COLUMN longitude REAL;'); } catch { }
 }
 
 export function saveLocalIncident(input: LocalIncidentInput) {
@@ -120,13 +126,15 @@ export function saveLocalIncident(input: LocalIncidentInput) {
   db.withTransactionSync(() => {
     db.runSync(
       `INSERT INTO incidents
-        (id, type, description, severity, location, photo_uris, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        (id, type, description, severity, location, latitude, longitude, photo_uris, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       input.type,
       input.description,
       input.severity,
       input.location,
+      input.latitude ?? null,
+      input.longitude ?? null,
       JSON.stringify(input.photoUris),
       createdAt,
     );
@@ -229,6 +237,8 @@ export function getLocalIncidents() {
        description,
        severity,
        location,
+      latitude,
+      longitude,
        photo_uris AS photoUris,
        sync_status AS syncStatus,
        created_at AS createdAt

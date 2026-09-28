@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { Colors } from '@constants/colors';
+import { NotificationBell } from '@components/NotificationBell';
 
 const actions = [
   { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/register-evacuee' },
@@ -65,9 +66,9 @@ function getWeatherPresentation(code: number, isDay: boolean): WeatherPresentati
 }
 
 function getTimeTheme(hour: number, isDay: boolean) {
-  if (hour >= 5 && hour < 9) return { name: 'Dawn', background: '#F7E5C8', header: '#8B5E45' };
-  if (hour >= 17 && hour < 20) return { name: 'Dusk', background: '#EAD5D0', header: '#7B4D60' };
-  if (hour >= 20 || hour < 5 || !isDay) return { name: 'Evening', background: '#DCE6F0', header: '#264F70' };
+  if (hour >= 5 && hour < 9) return { name: 'Dawn', background: '#F7E5C8', header: '#218B25' };
+  if (hour >= 17 && hour < 20) return { name: 'Dusk', background: '#EAD5D0', header: '#218B25' };
+  if (hour >= 20 || hour < 5 || !isDay) return { name: 'Evening', background: '#DCE6F0', header: '#218B25' };
   return { name: 'Afternoon', background: '#E5F0E8', header: '#218B25' };
 }
 
@@ -154,7 +155,7 @@ export default function ResidentDashboard() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.header, { backgroundColor: timeTheme.header }]}>
           <View style={styles.brandRow}><Text style={styles.brand}>HANDA</Text></View>
-          <TouchableOpacity style={styles.notificationButton} onPress={() => Alert.alert('Notifications', 'No new notifications.')} accessibilityLabel="Notifications"><MaterialCommunityIcons name="bell-outline" size={29} color={Colors.white} /><View style={styles.notificationDot} /></TouchableOpacity>
+          <NotificationBell />
         </View>
 
         <View style={styles.greeting}>

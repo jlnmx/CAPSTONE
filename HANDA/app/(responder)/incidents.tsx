@@ -120,6 +120,8 @@ export default function IncidentsScreen() {
       description,
       severity: severity.toLowerCase() as 'low' | 'moderity' | 'high' | 'critical',
       location,
+      latitude: locationCoordinate?.latitude,
+      longitude: locationCoordinate?.longitude,
       photoUris: photos,
     });
     Alert.alert('Incident saved offline', 'The incident is stored on this device and queued for synchronization.');

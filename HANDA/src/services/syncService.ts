@@ -1,9 +1,26 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { getPendingOutboxEvents, markOutboxEventSynced } from './localDatabase';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
+  ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
+let activeSync: Promise<{ processed: number; synced: number }> | null = null;
 
 export async function syncPendingLocalData() {
+  if (activeSync) {
+    return activeSync;
+  }
+
+  activeSync = syncPendingLocalDataInternal();
+  try {
+    return await activeSync;
+  } finally {
+    activeSync = null;
+  }
+}
+
+async function syncPendingLocalDataInternal() {
   if (Platform.OS === 'web') {
     return { processed: 0, synced: 0 };
   }

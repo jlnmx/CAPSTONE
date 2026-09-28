@@ -335,7 +335,7 @@ Online Mode:
 SQLite (Local) → Sync Queue → FastAPI Backend → PostgreSQL/PostGIS
 ```
 
-The mobile SQLite database and outbox are implemented. The FastAPI service and PostGIS schema are available locally through Docker Compose. The remaining client-side step is a network-aware sync worker that reads pending outbox rows, posts them to `/api/v1/sync`, and marks accepted rows as synced.
+The mobile SQLite database and outbox are implemented. Incident reports and evacuee registrations are written locally first, then posted to `/api/v1/sync` when the device is online. The app retries the queue on startup, when returning to the foreground, and when network connectivity is restored; accepted rows are marked as synced only after the server acknowledges them.
 
 ### Start the backend locally
 
@@ -354,20 +354,19 @@ See [backend/README.md](backend/README.md) for the sync contract.
 
 ## 🚀 Next Steps
 
-1. **Implement the mobile sync worker** for pending SQLite outbox records
-2. **Integrate expo-location** for GPS tracking
-3. **Build evacuee management module** (full CRUD operations)
-4. **Build incident reporting module** with photo/video capture
-5. **Implement real map view** with evacuation centers and routes
-6. **Implement push notifications** for emergency alerts
-7. **Add role-based access control** (RBAC)
-8. **Create admin web dashboard** for supervision
+1. **Integrate expo-location** for GPS tracking
+2. **Build evacuee management module** (full CRUD operations)
+3. **Build incident reporting module** with photo/video capture
+4. **Implement real map view** with evacuation centers and routes
+5. **Implement push notifications** for emergency alerts
+6. **Add role-based access control** (RBAC)
+7. **Create admin web dashboard** for supervision
 
 ## 📝 Notes
 
 - This is a **demonstration/capstone project**, not production-ready software
 - All authentication is mocked using local data
-- The mobile app is not yet wired to call the backend automatically
+- The mobile app syncs queued records automatically when connectivity is restored
 - GPS, maps, and synchronization are placeholders
 - This app is designed for Android devices; iOS support is available but not actively tested
 
