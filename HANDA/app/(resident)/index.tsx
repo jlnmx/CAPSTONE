@@ -149,6 +149,7 @@ export default function ResidentDashboard() {
     month: 'long',
     day: 'numeric',
   }).format(now);
+  const timeOfDay = now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening';
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: timeTheme.background }]}>
@@ -160,7 +161,7 @@ export default function ResidentDashboard() {
 
         <View style={styles.greeting}>
           <View>
-            <Text style={styles.greetingTitle}>Good morning, Biñanense!</Text>
+            <Text style={styles.greetingTitle}>Good {timeOfDay}, Biñanense!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
           <View style={[styles.weatherIcon, { borderColor: presentation.accent }]}><MaterialCommunityIcons name={presentation.icon} size={26} color={presentation.accent} /></View>
@@ -188,6 +189,21 @@ export default function ResidentDashboard() {
           <StatusTile icon="account-multiple-outline" title="HOUSEHOLD" detail="4 members" />
         </View>
 
+        <View style={styles.resourceRow}>
+          <ResourceButton
+            icon="phone-in-talk-outline"
+            title="Emergency Hotline"
+            detail="Contact list"
+            onPress={() => router.push('/(resident)/emergency-contacts')}
+          />
+          <ResourceButton
+            icon="book-open-page-variant-outline"
+            title="Preparation Guide"
+            detail="Disaster readiness"
+            onPress={() => router.push('/(resident)/preparedness-guide')}
+          />
+        </View>
+
         <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
         <View style={styles.actionGrid}>{actions.map((action) => <Pressable key={action.label} style={(state) => { const { pressed, hovered } = state as typeof state & { hovered?: boolean }; return [styles.actionButton, hovered && styles.actionButtonHovered, pressed && styles.buttonPressed]; }} onPress={() => router.push(action.route)}><MaterialCommunityIcons name={action.icon} size={25} color="#218B25" /><Text style={styles.actionLabel}>{action.label}</Text></Pressable>)}</View>
       </ScrollView>
@@ -197,6 +213,10 @@ export default function ResidentDashboard() {
 
 function StatusTile({ icon, title, detail }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string }) {
   return <View style={styles.statusTile}><MaterialCommunityIcons name={icon} size={29} color="#1E5987" /><View style={styles.statusCopy}><Text style={styles.statusTitle}>{title}</Text><Text style={styles.statusDetail}>{detail}</Text></View></View>;
+}
+
+function ResourceButton({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {
+  return <Pressable style={styles.resourceButton} onPress={onPress}><MaterialCommunityIcons name={icon} size={25} color="#218B25" /><View style={styles.resourceCopy}><Text style={styles.resourceTitle}>{title}</Text><Text style={styles.resourceDetail}>{detail}</Text></View></Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -236,6 +256,11 @@ const styles = StyleSheet.create({
   statusCopy: { marginLeft: 8 },
   statusTitle: { color: '#1E5987', fontSize: 10, fontWeight: '800' },
   statusDetail: { color: '#218B25', fontSize: 9, marginTop: 3 },
+  resourceRow: { flexDirection: 'row', gap: 9, marginHorizontal: 18, marginBottom: 14 },
+  resourceButton: { flex: 1, minHeight: 58, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#EEF2EF', flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+  resourceCopy: { flex: 1, marginLeft: 7 },
+  resourceTitle: { color: '#218B25', fontSize: 9, fontWeight: '800', flexShrink: 1 },
+  resourceDetail: { color: '#4C7750', fontSize: 9, marginTop: 2 },
   sectionTitle: { color: '#218B25', fontSize: 16, fontWeight: '800', marginHorizontal: 18, marginTop: 0, marginBottom: 8 },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: 18 },
   actionButton: { width: '48%', minHeight: 46, borderRadius: 8, backgroundColor: '#EEF2EF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, borderWidth: 1, borderColor: 'transparent' },

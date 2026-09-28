@@ -82,6 +82,8 @@ export default function ResidentLayout() {
       />
       <Tabs.Screen name="alerts" options={{ href: null }} />
       <Tabs.Screen name="register-evacuee" options={{ href: null }} />
+      <Tabs.Screen name="emergency-contacts" options={{ href: null }} />
+      <Tabs.Screen name="preparedness-guide" options={{ href: null }} />
     </Tabs>
   );
 }
