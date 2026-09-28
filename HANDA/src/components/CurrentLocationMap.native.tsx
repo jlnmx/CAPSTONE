@@ -1,25 +1,38 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Camera, MapView, UserLocation } from '@maplibre/maplibre-react-native';
-import { AGAP_BASE_VECTOR_STYLE, BINAN_CENTER } from '@services/map/emergencyStyle';
+import { StyleSheet, Text, View } from 'react-native';
 import { CurrentLocationMapProps } from './CurrentLocationMap';
 
 export default function CurrentLocationMap({ coordinate }: CurrentLocationMapProps) {
-  const centerCoordinate: [number, number] = coordinate
-    ? [coordinate.longitude, coordinate.latitude]
-    : BINAN_CENTER;
-
   return (
     <View style={styles.container}>
-      <MapView style={styles.map} mapStyle={AGAP_BASE_VECTOR_STYLE} logoEnabled={false} attributionEnabled>
-        <Camera centerCoordinate={centerCoordinate} zoomLevel={coordinate ? 16 : 12.5} animationMode="flyTo" />
-        <UserLocation visible />
-      </MapView>
+      <Text style={styles.title}>Map preview unavailable in Expo Go</Text>
+      <Text style={styles.text}>
+        {coordinate
+          ? `Location: ${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}`
+          : 'Location is not available yet.'}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  map: { flex: 1 },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#e5efe8',
+  },
+  title: {
+    color: '#218B25',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  text: {
+    marginTop: 6,
+    color: '#4b6350',
+    fontSize: 12,
+    textAlign: 'center',
+  },
 });

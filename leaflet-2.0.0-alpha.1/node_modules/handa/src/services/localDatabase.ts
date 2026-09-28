@@ -1,9 +1,11 @@
 import { Platform } from 'react-native';
-import * as SQLite from 'expo-sqlite';
+import type * as SQLite from 'expo-sqlite';
 
 const DATABASE_NAME = 'handa.db';
 
 let database: SQLite.SQLiteDatabase | null = null;
+let sqliteModule: typeof SQLite | null = null;
+let databaseUnavailable = false;
 
 export interface LocalIncidentInput {
   type: string;
@@ -38,12 +40,19 @@ export interface LocalEvacueeRecord extends LocalEvacueeInput {
 }
 
 function getDatabase() {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === 'web' || databaseUnavailable) {
     return null;
   }
 
   if (!database) {
-    database = SQLite.openDatabaseSync(DATABASE_NAME);
+    try {
+      sqliteModule ??= require('expo-sqlite') as typeof SQLite;
+      database = sqliteModule.openDatabaseSync(DATABASE_NAME);
+    } catch (error) {
+      databaseUnavailable = true;
+      console.warn('SQLite is unavailable in this runtime; local storage is disabled.', error);
+      return null;
+    }
   }
 
   return database;

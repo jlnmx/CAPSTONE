@@ -76,18 +76,6 @@ export const MOCK_EVACUATION_CENTERS: EvacuationCenter[] = [
   },
 ];
 
-export const MOCK_ACTIVE_DISASTERS = [
-  {
-    id: 'disaster-001',
-    name: 'Typhoon Simulation',
-    status: 'active' as const,
-    severity: 'high' as const,
-    description: 'Simulated typhoon for exercise and demonstration',
-    startTime: new Date(Date.now() - 2 * 60 * 60000), // 2 hours ago
-    affectedAreas: 5,
-  },
-];
-
 export const MOCK_INCIDENTS: IncidentReport[] = [
   {
     id: 'incident-001',
