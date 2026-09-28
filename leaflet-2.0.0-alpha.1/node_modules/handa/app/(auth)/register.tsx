@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput as NativeTextInput, View } from 'react-native';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
@@ -7,6 +8,9 @@ import { PasswordInput, TextInput } from '@components/TextInputs';
 import { PrimaryButton } from '@components/Buttons';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
+const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
+  ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
 
 const inputStyle = {
   height: 48,
@@ -62,7 +66,7 @@ export default function RegisterScreen() {
     const abortController = new AbortController();
     const requestTimeout = setTimeout(() => abortController.abort(), 10000);
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000'}/api/v1/users/register`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), birthday, mobileNumber: normalizedMobile, currentAddress: address.trim(), email: normalizedEmail, password }),

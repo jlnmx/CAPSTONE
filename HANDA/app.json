@@ -26,11 +26,12 @@
       "package": "com.handa.evacuation"
     },
     "scheme": "handa",
+    "newArchEnabled": true,
     "plugins": [
       [
         "expo-router",
         {
-          "origin": "https://handa.local"
+          "origin": false
         }
       ],
       [

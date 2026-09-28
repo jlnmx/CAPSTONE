@@ -33,7 +33,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setError('Invalid email or password.');
       }
     } catch (e) {
-      setError('An error occurred during login. Please try again.');
+      setError(e instanceof Error ? e.message : 'An error occurred during login. Please try again.');
       console.error('Login error:', e);
     } finally {
       setIsLoading(false);

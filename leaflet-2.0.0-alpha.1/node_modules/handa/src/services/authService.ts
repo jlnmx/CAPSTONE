@@ -4,6 +4,12 @@
  */
 
 import { AuthUser, UserRole } from '@/types/index';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+
+const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
+  ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
 
 const MOCK_USERS = {
   admin: {
@@ -61,8 +67,9 @@ export class AuthService {
     email: string,
     password: string
   ): Promise<AuthUser | null> {
+    let apiUnavailable = false;
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000'}/api/v1/auth/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -70,8 +77,16 @@ export class AuthService {
       if (response.ok) {
         return await response.json() as AuthUser;
       }
+      if (response.status === 401) {
+        return null;
+      }
+      throw new Error(`Login service returned ${response.status}.`);
     } catch {
-      // Keep temporary credentials usable while the API is offline.
+      apiUnavailable = true;
+    }
+
+    if (apiUnavailable) {
+      throw new Error('The login service is unreachable. Check that the backend is running.');
     }
 
     for (const user of Object.values(MOCK_USERS)) {
