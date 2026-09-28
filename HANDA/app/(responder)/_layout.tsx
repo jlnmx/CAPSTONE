@@ -14,7 +14,7 @@ interface TabBarIconProps {
 }
 
 function TabBarIcon({ name, color }: TabBarIconProps) {
-  return <MaterialCommunityIcons name={name} size={24} color={color} />;
+  return <MaterialCommunityIcons name={name} size={22} color={color} />;
 }
 
 export default function ResponderLayout() {
@@ -22,21 +22,23 @@ export default function ResponderLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarLabelPosition: 'below-icon',
         tabBarActiveTintColor: '#218B25',
         tabBarInactiveTintColor: '#218B25',
         tabBarStyle: {
           backgroundColor: Colors.white,
           borderTopColor: '#8BC58B',
           borderTopWidth: 1,
-          height: 62,
+          height: 64,
           marginHorizontal: 5,
           borderRadius: 10,
           paddingBottom: 5,
-          paddingTop: 2,
+          paddingTop: 3,
         },
         tabBarLabelStyle: {
           fontSize: 8,
           fontWeight: '500',
+          lineHeight: 10,
         },
       }}
     >
