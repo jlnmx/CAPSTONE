@@ -20,6 +20,12 @@ import {
   MOCK_DASHBOARD_STATS,
 } from '@data/mockData';
 
+const formattedDate = new Intl.DateTimeFormat('en-US', {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+}).format(new Date());
+
 export default function ResponderDashboard() {
   const showComingSoon = (label: string) =>
     Alert.alert('Coming Soon', `${label} module coming soon.`);
@@ -40,6 +46,16 @@ export default function ResponderDashboard() {
             <MaterialCommunityIcons name="bell-outline" size={29} color={Colors.white} />
             <View style={styles.notificationDot} />
           </AnimatedPressable>
+        </View>
+
+        <View style={styles.greeting}>
+          <View>
+            <Text style={styles.greetingTitle}>Welcome, Responder!</Text>
+            <Text style={styles.greetingDate}>{formattedDate}</Text>
+          </View>
+          <View style={styles.weatherIcon}>
+            <MaterialCommunityIcons name="weather-partly-cloudy" size={26} color="#D98C18" />
+          </View>
         </View>
 
         <View style={styles.disasterCard}>
@@ -147,6 +163,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1,
   },
+  greeting: {
+    minHeight: 55,
+    paddingHorizontal: 18,
+    paddingTop: 11,
+    paddingBottom: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  greetingTitle: {
+    color: '#187821',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  greetingDate: {
+    color: '#187821',
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  weatherIcon: {
+    width: 29,
+    height: 29,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#E3A02C',
+    backgroundColor: '#FFD477',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   notificationButton: {
     width: 34,
     height: 40,
@@ -252,18 +298,20 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     width: '48%',
-    height: 46,
+    height: 76,
     borderRadius: 8,
     backgroundColor: '#EEF2EF',
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
-    paddingHorizontal: 11,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
   actionIcon: {
-    marginRight: 6,
+    marginBottom: 5,
   },
   actionLabel: {
     color: '#218B25',
     fontSize: 9,
+    textAlign: 'center',
   },
 });
