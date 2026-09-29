@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .db import get_connection
-from .schemas import DisasterCreate, EvacueeCreate, IncidentCreate, SyncBatch, UserLogin, UserRegistration
+from .schemas import CenterCreate, DisasterCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, SyncBatch, UserLogin, UserRegistration
 
 
 def normalize_id(value: str | None, prefix: str) -> str:
@@ -110,8 +110,48 @@ def write_evacuee(connection: psycopg.Connection, evacuee: EvacueeCreate) -> dic
     return {"id": evacuee_id, "entityType": "evacuee", "status": "accepted"}
 
 
+def ensure_operational_schema() -> None:
+    with psycopg.connect(settings.database_url) as connection:
+        connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'reported'")
+        connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS action_notes TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS verified_by TEXT")
+        connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ")
+        connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS evacuation_status TEXT NOT NULL DEFAULT 'registered'")
+        connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_by TEXT")
+        connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS evacuation_centers (
+              id TEXT PRIMARY KEY,
+              name TEXT NOT NULL,
+              location_text TEXT NOT NULL DEFAULT '',
+              capacity INTEGER NOT NULL DEFAULT 0 CHECK (capacity >= 0),
+              current_occupancy INTEGER NOT NULL DEFAULT 0 CHECK (current_occupancy >= 0),
+              status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'limited', 'full', 'closed')),
+              latitude DOUBLE PRECISION,
+              longitude DOUBLE PRECISION,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """,
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS evacuation_centers_status_idx ON evacuation_centers (status)")
+        connection.execute(
+            """
+            INSERT INTO evacuation_centers (id, name, location_text, capacity, current_occupancy, status, latitude, longitude)
+            VALUES
+              ('center-poblacion', 'Barangay Poblacion Covered Court', 'Poblacion, Biñan, Laguna', 300, 0, 'available', 14.301, 121.082),
+              ('center-multipurpose', 'Biñan City Multi-Purpose Hall', 'Biñan City, Laguna', 500, 0, 'available', 14.307, 121.071),
+              ('center-school-gym', 'School Gymnasium', 'Biñan City, Laguna', 250, 0, 'available', 14.312, 121.089),
+              ('center-timbao', 'Timbao Open Field', 'Timbao, Biñan, Laguna', 400, 0, 'available', 14.2864, 121.0942)
+            ON CONFLICT (id) DO NOTHING
+            """,
+        )
+        connection.commit()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    ensure_operational_schema()
     yield
 
 
@@ -161,17 +201,84 @@ def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_co
 @app.get("/api/v1/incidents")
 def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
     rows = connection.execute(
-        "SELECT id, type, description, severity, location_text AS location, latitude, longitude, photo_uris, created_at FROM incidents ORDER BY created_at DESC"
+        "SELECT id, type, description, severity, location_text AS location, latitude, longitude, photo_uris, status, action_notes, verified_by, verified_at, created_at FROM incidents ORDER BY created_at DESC"
     ).fetchall()
     return rows
+
+
+@app.patch("/api/v1/incidents/{incident_id}/status")
+def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection)):
+    row = connection.execute(
+        """
+        UPDATE incidents
+        SET status = %s, action_notes = %s, verified_at = NOW()
+        WHERE id = %s
+        RETURNING id, status, action_notes, verified_at
+        """,
+        update.status,
+        update.actionNotes.strip(),
+        incident_id,
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Incident not found.")
+    connection.commit()
+    return row
 
 
 @app.get("/api/v1/evacuees")
 def list_evacuees(connection: psycopg.Connection = Depends(get_connection)):
     rows = connection.execute(
-        "SELECT id, first_name, middle_name, last_name, age, sex, contact_number, address, household_size, barangay, latitude, longitude, created_at FROM evacuees ORDER BY created_at DESC"
+        "SELECT id, first_name, middle_name, last_name, age, sex, contact_number, address, household_size, barangay, latitude, longitude, evacuation_status, verified_by, verified_at, created_at FROM evacuees ORDER BY created_at DESC"
     ).fetchall()
     return rows
+
+
+@app.patch("/api/v1/evacuees/{evacuee_id}/status")
+def update_evacuee_status(evacuee_id: str, update: EvacueeStatusUpdate, connection: psycopg.Connection = Depends(get_connection)):
+    row = connection.execute(
+        """
+        UPDATE evacuees
+        SET evacuation_status = %s, verified_at = NOW()
+        WHERE id = %s
+        RETURNING id, evacuation_status, verified_at
+        """,
+        update.evacuationStatus,
+        evacuee_id,
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Evacuee not found.")
+    connection.commit()
+    return row
+
+
+@app.get("/api/v1/centers")
+def list_centers(connection: psycopg.Connection = Depends(get_connection)):
+    return connection.execute(
+        "SELECT id, name, location_text AS location, capacity, current_occupancy, status, latitude, longitude, updated_at FROM evacuation_centers ORDER BY name"
+    ).fetchall()
+
+
+@app.post("/api/v1/centers", status_code=201)
+def create_center(center: CenterCreate, connection: psycopg.Connection = Depends(get_connection)):
+    center_id = f"center-{uuid4()}"
+    row = connection.execute(
+        """
+        INSERT INTO evacuation_centers
+          (id, name, location_text, capacity, current_occupancy, status, latitude, longitude)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id, name, location_text AS location, capacity, current_occupancy, status, latitude, longitude, updated_at
+        """,
+        center_id,
+        center.name.strip(),
+        center.location.strip(),
+        center.capacity,
+        center.currentOccupancy,
+        center.status,
+        center.latitude,
+        center.longitude,
+    ).fetchone()
+    connection.commit()
+    return row
 
 
 @app.get("/api/v1/users")

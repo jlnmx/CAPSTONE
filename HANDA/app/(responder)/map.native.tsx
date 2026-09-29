@@ -4,6 +4,7 @@ import { WebView } from 'react-native-webview';
 
 const BINAN_CENTER = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 const EVACUATION_CENTERS = [
   { name: 'Barangay Poblacion Evacuation Center', barangay: 'Poblacion', lat: 14.3018, lng: 121.0772 },
@@ -63,6 +64,29 @@ export default function MapScreen() {
 
             let userMarker = null;
             let routeLine = null;
+            let incidentMarkers = [];
+
+            async function loadReportedIncidents() {
+              incidentMarkers.forEach((marker) => map.removeLayer(marker));
+              incidentMarkers = [];
+              try {
+                const response = await fetch('${API_BASE_URL}/api/v1/incidents');
+                if (!response.ok) return;
+                const incidents = await response.json();
+                incidents.filter((incident) => incident.latitude != null && incident.longitude != null).forEach((incident) => {
+                  const status = String(incident.status || 'reported').replace('_', ' ');
+                  const marker = L.circleMarker([incident.latitude, incident.longitude], {
+                    radius: 9,
+                    color: incident.status === 'resolved' ? '#667085' : '#B42318',
+                    fillColor: incident.status === 'resolved' ? '#98A2B3' : '#F04438',
+                    fillOpacity: 0.9,
+                    weight: 2
+                  }).addTo(map);
+                  marker.bindPopup('<b>' + incident.type + '</b><br>' + incident.severity + ' · ' + status + '<br>' + incident.description);
+                  incidentMarkers.push(marker);
+                });
+              } catch (error) {}
+            }
 
             function findNearestCenter(userLat, userLng) {
               let nearest = null;
@@ -132,6 +156,9 @@ export default function MapScreen() {
                 maximumAge: 10000
               });
             }
+
+            void loadReportedIncidents();
+            setInterval(() => void loadReportedIncidents(), 15000);
 
             window.addEventListener('load', function () {
               window.ReactNativeWebView.postMessage('ready');

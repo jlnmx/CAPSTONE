@@ -22,6 +22,12 @@ CREATE TABLE IF NOT EXISTS incidents (
 CREATE INDEX IF NOT EXISTS incidents_location_gix ON incidents USING GIST (location);
 CREATE INDEX IF NOT EXISTS incidents_created_at_idx ON incidents (created_at DESC);
 
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'reported';
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS action_notes TEXT NOT NULL DEFAULT '';
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS verified_by TEXT;
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+UPDATE incidents SET status = 'reported' WHERE status IS NULL;
+
 CREATE TABLE IF NOT EXISTS evacuees (
   id TEXT PRIMARY KEY,
   first_name TEXT NOT NULL,
@@ -47,6 +53,11 @@ CREATE TABLE IF NOT EXISTS evacuees (
 
 CREATE INDEX IF NOT EXISTS evacuees_location_gix ON evacuees USING GIST (location);
 CREATE INDEX IF NOT EXISTS evacuees_barangay_idx ON evacuees (barangay);
+
+ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS evacuation_status TEXT NOT NULL DEFAULT 'registered';
+ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_by TEXT;
+ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+UPDATE evacuees SET evacuation_status = 'registered' WHERE evacuation_status IS NULL;
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -84,3 +95,25 @@ CREATE TABLE IF NOT EXISTS disasters (
 
 CREATE INDEX IF NOT EXISTS disasters_status_idx ON disasters (status);
 CREATE INDEX IF NOT EXISTS disasters_started_at_idx ON disasters (started_at DESC);
+
+CREATE TABLE IF NOT EXISTS evacuation_centers (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  location_text TEXT NOT NULL DEFAULT '',
+  capacity INTEGER NOT NULL DEFAULT 0 CHECK (capacity >= 0),
+  current_occupancy INTEGER NOT NULL DEFAULT 0 CHECK (current_occupancy >= 0),
+  status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'limited', 'full', 'closed')),
+  latitude DOUBLE PRECISION CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+  longitude DOUBLE PRECISION CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS evacuation_centers_status_idx ON evacuation_centers (status);
+
+INSERT INTO evacuation_centers (id, name, location_text, capacity, current_occupancy, status, latitude, longitude)
+VALUES
+  ('center-poblacion', 'Barangay Poblacion Covered Court', 'Poblacion, Biñan, Laguna', 300, 0, 'available', 14.301, 121.082),
+  ('center-multipurpose', 'Biñan City Multi-Purpose Hall', 'Biñan City, Laguna', 500, 0, 'available', 14.307, 121.071),
+  ('center-school-gym', 'School Gymnasium', 'Biñan City, Laguna', 250, 0, 'available', 14.312, 121.089),
+  ('center-timbao', 'Timbao Open Field', 'Timbao, Biñan, Laguna', 400, 0, 'available', 14.2864, 121.0942)
+ON CONFLICT (id) DO NOTHING;

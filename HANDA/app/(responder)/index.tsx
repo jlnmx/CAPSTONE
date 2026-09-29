@@ -2,7 +2,7 @@
  * Responder Dashboard / Home Screen
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,9 +17,7 @@ import { router } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
 import { NotificationBell } from '@components/NotificationBell';
-import {
-  MOCK_DASHBOARD_STATS,
-} from '@data/mockData';
+import { getResponderData, ResponderDataSnapshot } from '@services/responderData';
 
 const formattedDate = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -28,8 +26,28 @@ const formattedDate = new Intl.DateTimeFormat('en-US', {
 }).format(new Date());
 
 export default function ResponderDashboard() {
-  const showComingSoon = (label: string) =>
-    Alert.alert('Coming Soon', `${label} module coming soon.`);
+  const [data, setData] = useState<ResponderDataSnapshot>({ incidents: [], evacuees: [], disasters: [], centers: [] });
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadData = async () => {
+    try {
+      setData(await getResponderData());
+    } catch {
+      Alert.alert('Live data unavailable', 'The responder dashboard could not reach the server database.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadData();
+    const refresh = setInterval(() => void loadData(), 15000);
+    return () => clearInterval(refresh);
+  }, []);
+
+  const activeDisaster = data.disasters.find((disaster) => disaster.status === 'Active');
+  const activeIncidents = data.incidents.filter((incident) => incident.status !== 'resolved').length;
+  const availableCapacity = data.centers.reduce((total, center) => total + Math.max(center.capacity - center.currentOccupancy, 0), 0);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -60,37 +78,37 @@ export default function ResponderDashboard() {
             color={Colors.white}
           />
           <View style={styles.disasterCopy}>
-            <Text style={styles.disasterName}>Flood Response</Text>
-            <Text style={styles.disasterDescription}>Active Disaster</Text>
+            <Text style={styles.disasterName}>{activeDisaster?.name ?? 'No active disaster'}</Text>
+            <Text style={styles.disasterDescription}>{activeDisaster ? `${activeDisaster.severity.toUpperCase()} · Active Disaster` : 'Monitoring server records'}</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={31} color={Colors.white} />
         </View>
 
         <View style={styles.statsContainer}>
-          <StatTile icon="account-group-outline" value={MOCK_DASHBOARD_STATS.totalEvacuees} label="Total Evacuees" color="#218B25" />
-          <StatTile icon="alert-outline" value={MOCK_DASHBOARD_STATS.activeIncidents} label="Active Incidents" color="#D63F43" />
+          <StatTile icon="account-group-outline" value={data.evacuees.length} label="Total Evacuees" color="#218B25" />
+          <StatTile icon="alert-outline" value={activeIncidents} label="Active Incidents" color="#D63F43" />
         </View>
 
         <View style={styles.statsContainer}>
-          <StatTile icon="home-city-outline" value={MOCK_DASHBOARD_STATS.evacuationCenters} label="Evacuation Centers" color="#1E5987" />
-          <StatTile icon="account-outline" value="58" label="Available Capacity" color="#C9431B" />
+          <StatTile icon="home-city-outline" value={data.centers.length} label="Evacuation Centers" color="#1E5987" />
+          <StatTile icon="account-outline" value={availableCapacity} label="Available Capacity" color="#C9431B" />
         </View>
 
         <View style={styles.pendingTile}>
           <MaterialCommunityIcons name="plus-circle-outline" size={31} color="#D92BC4" />
-          <Text style={styles.pendingValue}>{MOCK_DASHBOARD_STATS.pendingSync}</Text>
-          <Text style={styles.pendingLabel}>Pending Sync Records</Text>
+          <Text style={styles.pendingValue}>{isLoading ? '...' : data.incidents.length + data.evacuees.length}</Text>
+          <Text style={styles.pendingLabel}>Server Records Loaded</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>QUICK ACTION</Text>
           <View style={styles.quickActionsGrid}>
             <ActionButton icon="account-plus-outline" label="Register Evacuee" onPress={() => router.push('/evacuees')} />
-            <ActionButton icon="checkbox-marked-outline" label="Verify Check-in" onPress={() => showComingSoon('Verify Check-in')} />
+            <ActionButton icon="checkbox-marked-outline" label="Verify Check-in" onPress={() => router.push('/evacuees')} />
           </View>
           <View style={styles.quickActionsGrid}>
             <ActionButton icon="alert-circle-outline" label="Report Incident" onPress={() => router.push('/incidents')} />
-            <ActionButton icon="home-city-outline" label="Center status" onPress={() => showComingSoon('Center status')} />
+            <ActionButton icon="home-city-outline" label="Center status" onPress={() => router.push('/map')} />
           </View>
         </View>
       </ScrollView>

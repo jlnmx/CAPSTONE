@@ -18,6 +18,7 @@ import { Colors } from '@constants/colors';
 import { saveLocalIncident } from '@services/localDatabase';
 import { AnimatedPressable } from '@components/Buttons';
 import CurrentLocationMap, { LocationCoordinate } from '@components/CurrentLocationMap';
+import ResponderIncidentQueue from '@components/ResponderIncidentQueue';
 
 const GREEN = '#218B25';
 const BORDER_GREEN = '#79B879';
@@ -152,6 +153,8 @@ export default function IncidentsScreen() {
           <Text style={styles.title}>REPORT</Text>
           <Text style={styles.title}>INCIDENTS</Text>
         </View>
+
+        <ResponderIncidentQueue />
 
         <View style={styles.form}>
           <FieldLabel label="Incident Type" required />

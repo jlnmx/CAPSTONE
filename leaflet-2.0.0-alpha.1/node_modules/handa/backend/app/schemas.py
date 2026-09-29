@@ -64,3 +64,22 @@ class DisasterCreate(BaseModel):
     status: Literal['Upcoming', 'Active', 'Archived'] = 'Upcoming'
     affectedAreas: int = Field(default=0, ge=0)
     startedAt: datetime | None = None
+
+
+class IncidentStatusUpdate(BaseModel):
+    status: Literal['reported', 'acknowledged', 'in_progress', 'resolved']
+    actionNotes: str = Field(default='', max_length=2000)
+
+
+class EvacueeStatusUpdate(BaseModel):
+    evacuationStatus: Literal['registered', 'checked_in', 'evacuated', 'released']
+
+
+class CenterCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    location: str = Field(default='', max_length=255)
+    capacity: int = Field(default=0, ge=0)
+    currentOccupancy: int = Field(default=0, ge=0)
+    status: Literal['available', 'limited', 'full', 'closed'] = 'available'
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)

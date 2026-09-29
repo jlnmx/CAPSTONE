@@ -142,13 +142,15 @@ export default function LeafletMap() {
 
     const loadReportedIncidents = async () => {
       try {
+        reportedMarkers.forEach((reportedMarker) => reportedMarker.remove());
+        reportedMarkers = [];
         const response = await fetch(`${API_BASE_URL}/api/v1/incidents`);
         if (!response.ok) return;
         const incidents = await response.json() as Array<Record<string, unknown>>;
         reportedMarkers = incidents
           .filter((incident) => {
-            const status = String(incident.verificationStatus ?? incident.verification_status ?? 'confirmed').toLowerCase();
-            return incident.latitude != null && incident.longitude != null && ['confirmed', 'acknowledged', 'resolved', 'accepted'].includes(status);
+            const status = String(incident.status ?? incident.verificationStatus ?? incident.verification_status ?? 'reported').toLowerCase();
+            return incident.latitude != null && incident.longitude != null && ['reported', 'acknowledged', 'in_progress', 'resolved', 'confirmed', 'accepted'].includes(status);
           })
           .map((incident) => {
             const severity = String(incident.severity ?? 'medium').toLowerCase();
@@ -157,7 +159,9 @@ export default function LeafletMap() {
             const marker = new LeafletApi.CircleMarker(position, { radius: 10, color, fillColor: color, fillOpacity: 0.9, weight: 3 }).addTo(map);
             marker.on('click', () => {
               clearRoute();
-              infoPanel.innerHTML = `<strong style="display:block;font-size:16px;margin-bottom:5px;color:${color}">Reported incident</strong><span style="display:block;font-size:14px;font-weight:700">${escapeHtml(String(incident.type ?? 'Incident'))}</span><span style="display:block;font-size:12px;color:${color};margin-top:3px">${escapeHtml(String(incident.severity ?? 'Medium'))} severity</span><span style="display:block;font-size:12px;line-height:1.5;margin-top:6px">${escapeHtml(String(incident.description ?? 'Confirmed by incident reporting.'))}</span>`;
+              const status = String(incident.status ?? incident.verificationStatus ?? 'reported').toLowerCase();
+              const actionNotes = String(incident.actionNotes ?? incident.action_notes ?? '');
+              infoPanel.innerHTML = `<strong style="display:block;font-size:16px;margin-bottom:5px;color:${color}">Incident report</strong><span style="display:block;font-size:14px;font-weight:700">${escapeHtml(String(incident.type ?? 'Incident'))}</span><span style="display:block;font-size:12px;color:${color};margin-top:3px">${escapeHtml(String(incident.severity ?? 'Medium'))} severity · ${escapeHtml(status.replace('_', ' '))}</span><span style="display:block;font-size:12px;line-height:1.5;margin-top:6px">${escapeHtml(String(incident.description ?? 'No description provided.'))}</span>${actionNotes ? `<span style="display:block;font-size:12px;line-height:1.5;margin-top:6px;color:#218B25">Action: ${escapeHtml(actionNotes)}</span>` : ''}`;
             });
             return marker;
           });
@@ -167,6 +171,7 @@ export default function LeafletMap() {
     };
 
     void loadReportedIncidents();
+    const incidentRefresh = window.setInterval(() => void loadReportedIncidents(), 15000);
 
     destinationMarkers.forEach((destinationMarker, index) => {
       destinationMarker.on('click', () => {
@@ -189,6 +194,7 @@ export default function LeafletMap() {
     void updateInfoPanel(marker.getLatLng());
 
     return () => {
+      window.clearInterval(incidentRefresh);
       infoPanel.remove();
       destinationMarkers.forEach((destinationMarker) => destinationMarker.remove());
       reportedMarkers.forEach((reportedMarker) => reportedMarker.remove());

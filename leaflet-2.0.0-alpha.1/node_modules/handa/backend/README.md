@@ -1,6 +1,6 @@
 # HANDA FastAPI Backend
 
-The backend accepts the same `incident` and `evacuee` payloads created by the mobile SQLite outbox.
+The backend accepts the same `incident` and `evacuee` payloads created by the mobile SQLite outbox and exposes live responder operations.
 
 ## Local startup
 
@@ -35,6 +35,8 @@ Check the service:
 ```powershell
 Invoke-RestMethod http://localhost:8000/health
 ```
+
+Responder data is available from `/api/v1/disasters`, `/api/v1/incidents`, `/api/v1/evacuees`, and `/api/v1/centers`. Responders update incident action state with `PATCH /api/v1/incidents/{id}/status` and evacuation state with `PATCH /api/v1/evacuees/{id}/status`. The API applies the operational schema migration at startup for existing database volumes.
 
 ## Sync contract
 
