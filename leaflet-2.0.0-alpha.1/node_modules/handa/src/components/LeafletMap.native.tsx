@@ -23,7 +23,7 @@ export default function LeafletMap() {
         <style>
           html, body, #map { margin: 0; width: 100%; height: 100%; }
           .leaflet-container { background: #e5efe8; }
-          .location-panel { position: absolute; top: 14px; right: 14px; z-index: 1000; width: calc(100% - 28px); max-width: 390px; padding: 14px 16px; border-radius: 8px; background: #ffffff; box-shadow: 0 3px 14px rgba(23, 33, 43, 0.22); color: #17212B; font: 13px/1.5 Arial, sans-serif; }
+          .location-panel { position: absolute; top: 14px; left: 14px; right: 14px; z-index: 1000; width: auto; max-width: 390px; box-sizing: border-box; padding: 14px 16px; border-radius: 8px; background: #ffffff; box-shadow: 0 3px 14px rgba(23, 33, 43, 0.22); color: #17212B; font: 13px/1.5 Arial, sans-serif; overflow-wrap: anywhere; }
           .location-panel strong { display: block; margin-bottom: 6px; font-size: 16px; }
           .location-panel .center-name { display: block; font-size: 14px; font-weight: 700; }
           .location-panel .muted { display: block; margin-top: 2px; color: #667085; font-size: 12px; }
