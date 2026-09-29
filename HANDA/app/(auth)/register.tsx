@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput as NativeTextInput, View } from 'react-native';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';

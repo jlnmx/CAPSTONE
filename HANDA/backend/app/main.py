@@ -10,7 +10,7 @@ import psycopg
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .auth import CurrentUser, create_access_token, get_current_user, require_roles
+from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
 from .db import get_connection
 from .schemas import CenterCreate, DisasterCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, SyncBatch, UserLogin, UserRegistration
@@ -151,24 +151,34 @@ def ensure_operational_schema() -> None:
         connection.commit()
 
 
-def ensure_default_admin() -> None:
+def ensure_default_users() -> None:
     with psycopg.connect(settings.database_url) as connection:
         connection.execute(
             """
             INSERT INTO users
               (id, name, email, birthday, mobile_number, current_address, password_hash, role, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'Administrator', 'Active')
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Active')
             ON CONFLICT (email) DO NOTHING
             """,
-            (
-                'admin-001',
-                'HANDA Administrator',
-                'admin@handa.local',
-                '1990-01-01',
-                '+639171234567',
-                'HANDA Development Environment',
-                hash_password('admin123'),
-            ),
+            ('admin-001', 'HANDA Administrator', 'admin@handa.local', '1990-01-01', '+639171234567', 'HANDA Development Environment', hash_password('admin123'), 'Administrator'),
+        )
+        connection.execute(
+            """
+            INSERT INTO users
+              (id, name, email, birthday, mobile_number, current_address, password_hash, role, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Active')
+            ON CONFLICT (email) DO NOTHING
+            """,
+            ('responder-001', 'Juan Dela Cruz', 'responder@handa.local', '1990-01-01', '+639171234568', 'HANDA Development Environment', hash_password('responder123'), 'Responder'),
+        )
+        connection.execute(
+            """
+            INSERT INTO users
+              (id, name, email, birthday, mobile_number, current_address, password_hash, role, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Active')
+            ON CONFLICT (email) DO NOTHING
+            """,
+            ('resident-001', 'Maria Santos', 'resident@handa.local', '1990-01-01', '+639171234569', 'HANDA Development Environment', hash_password('resident123'), 'Resident'),
         )
         connection.commit()
 
@@ -176,7 +186,7 @@ def ensure_default_admin() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_operational_schema()
-    ensure_default_admin()
+    ensure_default_users()
     yield
 
 
@@ -360,8 +370,9 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
     ).fetchone()
     if not row or row["status"] != "Active" or not verify_password(credentials.password, row["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-    access_token, expires_in = create_access_token(row["id"], row["role"].lower(), row["token_version"])
-    return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "user": {"id": row["id"], "name": row["name"], "email": row["email"], "role": row["role"].lower()}}
+    role = normalize_role(row["role"])
+    access_token, expires_in = create_access_token(row["id"], role, row["token_version"])
+    return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "user": {"id": row["id"], "name": row["name"], "email": row["email"], "role": role}}
 
 
 @app.get("/api/v1/auth/me")

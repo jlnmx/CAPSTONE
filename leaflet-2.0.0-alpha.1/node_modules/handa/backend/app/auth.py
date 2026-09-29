@@ -25,6 +25,10 @@ class CurrentUser:
     token_version: int
 
 
+def normalize_role(role: str) -> str:
+    return "admin" if role.lower() == "administrator" else role.lower()
+
+
 def _encode_segment(value: object) -> str:
     raw = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
@@ -82,7 +86,7 @@ def get_current_user(
     if not row or row["status"] != "Active" or row["token_version"] != claims["ver"]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is no longer valid.", headers={"WWW-Authenticate": "Bearer"})
 
-    return CurrentUser(row["id"], row["email"], row["name"], row["role"].lower(), row["token_version"])
+    return CurrentUser(row["id"], row["email"], row["name"], normalize_role(row["role"]), row["token_version"])
 
 
 def require_roles(*roles: str) -> Callable:
