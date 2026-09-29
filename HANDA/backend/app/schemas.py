@@ -57,6 +57,28 @@ class UserLogin(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class AdminUserCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=240)
+    email: str = Field(pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$", max_length=255)
+    birthday: date
+    mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
+    currentAddress: str = Field(min_length=1, max_length=500)
+    password: str = Field(min_length=8, max_length=128)
+    role: Literal["Responder", "Resident", "Administrator"]
+    status: Literal["Active", "Inactive", "Pending"] = "Active"
+
+
+class AdminUserUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=240)
+    email: str | None = Field(default=None, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$", max_length=255)
+    birthday: date | None = None
+    mobileNumber: str | None = Field(default=None, pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
+    currentAddress: str | None = Field(default=None, min_length=1, max_length=500)
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+    role: Literal["Responder", "Resident", "Administrator"] | None = None
+    status: Literal["Active", "Inactive", "Pending"] | None = None
+
+
 class DisasterCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default='', max_length=2000)

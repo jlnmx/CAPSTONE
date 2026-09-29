@@ -57,6 +57,7 @@ export type ResponderDataSnapshot = {
   evacuees: ResponderEvacuee[];
   disasters: ResponderDisaster[];
   centers: ResponderCenter[];
+  unavailableSources: string[];
 };
 import { authenticatedFetch } from './apiClient';
 
@@ -126,17 +127,28 @@ function normalizeCenter(record: Record<string, any>): ResponderCenter {
 }
 
 export async function getResponderData(): Promise<ResponderDataSnapshot> {
-  const [incidents, evacuees, disasters, centers] = await Promise.all([
+  const [incidentResult, evacueeResult, disasterResult, centerResult] = await Promise.allSettled([
     fetchRecords<Record<string, any>>('/api/v1/incidents'),
     fetchRecords<Record<string, any>>('/api/v1/evacuees'),
     fetchRecords<Record<string, any>>('/api/v1/disasters'),
     fetchRecords<Record<string, any>>('/api/v1/centers'),
   ]);
+  const unavailableSources: string[] = [];
+  const recordsOrEmpty = <T,>(result: PromiseSettledResult<T[]>, source: string): T[] => {
+    if (result.status === 'fulfilled') return result.value;
+    unavailableSources.push(source);
+    return [];
+  };
+  const incidents = recordsOrEmpty(incidentResult, 'incidents');
+  const evacuees = recordsOrEmpty(evacueeResult, 'evacuees');
+  const disasters = recordsOrEmpty(disasterResult, 'disasters');
+  const centers = recordsOrEmpty(centerResult, 'centers');
   return {
     incidents: incidents.map(normalizeIncident),
     evacuees: evacuees.map(normalizeEvacuee),
     disasters: disasters.map(normalizeDisaster),
     centers: centers.map(normalizeCenter),
+    unavailableSources,
   };
 }
 

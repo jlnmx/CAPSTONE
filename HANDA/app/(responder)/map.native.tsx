@@ -1,202 +1,23 @@
-import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { WebView } from 'react-native-webview';
-
-const BINAN_CENTER = [14.3036, 121.0781];
-const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
-
-const EVACUATION_CENTERS = [
-  { name: 'Barangay Poblacion Evacuation Center', barangay: 'Poblacion', lat: 14.3018, lng: 121.0772 },
-  { name: 'Barangay San Francisco Shelter', barangay: 'San Francisco', lat: 14.3122, lng: 121.0855 },
-  { name: 'Barangay Zapote Relief Hub', barangay: 'Zapote', lat: 14.2919, lng: 121.0668 },
-  { name: 'Barangay Malabanan Center', barangay: 'Malabanan', lat: 14.3241, lng: 121.0921 },
-  { name: 'Barangay Timbao Safe Shelter', barangay: 'Timbao', lat: 14.2864, lng: 121.0942 },
-];
+import React from 'react';
+import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Colors } from '@constants/colors';
+import ResponderLiveMap from '@components/ResponderLiveMap';
 
 export default function MapScreen() {
-  const [ready, setReady] = useState(false);
-
-  const html = useMemo(() => {
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-          <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-          <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-          <style>
-            html, body, #map {
-              margin: 0;
-              height: 100%;
-              width: 100%;
-              background: #0f172a;
-              font-family: sans-serif;
-            }
-            .leaflet-control-attribution {
-              font-size: 10px;
-            }
-          </style>
-        </head>
-        <body>
-          <div id="map"></div>
-          <script>
-            const map = L.map('map', { zoomControl: true }).setView(${JSON.stringify(BINAN_CENTER)}, 13);
-
-            L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}&tileSize=512', {
-              attribution: '&copy; Mapbox &copy; OpenStreetMap contributors',
-              maxZoom: 19
-            }).addTo(map);
-
-            const centers = ${JSON.stringify(EVACUATION_CENTERS)};
-
-            centers.forEach((center) => {
-              const marker = L.circleMarker([center.lat, center.lng], {
-                radius: 9,
-                color: '#22c55e',
-                fillColor: '#22c55e',
-                fillOpacity: 0.95,
-                weight: 2
-              }).addTo(map);
-
-              marker.bindPopup('<b>' + center.name + '</b><br>' + center.barangay);
-            });
-
-            let userMarker = null;
-            let routeLine = null;
-            let incidentMarkers = [];
-
-            async function loadReportedIncidents() {
-              incidentMarkers.forEach((marker) => map.removeLayer(marker));
-              incidentMarkers = [];
-              try {
-                const response = await fetch('${API_BASE_URL}/api/v1/incidents');
-                if (!response.ok) return;
-                const incidents = await response.json();
-                incidents.filter((incident) => incident.latitude != null && incident.longitude != null).forEach((incident) => {
-                  const status = String(incident.status || 'reported').replace('_', ' ');
-                  const marker = L.circleMarker([incident.latitude, incident.longitude], {
-                    radius: 9,
-                    color: incident.status === 'resolved' ? '#667085' : '#B42318',
-                    fillColor: incident.status === 'resolved' ? '#98A2B3' : '#F04438',
-                    fillOpacity: 0.9,
-                    weight: 2
-                  }).addTo(map);
-                  marker.bindPopup('<b>' + incident.type + '</b><br>' + incident.severity + ' · ' + status + '<br>' + incident.description);
-                  incidentMarkers.push(marker);
-                });
-              } catch (error) {}
-            }
-
-            function findNearestCenter(userLat, userLng) {
-              let nearest = null;
-              let minDistance = Number.MAX_VALUE;
-
-              for (const center of centers) {
-                const latDelta = center.lat - userLat;
-                const lngDelta = center.lng - userLng;
-                const distanceKm = Math.sqrt(latDelta * latDelta + lngDelta * lngDelta) * 111.32;
-
-                if (distanceKm < minDistance) {
-                  minDistance = distanceKm;
-                  nearest = center;
-                }
-              }
-
-              return { nearest, distanceKm: minDistance };
-            }
-
-            function setUserLocation(lat, lng) {
-              if (userMarker) map.removeLayer(userMarker);
-              if (routeLine) map.removeLayer(routeLine);
-
-              userMarker = L.circleMarker([lat, lng], {
-                radius: 8,
-                color: '#2563eb',
-                fillColor: '#60a5fa',
-                fillOpacity: 0.95,
-                weight: 3
-              }).addTo(map);
-
-              const result = findNearestCenter(lat, lng);
-              const nearest = result.nearest;
-
-              if (nearest) {
-                routeLine = L.polyline([
-                  [lat, lng],
-                  [nearest.lat, nearest.lng]
-                ], {
-                  color: '#f59e0b',
-                  weight: 5,
-                  opacity: 0.9
-                }).addTo(map);
-
-                const bounds = L.latLngBounds([
-                  [lat, lng],
-                  [nearest.lat, nearest.lng]
-                ]);
-
-                map.fitBounds(bounds, { padding: [40, 40] });
-
-                L.popup()
-                  .setLatLng([nearest.lat, nearest.lng])
-                  .setContent('<b>Nearest Evacuation Center</b><br>' + nearest.name + '<br>' + nearest.barangay + '<br>' + result.distanceKm.toFixed(1) + ' km away')
-                  .openOn(map);
-              }
-            }
-
-            if (navigator.geolocation) {
-              navigator.geolocation.watchPosition((position) => {
-                setUserLocation(position.coords.latitude, position.coords.longitude);
-              }, () => {
-                map.setView(${JSON.stringify(BINAN_CENTER)}, 13);
-              }, {
-                enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 10000
-              });
-            }
-
-            void loadReportedIncidents();
-            setInterval(() => void loadReportedIncidents(), 15000);
-
-            window.addEventListener('load', function () {
-              window.ReactNativeWebView.postMessage('ready');
-            });
-          </script>
-        </body>
-      </html>
-    `;
-  }, []);
-
   return (
-    <View style={styles.container}>
-      {!ready && <ActivityIndicator size="large" color="#218B25" style={styles.loader} />}
-      <WebView
-        source={{ html }}
-        style={styles.webView}
-        javaScriptEnabled
-        domStorageEnabled
-        originWhitelist={['*']}
-        startInLoadingState
-        onLoad={() => setReady(true)}
-      />
-    </View>
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>LIVE RESPONSE MAP</Text>
+        <Text style={styles.headerSubtitle}>Biñan City · incidents and evacuation centers</Text>
+      </View>
+      <ResponderLiveMap />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  webView: {
-    flex: 1,
-  },
-  loader: {
-    position: 'absolute',
-    alignSelf: 'center',
-    top: '50%',
-    zIndex: 10,
-  },
+  safeArea: { flex: 1, backgroundColor: Colors.white },
+  header: { backgroundColor: '#218B25', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12 },
+  headerTitle: { color: Colors.white, fontSize: 23, fontWeight: '800' },
+  headerSubtitle: { color: '#DFF1DF', fontSize: 12, marginTop: 3 },
 });

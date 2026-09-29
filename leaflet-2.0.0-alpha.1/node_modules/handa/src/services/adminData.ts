@@ -18,8 +18,22 @@ export type AdminUserRecord = {
   email: string;
   role: 'Responder' | 'Resident' | 'Administrator';
   status: 'Active' | 'Inactive' | 'Pending';
+  birthday?: string;
+  mobileNumber?: string;
+  currentAddress?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type AdminUserInput = {
+  name: string;
+  email: string;
+  role: AdminUserRecord['role'];
+  status: AdminUserRecord['status'];
+  birthday: string;
+  mobileNumber: string;
+  currentAddress: string;
+  password?: string;
 };
 import { authenticatedFetch } from './apiClient';
 
@@ -93,10 +107,42 @@ export async function getAdminUsers(): Promise<AdminUserRecord[]> {
       email: record.email,
       role: record.role,
       status: record.status,
+      birthday: record.birthday,
+      mobileNumber: record.mobile_number ?? record.mobileNumber,
+      currentAddress: record.current_address ?? record.currentAddress,
       createdAt: record.createdAt ?? record.created_at,
       updatedAt: record.updatedAt ?? record.updated_at,
     }));
   } catch {
     return [];
   }
+}
+
+async function submitUserRequest(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: Record<string, string>) {
+  const response = await authenticatedFetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({})) as { detail?: string };
+    const detail = Array.isArray(result.detail)
+      ? result.detail.map((issue: { loc?: Array<string | number>; msg?: string }) => `${issue.loc?.slice(1).join('.') || 'Account'}: ${issue.msg || 'Invalid value'}`).join(' ')
+      : result.detail;
+    throw new Error(detail || `Account request failed (${response.status}).`);
+  }
+  if (response.status === 204) return null;
+  return response.json() as Promise<Record<string, any>>;
+}
+
+export async function createAdminUser(input: AdminUserInput) {
+  return submitUserRequest('/api/v1/users', 'POST', input as unknown as Record<string, string>);
+}
+
+export async function updateAdminUser(id: string, input: Partial<AdminUserInput>) {
+  return submitUserRequest(`/api/v1/users/${encodeURIComponent(id)}`, 'PATCH', input as Record<string, string>);
+}
+
+export async function deleteAdminUser(id: string) {
+  await submitUserRequest(`/api/v1/users/${encodeURIComponent(id)}`, 'DELETE');
 }

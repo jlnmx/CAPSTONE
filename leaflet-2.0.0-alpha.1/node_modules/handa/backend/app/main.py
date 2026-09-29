@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
 from .db import get_connection
-from .schemas import CenterCreate, DisasterCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, SyncBatch, UserLogin, UserRegistration
 
 
 def normalize_id(value: str | None, prefix: str) -> str:
@@ -250,9 +250,7 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
         WHERE id = %s
         RETURNING id, status, action_notes, verified_at
         """,
-        update.status,
-        update.actionNotes.strip(),
-        incident_id,
+        (update.status, update.actionNotes.strip(), incident_id),
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Incident not found.")
@@ -324,6 +322,95 @@ def list_users(connection: psycopg.Connection = Depends(get_connection), _: Curr
     return rows
 
 
+def validate_account_password(password: str) -> None:
+    if not any(char.isupper() for char in password) or not any(char.islower() for char in password) or not any(char.isdigit() for char in password) or not any(not char.isalnum() for char in password):
+        raise HTTPException(status_code=422, detail="Password must include uppercase, lowercase, number, and symbol.")
+
+
+@app.post("/api/v1/users", status_code=201)
+def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
+    validate_account_password(account.password)
+    user_id = f"user-{uuid4()}"
+    try:
+        row = connection.execute(
+            """
+            INSERT INTO users
+              (id, name, email, birthday, mobile_number, current_address, password_hash, role, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, name, email, birthday, mobile_number, current_address, role, status, created_at, updated_at
+            """,
+                        (
+                                user_id,
+                                account.name.strip(),
+                                account.email.strip().lower(),
+                                account.birthday,
+                                account.mobileNumber,
+                                account.currentAddress.strip(),
+                                hash_password(account.password),
+                                account.role,
+                                account.status,
+                        ),
+        ).fetchone()
+        connection.commit()
+    except psycopg.errors.UniqueViolation as error:
+        connection.rollback()
+        raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
+    return row
+
+
+@app.patch("/api/v1/users/{user_id}")
+def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depends(require_roles("admin")), connection: psycopg.Connection = Depends(get_connection)):
+    changes = {field: value for field, value in update.model_dump(exclude_unset=True).items() if value is not None}
+    if not changes:
+        raise HTTPException(status_code=400, detail="Provide at least one account field to update.")
+    if user_id == user.id and any(field in changes for field in ("password", "role", "status")):
+        raise HTTPException(status_code=400, detail="You cannot change your own password, role, or status here.")
+
+    password = changes.pop("password", None)
+    if password:
+        validate_account_password(password)
+        changes["password_hash"] = hash_password(password)
+
+    column_names = {
+        "name": "name",
+        "email": "email",
+        "birthday": "birthday",
+        "mobileNumber": "mobile_number",
+        "currentAddress": "current_address",
+        "role": "role",
+        "status": "status",
+        "password_hash": "password_hash",
+    }
+    assignments = [f"{column_names[field]} = %s" for field in changes]
+    values = [value.strip().lower() if field == "email" else value.strip() if field in ("name", "currentAddress") else value for field, value in changes.items()]
+    if any(field in changes for field in ("password_hash", "role", "status")):
+        assignments.append("token_version = token_version + 1")
+    assignments.append("updated_at = NOW()")
+
+    try:
+        row = connection.execute(
+            f"UPDATE users SET {', '.join(assignments)} WHERE id = %s RETURNING id, name, email, birthday, mobile_number, current_address, role, status, created_at, updated_at",
+            (*values, user_id),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User account not found.")
+        connection.commit()
+    except psycopg.errors.UniqueViolation as error:
+        connection.rollback()
+        raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
+    return row
+
+
+@app.delete("/api/v1/users/{user_id}", status_code=204)
+def delete_user(user_id: str, user: CurrentUser = Depends(require_roles("admin")), connection: psycopg.Connection = Depends(get_connection)):
+    if user_id == user.id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own administrator account.")
+    cursor = connection.execute("DELETE FROM users WHERE id = %s", (user_id,))
+    if cursor.rowcount == 0:
+        raise HTTPException(status_code=404, detail="User account not found.")
+    connection.commit()
+
+
 @app.post("/api/v1/users/register", status_code=201)
 def register_user(registration: UserRegistration, connection: psycopg.Connection = Depends(get_connection)):
     if not any((char.isupper() for char in registration.password)) or not any((char.islower() for char in registration.password)) or not any((char.isdigit() for char in registration.password)) or not any((not char.isalnum() for char in registration.password)):
@@ -352,14 +439,14 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         connection.rollback()
         raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
 
-        access_token, expires_in = create_access_token(user_id, "resident", 0)
-        return {
-            "id": user_id,
-            "status": "active",
-            "message": "Registration completed.",
-            "accessToken": access_token,
-            "expiresIn": expires_in,
-        }
+    access_token, expires_in = create_access_token(user_id, "resident", 0)
+    return {
+        "id": user_id,
+        "status": "active",
+        "message": "Registration completed.",
+        "accessToken": access_token,
+        "expiresIn": expires_in,
+    }
 
 
 @app.post("/api/v1/auth/login")
