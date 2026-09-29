@@ -2,10 +2,11 @@
  * Administrator Stack Layout
  */
 
-import React from 'react';
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, useRouter, useSegments } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
+import { useAuth } from '@hooks/useAuth';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -14,6 +15,19 @@ function TabIcon({ name, color }: { name: IconName; color: string }) {
 }
 
 export default function AdminLayout() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (isLoading || segments[0] !== '(admin)') return;
+    if (!isAuthenticated) {
+      router.replace('/(auth)/login');
+    } else if (user?.role !== 'admin') {
+      router.replace(user?.role === 'resident' ? '/(resident)' : '/(responder)');
+    }
+  }, [isAuthenticated, isLoading, router, segments, user]);
+
   return (
     <Tabs
       screenOptions={{

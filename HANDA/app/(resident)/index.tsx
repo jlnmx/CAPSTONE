@@ -3,10 +3,10 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import { Colors } from '@constants/colors';
 import { NotificationBell } from '@components/NotificationBell';
+import { authenticatedFetch } from '@services/apiClient';
 
 const actions = [
   { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/register-evacuee' },
@@ -16,10 +16,6 @@ const actions = [
 ];
 
 const DEFAULT_LOCATION = { latitude: 14.3036, longitude: 121.0781 };
-const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
-  ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
-
 type ActiveDisaster = {
   id: string;
   name: string;
@@ -84,7 +80,7 @@ export default function ResidentDashboard() {
   useEffect(() => {
     const loadActiveDisaster = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/disasters`);
+        const response = await authenticatedFetch('/api/v1/disasters');
         if (!response.ok) throw new Error('Disaster request failed');
         const events = await response.json() as ActiveDisaster[];
         const current = events.find((event) => event.status.toLowerCase() === 'active') ?? null;

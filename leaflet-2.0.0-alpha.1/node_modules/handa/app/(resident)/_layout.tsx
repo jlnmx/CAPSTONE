@@ -2,11 +2,12 @@
  * Resident Stack Layout
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter, useSegments } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@constants/colors';
+import { useAuth } from '@hooks/useAuth';
 
 interface TabBarIconProps {
   name: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -22,6 +23,19 @@ function SosTabIcon() {
 }
 
 export default function ResidentLayout() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (isLoading || segments[0] !== '(resident)') return;
+    if (!isAuthenticated) {
+      router.replace('/(auth)/login');
+    } else if (user?.role !== 'resident') {
+      router.replace(user?.role === 'admin' ? '/(admin)' : '/(responder)');
+    }
+  }, [isAuthenticated, isLoading, router, segments, user]);
+
   return (
     <Tabs
       screenOptions={{

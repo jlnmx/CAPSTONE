@@ -2,10 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
+import { authenticatedFetch } from '@services/apiClient';
 
 interface Disaster { id: string; name: string; description: string; severity: 'low' | 'medium' | 'high' | 'critical'; status: 'Upcoming' | 'Active' | 'Archived'; affected_areas: number; started_at: string | null; }
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
-
 export default function AdminDisasters() {
   const [events, setEvents] = useState<Disaster[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -14,7 +13,7 @@ export default function AdminDisasters() {
   const loadDisasters = async () => {
     try {
       setError('');
-      const response = await fetch(`${API_URL}/api/v1/disasters`);
+      const response = await authenticatedFetch('/api/v1/disasters');
       if (!response.ok) throw new Error();
       setEvents(await response.json() as Disaster[]);
     } catch {
@@ -30,7 +29,7 @@ export default function AdminDisasters() {
   const create = () => Alert.prompt('Create disaster event', 'Enter the ongoing or upcoming disaster name', async (name) => {
     if (!name?.trim()) return;
     try {
-      const response = await fetch(`${API_URL}/api/v1/disasters`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), status: 'Active', severity: 'medium', affectedAreas: 0 }) });
+      const response = await authenticatedFetch('/api/v1/disasters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), status: 'Active', severity: 'medium', affectedAreas: 0 }) });
       if (!response.ok) throw new Error();
       await loadDisasters();
     } catch {

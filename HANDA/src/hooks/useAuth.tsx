@@ -3,7 +3,7 @@
  * Provides authentication context to the app
  */
 
-import { createContext, useContext, ReactNode, useState } from 'react';
+import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
@@ -17,8 +17,16 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void AuthService.restoreSession().then((authUser) => {
+      if (authUser) {
+        setUser(authUser);
+      }
+    }).finally(() => setIsLoading(false));
+  }, []);
 
   const finishLogin = async (authUser: AuthUser) => {
     setUser(authUser);
@@ -71,10 +79,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const setAuthenticatedUser = async (authUser: AuthUser) => {
+  const setAuthenticatedUser = async (authUser: AuthUser, accessToken?: string) => {
     setError(null);
     setUser(authUser);
     await AsyncStorage.setItem('userId', authUser.id);
+    if (accessToken) {
+      const { setAccessToken } = await import('@services/apiClient');
+      await setAccessToken(accessToken);
+    }
   };
 
   const logout = async () => {

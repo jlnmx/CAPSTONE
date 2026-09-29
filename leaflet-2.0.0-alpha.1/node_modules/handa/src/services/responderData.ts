@@ -58,11 +58,11 @@ export type ResponderDataSnapshot = {
   disasters: ResponderDisaster[];
   centers: ResponderCenter[];
 };
+import { authenticatedFetch } from './apiClient';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 async function fetchRecords<T>(path: string): Promise<T[]> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+  const response = await authenticatedFetch(path);
   if (!response.ok) throw new Error(`Request failed: ${response.status}`);
   return response.json() as Promise<T[]>;
 }
@@ -141,7 +141,7 @@ export async function getResponderData(): Promise<ResponderDataSnapshot> {
 }
 
 async function patch(path: string, body: Record<string, string>) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await authenticatedFetch(path, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

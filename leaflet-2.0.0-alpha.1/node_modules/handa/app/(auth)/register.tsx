@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput as NativeTextInput, View } from 'react-native';
-import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
 import { PasswordInput, TextInput } from '@components/TextInputs';
 import { PrimaryButton } from '@components/Buttons';
+import { API_BASE_URL } from '@services/apiClient';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
-  ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
 
 const inputStyle = {
   height: 48,
@@ -72,12 +70,12 @@ export default function RegisterScreen() {
         body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim(), birthday, mobileNumber: normalizedMobile, currentAddress: address.trim(), email: normalizedEmail, password }),
         signal: abortController.signal,
       });
-      const result = await response.json() as { id?: string; detail?: string; message?: string };
+      const result = await response.json() as { id?: string; accessToken?: string; detail?: string; message?: string };
       if (!response.ok) {
         setValidationErrors({ form: result.detail || 'Registration could not be completed.' });
         return;
       }
-      await setAuthenticatedUser({ id: result.id || `resident-${Date.now()}`, name: `${firstName.trim()} ${lastName.trim()}`, email: normalizedEmail, role: 'resident' });
+      await setAuthenticatedUser({ id: result.id || `resident-${Date.now()}`, name: `${firstName.trim()} ${lastName.trim()}`, email: normalizedEmail, role: 'resident' }, result.accessToken);
       router.replace('/(resident)');
     } catch (error) {
       const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';

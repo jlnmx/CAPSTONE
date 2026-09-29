@@ -10,6 +10,7 @@ import psycopg
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from .auth import CurrentUser, create_access_token, get_current_user, require_roles
 from .config import settings
 from .db import get_connection
 from .schemas import CenterCreate, DisasterCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, SyncBatch, UserLogin, UserRegistration
@@ -119,6 +120,7 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS evacuation_status TEXT NOT NULL DEFAULT 'registered'")
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_by TEXT")
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS evacuation_centers (
@@ -149,9 +151,32 @@ def ensure_operational_schema() -> None:
         connection.commit()
 
 
+def ensure_default_admin() -> None:
+    with psycopg.connect(settings.database_url) as connection:
+        connection.execute(
+            """
+            INSERT INTO users
+              (id, name, email, birthday, mobile_number, current_address, password_hash, role, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'Administrator', 'Active')
+            ON CONFLICT (email) DO NOTHING
+            """,
+            (
+                'admin-001',
+                'HANDA Administrator',
+                'admin@handa.local',
+                '1990-01-01',
+                '+639171234567',
+                'HANDA Development Environment',
+                hash_password('admin123'),
+            ),
+        )
+        connection.commit()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_operational_schema()
+    ensure_default_admin()
     yield
 
 
@@ -173,17 +198,17 @@ def health(connection: psycopg.Connection = Depends(get_connection)):
 
 
 @app.post("/api/v1/incidents", status_code=201)
-def create_incident(incident: IncidentCreate, connection: psycopg.Connection = Depends(get_connection)):
+def create_incident(incident: IncidentCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     return write_incident(connection, incident)
 
 
 @app.post("/api/v1/evacuees", status_code=201)
-def create_evacuee(evacuee: EvacueeCreate, connection: psycopg.Connection = Depends(get_connection)):
+def create_evacuee(evacuee: EvacueeCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     return write_evacuee(connection, evacuee)
 
 
 @app.post("/api/v1/sync", status_code=207)
-def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_connection)):
+def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     results = []
     for event in batch.events:
         try:
@@ -199,7 +224,7 @@ def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_co
 
 
 @app.get("/api/v1/incidents")
-def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
+def list_incidents(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     rows = connection.execute(
         "SELECT id, type, description, severity, location_text AS location, latitude, longitude, photo_uris, status, action_notes, verified_by, verified_at, created_at FROM incidents ORDER BY created_at DESC"
     ).fetchall()
@@ -207,7 +232,7 @@ def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
 
 
 @app.patch("/api/v1/incidents/{incident_id}/status")
-def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection)):
+def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
     row = connection.execute(
         """
         UPDATE incidents
@@ -226,7 +251,7 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
 
 
 @app.get("/api/v1/evacuees")
-def list_evacuees(connection: psycopg.Connection = Depends(get_connection)):
+def list_evacuees(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     rows = connection.execute(
         "SELECT id, first_name, middle_name, last_name, age, sex, contact_number, address, household_size, barangay, latitude, longitude, evacuation_status, verified_by, verified_at, created_at FROM evacuees ORDER BY created_at DESC"
     ).fetchall()
@@ -234,7 +259,7 @@ def list_evacuees(connection: psycopg.Connection = Depends(get_connection)):
 
 
 @app.patch("/api/v1/evacuees/{evacuee_id}/status")
-def update_evacuee_status(evacuee_id: str, update: EvacueeStatusUpdate, connection: psycopg.Connection = Depends(get_connection)):
+def update_evacuee_status(evacuee_id: str, update: EvacueeStatusUpdate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
     row = connection.execute(
         """
         UPDATE evacuees
@@ -252,14 +277,14 @@ def update_evacuee_status(evacuee_id: str, update: EvacueeStatusUpdate, connecti
 
 
 @app.get("/api/v1/centers")
-def list_centers(connection: psycopg.Connection = Depends(get_connection)):
+def list_centers(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     return connection.execute(
         "SELECT id, name, location_text AS location, capacity, current_occupancy, status, latitude, longitude, updated_at FROM evacuation_centers ORDER BY name"
     ).fetchall()
 
 
 @app.post("/api/v1/centers", status_code=201)
-def create_center(center: CenterCreate, connection: psycopg.Connection = Depends(get_connection)):
+def create_center(center: CenterCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
     center_id = f"center-{uuid4()}"
     row = connection.execute(
         """
@@ -282,7 +307,7 @@ def create_center(center: CenterCreate, connection: psycopg.Connection = Depends
 
 
 @app.get("/api/v1/users")
-def list_users(connection: psycopg.Connection = Depends(get_connection)):
+def list_users(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
     rows = connection.execute(
         "SELECT id, name, email, birthday, mobile_number, current_address, role, status, created_at, updated_at FROM users ORDER BY created_at DESC"
     ).fetchall()
@@ -317,22 +342,42 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         connection.rollback()
         raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
 
-    return {"id": user_id, "status": "active", "message": "Registration completed."}
+        access_token, expires_in = create_access_token(user_id, "resident", 0)
+        return {
+            "id": user_id,
+            "status": "active",
+            "message": "Registration completed.",
+            "accessToken": access_token,
+            "expiresIn": expires_in,
+        }
 
 
 @app.post("/api/v1/auth/login")
 def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT id, name, email, role, status, password_hash FROM users WHERE LOWER(email) = LOWER(%s)",
+        "SELECT id, name, email, role, status, password_hash, token_version FROM users WHERE LOWER(email) = LOWER(%s)",
         (credentials.email.strip(),),
     ).fetchone()
     if not row or row["status"] != "Active" or not verify_password(credentials.password, row["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-    return {"id": row["id"], "name": row["name"], "email": row["email"], "role": row["role"].lower()}
+    access_token, expires_in = create_access_token(row["id"], row["role"].lower(), row["token_version"])
+    return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "user": {"id": row["id"], "name": row["name"], "email": row["email"], "role": row["role"].lower()}}
+
+
+@app.get("/api/v1/auth/me")
+def current_user(user: CurrentUser = Depends(get_current_user)):
+    return {"id": user.id, "name": user.name, "email": user.email, "role": user.role}
+
+
+@app.post("/api/v1/auth/logout")
+def logout_user(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
+    connection.execute("UPDATE users SET token_version = token_version + 1, updated_at = NOW() WHERE id = %s", (user.id,))
+    connection.commit()
+    return {"status": "signed_out"}
 
 
 @app.get("/api/v1/disasters")
-def list_disasters(connection: psycopg.Connection = Depends(get_connection)):
+def list_disasters(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     rows = connection.execute(
         "SELECT id, name, description, severity, status, affected_areas, started_at, created_at FROM disasters ORDER BY COALESCE(started_at, created_at) DESC"
     ).fetchall()
@@ -340,7 +385,7 @@ def list_disasters(connection: psycopg.Connection = Depends(get_connection)):
 
 
 @app.post("/api/v1/disasters", status_code=201)
-def create_disaster(disaster: DisasterCreate, connection: psycopg.Connection = Depends(get_connection)):
+def create_disaster(disaster: DisasterCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
     disaster_id = f"disaster-{uuid4()}"
     connection.execute(
         """

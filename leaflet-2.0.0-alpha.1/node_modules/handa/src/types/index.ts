@@ -18,7 +18,7 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginAsDemo: (role: UserRole) => Promise<void>;
-  setAuthenticatedUser: (user: AuthUser) => Promise<void>;
+  setAuthenticatedUser: (user: AuthUser, accessToken?: string) => Promise<void>;
   logout: () => Promise<void>;
   error: string | null;
 }

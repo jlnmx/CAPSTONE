@@ -2,11 +2,12 @@
  * Responder Stack Layout
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter, useSegments } from 'expo-router';
 import { Colors } from '@constants/colors';
+import { useAuth } from '@hooks/useAuth';
 
 interface TabBarIconProps {
   name: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -18,6 +19,19 @@ function TabBarIcon({ name, color }: TabBarIconProps) {
 }
 
 export default function ResponderLayout() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (isLoading || segments[0] !== '(responder)') return;
+    if (!isAuthenticated) {
+      router.replace('/(auth)/login');
+    } else if (user?.role !== 'responder') {
+      router.replace(user?.role === 'resident' ? '/(resident)' : '/(admin)');
+    }
+  }, [isAuthenticated, isLoading, router, segments, user]);
+
   return (
     <Tabs
       screenOptions={{

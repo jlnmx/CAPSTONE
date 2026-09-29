@@ -21,8 +21,8 @@ export type AdminUserRecord = {
   createdAt: string;
   updatedAt: string;
 };
+import { authenticatedFetch } from './apiClient';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 function normalizeIncident(record: Record<string, any>): AdminIncidentRecord {
   return {
@@ -56,7 +56,7 @@ function normalizeEvacuee(record: Record<string, any>): AdminEvacueeRecord {
 }
 
 async function fetchRecords<T>(path: string): Promise<T[]> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+  const response = await authenticatedFetch(path);
   if (!response.ok) {
     throw new Error(`Admin data request failed: ${response.status}`);
   }

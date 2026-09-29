@@ -1,10 +1,6 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import { authenticatedFetch } from './apiClient';
 import { getPendingOutboxEvents, markOutboxEventSynced } from './localDatabase';
-
-const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
-  ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
 let activeSync: Promise<{ processed: number; synced: number }> | null = null;
 
 export async function syncPendingLocalData() {
@@ -31,7 +27,7 @@ async function syncPendingLocalDataInternal() {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/v1/sync`, {
+    const response = await authenticatedFetch('/api/v1/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

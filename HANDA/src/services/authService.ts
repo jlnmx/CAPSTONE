@@ -4,12 +4,7 @@
  */
 
 import { AuthUser, UserRole } from '@/types/index';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
-
-const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
-  ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
+import { API_BASE_URL, authenticatedFetch, clearAccessToken, getAccessToken, setAccessToken } from './apiClient';
 
 const MOCK_USERS = {
   admin: {
@@ -67,26 +62,29 @@ export class AuthService {
     email: string,
     password: string
   ): Promise<AuthUser | null> {
-    let apiUnavailable = false;
+    let apiReachable = false;
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),
       });
+      apiReachable = true;
       if (response.ok) {
-        return await response.json() as AuthUser;
+        const result = await response.json() as { accessToken?: string; user?: AuthUser };
+        if (result.accessToken && result.user) {
+          await setAccessToken(result.accessToken);
+          return result.user;
+        }
       }
       if (response.status === 401) {
         return null;
       }
       throw new Error(`Login service returned ${response.status}.`);
-    } catch {
-      apiUnavailable = true;
-    }
-
-    if (apiUnavailable) {
-      throw new Error('The login service is unreachable. Check that the backend is running.');
+    } catch (error) {
+      if (apiReachable) {
+        throw error;
+      }
     }
 
     for (const user of Object.values(MOCK_USERS)) {
@@ -119,9 +117,13 @@ export class AuthService {
    * Logout (cleanup any stored auth data)
    */
   static async logout(): Promise<void> {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    // In production, would call API and invalidate tokens
+    try {
+      if (await getAccessToken()) {
+        await authenticatedFetch('/api/v1/auth/logout', { method: 'POST' });
+      }
+    } finally {
+      await clearAccessToken();
+    }
   }
 
   /**
@@ -148,5 +150,22 @@ export class AuthService {
     }
 
     return null;
+  }
+
+  static async restoreSession(): Promise<AuthUser | null> {
+    if (!(await getAccessToken())) {
+      return null;
+    }
+
+    try {
+      const response = await authenticatedFetch('/api/v1/auth/me');
+      if (!response.ok) {
+        await clearAccessToken();
+        return null;
+      }
+      return await response.json() as AuthUser;
+    } catch {
+      return null;
+    }
   }
 }

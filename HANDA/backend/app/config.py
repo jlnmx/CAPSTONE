@@ -9,6 +9,8 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
     database_url: str = "postgresql://handa:handa_dev_password@localhost:5432/handa"
     cors_origins: str = "http://localhost:8081,http://localhost:19006"
+    auth_secret: str = "handa-development-auth-secret-change-me"
+    access_token_minutes: int = 30
 
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", extra="ignore")
 
