@@ -120,6 +120,9 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS evacuation_status TEXT NOT NULL DEFAULT 'registered'")
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_by TEXT")
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name TEXT")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE users ALTER COLUMN current_address SET DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0")
         connection.execute(
             """
@@ -421,16 +424,18 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         connection.execute(
             """
             INSERT INTO users
-              (id, name, email, birthday, mobile_number, current_address, password_hash, role, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'Resident', 'Active')
+                            (id, name, email, birthday, mobile_number, current_address, middle_name, sex, password_hash, role, status)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Resident', 'Active')
             """,
             (
                 user_id,
-                f"{registration.firstName.strip()} {registration.lastName.strip()}",
+                                " ".join(part for part in (registration.firstName.strip(), (registration.middleName or "").strip(), registration.lastName.strip()) if part),
                 registration.email.strip().lower(),
                 registration.birthday,
                 registration.mobileNumber,
                 registration.currentAddress.strip(),
+                                (registration.middleName or "").strip() or None,
+                                registration.sex,
                 hash_password(registration.password),
             ),
         )

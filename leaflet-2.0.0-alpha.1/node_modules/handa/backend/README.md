@@ -12,6 +12,14 @@ docker compose up --build
 
 The API is available at `http://localhost:8000`. OpenAPI documentation is at `http://localhost:8000/docs`.
 
+## Tests
+
+Run the backend authorization tests from `backend/`:
+
+```powershell
+python -m unittest discover -s tests -v
+```
+
 ## Supabase connection
 
 Copy `backend/.env.example` to `backend/.env`, replace `[YOUR-PASSWORD]`, and start the API from the `backend/` directory:

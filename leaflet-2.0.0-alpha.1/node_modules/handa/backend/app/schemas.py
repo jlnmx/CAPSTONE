@@ -44,10 +44,12 @@ class SyncBatch(BaseModel):
 
 class UserRegistration(BaseModel):
     firstName: str = Field(min_length=1, max_length=120)
+    middleName: str | None = Field(default=None, max_length=120)
     lastName: str = Field(min_length=1, max_length=120)
     birthday: date
+    sex: Literal["Male", "Female"]
     mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
-    currentAddress: str = Field(min_length=1, max_length=500)
+    currentAddress: str = Field(default="", max_length=500)
     email: str = Field(pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
     password: str = Field(min_length=8, max_length=128)
 

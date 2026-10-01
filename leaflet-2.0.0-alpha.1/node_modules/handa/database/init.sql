@@ -63,9 +63,11 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE,
+  middle_name TEXT,
   birthday DATE NOT NULL,
+  sex TEXT NOT NULL DEFAULT '',
   mobile_number TEXT NOT NULL,
-  current_address TEXT NOT NULL,
+  current_address TEXT NOT NULL DEFAULT '',
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('Responder', 'Resident', 'Administrator')),
   status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive', 'Pending')),
@@ -74,8 +76,11 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS birthday DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS current_address TEXT;
+ALTER TABLE users ALTER COLUMN current_address SET DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
 CREATE INDEX IF NOT EXISTS users_role_idx ON users (role);
