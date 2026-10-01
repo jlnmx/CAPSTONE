@@ -2,7 +2,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from app.schemas import UserRegistration
+from app.schemas import EvacuationRegistrationCreate, UserRegistration
 
 
 class UserRegistrationSchemaTests(unittest.TestCase):
@@ -45,6 +45,38 @@ class UserRegistrationSchemaTests(unittest.TestCase):
                 "mobileNumber": "09171234567",
                 "email": "ana@example.com",
                 "password": "StrongPass1!",
+            })
+
+
+class EvacuationRegistrationSchemaTests(unittest.TestCase):
+    def test_reference_form_fields_and_household_members_are_accepted(self):
+        registration = EvacuationRegistrationCreate.model_validate({
+            "centerId": "center-poblacion",
+            "firstName": "Ana",
+            "middleName": "Maria",
+            "lastName": "Santos",
+            "age": 32,
+            "sex": "Female",
+            "contactNumber": "09171234567",
+            "address": "12 Main Street, Biñan",
+            "householdSize": 2,
+            "members": [{"name": "Luis Santos", "relationship": "Son"}],
+        })
+
+        self.assertEqual(registration.householdSize, 2)
+        self.assertEqual(registration.members[0].relationship, "Son")
+
+    def test_household_size_has_a_fixed_upper_bound(self):
+        with self.assertRaises(ValidationError):
+            EvacuationRegistrationCreate.model_validate({
+                "centerId": "center-poblacion",
+                "firstName": "Ana",
+                "lastName": "Santos",
+                "age": 32,
+                "sex": "Female",
+                "contactNumber": "09171234567",
+                "address": "12 Main Street, Biñan",
+                "householdSize": 22,
             })
 
 

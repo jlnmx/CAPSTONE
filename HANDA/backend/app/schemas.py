@@ -99,6 +99,28 @@ class EvacueeStatusUpdate(BaseModel):
     evacuationStatus: Literal['registered', 'checked_in', 'evacuated', 'released']
 
 
+class HouseholdMemberInput(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    relationship: str = Field(min_length=1, max_length=80)
+
+
+class EvacuationRegistrationCreate(BaseModel):
+    centerId: str = Field(min_length=1, max_length=160)
+    firstName: str = Field(min_length=1, max_length=120)
+    middleName: str | None = Field(default=None, max_length=120)
+    lastName: str = Field(min_length=1, max_length=120)
+    age: int = Field(ge=0, le=150)
+    sex: Literal["Female", "Male", "Other"]
+    contactNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
+    address: str = Field(min_length=1, max_length=500)
+    householdSize: int = Field(ge=1, le=21)
+    members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
+
+
+class EvacuationRegistrationStatusUpdate(BaseModel):
+    status: Literal['checked_in', 'evacuated', 'released']
+
+
 class CenterCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     location: str = Field(default='', max_length=255)

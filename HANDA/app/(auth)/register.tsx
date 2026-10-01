@@ -19,6 +19,7 @@ export default function RegisterScreen() {
   const [sex, setSex] = useState('');
   const [isSexPickerOpen, setIsSexPickerOpen] = useState(false);
   const [mobileNumber, setMobileNumber] = useState('');
+  const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -35,6 +36,7 @@ export default function RegisterScreen() {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday.trim())) errors.birthday = 'Select a valid birthday.';
     if (sex !== 'Male' && sex !== 'Female') errors.sex = 'Select Male or Female.';
     if (!/^(09\d{9}|\+639\d{9}|639\d{9})$/.test(normalizedMobile)) errors.mobileNumber = 'Use a valid Philippine number, e.g. 09171234567.';
+    if (!address.trim()) errors.address = 'Current address is required.';
     if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(normalizedEmail)) errors.email = 'Enter a valid email address.';
     if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
       errors.password = 'Use 8+ characters with uppercase, lowercase, number, and symbol.';
@@ -54,12 +56,12 @@ export default function RegisterScreen() {
       const response = await fetch(`${API_BASE_URL}/api/v1/users/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName: firstName.trim(), middleName: middleName.trim() || null, lastName: lastName.trim(), birthday, sex, mobileNumber: normalizedMobile, email: normalizedEmail, password }),
+        body: JSON.stringify({ firstName: firstName.trim(), middleName: middleName.trim() || null, lastName: lastName.trim(), birthday, sex, mobileNumber: normalizedMobile, currentAddress: address.trim(), email: normalizedEmail, password }),
         signal: abortController.signal,
       });
-      const result = await response.json() as { id?: string; accessToken?: string; detail?: string; message?: string };
+      const result = await response.json() as { id?: string; accessToken?: string; detail?: unknown; message?: string };
       if (!response.ok) {
-        setValidationErrors({ form: result.detail || 'Registration could not be completed.' });
+        setValidationErrors({ form: getRegistrationErrorMessage(result.detail) });
         return;
       }
       const fullName = [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ');
@@ -136,6 +138,9 @@ export default function RegisterScreen() {
           <FormField label="Contact Number" error={validationErrors.mobileNumber}>
             <NativeTextInput style={styles.input} placeholder="(+63) 900-000-0000" placeholderTextColor={PLACEHOLDER_COLOR} value={mobileNumber} onChangeText={setMobileNumber} keyboardType="phone-pad" returnKeyType="next" />
           </FormField>
+          <FormField label="Current Address" error={validationErrors.address}>
+            <NativeTextInput style={styles.input} placeholder="Enter current address" placeholderTextColor={PLACEHOLDER_COLOR} value={address} onChangeText={setAddress} autoCapitalize="words" returnKeyType="next" />
+          </FormField>
           <FormField label="Enter email address" error={validationErrors.email}>
             <NativeTextInput style={styles.input} placeholder="Enter email address" placeholderTextColor={PLACEHOLDER_COLOR} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" returnKeyType="next" />
           </FormField>
@@ -185,6 +190,30 @@ function FormField({ label, required = true, optional = false, error, children }
       {error && <Text style={styles.fieldError}>{error}</Text>}
     </View>
   );
+}
+
+function getRegistrationErrorMessage(detail: unknown): string {
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail.flatMap((issue: unknown) => {
+      if (!issue || typeof issue !== 'object' || !('msg' in issue) || typeof issue.msg !== 'string') {
+        return [];
+      }
+
+      const location = 'loc' in issue && Array.isArray(issue.loc) ? issue.loc[issue.loc.length - 1] : undefined;
+      const field = typeof location === 'string' ? `${location}: ` : '';
+      return [`${field}${issue.msg}`];
+    });
+
+    if (messages.length > 0) {
+      return messages.join('\n');
+    }
+  }
+
+  return 'Registration could not be completed. Check your information and try again.';
 }
 
 const PLACEHOLDER_COLOR = '#8EAF8E';

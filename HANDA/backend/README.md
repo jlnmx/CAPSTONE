@@ -33,6 +33,8 @@ Binding to `0.0.0.0` lets Expo Go on a phone reach the API over the same local n
 
 The connection string uses `sslmode=require` for Supabase. Before starting the API, run `database/init.sql` in the Supabase SQL Editor so the `incidents` and `evacuees` tables and PostGIS indexes exist.
 
+For an existing Supabase database, also run `database/migrations/20261001_evacuation_status.sql` in the SQL Editor to add resident evacuation registrations and household members. The API adds the same tables at startup for local databases.
+
 When using Docker Compose, set `DATABASE_URL` in the shell before starting it; Compose will use that value instead of the local Postgres fallback:
 
 ```powershell
@@ -46,7 +48,7 @@ Check the service:
 Invoke-RestMethod http://localhost:8000/health
 ```
 
-Responder data is available from `/api/v1/disasters`, `/api/v1/incidents`, `/api/v1/evacuees`, and `/api/v1/centers`. Responders update incident action state with `PATCH /api/v1/incidents/{id}/status` and evacuation state with `PATCH /api/v1/evacuees/{id}/status`. The API applies the operational schema migration at startup for existing database volumes.
+Responder data is available from `/api/v1/disasters`, `/api/v1/incidents`, `/api/v1/evacuees`, and `/api/v1/centers`. Responders update incident action state with `PATCH /api/v1/incidents/{id}/status`, evacuee state with `PATCH /api/v1/evacuees/{id}/status`, and household check-in state with `PATCH /api/v1/evacuation-registrations/{id}/status`.
 
 ## Sync contract
 

@@ -10,9 +10,9 @@ import { authenticatedFetch } from '@services/apiClient';
 
 const actions = [
   { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/register-evacuee' },
-  { icon: 'checkbox-marked-outline' as const, label: 'Verify Check-in', route: '/(resident)/alerts' },
+  { icon: 'checkbox-marked-outline' as const, label: 'Verify Check-in', route: '/(resident)/verify-status' },
   { icon: 'alert-circle-outline' as const, label: 'Report incident', route: '/(resident)/report' },
-  { icon: 'home-city-outline' as const, label: 'Center status', route: '/(resident)/map' },
+  { icon: 'home-city-outline' as const, label: 'Center status', route: '/(resident)/center-status' },
 ];
 
 const DEFAULT_LOCATION = { latitude: 14.3036, longitude: 121.0781 };
@@ -24,6 +24,11 @@ type ActiveDisaster = {
   status: 'Upcoming' | 'Active' | 'Archived';
   affected_areas: number;
   started_at: string | null;
+};
+
+type ResidentEvacuationStatus = {
+  status: 'not_registered' | 'registered' | 'checked_in' | 'evacuated' | 'released';
+  householdCount: number;
 };
 
 type WeatherSnapshot = {
@@ -75,6 +80,8 @@ export default function ResidentDashboard() {
   const [weather, setWeather] = useState<WeatherSnapshot>(WEATHER_DEFAULT);
   const [isWeatherLoading, setIsWeatherLoading] = useState(true);
   const [weatherError, setWeatherError] = useState(false);
+  const [evacuationStatus, setEvacuationStatus] = useState<ResidentEvacuationStatus | null>(null);
+  const [evacuationStatusUnavailable, setEvacuationStatusUnavailable] = useState(false);
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -95,6 +102,22 @@ export default function ResidentDashboard() {
 
     void loadActiveDisaster();
     const refresh = setInterval(() => void loadActiveDisaster(), 60_000);
+    return () => clearInterval(refresh);
+  }, []);
+
+  useEffect(() => {
+    const loadEvacuationStatus = async () => {
+      try {
+        const response = await authenticatedFetch('/api/v1/resident/evacuation-status');
+        if (!response.ok) throw new Error('Evacuation status request failed');
+        setEvacuationStatus(await response.json() as ResidentEvacuationStatus);
+        setEvacuationStatusUnavailable(false);
+      } catch {
+        setEvacuationStatusUnavailable(true);
+      }
+    };
+    void loadEvacuationStatus();
+    const refresh = setInterval(() => void loadEvacuationStatus(), 15000);
     return () => clearInterval(refresh);
   }, []);
 
@@ -181,8 +204,18 @@ export default function ResidentDashboard() {
         </Pressable>
 
         <View style={styles.statusRow}>
-          <StatusTile icon="account-outline" title="MY STATUS" detail="Checked in" />
-          <StatusTile icon="account-multiple-outline" title="HOUSEHOLD" detail="4 members" />
+          <StatusTile
+            icon="account-outline"
+            title="MY STATUS"
+            detail={evacuationStatusUnavailable ? 'Unavailable' : !evacuationStatus ? 'Loading...' : evacuationStatus.status === 'not_registered' ? 'Not registered' : evacuationStatus.status.replace('_', ' ')}
+            onPress={() => router.push('/(resident)/verify-status')}
+          />
+          <StatusTile
+            icon="account-multiple-outline"
+            title="HOUSEHOLD"
+            detail={evacuationStatusUnavailable ? 'Unavailable' : !evacuationStatus ? 'Loading...' : `${evacuationStatus.householdCount} ${evacuationStatus.householdCount === 1 ? 'member' : 'members'}`}
+            onPress={() => router.push('/(resident)/verify-status')}
+          />
         </View>
 
         <View style={styles.resourceRow}>
@@ -207,8 +240,8 @@ export default function ResidentDashboard() {
   );
 }
 
-function StatusTile({ icon, title, detail }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string }) {
-  return <View style={styles.statusTile}><MaterialCommunityIcons name={icon} size={29} color="#1E5987" /><View style={styles.statusCopy}><Text style={styles.statusTitle}>{title}</Text><Text style={styles.statusDetail}>{detail}</Text></View></View>;
+function StatusTile({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {
+  return <Pressable style={styles.statusTile} onPress={onPress}><MaterialCommunityIcons name={icon} size={29} color="#1E5987" /><View style={styles.statusCopy}><Text style={styles.statusTitle}>{title}</Text><Text style={styles.statusDetail}>{detail}</Text></View></Pressable>;
 }
 
 function ResourceButton({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {

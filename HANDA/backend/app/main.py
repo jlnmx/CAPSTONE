@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
 from .db import get_connection
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, SyncBatch, UserLogin, UserRegistration
 
 
 def normalize_id(value: str | None, prefix: str) -> str:
@@ -140,6 +140,66 @@ def ensure_operational_schema() -> None:
             """,
         )
         connection.execute("CREATE INDEX IF NOT EXISTS evacuation_centers_status_idx ON evacuation_centers (status)")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS evacuation_registrations (
+              id TEXT PRIMARY KEY,
+              resident_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              center_id TEXT NOT NULL REFERENCES evacuation_centers(id) ON DELETE RESTRICT,
+              first_name TEXT NOT NULL DEFAULT '',
+              middle_name TEXT,
+              last_name TEXT NOT NULL DEFAULT '',
+              age INTEGER NOT NULL DEFAULT 0,
+              sex TEXT NOT NULL DEFAULT '',
+              contact_number TEXT NOT NULL DEFAULT '',
+              address TEXT NOT NULL DEFAULT '',
+              household_size INTEGER NOT NULL DEFAULT 1,
+              status TEXT NOT NULL DEFAULT 'registered' CHECK (status IN ('registered', 'checked_in', 'evacuated', 'released')),
+              registered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              checked_in_at TIMESTAMPTZ,
+              checked_in_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """,
+        )
+        connection.execute("ALTER TABLE evacuation_registrations ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE evacuation_registrations ADD COLUMN IF NOT EXISTS middle_name TEXT")
+        connection.execute("ALTER TABLE evacuation_registrations ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE evacuation_registrations ADD COLUMN IF NOT EXISTS age INTEGER NOT NULL DEFAULT 0")
+        connection.execute("ALTER TABLE evacuation_registrations ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE evacuation_registrations ADD COLUMN IF NOT EXISTS contact_number TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE evacuation_registrations ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE evacuation_registrations ADD COLUMN IF NOT EXISTS household_size INTEGER NOT NULL DEFAULT 1")
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS evacuation_registrations_one_active_per_resident_idx
+            ON evacuation_registrations (resident_user_id) WHERE status <> 'released'
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS evacuation_registrations_center_status_idx
+            ON evacuation_registrations (center_id, status)
+            """,
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS evacuation_household_members (
+              id TEXT PRIMARY KEY,
+              registration_id TEXT NOT NULL REFERENCES evacuation_registrations(id) ON DELETE CASCADE,
+              name TEXT NOT NULL,
+              relationship TEXT NOT NULL,
+              status TEXT NOT NULL DEFAULT 'registered' CHECK (status IN ('registered', 'checked_in', 'evacuated', 'released')),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """,
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS evacuation_household_members_registration_idx
+            ON evacuation_household_members (registration_id)
+            """,
+        )
         connection.execute(
             """
             INSERT INTO evacuation_centers (id, name, location_text, capacity, current_occupancy, status, latitude, longitude)
@@ -315,6 +375,206 @@ def create_center(center: CenterCreate, connection: psycopg.Connection = Depends
     ).fetchone()
     connection.commit()
     return row
+
+
+def resident_evacuation_status(connection: psycopg.Connection, resident: CurrentUser) -> dict:
+    registration = connection.execute(
+        """
+        SELECT registration.id, registration.status, registration.registered_at,
+             registration.checked_in_at, registration.first_name,
+             registration.middle_name, registration.last_name, registration.age,
+             registration.sex, registration.contact_number, registration.address,
+             registration.household_size, verifier.name AS checked_in_by,
+               center.id AS center_id, center.name AS center_name,
+               center.location_text AS center_location
+        FROM evacuation_registrations AS registration
+        JOIN evacuation_centers AS center ON center.id = registration.center_id
+        LEFT JOIN users AS verifier ON verifier.id = registration.checked_in_by
+        WHERE registration.resident_user_id = %s
+        ORDER BY registration.registered_at DESC
+        LIMIT 1
+        """,
+        (resident.id,),
+    ).fetchone()
+    if not registration:
+        return {
+            "resident": {"id": resident.id, "name": resident.name, "status": "not_registered"},
+            "registrationId": None,
+            "status": "not_registered",
+            "center": None,
+            "registeredAt": None,
+            "checkedInAt": None,
+            "checkedInBy": None,
+            "householdCount": 0,
+            "evacuee": None,
+            "members": [],
+        }
+
+    members = connection.execute(
+        "SELECT id, name, relationship, status, updated_at FROM evacuation_household_members WHERE registration_id = %s ORDER BY name",
+        (registration["id"],),
+    ).fetchall()
+    return {
+        "resident": {"id": resident.id, "name": resident.name, "status": registration["status"]},
+        "registrationId": registration["id"],
+        "status": registration["status"],
+        "center": {
+            "id": registration["center_id"],
+            "name": registration["center_name"],
+            "location": registration["center_location"],
+        },
+        "registeredAt": registration["registered_at"],
+        "checkedInAt": registration["checked_in_at"],
+        "checkedInBy": registration["checked_in_by"],
+        "householdCount": registration["household_size"],
+        "evacuee": {
+            "name": " ".join(part for part in (registration["first_name"], registration["middle_name"], registration["last_name"]) if part),
+            "age": registration["age"],
+            "sex": registration["sex"],
+            "contactNumber": registration["contact_number"],
+            "address": registration["address"],
+        },
+        "members": members,
+    }
+
+
+@app.get("/api/v1/resident/evacuation-status")
+def get_resident_evacuation_status(
+    resident: CurrentUser = Depends(require_roles("resident")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    return resident_evacuation_status(connection, resident)
+
+
+@app.post("/api/v1/resident/evacuation-registrations", status_code=201)
+def register_resident_at_center(
+    registration: EvacuationRegistrationCreate,
+    resident: CurrentUser = Depends(require_roles("resident")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    if len(registration.members) != registration.householdSize - 1:
+        raise HTTPException(status_code=422, detail="Add a name and relationship for every household member besides the evacuee.")
+
+    center = connection.execute(
+        "SELECT id, status FROM evacuation_centers WHERE id = %s",
+        (registration.centerId,),
+    ).fetchone()
+    if not center:
+        raise HTTPException(status_code=404, detail="Evacuation center not found.")
+    if center["status"] in ("closed", "full"):
+        raise HTTPException(status_code=409, detail="This evacuation center is not accepting registrations.")
+
+    existing = connection.execute(
+        "SELECT id FROM evacuation_registrations WHERE resident_user_id = %s AND status <> 'released' LIMIT 1",
+        (resident.id,),
+    ).fetchone()
+    if existing:
+        raise HTTPException(status_code=409, detail="Your household already has an active evacuation registration.")
+
+    registration_id = f"evac-registration-{uuid4()}"
+    try:
+        connection.execute(
+            "INSERT INTO evacuation_registrations (id, resident_user_id, center_id, first_name, middle_name, last_name, age, sex, contact_number, address, household_size) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (registration_id, resident.id, registration.centerId, registration.firstName.strip(), (registration.middleName or "").strip() or None, registration.lastName.strip(), registration.age, registration.sex, registration.contactNumber, registration.address.strip(), registration.householdSize),
+        )
+        for member in registration.members:
+            connection.execute(
+                "INSERT INTO evacuation_household_members (id, registration_id, name, relationship) VALUES (%s, %s, %s, %s)",
+                (f"household-member-{uuid4()}", registration_id, member.name.strip(), member.relationship.strip()),
+            )
+        connection.commit()
+    except psycopg.errors.UniqueViolation as error:
+        connection.rollback()
+        raise HTTPException(status_code=409, detail="Your household already has an active evacuation registration.") from error
+
+    return resident_evacuation_status(connection, resident)
+
+
+@app.get("/api/v1/evacuation-registrations")
+def list_evacuation_registrations(
+    connection: psycopg.Connection = Depends(get_connection),
+    _: CurrentUser = Depends(require_roles("responder", "admin")),
+):
+    registrations = connection.execute(
+        """
+        SELECT registration.id, registration.status, registration.registered_at,
+             registration.checked_in_at, registration.first_name,
+             registration.middle_name, registration.last_name, registration.age,
+             registration.sex, registration.contact_number, registration.address,
+             registration.household_size, resident.name AS resident_name,
+               center.name AS center_name, center.location_text AS center_location
+        FROM evacuation_registrations AS registration
+        JOIN users AS resident ON resident.id = registration.resident_user_id
+        JOIN evacuation_centers AS center ON center.id = registration.center_id
+        WHERE registration.status <> 'released'
+        ORDER BY CASE WHEN registration.status = 'registered' THEN 0 ELSE 1 END,
+                 registration.registered_at DESC
+        """,
+    ).fetchall()
+    result = []
+    for registration in registrations:
+        item = dict(registration)
+        item["members"] = connection.execute(
+            "SELECT id, name, relationship, status, updated_at FROM evacuation_household_members WHERE registration_id = %s ORDER BY name",
+            (registration["id"],),
+        ).fetchall()
+        result.append(item)
+    return result
+
+
+@app.patch("/api/v1/evacuation-registrations/{registration_id}/status")
+def update_evacuation_registration_status(
+    registration_id: str,
+    update: EvacuationRegistrationStatusUpdate,
+    user: CurrentUser = Depends(require_roles("responder", "admin")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    registration = connection.execute(
+        "SELECT id, center_id, status, household_size FROM evacuation_registrations WHERE id = %s FOR UPDATE",
+        (registration_id,),
+    ).fetchone()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Evacuation registration not found.")
+
+    current_status = registration["status"]
+    allowed_transitions = {
+        "registered": {"checked_in", "released"},
+        "checked_in": {"evacuated", "released"},
+        "evacuated": {"released"},
+        "released": set(),
+    }
+    if update.status not in allowed_transitions[current_status]:
+        raise HTTPException(status_code=409, detail=f"Cannot change status from {current_status} to {update.status}.")
+
+    household_count = registration["household_size"]
+
+    if update.status == "checked_in":
+        center = connection.execute(
+            "SELECT capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
+            (registration["center_id"],),
+        ).fetchone()
+        if center["status"] == "closed" or center["current_occupancy"] + household_count > center["capacity"]:
+            raise HTTPException(status_code=409, detail="The evacuation center does not have enough available capacity for this household.")
+        connection.execute(
+            "UPDATE evacuation_centers SET current_occupancy = current_occupancy + %s, status = CASE WHEN current_occupancy + %s >= capacity THEN 'full' ELSE 'limited' END, updated_at = NOW() WHERE id = %s",
+            (household_count, household_count, registration["center_id"]),
+        )
+    elif update.status == "released" and current_status in ("checked_in", "evacuated"):
+        connection.execute(
+            "UPDATE evacuation_centers SET current_occupancy = GREATEST(0, current_occupancy - %s), status = CASE WHEN status = 'closed' THEN 'closed' WHEN GREATEST(0, current_occupancy - %s) = 0 THEN 'available' ELSE 'limited' END, updated_at = NOW() WHERE id = %s",
+            (household_count, household_count, registration["center_id"]),
+        )
+
+    connection.execute(
+        "UPDATE evacuation_registrations SET status = %s, checked_in_at = CASE WHEN %s = 'checked_in' THEN NOW() ELSE checked_in_at END, checked_in_by = CASE WHEN %s = 'checked_in' THEN %s ELSE checked_in_by END, updated_at = NOW() WHERE id = %s",
+        (update.status, update.status, update.status, user.id, registration_id),
+    )
+    connection.execute(
+        "UPDATE evacuation_household_members SET status = %s, updated_at = NOW() WHERE registration_id = %s",
+        (update.status, registration_id),
+    )
+    connection.commit()
+    return {"id": registration_id, "status": update.status}
 
 
 @app.get("/api/v1/users")
