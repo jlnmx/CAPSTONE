@@ -80,7 +80,7 @@ export default function RegisterScreen() {
       router.replace('/(resident)');
     } catch (error) {
       const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
-      setValidationErrors({ form: errorName === 'AbortError' ? 'The registration service timed out. Check the backend and Supabase connection.' : 'Unable to connect to the registration service.' });
+      setValidationErrors({ form: errorName === 'AbortError' ? 'The registration service timed out. Check that your phone and API are on the same Wi-Fi network.' : 'Unable to connect to the registration service.' });
     } finally {
       clearTimeout(requestTimeout);
       setIsSubmitting(false);

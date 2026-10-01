@@ -5,7 +5,6 @@
 
 import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Location from 'expo-location';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
 
@@ -31,12 +30,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const finishLogin = async (authUser: AuthUser) => {
     setUser(authUser);
     await AsyncStorage.setItem('userId', authUser.id);
-
-    try {
-      await Location.requestForegroundPermissionsAsync();
-    } catch (locationError) {
-      console.warn('Location permission request was unavailable:', locationError);
-    }
   };
 
   const login = async (email: string, password: string) => {

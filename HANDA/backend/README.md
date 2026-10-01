@@ -18,8 +18,10 @@ Copy `backend/.env.example` to `backend/.env`, replace `[YOUR-PASSWORD]`, and st
 
 ```powershell
 Copy-Item .env.example .env
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+Binding to `0.0.0.0` lets Expo Go on a phone reach the API over the same local network. Keep the phone and development computer on the same Wi-Fi network.
 
 The connection string uses `sslmode=require` for Supabase. Before starting the API, run `database/init.sql` in the Supabase SQL Editor so the `incidents` and `evacuees` tables and PostGIS indexes exist.
 
