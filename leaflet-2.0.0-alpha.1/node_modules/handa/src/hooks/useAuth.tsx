@@ -86,11 +86,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setIsLoading(true);
       await AuthService.logout();
-      setUser(null);
-      await AsyncStorage.removeItem('userId');
     } catch (e) {
       console.error('Logout error:', e);
     } finally {
+      setUser(null);
+      await AsyncStorage.removeItem('userId');
       setIsLoading(false);
     }
   };

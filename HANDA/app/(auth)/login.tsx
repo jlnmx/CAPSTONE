@@ -58,7 +58,7 @@ export default function LoginScreen() {
 
       <View style={styles.formSection}>
         <TextInput
-          placeholder="Username or Email"
+          placeholder="Email"
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"

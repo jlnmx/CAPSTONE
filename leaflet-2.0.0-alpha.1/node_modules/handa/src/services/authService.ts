@@ -63,12 +63,21 @@ export class AuthService {
     password: string
   ): Promise<AuthUser | null> {
     let apiReachable = false;
+    let connectionError: unknown;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      let response: Response;
+      try {
+        response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), password }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
       apiReachable = true;
       if (response.ok) {
         const result = await response.json() as { accessToken?: string; user?: AuthUser };
@@ -85,6 +94,7 @@ export class AuthService {
       if (apiReachable) {
         throw error;
       }
+      connectionError = error;
     }
 
     for (const user of Object.values(MOCK_USERS)) {
@@ -93,6 +103,13 @@ export class AuthService {
         const { password: _, ...userWithoutPassword } = user;
         return userWithoutPassword;
       }
+    }
+
+    if (connectionError) {
+      const message = connectionError instanceof Error && connectionError.name === 'AbortError'
+        ? 'The login request timed out. Check the HANDA server connection and try again.'
+        : 'Cannot reach the HANDA server. Check that the backend is running and the app server URL is correct.';
+      throw new Error(message);
     }
 
     return null;
@@ -119,7 +136,18 @@ export class AuthService {
   static async logout(): Promise<void> {
     try {
       if (await getAccessToken()) {
-        await authenticatedFetch('/api/v1/auth/logout', { method: 'POST' });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        try {
+          await authenticatedFetch('/api/v1/auth/logout', {
+            method: 'POST',
+            signal: controller.signal,
+          });
+        } catch {
+          // Local logout should still complete when the API is unavailable.
+        } finally {
+          clearTimeout(timeout);
+        }
       }
     } finally {
       await clearAccessToken();

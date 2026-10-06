@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, BorderRadius, Spacing } from '@constants/colors';
 
@@ -10,6 +11,7 @@ interface MoreMenuProps {
 
 export function MoreMenu({ roleLabel }: MoreMenuProps) {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const displayName = user?.name || 'HANDA User';
 
   const openSettings = () => {
@@ -18,8 +20,21 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
 
   const openAccount = () => {
     Alert.alert('Account', 'Manage your profile and account preferences.', [
+      { text: 'Close', style: 'cancel' },
+    ]);
+  };
+
+  const confirmLogout = () => {
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: logout },
+      {
+        text: 'Log out',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          router.replace('/(auth)/login');
+        },
+      },
     ]);
   };
 
@@ -48,6 +63,10 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
           <TouchableOpacity style={styles.menuButton} onPress={openAccount} activeOpacity={0.8}>
             <MaterialCommunityIcons name="account-outline" size={46} color="#218B25" />
             <Text style={styles.menuLabel}>ACCOUNT</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.menuButton, styles.logoutButton]} onPress={confirmLogout} activeOpacity={0.8}>
+            <MaterialCommunityIcons name="logout" size={42} color={Colors.emergency} />
+            <Text style={[styles.menuLabel, styles.logoutLabel]}>LOG OUT</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -125,11 +144,17 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: Colors.white,
   },
+  logoutButton: {
+    borderColor: Colors.emergency,
+  },
   menuLabel: {
     marginLeft: 16,
     color: '#155B19',
     fontSize: 21,
     fontWeight: '800',
     letterSpacing: 0.5,
+  },
+  logoutLabel: {
+    color: Colors.emergency,
   },
 });
