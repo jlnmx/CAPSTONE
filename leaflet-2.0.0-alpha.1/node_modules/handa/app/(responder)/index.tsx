@@ -98,6 +98,10 @@ export default function ResponderDashboard() {
           <MaterialCommunityIcons name="chevron-right" size={31} color={Colors.white} />
         </AnimatedPressable>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
+        </View>
+
         <View style={styles.statsContainer}>
           <StatTile icon="account-group-outline" value={isLoading ? '...' : displayedEvacuees} label="Total Evacuees" color="#218B25" onPress={() => router.push('/evacuees')} />
           <StatTile icon="alert-outline" value={isLoading ? '...' : displayedIncidents} label="Active Incidents" color="#D63F43" onPress={() => router.push('/incidents')} />
@@ -110,16 +114,6 @@ export default function ResponderDashboard() {
 
         <Text style={styles.dataSource}>{isLoading ? 'Loading live server data...' : dataUnavailable ? `Partial live data · unavailable: ${data.unavailableSources.join(', ')}` : 'Live server data · refreshes every 15 seconds'}</Text>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-          <View style={styles.quickActionsGrid}>
-            <ActionButton icon="account-group-outline" label="Manage Evacuees" onPress={() => router.push('/evacuees')} />
-            <ActionButton icon="checkbox-marked-outline" label="Verify Check-in" onPress={() => router.push('/evacuees')} />
-          </View>
-          <View style={styles.quickActionsGrid}>
-            <ActionButton icon="map-outline" label="View Map" onPress={() => router.push('/map')} />
-          </View>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -142,21 +136,6 @@ function StatTile({ icon, value, label, color, onPress }: StatTileProps) {
         <Text style={[styles.statLabel, { color }]}>{label}</Text>
       </View>
       <MaterialCommunityIcons name="chevron-right" size={17} color={color} style={styles.statChevron} />
-    </AnimatedPressable>
-  );
-}
-
-interface ActionButtonProps {
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  label: string;
-  onPress: () => void;
-}
-
-function ActionButton({ icon, label, onPress }: ActionButtonProps) {
-  return (
-    <AnimatedPressable style={styles.actionButton} onPress={onPress}>
-      <MaterialCommunityIcons name={icon} size={25} color="#218B25" style={styles.actionIcon} />
-      <Text style={styles.actionLabel}>{label}</Text>
     </AnimatedPressable>
   );
 }
@@ -320,28 +299,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#218B25',
     marginBottom: 7,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  actionButton: {
-    width: '48%',
-    height: 76,
-    borderRadius: 8,
-    backgroundColor: '#EEF2EF',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
-  actionIcon: {
-    marginBottom: 5,
-  },
-  actionLabel: {
-    color: '#218B25',
-    fontSize: 9,
-    textAlign: 'center',
   },
 });
