@@ -2,7 +2,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from app.schemas import EvacuationRegistrationCreate, UserRegistration
+from app.schemas import EvacuationRegistrationCreate, ResidentProfileUpdate, UserRegistration
 
 
 class UserRegistrationSchemaTests(unittest.TestCase):
@@ -35,6 +35,20 @@ class UserRegistrationSchemaTests(unittest.TestCase):
         self.assertEqual(registration.middleName, "Maria")
         self.assertEqual(registration.sex, "Female")
 
+    def test_account_registration_accepts_household_members(self):
+        registration = UserRegistration.model_validate({
+            "firstName": "Ana",
+            "lastName": "Santos",
+            "birthday": "2000-01-01",
+            "sex": "Female",
+            "mobileNumber": "09171234567",
+            "email": "ana@example.com",
+            "password": "StrongPass1!",
+            "members": [{"name": "Luis Santos", "relationship": "Son"}],
+        })
+
+        self.assertEqual(registration.members[0].relationship, "Son")
+
     def test_sex_must_match_the_registration_choices(self):
         with self.assertRaises(ValidationError):
             UserRegistration.model_validate({
@@ -46,6 +60,19 @@ class UserRegistrationSchemaTests(unittest.TestCase):
                 "email": "ana@example.com",
                 "password": "StrongPass1!",
             })
+
+    def test_resident_profile_update_includes_household_members(self):
+        profile = ResidentProfileUpdate.model_validate({
+            "firstName": "Ana",
+            "lastName": "Santos",
+            "birthday": "2000-01-01",
+            "sex": "Female",
+            "mobileNumber": "09171234567",
+            "currentAddress": "12 Main Street",
+            "members": [{"name": "Luis Santos", "relationship": "Son"}],
+        })
+
+        self.assertEqual(profile.members[0].name, "Luis Santos")
 
 
 class EvacuationRegistrationSchemaTests(unittest.TestCase):

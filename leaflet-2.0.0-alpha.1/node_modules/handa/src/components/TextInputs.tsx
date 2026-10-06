@@ -12,9 +12,10 @@ import {
   ViewStyle,
   TextStyle,
   StyleProp,
-  TouchableOpacity,
 } from 'react-native';
+import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
+import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 
 interface TextInputProps {
   label?: string;
@@ -39,12 +40,15 @@ export function TextInput({
   inputStyle,
   keyboardType = 'default',
 }: TextInputProps) {
+  const { buttonHeight, scale } = useResponsiveLayout();
+
   return (
     <View style={containerStyle}>
       {label && <Text style={styles.label}>{label}</Text>}
       <RNTextInput
         style={[
           styles.input,
+          { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale },
           inputStyle,
           error && styles.inputError,
           !editable && styles.inputDisabled,
@@ -83,6 +87,7 @@ export function PasswordInput({
   showVisibilityToggle = true,
 }: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const { buttonHeight, scale } = useResponsiveLayout();
 
   return (
     <View style={containerStyle}>
@@ -92,6 +97,7 @@ export function PasswordInput({
           style={[
             styles.input,
             styles.passwordInput,
+            { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale },
             inputStyle,
             error && styles.inputError,
           ]}
@@ -111,7 +117,7 @@ export function PasswordInput({
           >
             <MaterialCommunityIcons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              size={20}
+              size={20 * scale}
               color={Colors.textMuted}
             />
           </TouchableOpacity>

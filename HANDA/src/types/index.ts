@@ -4,12 +4,26 @@
 
 export type UserRole = 'responder' | 'resident' | 'admin';
 
+export interface ResidentHouseholdMember {
+  id?: string;
+  name: string;
+  relationship: string;
+}
+
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
   role: UserRole;
   isDemo?: boolean;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  birthday?: string;
+  sex?: string;
+  mobileNumber?: string;
+  currentAddress?: string;
+  householdMembers?: ResidentHouseholdMember[];
 }
 
 export interface AuthContextType {
@@ -45,6 +59,17 @@ export interface EvacuationCenter {
   capacity: number;
   currentOccupancy: number;
   status: 'available' | 'full' | 'closed';
+}
+
+export interface MapEvacuationCenter {
+  id: string;
+  name: string;
+  location: string;
+  capacity: number;
+  current_occupancy: number;
+  status: 'available' | 'limited' | 'full' | 'closed';
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface IncidentReport {

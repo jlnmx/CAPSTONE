@@ -6,6 +6,7 @@ import { getResponderData, IncidentStatus, ResponderIncident, updateIncidentStat
 
 const GREEN = '#218B25';
 const STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress', 'resolved'];
+const ACTIVE_STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress'];
 
 export default function ResponderIncidentQueue() {
   const [incidents, setIncidents] = useState<ResponderIncident[]>([]);
@@ -13,7 +14,7 @@ export default function ResponderIncidentQueue() {
 
   const load = async () => {
     try {
-      setIncidents((await getResponderData()).incidents);
+      setIncidents((await getResponderData()).incidents.filter((incident) => ACTIVE_STATUSES.includes(incident.status)));
     } catch {
       Alert.alert('Live data unavailable', 'Incident reports could not be loaded from the server database.');
     } finally {
@@ -30,16 +31,18 @@ export default function ResponderIncidentQueue() {
   const changeStatus = async (incident: ResponderIncident, status: IncidentStatus) => {
     try {
       await updateIncidentStatus(incident.id, status);
-      setIncidents((current) => current.map((item) => item.id === incident.id ? { ...item, status } : item));
+      setIncidents((current) => status === 'resolved'
+        ? current.filter((item) => item.id !== incident.id)
+        : current.map((item) => item.id === incident.id ? { ...item, status } : item));
     } catch {
       Alert.alert('Update failed', 'The incident status was not saved.');
     }
   };
 
   return <View style={styles.section}>
-    <View style={styles.heading}><View><Text style={styles.eyebrow}>FIELD OPERATIONS</Text><Text style={styles.title}>Incident reports</Text></View><MaterialCommunityIcons name="radio-tower" size={22} color={GREEN} /></View>
+    <View style={styles.heading}><View><Text style={styles.eyebrow}>FIELD OPERATIONS</Text><Text style={styles.title}>Active incidents</Text></View><MaterialCommunityIcons name="radio-tower" size={22} color={GREEN} /></View>
     {isLoading && <Text style={styles.empty}>Loading live incident reports...</Text>}
-    {!isLoading && incidents.length === 0 && <Text style={styles.empty}>No incident reports on the server.</Text>}
+    {!isLoading && incidents.length === 0 && <Text style={styles.empty}>No active incidents on the server.</Text>}
     {incidents.map((incident) => <View style={styles.card} key={incident.id}>
       <View style={styles.cardHeader}><View style={styles.icon}><MaterialCommunityIcons name="alert-outline" size={20} color={incident.status === 'resolved' ? '#667085' : '#B42318'} /></View><View style={styles.copy}><Text style={styles.name}>{incident.type}</Text><Text style={styles.detail}>{incident.location} · {incident.severity}</Text></View><Text style={styles.status}>{incident.status.replace('_', ' ')}</Text></View>
       <Text style={styles.description}>{incident.description}</Text>

@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@constants/colors';
 
 interface ScreenHeaderProps {

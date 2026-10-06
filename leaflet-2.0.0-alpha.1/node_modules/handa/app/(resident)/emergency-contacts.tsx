@@ -1,5 +1,6 @@
 import React from 'react';
-import { Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
 
@@ -35,7 +36,7 @@ export default function EmergencyContactsScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.white },
   container: { flex: 1, backgroundColor: Colors.white },
-  content: { paddingBottom: 24 },
+  content: { width: '100%', maxWidth: 850, alignSelf: 'center', paddingBottom: 24 },
   header: { minHeight: 87, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { color: Colors.white, fontSize: 23, fontWeight: '900', lineHeight: 24 },
   headerSubtitle: { color: Colors.white, fontSize: 15, fontWeight: '800', lineHeight: 17 },

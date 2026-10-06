@@ -3,6 +3,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Colors } from '@constants/colors';
+import { getTimeOfDayPresentation } from '@utils/weatherTime';
 
 const DEFAULT_LOCATION = { latitude: 14.3036, longitude: 121.0781 };
 const WEATHER_DEFAULT = { temperature: 29, feelsLike: 32, humidity: 78, windSpeed: 8, weatherCode: 61, isDay: true };
@@ -23,6 +24,12 @@ export default function ResponderWeatherCard() {
   const [weather, setWeather] = useState<WeatherSnapshot>(WEATHER_DEFAULT);
   const [isLoading, setIsLoading] = useState(true);
   const [isUnavailable, setIsUnavailable] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -69,11 +76,12 @@ export default function ResponderWeatherCard() {
   }, []);
 
   const presentation = getWeatherPresentation(weather.weatherCode, weather.isDay);
+  const timePresentation = getTimeOfDayPresentation(now);
 
   return (
     <>
-      <View style={[styles.weatherCard, { backgroundColor: presentation.accent }]}>
-        <View style={styles.weatherCardTop}><View><Text style={styles.weatherEyebrow}>LIVE CONDITIONS</Text><Text style={styles.weatherLocation}>Biñan City forecast</Text></View><MaterialCommunityIcons name={presentation.icon} size={30} color={Colors.white} /></View>
+      <View style={[styles.weatherCard, { backgroundColor: timePresentation.background }]}>
+        <View style={styles.weatherCardTop}><View><Text style={styles.weatherEyebrow}>LIVE CONDITIONS · {timePresentation.label.toUpperCase()}</Text><Text style={styles.weatherLocation}>Biñan City forecast</Text></View><MaterialCommunityIcons name={presentation.icon} size={30} color={Colors.white} /></View>
         {isLoading ? <ActivityIndicator color={Colors.white} /> : <>
           <View style={styles.weatherMain}><Text style={styles.temperature}>{Math.round(weather.temperature)}° C</Text><Text style={styles.weatherDescription}>{presentation.description}</Text></View>
           <Text style={styles.weatherMeta}>Feels like {Math.round(weather.feelsLike)}°  |  Humidity {weather.humidity}%  |  Wind {Math.round(weather.windSpeed)} km/h</Text>

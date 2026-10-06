@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Animated, SafeAreaView, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
 

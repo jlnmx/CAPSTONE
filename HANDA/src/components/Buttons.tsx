@@ -2,18 +2,18 @@
  * Button Components
  */
 
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import {
-  Animated,
-  StyleProp,
-  TouchableOpacity,
+  Pressable,
+  PressableProps,
   Text,
   StyleSheet,
-  ViewStyle,
   TextStyle,
+  ViewStyle,
   ActivityIndicator,
 } from 'react-native';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@constants/colors';
+import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 
 interface ButtonProps {
   label: string;
@@ -26,38 +26,48 @@ interface ButtonProps {
 
 interface PrimaryButtonProps extends ButtonProps {}
 
-interface AnimatedPressableProps {
-  children: React.ReactNode;
-  onPress: () => void;
-  style?: StyleProp<ViewStyle>;
-  disabled?: boolean;
+interface AnimatedPressableProps extends PressableProps {
+  activeOpacity?: number;
 }
 
-export function AnimatedPressable({ children, onPress, style, disabled = false }: AnimatedPressableProps) {
-  const scale = useRef(new Animated.Value(1)).current;
+export function AnimatedPressable({
+  children,
+  style,
+  disabled = false,
+  activeOpacity = 0.85,
+  onPressIn,
+  onPressOut,
+  onHoverIn,
+  onHoverOut,
+  ...props
+}: AnimatedPressableProps) {
+  const [isHovered, setIsHovered] = useState(false);
 
-  const animateTo = (value: number) => {
-    Animated.spring(scale, {
-      toValue: value,
-      speed: 28,
-      bounciness: 4,
-      useNativeDriver: true,
-    }).start();
+  const handleHoverIn: NonNullable<PressableProps['onHoverIn']> = (event) => {
+    if (!disabled) setIsHovered(true);
+    onHoverIn?.(event);
+  };
+
+  const handleHoverOut: NonNullable<PressableProps['onHoverOut']> = (event) => {
+    setIsHovered(false);
+    onHoverOut?.(event);
   };
 
   return (
-    <Animated.View style={[style, { transform: [{ scale }] }]}>
-      <TouchableOpacity
-        style={styles.pressableFill}
-        onPress={onPress}
-        onPressIn={() => animateTo(0.96)}
-        onPressOut={() => animateTo(1)}
-        disabled={disabled}
-        activeOpacity={0.85}
-      >
-        {children}
-      </TouchableOpacity>
-    </Animated.View>
+    <Pressable
+      {...props}
+      disabled={disabled}
+      style={(state) => {
+        const baseStyle = typeof style === 'function' ? style(state) : style;
+        return [baseStyle, isHovered && !disabled && { opacity: Math.max(activeOpacity, 0.9) }];
+      }}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      onHoverIn={handleHoverIn}
+      onHoverOut={handleHoverOut}
+    >
+      {children}
+    </Pressable>
   );
 }
 
@@ -69,10 +79,13 @@ export function PrimaryButton({
   style,
   textStyle,
 }: PrimaryButtonProps) {
+  const { buttonHeight, scale } = useResponsiveLayout();
+
   return (
     <AnimatedPressable
       style={[
         styles.primaryButton,
+        { minHeight: buttonHeight, paddingVertical: Spacing.md * scale },
         disabled && styles.primaryButtonDisabled,
         style,
       ]}
@@ -82,7 +95,7 @@ export function PrimaryButton({
       {loading ? (
         <ActivityIndicator color={Colors.white} size="small" />
       ) : (
-        <Text style={[styles.primaryButtonText, textStyle]}>{label}</Text>
+        <Text style={[styles.primaryButtonText, { fontSize: Typography.sizes.base * scale }, textStyle]}>{label}</Text>
       )}
     </AnimatedPressable>
   );
@@ -96,10 +109,13 @@ export function SecondaryButton({
   style,
   textStyle,
 }: ButtonProps) {
+  const { buttonHeight, scale } = useResponsiveLayout();
+
   return (
     <AnimatedPressable
       style={[
         styles.secondaryButton,
+        { minHeight: buttonHeight, paddingVertical: Spacing.md * scale },
         disabled && styles.secondaryButtonDisabled,
         style,
       ]}
@@ -109,7 +125,7 @@ export function SecondaryButton({
       {loading ? (
         <ActivityIndicator color={Colors.primary} size="small" />
       ) : (
-        <Text style={[styles.secondaryButtonText, textStyle]}>{label}</Text>
+        <Text style={[styles.secondaryButtonText, { fontSize: Typography.sizes.base * scale }, textStyle]}>{label}</Text>
       )}
     </AnimatedPressable>
   );
@@ -123,9 +139,9 @@ interface LinkButtonProps {
 
 export function LinkButton({ label, onPress, style }: LinkButtonProps) {
   return (
-    <TouchableOpacity onPress={onPress} style={style} activeOpacity={0.7}>
+    <AnimatedPressable onPress={onPress} style={style}>
       <Text style={styles.linkButtonText}>{label}</Text>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -144,25 +160,18 @@ export function IconButton({
   description,
   style,
 }: IconButtonProps) {
+  const { buttonHeight, scale } = useResponsiveLayout();
+
   return (
-    <TouchableOpacity
-      style={[styles.iconButton, style]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <Text style={styles.iconButtonIcon}>{icon}</Text>
+    <AnimatedPressable style={[styles.iconButton, { minHeight: buttonHeight }, style]} onPress={onPress}>
+      <Text style={[styles.iconButtonIcon, { fontSize: 32 * scale }]}>{icon}</Text>
       {label && <Text style={styles.iconButtonLabel}>{label}</Text>}
       {description && <Text style={styles.iconButtonDescription}>{description}</Text>}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
-  pressableFill: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   primaryButton: {
     backgroundColor: Colors.primary,
     paddingVertical: Spacing.md,

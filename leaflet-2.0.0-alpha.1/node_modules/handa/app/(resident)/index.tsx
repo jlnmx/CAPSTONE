@@ -1,12 +1,14 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { Colors } from '@constants/colors';
 import { NotificationBell } from '@components/NotificationBell';
+import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
+import { getTimeOfDayPresentation } from '@utils/weatherTime';
 
 const actions = [
   { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/register-evacuee' },
@@ -64,13 +66,6 @@ function getWeatherPresentation(code: number, isDay: boolean): WeatherPresentati
   if (code === 45 || code === 48) return { description: 'Foggy', icon: 'weather-fog', tip: 'Take care on the road. Use lights and avoid unnecessary travel.', accent: '#687D8A' };
   if (code >= 2) return { description: isDay ? 'Partly cloudy' : 'Cloudy night', icon: 'weather-partly-cloudy', tip: 'Conditions are calm. Keep checking alerts as weather can change quickly.', accent: '#D98C18' };
   return { description: isDay ? 'Clear skies' : 'Clear night', icon: isDay ? 'weather-sunny' : 'weather-night', tip: 'Good visibility right now. Keep your emergency contacts easy to reach.', accent: '#D98C18' };
-}
-
-function getTimeTheme(hour: number, isDay: boolean) {
-  if (hour >= 5 && hour < 9) return { name: 'Dawn', background: '#F7E5C8', header: '#218B25' };
-  if (hour >= 17 && hour < 20) return { name: 'Dusk', background: '#EAD5D0', header: '#218B25' };
-  if (hour >= 20 || hour < 5 || !isDay) return { name: 'Evening', background: '#DCE6F0', header: '#218B25' };
-  return { name: 'Afternoon', background: '#E5F0E8', header: '#218B25' };
 }
 
 export default function ResidentDashboard() {
@@ -162,18 +157,18 @@ export default function ResidentDashboard() {
   }, []);
 
   const presentation = getWeatherPresentation(weather.weatherCode, weather.isDay);
-  const timeTheme = getTimeTheme(now.getHours(), weather.isDay);
+  const timePresentation = getTimeOfDayPresentation(now);
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   }).format(now);
-  const timeOfDay = now.getHours() < 12 ? 'morning' : now.getHours() < 18 ? 'afternoon' : 'evening';
+  const timeOfDay = timePresentation.label.toLowerCase();
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: timeTheme.background }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: timePresentation.pageBackground }]}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.header, { backgroundColor: timeTheme.header }]}>
+        <View style={styles.header}>
           <View style={styles.brandRow}><Text style={styles.brand}>HANDA</Text></View>
           <NotificationBell />
         </View>
@@ -183,11 +178,11 @@ export default function ResidentDashboard() {
             <Text style={styles.greetingTitle}>Good {timeOfDay}, Biñanense!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
-          <View style={[styles.weatherIcon, { borderColor: presentation.accent }]}><MaterialCommunityIcons name={presentation.icon} size={26} color={presentation.accent} /></View>
+          <View style={[styles.weatherIcon, { borderColor: timePresentation.accent, backgroundColor: timePresentation.indicator }]} accessibilityLabel={`${timePresentation.label} weather`}><MaterialCommunityIcons name={timePresentation.icon} size={26} color={timePresentation.background} /></View>
         </View>
 
-        <View style={[styles.weatherCard, { backgroundColor: presentation.accent }]}>
-          <View style={styles.weatherCardTop}><View><Text style={styles.weatherEyebrow}>LIVE CONDITIONS</Text><Text style={styles.weatherLocation}>Biñan City forecast</Text></View><MaterialCommunityIcons name={presentation.icon} size={30} color={Colors.white} /></View>
+        <View style={[styles.weatherCard, { backgroundColor: timePresentation.background }]}>
+          <View style={styles.weatherCardTop}><View><Text style={styles.weatherEyebrow}>LIVE CONDITIONS · {timePresentation.label.toUpperCase()}</Text><Text style={styles.weatherLocation}>Biñan City forecast</Text></View><MaterialCommunityIcons name={presentation.icon} size={30} color={Colors.white} /></View>
           {isWeatherLoading ? <ActivityIndicator color={Colors.white} /> : <>
             <View style={styles.weatherMain}><Text style={styles.temperature}>{Math.round(weather.temperature)}° C</Text><Text style={styles.weatherDescription}>{presentation.description}</Text></View>
             <Text style={styles.weatherMeta}>Feels like {Math.round(weather.feelsLike)}°  |  Humidity {weather.humidity}%  |  Wind {Math.round(weather.windSpeed)} km/h</Text>
@@ -195,13 +190,13 @@ export default function ResidentDashboard() {
           {weatherError && <Text style={styles.weatherMeta}>Showing the latest local estimate for Biñan City.</Text>}
         </View>
 
-        <View style={[styles.tipCard, { borderLeftColor: presentation.accent }]}><MaterialCommunityIcons name="information-outline" size={20} color={presentation.accent} /><View style={styles.tipCopy}><Text style={styles.tipTitle}>{timeTheme.name} safety tip</Text><Text style={styles.tipText}>{presentation.tip}</Text></View></View>
+        <View style={[styles.tipCard, { borderLeftColor: presentation.accent }]}><MaterialCommunityIcons name="information-outline" size={20} color={presentation.accent} /><View style={styles.tipCopy}><Text style={styles.tipTitle}>{timePresentation.label} safety tip</Text><Text style={styles.tipText}>{presentation.tip}</Text></View></View>
 
-        <Pressable style={(state) => { const { pressed, hovered } = state as typeof state & { hovered?: boolean }; return [styles.disasterCard, !activeDisaster && styles.disasterCardEmpty, hovered && styles.disasterCardHovered, pressed && styles.buttonPressed]; }} onPress={() => activeDisaster && router.push('/(resident)/alerts')} disabled={!activeDisaster}>
+        <AnimatedPressable style={[styles.disasterCard, !activeDisaster && styles.disasterCardEmpty]} onPress={() => router.push('/(resident)/alerts')} disabled={!activeDisaster}>
           <View style={styles.alertIcon}><MaterialCommunityIcons name={activeDisaster ? 'alert-outline' : 'weather-hurricane'} size={29} color={Colors.white} /></View>
           <View style={styles.disasterCopy}><Text style={styles.disasterName}>{isDisasterLoading ? 'Checking disaster status...' : activeDisaster?.name || 'No active disaster'}</Text><Text style={styles.disasterStatus}>{disasterError ? 'Live status unavailable' : activeDisaster ? 'Active Disaster' : 'Monitoring live reports'}</Text></View>
           {activeDisaster && <MaterialCommunityIcons name="chevron-right" size={30} color={Colors.white} />}
-        </Pressable>
+        </AnimatedPressable>
 
         <View style={styles.statusRow}>
           <StatusTile
@@ -218,6 +213,8 @@ export default function ResidentDashboard() {
           />
         </View>
 
+        <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
+        <View style={styles.actionGrid}>{actions.map((action) => <AnimatedPressable key={action.label} style={styles.actionButton} onPress={() => router.push(action.route)}><Text style={styles.actionLabel}>{action.label}</Text><MaterialCommunityIcons name={action.icon} size={32} color="#218B25" style={styles.actionIcon} /></AnimatedPressable>)}</View>
         <View style={styles.resourceRow}>
           <ResourceButton
             icon="phone-in-talk-outline"
@@ -232,26 +229,23 @@ export default function ResidentDashboard() {
             onPress={() => router.push('/(resident)/preparedness-guide')}
           />
         </View>
-
-        <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-        <View style={styles.actionGrid}>{actions.map((action) => <Pressable key={action.label} style={(state) => { const { pressed, hovered } = state as typeof state & { hovered?: boolean }; return [styles.actionButton, hovered && styles.actionButtonHovered, pressed && styles.buttonPressed]; }} onPress={() => router.push(action.route)}><MaterialCommunityIcons name={action.icon} size={25} color="#218B25" /><Text style={styles.actionLabel}>{action.label}</Text></Pressable>)}</View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 function StatusTile({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {
-  return <Pressable style={styles.statusTile} onPress={onPress}><MaterialCommunityIcons name={icon} size={29} color="#1E5987" /><View style={styles.statusCopy}><Text style={styles.statusTitle}>{title}</Text><Text style={styles.statusDetail}>{detail}</Text></View></Pressable>;
+  return <AnimatedPressable style={styles.statusTile} onPress={onPress}><MaterialCommunityIcons name={icon} size={29} color="#1E5987" /><View style={styles.statusCopy}><Text style={styles.statusTitle}>{title}</Text><Text style={styles.statusDetail}>{detail}</Text></View></AnimatedPressable>;
 }
 
 function ResourceButton({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {
-  return <Pressable style={styles.resourceButton} onPress={onPress}><MaterialCommunityIcons name={icon} size={25} color="#218B25" /><View style={styles.resourceCopy}><Text style={styles.resourceTitle}>{title}</Text><Text style={styles.resourceDetail}>{detail}</Text></View></Pressable>;
+  return <AnimatedPressable style={styles.resourceButton} onPress={onPress}><View style={styles.resourceCopy}><Text style={styles.resourceTitle}>{title}</Text><Text style={styles.resourceDetail}>{detail}</Text></View><MaterialCommunityIcons name={icon} size={28} color="#218B25" /></AnimatedPressable>;
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.white },
   container: { flex: 1, backgroundColor: Colors.white },
-  content: { paddingBottom: 22 },
+  content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 22 },
   header: { height: 86, paddingHorizontal: 18, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brandRow: { flexDirection: 'row', alignItems: 'center' },
   brand: { color: Colors.white, fontSize: 32, fontWeight: '800', letterSpacing: 1 },
@@ -285,15 +279,16 @@ const styles = StyleSheet.create({
   statusCopy: { marginLeft: 8 },
   statusTitle: { color: '#1E5987', fontSize: 10, fontWeight: '800' },
   statusDetail: { color: '#218B25', fontSize: 9, marginTop: 3 },
-  resourceRow: { flexDirection: 'row', gap: 9, marginHorizontal: 18, marginBottom: 14 },
-  resourceButton: { flex: 1, minHeight: 58, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#EEF2EF', flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
-  resourceCopy: { flex: 1, marginLeft: 7 },
+  resourceRow: { gap: 9, marginHorizontal: 18, marginTop: 10, marginBottom: 14 },
+  resourceButton: { minHeight: 46, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#EEF2EF', flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+  resourceCopy: { flex: 1, marginRight: 8 },
   resourceTitle: { color: '#218B25', fontSize: 9, fontWeight: '800', flexShrink: 1 },
   resourceDetail: { color: '#4C7750', fontSize: 9, marginTop: 2 },
   sectionTitle: { color: '#218B25', fontSize: 16, fontWeight: '800', marginHorizontal: 18, marginTop: 0, marginBottom: 8 },
-  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginHorizontal: 18 },
-  actionButton: { width: '48%', minHeight: 46, borderRadius: 8, backgroundColor: '#EEF2EF', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, borderWidth: 1, borderColor: 'transparent' },
+  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, marginHorizontal: 18 },
+  actionButton: { width: '48%', height: 74, borderRadius: 8, backgroundColor: '#EEF2EF', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: 'transparent' },
   actionButtonHovered: { transform: [{ translateY: -3 }], backgroundColor: '#FFFFFF', borderColor: '#8BC58B', shadowColor: '#1769AA', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.16, shadowRadius: 7, elevation: 5 },
   buttonPressed: { transform: [{ translateY: 1 }] },
-  actionLabel: { color: '#218B25', fontSize: 9, marginLeft: 6, flexShrink: 1 },
+  actionLabel: { color: '#218B25', fontSize: 11, fontWeight: '700', flexShrink: 1 },
+  actionIcon: { alignSelf: 'flex-end' },
 });

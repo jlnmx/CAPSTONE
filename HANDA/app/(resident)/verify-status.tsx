@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '@constants/colors';
@@ -163,7 +164,7 @@ function HouseholdRow({ name, relationship, status, primary = false }: { name: s
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#F4F8F4' },
-  content: { paddingBottom: 20 },
+  content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 20 },
   header: { minHeight: 70, paddingHorizontal: 16, backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { color: Colors.white, fontSize: 24, fontWeight: '800' },
   refreshButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },

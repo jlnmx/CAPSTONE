@@ -2,8 +2,12 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
-const expoHost = Constants.expoConfig?.hostUri?.split(':')[0];
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL
+const expoHostUri = Constants.expoConfig?.hostUri
+  ?? (Constants as typeof Constants & { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig?.debuggerHost;
+const expoHost = expoHostUri?.split(':')[0];
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+
+export const API_BASE_URL = configuredApiUrl
   ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
 
 const ACCESS_TOKEN_KEY = 'handa.accessToken';

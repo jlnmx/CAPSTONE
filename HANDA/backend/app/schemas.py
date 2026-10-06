@@ -42,6 +42,11 @@ class SyncBatch(BaseModel):
     events: list[SyncEvent] = Field(default_factory=list, max_length=100)
 
 
+class HouseholdMemberInput(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    relationship: str = Field(min_length=1, max_length=80)
+
+
 class UserRegistration(BaseModel):
     firstName: str = Field(min_length=1, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)
@@ -52,6 +57,29 @@ class UserRegistration(BaseModel):
     currentAddress: str = Field(default="", max_length=500)
     email: str = Field(pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
     password: str = Field(min_length=8, max_length=128)
+    members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
+
+
+class ResidentProfileUpdate(BaseModel):
+    firstName: str = Field(min_length=1, max_length=120)
+    middleName: str | None = Field(default=None, max_length=120)
+    lastName: str = Field(min_length=1, max_length=120)
+    birthday: date
+    sex: Literal["Male", "Female"]
+    mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
+    currentAddress: str = Field(min_length=1, max_length=500)
+    members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
+
+
+class ResidentProfileUpdate(BaseModel):
+    firstName: str = Field(min_length=1, max_length=120)
+    middleName: str | None = Field(default=None, max_length=120)
+    lastName: str = Field(min_length=1, max_length=120)
+    birthday: date
+    sex: Literal["Male", "Female"]
+    mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
+    currentAddress: str = Field(min_length=1, max_length=500)
+    members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
 
 
 class UserLogin(BaseModel):
@@ -97,11 +125,6 @@ class IncidentStatusUpdate(BaseModel):
 
 class EvacueeStatusUpdate(BaseModel):
     evacuationStatus: Literal['registered', 'checked_in', 'evacuated', 'released']
-
-
-class HouseholdMemberInput(BaseModel):
-    name: str = Field(min_length=1, max_length=160)
-    relationship: str = Field(min_length=1, max_length=80)
 
 
 class EvacuationRegistrationCreate(BaseModel):

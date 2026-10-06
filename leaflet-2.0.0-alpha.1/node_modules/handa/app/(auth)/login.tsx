@@ -38,11 +38,7 @@ export default function LoginScreen() {
       return;
     }
 
-    try {
-      await login(email, password);
-    } catch (err) {
-      setValidationError(error || 'Login failed. Please try again.');
-    }
+    await login(email, password);
   };
 
   return (

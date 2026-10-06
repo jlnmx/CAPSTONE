@@ -9,6 +9,25 @@ import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AUTH_PROFILE_KEY = 'handa.authProfile';
+
+function mergeAuthProfile(serverProfile: AuthUser, cachedProfile: AuthUser | null): AuthUser {
+  if (!cachedProfile) return serverProfile;
+  return {
+    ...cachedProfile,
+    ...serverProfile,
+    firstName: serverProfile.firstName?.trim() || cachedProfile.firstName,
+    middleName: serverProfile.middleName?.trim() || cachedProfile.middleName,
+    lastName: serverProfile.lastName?.trim() || cachedProfile.lastName,
+    birthday: serverProfile.birthday?.trim() || cachedProfile.birthday,
+    sex: serverProfile.sex?.trim() || cachedProfile.sex,
+    mobileNumber: serverProfile.mobileNumber?.trim() || cachedProfile.mobileNumber,
+    currentAddress: serverProfile.currentAddress?.trim() || cachedProfile.currentAddress,
+    householdMembers: serverProfile.householdMembers?.length
+      ? serverProfile.householdMembers
+      : cachedProfile.householdMembers ?? serverProfile.householdMembers ?? [],
+  };
+}
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -20,16 +39,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void AuthService.restoreSession().then((authUser) => {
-      if (authUser) {
-        setUser(authUser);
+    let mounted = true;
+    void (async () => {
+      try {
+        const authUser = await AuthService.restoreSession();
+        if (!authUser) return;
+        const cachedProfileValue = await AsyncStorage.getItem(AUTH_PROFILE_KEY);
+        let cachedProfile: AuthUser | null = null;
+        try {
+          cachedProfile = cachedProfileValue ? JSON.parse(cachedProfileValue) as AuthUser : null;
+        } catch {
+          await AsyncStorage.removeItem(AUTH_PROFILE_KEY);
+        }
+        const restoredUser = mergeAuthProfile(authUser, cachedProfile);
+        if (!mounted) return;
+        setUser(restoredUser);
+        await AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(restoredUser));
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-    }).finally(() => setIsLoading(false));
+    })();
+    return () => { mounted = false; };
   }, []);
 
   const finishLogin = async (authUser: AuthUser) => {
     setUser(authUser);
-    await AsyncStorage.setItem('userId', authUser.id);
+    await Promise.all([
+      AsyncStorage.setItem('userId', authUser.id),
+      AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser)),
+    ]);
   };
 
   const login = async (email: string, password: string) => {
@@ -75,7 +113,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const setAuthenticatedUser = async (authUser: AuthUser, accessToken?: string) => {
     setError(null);
     setUser(authUser);
-    await AsyncStorage.setItem('userId', authUser.id);
+    await Promise.all([
+      AsyncStorage.setItem('userId', authUser.id),
+      AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser)),
+    ]);
     if (accessToken) {
       const { setAccessToken } = await import('@services/apiClient');
       await setAccessToken(accessToken);
@@ -90,7 +131,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Logout error:', e);
     } finally {
       setUser(null);
-      await AsyncStorage.removeItem('userId');
+      await Promise.all([
+        AsyncStorage.removeItem('userId'),
+        AsyncStorage.removeItem(AUTH_PROFILE_KEY),
+      ]);
       setIsLoading(false);
     }
   };

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { MapEvacuationCenter } from '@types/index';
 
 const BINAN_CENTER = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -12,8 +13,18 @@ const attribution = mapboxToken
   : '&copy; OpenStreetMap contributors';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
-export default function LeafletMap() {
+interface LeafletMapProps {
+  centers?: MapEvacuationCenter[];
+  onSelectCenter?: (centerId: string) => void;
+}
+
+export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapProps) {
   const [ready, setReady] = useState(false);
+  const mappedCenters = useMemo(() => centers.flatMap((item) => (
+    item.latitude == null || item.longitude == null
+      ? []
+      : [{ ...item, position: [Number(item.latitude), Number(item.longitude)] }]
+  )), [centers]);
   const html = useMemo(() => `
     <!DOCTYPE html>
     <html>
@@ -28,6 +39,7 @@ export default function LeafletMap() {
           .location-panel .center-name { display: block; font-size: 14px; font-weight: 700; }
           .location-panel .muted { display: block; margin-top: 2px; color: #667085; font-size: 12px; }
           .location-panel button { margin-top: 10px; border: 0; border-radius: 5px; padding: 9px 12px; background: #218B25; color: #ffffff; font-weight: 700; }
+          .location-panel .secondary { margin-right: 7px; background: #E8F2E8; color: #175B19; }
           .evacuation-center-icon { background: transparent; border: 0; }
           .evacuation-center-icon div { width: 32px; height: 32px; border: 3px solid #ffffff; border-radius: 8px; background: #218B25; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 23px; font-weight: 800; line-height: 1; box-shadow: 0 2px 6px rgba(23,33,43,.35); }
         </style>
@@ -55,6 +67,7 @@ export default function LeafletMap() {
             return 6371 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
           }
           function findNearestCenter(position) {
+            if (!centers.length) return null;
             return centers.reduce((nearest, item) => {
               const distance = distanceInKm(position, item.position);
               return distance < nearest.distance ? { item, distance } : nearest;
@@ -75,24 +88,39 @@ export default function LeafletMap() {
           function showInfo(title, position, detail) {
             infoPanel.innerHTML = '<strong>' + title + '</strong>' + detail + '<br>Latitude: ' + position[0].toFixed(6) + '<br>Longitude: ' + position[1].toFixed(6);
           }
-          async function showNearest(position) {
-            const nearest = findNearestCenter(position);
-            infoPanel.innerHTML = '<strong>Nearest evacuation center</strong><span class="center-name">' + nearest.item.name + '</span><span class="muted">' + nearest.item.type + ' · ' + nearest.distance.toFixed(1) + ' km away</span><span style="display:block;margin-top:6px">Your location: ' + position[0].toFixed(6) + ', ' + position[1].toFixed(6) + '</span><button id="navigate-button">Navigate to this center</button>';
-            document.getElementById('navigate-button').onclick = async () => {
-              await drawRoute(position, nearest.item.position);
-              infoPanel.insertAdjacentHTML('beforeend', '<span style="display:block;margin-top:8px;color:#218B25;font-size:12px;font-weight:700">In-app navigation active. Follow the highlighted route.</span>');
+          function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
+          }
+          function showCenter(item, start, distance) {
+            const capacity = Math.max(0, Number(item.capacity) || 0);
+            const occupancy = Math.max(0, Number(item.current_occupancy) || 0);
+            const spaces = Math.max(0, capacity - occupancy);
+            const accepting = item.status !== 'closed' && item.status !== 'full' && spaces > 0;
+            infoPanel.innerHTML = '<strong>' + escapeHtml(item.name) + '</strong><span class="center-name">' + escapeHtml(item.location || 'Location not provided') + '</span><span class="muted">Capacity: ' + occupancy + ' of ' + capacity + ' · ' + spaces + ' spaces' + (distance == null ? '' : ' · ' + distance.toFixed(1) + ' km away') + '</span><span class="muted" style="color:' + (accepting ? '#218B25' : '#B42318') + ';font-weight:700">' + (accepting ? 'Accepting registrations' : 'Not accepting registrations') + '</span><button id="navigate-button" class="secondary">Navigate</button><button id="select-center-button" ' + (accepting ? '' : 'disabled') + '>' + (accepting ? 'Select center' : 'Unavailable') + '</button>';
+            infoPanel.querySelector('#navigate-button').onclick = async () => {
+              await drawRoute(start, item.position);
+              infoPanel.insertAdjacentHTML('beforeend', '<span class="muted" style="color:#218B25;font-weight:700">In-app navigation active.</span>');
+            };
+            infoPanel.querySelector('#select-center-button').onclick = () => {
+              if (accepting) window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'select-center', centerId: item.id }));
             };
             clearRoute();
           }
+          async function showNearest(position) {
+            const nearest = findNearestCenter(position);
+            if (!nearest) {
+              infoPanel.innerHTML = '<strong>No evacuation centers are available.</strong>';
+              return;
+            }
+            showCenter(nearest.item, position, nearest.distance);
+          }
           L.tileLayer(${JSON.stringify(tileUrl)}, { attribution: ${JSON.stringify(attribution)}, maxZoom: 19 }).addTo(map);
-          const centers = [
-            { name: 'Biñan City Multi-Purpose Hall', type: 'Official evacuation center', position: [14.307, 121.071] },
-            { name: 'Barangay Poblacion Covered Court', type: 'Covered court', position: [14.301, 121.082] },
-            { name: 'School Gymnasium', type: 'School evacuation site', position: [14.312, 121.089] },
-            { name: 'Timbao Open Field', type: 'Open field', position: [14.2864, 121.0942] }
-          ];
+          const centers = ${JSON.stringify(mappedCenters).replace(/</g, '\\u003c')};
           const evacuationIcon = L.divIcon({ className: 'evacuation-center-icon', html: '<div>⌂</div>', iconSize: [32, 32], iconAnchor: [16, 16] });
-          centers.forEach((item) => L.marker(item.position, { icon: evacuationIcon }).addTo(map).on('click', () => showNearest(item.position)));
+          centers.forEach((item) => L.marker(item.position, { icon: evacuationIcon }).addTo(map).on('click', () => {
+            const start = mainMarker.getLatLng();
+            showCenter(item, [start.lat, start.lng], null);
+          }));
           async function loadReportedIncidents() {
             try {
               const response = await fetch(${JSON.stringify(API_BASE_URL)} + '/api/v1/incidents');
@@ -131,7 +159,7 @@ export default function LeafletMap() {
         </script>
       </body>
     </html>
-  `, []);
+  `, [mappedCenters]);
 
   return (
     <View style={styles.container}>
@@ -144,6 +172,14 @@ export default function LeafletMap() {
         domStorageEnabled
         geolocationEnabled
         onLoad={() => setReady(true)}
+        onMessage={(event) => {
+          try {
+            const message = JSON.parse(event.nativeEvent.data) as { type?: string; centerId?: string };
+            if (message.type === 'select-center' && message.centerId) onSelectCenter?.(message.centerId);
+          } catch {
+            // Ignore non-JSON map messages.
+          }
+        }}
       />
     </View>
   );

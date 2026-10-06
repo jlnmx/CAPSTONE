@@ -10,7 +10,6 @@ import {
   Text,
   Alert,
   SafeAreaView,
-  TouchableOpacity,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -19,6 +18,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { NotificationBell } from '@components/NotificationBell';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, ResponderDataSnapshot } from '@services/responderData';
+import { getTimeOfDayPresentation } from '@utils/weatherTime';
 
 const formattedDate = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -54,7 +54,12 @@ export default function ResponderDashboard() {
   const displayedEvacuees = data.unavailableSources.includes('evacuees') ? 'N/A' : data.evacuees.length;
   const displayedIncidents = data.unavailableSources.includes('incidents') ? 'N/A' : activeIncidents;
   const displayedCenters = data.unavailableSources.includes('centers') ? 'N/A' : data.centers.length;
-  const displayedDisasterStatus = data.unavailableSources.includes('disasters') ? 'N/A' : activeDisaster ? 'ACTIVE' : 'CLEAR';
+  const availableCapacity = data.centers.reduce((total, center) => {
+    if (center.status === 'closed') return total;
+    return total + Math.max(0, center.capacity - center.currentOccupancy);
+  }, 0);
+  const displayedCapacity = data.unavailableSources.includes('centers') ? 'N/A' : availableCapacity;
+  const timePresentation = getTimeOfDayPresentation();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -73,14 +78,14 @@ export default function ResponderDashboard() {
             <Text style={styles.greetingTitle}>Welcome, Responder!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
-          <View style={styles.weatherIcon}>
-            <MaterialCommunityIcons name="weather-partly-cloudy" size={26} color="#D98C18" />
+          <View style={[styles.weatherIcon, { backgroundColor: timePresentation.indicator, borderColor: timePresentation.accent }]} accessibilityLabel={`${timePresentation.label} weather`}>
+            <MaterialCommunityIcons name={timePresentation.icon} size={26} color={timePresentation.background} />
           </View>
         </View>
 
         <ResponderWeatherCard />
 
-        <TouchableOpacity style={styles.disasterCard} onPress={() => router.push('/map')} activeOpacity={0.82} accessibilityRole="button" accessibilityLabel="Open map to review disaster and incident activity">
+        <AnimatedPressable style={styles.disasterCard} onPress={() => router.push('/map')} accessibilityRole="button" accessibilityLabel="Open map to review disaster and incident activity">
           <MaterialCommunityIcons
             name="alert-circle-outline"
             size={39}
@@ -91,7 +96,7 @@ export default function ResponderDashboard() {
             <Text style={styles.disasterDescription}>{activeDisaster ? `${activeDisaster.severity.toUpperCase()} · Active Disaster` : 'Monitoring server records'}</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={31} color={Colors.white} />
-        </TouchableOpacity>
+        </AnimatedPressable>
 
         <View style={styles.statsContainer}>
           <StatTile icon="account-group-outline" value={isLoading ? '...' : displayedEvacuees} label="Total Evacuees" color="#218B25" onPress={() => router.push('/evacuees')} />
@@ -100,19 +105,18 @@ export default function ResponderDashboard() {
 
         <View style={styles.statsContainer}>
           <StatTile icon="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers" color="#1E5987" onPress={() => router.push('/map')} />
-          <StatTile icon="alert-circle-outline" value={isLoading ? '...' : displayedDisasterStatus} label="Disaster Status" color={activeDisaster ? '#D63F43' : '#167A5B'} onPress={() => router.push('/map')} />
+          <StatTile icon="account-multiple-outline" value={isLoading ? '...' : displayedCapacity} label="Available Capacity" color="#C85B1C" onPress={() => router.push('/responder-center-status')} />
         </View>
 
         <Text style={styles.dataSource}>{isLoading ? 'Loading live server data...' : dataUnavailable ? `Partial live data · unavailable: ${data.unavailableSources.join(', ')}` : 'Live server data · refreshes every 15 seconds'}</Text>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>QUICK ACTION</Text>
+          <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
           <View style={styles.quickActionsGrid}>
             <ActionButton icon="account-group-outline" label="Manage Evacuees" onPress={() => router.push('/evacuees')} />
             <ActionButton icon="checkbox-marked-outline" label="Verify Check-in" onPress={() => router.push('/evacuees')} />
           </View>
           <View style={styles.quickActionsGrid}>
-            <ActionButton icon="alert-circle-outline" label="Report Incident" onPress={() => router.push('/incidents')} />
             <ActionButton icon="map-outline" label="View Map" onPress={() => router.push('/map')} />
           </View>
         </View>
@@ -131,14 +135,14 @@ interface StatTileProps {
 
 function StatTile({ icon, value, label, color, onPress }: StatTileProps) {
   return (
-    <TouchableOpacity style={styles.statTile} onPress={onPress} activeOpacity={0.78} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open related records`}>
+    <AnimatedPressable style={styles.statTile} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open related records`}>
       <MaterialCommunityIcons name={icon} size={31} color={color} style={styles.statIcon} />
       <View>
         <Text style={[styles.statValue, { color }]}>{value}</Text>
         <Text style={[styles.statLabel, { color }]}>{label}</Text>
       </View>
       <MaterialCommunityIcons name="chevron-right" size={17} color={color} style={styles.statChevron} />
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -167,6 +171,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   contentContainer: {
+    width: '100%',
+    maxWidth: 1100,
+    alignSelf: 'center',
     paddingBottom: 12,
   },
   header: {

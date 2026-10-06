@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
+import { AnimatedPressable } from '@components/Buttons';
 
 const notifications = [
   { icon: 'alert-circle-outline' as const, color: Colors.emergency, title: 'Current disaster', detail: 'Flood Response is active in Biñan City. Monitor official advisories and avoid flooded roads.', time: 'Now' },
@@ -15,7 +16,7 @@ export function NotificationBell() {
 
   return (
     <>
-      <Pressable
+      <AnimatedPressable
         style={styles.button}
         onPress={() => setVisible(true)}
         accessibilityLabel="Open notifications"
@@ -23,7 +24,7 @@ export function NotificationBell() {
       >
         <MaterialCommunityIcons name="bell-outline" size={29} color={Colors.white} />
         <View style={styles.dot} />
-      </Pressable>
+      </AnimatedPressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
         <Pressable style={styles.backdrop} onPress={() => setVisible(false)}>
@@ -33,9 +34,9 @@ export function NotificationBell() {
                 <Text style={styles.title}>Notifications</Text>
                 <Text style={styles.subtitle}>Updates that may affect your safety</Text>
               </View>
-              <Pressable onPress={() => setVisible(false)} accessibilityLabel="Close notifications">
+              <AnimatedPressable onPress={() => setVisible(false)} accessibilityLabel="Close notifications">
                 <MaterialCommunityIcons name="close" size={24} color={Colors.textMuted} />
-              </Pressable>
+              </AnimatedPressable>
             </View>
             {notifications.map((notification) => (
               <View key={notification.title} style={styles.notification}>

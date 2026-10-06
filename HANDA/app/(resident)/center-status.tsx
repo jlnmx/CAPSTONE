@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '@constants/colors';
@@ -165,7 +166,7 @@ function formatUpdated(value: string) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
-  content: { flexGrow: 1, paddingBottom: 16 },
+  content: { flexGrow: 1, width: '100%', maxWidth: 1100, alignSelf: 'center', paddingBottom: 16 },
   header: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: GREEN },
   headerTitle: { color: Colors.white, fontSize: 27, lineHeight: 31, fontWeight: '900' },
   headerSubtitle: { color: '#E1F1E1', fontSize: 10, marginTop: 2 },

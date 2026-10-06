@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
 
@@ -82,7 +83,7 @@ function titleCase(value: string) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.white },
   container: { flex: 1, backgroundColor: Colors.white },
-  content: { paddingBottom: 24 },
+  content: { width: '100%', maxWidth: 850, alignSelf: 'center', paddingBottom: 24 },
   header: { height: 58, paddingHorizontal: 10, justifyContent: 'center', backgroundColor: '#218B25' },
   headerTitle: { color: Colors.white, fontSize: 24, fontWeight: '900', lineHeight: 25 },
   headerSubtitle: { color: Colors.white, fontSize: 15, fontWeight: '800', lineHeight: 17 },

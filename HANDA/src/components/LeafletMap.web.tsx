@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as Leaflet from '../vendor/leaflet/LeafletWithGlobals.js';
 import '../vendor/leaflet/leaflet.css';
+import { MapEvacuationCenter } from '@types/index';
 
 const BINAN_CENTER: [number, number] = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -9,15 +10,14 @@ const markerIconAsset = require('../vendor/leaflet/images/marker-icon.png');
 const markerShadowAsset = require('../vendor/leaflet/images/marker-shadow.png');
 const markerIconUrl = markerIconAsset?.default?.uri ?? markerIconAsset?.default ?? markerIconAsset?.uri ?? markerIconAsset;
 const markerShadowUrl = markerShadowAsset?.default?.uri ?? markerShadowAsset?.default ?? markerShadowAsset?.uri ?? markerShadowAsset;
-const EVACUATION_CENTERS = [
-  { name: 'Biñan City Multi-Purpose Hall', type: 'Official evacuation center', position: [14.307, 121.071] as [number, number] },
-  { name: 'Barangay Poblacion Covered Court', type: 'Covered court', position: [14.301, 121.082] as [number, number] },
-  { name: 'School Gymnasium', type: 'School evacuation site', position: [14.312, 121.089] as [number, number] },
-  { name: 'Timbao Open Field', type: 'Open field', position: [14.2864, 121.0942] as [number, number] },
-];
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
-export default function LeafletMap() {
+interface LeafletMapProps {
+  centers?: MapEvacuationCenter[];
+  onSelectCenter?: (centerId: string) => void;
+}
+
+export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapProps) {
   const mapElement = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -71,6 +71,7 @@ export default function LeafletMap() {
       pointerEvents: 'auto',
     });
     mapElement.current.appendChild(infoPanel);
+    LeafletApi.DomEvent.disableClickPropagation(infoPanel);
 
     const escapeHtml = (value: string) =>
       value.replace(/[&<>'"]/g, (character) => ({
@@ -81,7 +82,12 @@ export default function LeafletMap() {
         '"': '&quot;',
       })[character]);
 
-    const destinationMarkers = EVACUATION_CENTERS.map((center) => new LeafletApi.Marker(center.position, {
+    const mappedCenters = centers.flatMap((center) => (
+      center.latitude == null || center.longitude == null
+        ? []
+        : [{ center, position: [Number(center.latitude), Number(center.longitude)] as [number, number] }]
+    ));
+    const destinationMarkers = mappedCenters.map(({ position }) => new LeafletApi.Marker(position, {
       icon: new LeafletApi.DivIcon({
         className: 'evacuation-center-icon',
         html: '<div style="width:32px;height:32px;border:3px solid #ffffff;border-radius:8px;background:#218B25;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:23px;font-weight:800;line-height:1;box-shadow:0 2px 6px rgba(23,33,43,.35)">⌂</div>',
@@ -107,10 +113,10 @@ export default function LeafletMap() {
       return 6371 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
     };
 
-    const findNearestCenter = (position: [number, number]) => EVACUATION_CENTERS.reduce((nearest, center) => {
-      const distance = distanceInKm(position, center.position);
-      return distance < nearest.distance ? { center, distance } : nearest;
-    }, { center: EVACUATION_CENTERS[0], distance: Number.POSITIVE_INFINITY });
+    const findNearestCenter = (position: [number, number]) => mappedCenters.reduce<{ item: typeof mappedCenters[number] | null; distance: number }>((nearest, item) => {
+      const distance = distanceInKm(position, item.position);
+      return distance < nearest.distance ? { item, distance } : nearest;
+    }, { item: null, distance: Number.POSITIVE_INFINITY });
 
     const drawRoute = async (start: [number, number], destination: [number, number]) => {
       if (routeLine) routeLine.remove();
@@ -129,14 +135,28 @@ export default function LeafletMap() {
       map.fitBounds(routeLine.getBounds(), { padding: [42, 42] });
     };
 
+    const showCenter = (center: MapEvacuationCenter, destination: [number, number], userPosition: [number, number], distance?: number) => {
+      const capacity = Math.max(0, Number(center.capacity) || 0);
+      const occupancy = Math.max(0, Number(center.current_occupancy) || 0);
+      const spaces = Math.max(0, capacity - occupancy);
+      const acceptingRegistrations = center.status !== 'closed' && center.status !== 'full' && spaces > 0;
+      infoPanel.innerHTML = `<strong style="display:block;font-size:16px;margin-bottom:5px">${escapeHtml(center.name)}</strong><span style="display:block;font-size:12px;color:#667085">${escapeHtml(center.location || 'Location not provided')}${distance == null ? '' : ` · ${distance.toFixed(1)} km away`}</span><span style="display:block;font-size:12px;margin-top:6px">Capacity: ${occupancy} of ${capacity} · ${spaces} spaces available</span><span style="display:block;font-size:12px;color:${acceptingRegistrations ? '#218B25' : '#B42318'};font-weight:700;margin-top:2px">${acceptingRegistrations ? 'Accepting registrations' : 'Not accepting registrations'}</span><button id="navigate-button" style="margin-top:10px;margin-right:7px;border:0;border-radius:5px;padding:9px 12px;background:#E8F2E8;color:#175B19;font-weight:700;cursor:pointer">Navigate</button><button id="select-center-button" ${acceptingRegistrations ? '' : 'disabled'} style="margin-top:10px;border:0;border-radius:5px;padding:9px 12px;background:${acceptingRegistrations ? '#218B25' : '#98A29A'};color:#fff;font-weight:700;cursor:${acceptingRegistrations ? 'pointer' : 'not-allowed'}">Select center</button>`;
+      infoPanel.querySelector('#navigate-button')?.addEventListener('click', async () => {
+        await drawRoute(userPosition, destination);
+        infoPanel.insertAdjacentHTML('beforeend', '<span style="display:block;margin-top:8px;color:#218B25;font-size:12px;font-weight:700">In-app navigation active. Follow the highlighted route.</span>');
+      });
+      infoPanel.querySelector('#select-center-button')?.addEventListener('click', () => onSelectCenter?.(center.id));
+    };
+
     const updateInfoPanel = async (position: any) => {
       const userPosition: [number, number] = [position.lat, position.lng];
       const nearest = findNearestCenter(userPosition);
-      infoPanel.innerHTML = `<strong style="display:block;font-size:16px;margin-bottom:5px">Nearest evacuation center</strong><span style="display:block;font-size:14px;font-weight:700">${escapeHtml(nearest.center.name)}</span><span style="display:block;font-size:12px;color:#667085;margin-top:2px">${escapeHtml(nearest.center.type)} · ${nearest.distance.toFixed(1)} km away</span><span style="display:block;font-size:12px;line-height:1.5;margin-top:6px">Your location: ${userPosition[0].toFixed(6)}, ${userPosition[1].toFixed(6)}</span><button id="navigate-button" style="margin-top:10px;border:0;border-radius:5px;padding:9px 12px;background:#218B25;color:#fff;font-weight:700;cursor:pointer">Navigate to this center</button>`;
-      infoPanel.querySelector('#navigate-button')?.addEventListener('click', async () => {
-        await drawRoute(userPosition, nearest.center.position);
-        infoPanel.insertAdjacentHTML('beforeend', '<span style="display:block;margin-top:8px;color:#218B25;font-size:12px;font-weight:700">In-app navigation active. Follow the highlighted route.</span>');
-      });
+      if (!nearest.item) {
+        infoPanel.innerHTML = '<strong>No evacuation centers available on the map.</strong>';
+        clearRoute();
+        return;
+      }
+      showCenter(nearest.item.center, nearest.item.position, userPosition, nearest.distance);
       clearRoute();
     };
 
@@ -176,8 +196,9 @@ export default function LeafletMap() {
     destinationMarkers.forEach((destinationMarker, index) => {
       destinationMarker.on('click', () => {
         clearRoute();
-        marker.setLatLng(EVACUATION_CENTERS[index].position);
-        void updateInfoPanel(destinationMarker.getLatLng());
+        const selected = mappedCenters[index];
+        const userPosition = marker.getLatLng();
+        showCenter(selected.center, selected.position, [userPosition.lat, userPosition.lng], distanceInKm([userPosition.lat, userPosition.lng], selected.position));
       });
     });
 
@@ -200,7 +221,7 @@ export default function LeafletMap() {
       reportedMarkers.forEach((reportedMarker) => reportedMarker.remove());
       map.remove();
     };
-  }, []);
+  }, [centers, onSelectCenter]);
 
   return <div ref={mapElement} style={styles.map} />;
 }

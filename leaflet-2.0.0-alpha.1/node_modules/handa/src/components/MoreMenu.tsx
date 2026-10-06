@@ -1,5 +1,6 @@
-import React from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
@@ -12,6 +13,8 @@ interface MoreMenuProps {
 export function MoreMenu({ roleLabel }: MoreMenuProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const displayName = user?.name || 'HANDA User';
 
   const openSettings = () => {
@@ -25,17 +28,21 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
   };
 
   const confirmLogout = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/(auth)/login');
-        },
-      },
-    ]);
+    setIsLogoutDialogOpen(true);
+  };
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setIsLoggingOut(false);
+      setIsLogoutDialogOpen(false);
+      router.replace('/(auth)/login');
+    }
   };
 
   return (
@@ -70,6 +77,38 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={isLogoutDialogOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsLogoutDialogOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setIsLogoutDialogOpen(false)}>
+          <Pressable style={styles.logoutDialog} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.dialogTitle}>Log out?</Text>
+            <Text style={styles.dialogMessage}>Are you sure you want to log out of your account?</Text>
+            <View style={styles.dialogActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setIsLogoutDialogOpen(false)}
+                disabled={isLoggingOut}
+                accessibilityRole="button"
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={() => void handleLogout()}
+                disabled={isLoggingOut}
+                accessibilityRole="button"
+              >
+                {isLoggingOut ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.confirmButtonText}>Log out</Text>}
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -85,6 +124,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
+    width: '100%',
+    maxWidth: 900,
+    alignSelf: 'center',
     paddingBottom: 26,
   },
   header: {
@@ -156,5 +198,65 @@ const styles = StyleSheet.create({
   },
   logoutLabel: {
     color: Colors.emergency,
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  logoutDialog: {
+    width: '100%',
+    maxWidth: 360,
+    padding: 20,
+    borderRadius: 8,
+    backgroundColor: Colors.white,
+  },
+  dialogTitle: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  dialogMessage: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 22,
+  },
+  cancelButton: {
+    minWidth: 88,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#D0D5DD',
+    borderRadius: 5,
+  },
+  cancelButtonText: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmButton: {
+    minWidth: 88,
+    minHeight: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderRadius: 5,
+    backgroundColor: Colors.emergency,
+  },
+  confirmButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput as NativeTextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput as NativeTextInput, View } from 'react-native';
+import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { Colors } from '@constants/colors';
 import { API_BASE_URL } from '@services/apiClient';
+import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { AuthUser, ResidentHouseholdMember } from '@types/index';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
 export default function RegisterScreen() {
+  const { isCompact } = useResponsiveLayout();
   const router = useRouter();
   const { setAuthenticatedUser } = useAuth();
   const [firstName, setFirstName] = useState('');
@@ -23,8 +28,38 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [householdMembers, setHouseholdMembers] = useState<ResidentHouseholdMember[]>([]);
+  const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
+  const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null);
+  const [memberName, setMemberName] = useState('');
+  const [memberRelationship, setMemberRelationship] = useState('');
+  const [memberError, setMemberError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  const openMemberDialog = (index: number | null = null) => {
+    setEditingMemberIndex(index);
+    setMemberName(index == null ? '' : householdMembers[index].name);
+    setMemberRelationship(index == null ? '' : householdMembers[index].relationship);
+    setMemberError('');
+    setIsMemberDialogOpen(true);
+  };
+
+  const saveMember = () => {
+    const member = { name: memberName.trim(), relationship: memberRelationship.trim() };
+    if (!member.name || !member.relationship) {
+      setMemberError('Enter the member name and relationship.');
+      return;
+    }
+    if (editingMemberIndex == null && householdMembers.length >= 20) {
+      setMemberError('A household can include up to 21 people, including you.');
+      return;
+    }
+    setHouseholdMembers((current) => editingMemberIndex == null
+      ? [...current, member]
+      : current.map((item, index) => index === editingMemberIndex ? member : item));
+    setIsMemberDialogOpen(false);
+  };
 
   const handleRegister = async () => {
     const errors: Record<string, string> = {};
@@ -43,6 +78,7 @@ export default function RegisterScreen() {
     }
     if (!confirmPassword) errors.confirmPassword = 'Confirm your password.';
     else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match.';
+    if (householdMembers.some((member) => !member.name.trim() || !member.relationship.trim())) errors.householdMembers = 'Complete or remove each household member.';
 
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -56,16 +92,30 @@ export default function RegisterScreen() {
       const response = await fetch(`${API_BASE_URL}/api/v1/users/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ firstName: firstName.trim(), middleName: middleName.trim() || null, lastName: lastName.trim(), birthday, sex, mobileNumber: normalizedMobile, currentAddress: address.trim(), email: normalizedEmail, password }),
+        body: JSON.stringify({ firstName: firstName.trim(), middleName: middleName.trim() || null, lastName: lastName.trim(), birthday, sex, mobileNumber: normalizedMobile, currentAddress: address.trim(), email: normalizedEmail, password, members: householdMembers }),
         signal: abortController.signal,
       });
-      const result = await response.json() as { id?: string; accessToken?: string; detail?: unknown; message?: string };
+      const result = await response.json() as { id?: string; accessToken?: string; user?: AuthUser; detail?: unknown; message?: string };
       if (!response.ok) {
         setValidationErrors({ form: getRegistrationErrorMessage(result.detail) });
         return;
       }
       const fullName = [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ');
-      await setAuthenticatedUser({ id: result.id || `resident-${Date.now()}`, name: fullName, email: normalizedEmail, role: 'resident' }, result.accessToken);
+      await setAuthenticatedUser({
+        ...result.user,
+        id: result.user?.id || result.id || `resident-${Date.now()}`,
+        name: fullName,
+        email: normalizedEmail,
+        role: 'resident',
+        firstName: result.user?.firstName || firstName.trim(),
+        middleName: result.user?.middleName || middleName.trim(),
+        lastName: result.user?.lastName || lastName.trim(),
+        birthday: result.user?.birthday || birthday,
+        sex: result.user?.sex || sex,
+        mobileNumber: result.user?.mobileNumber || normalizedMobile,
+        currentAddress: result.user?.currentAddress || address.trim(),
+        householdMembers: result.user?.householdMembers ?? householdMembers,
+      }, result.accessToken);
       router.replace('/(resident)');
     } catch (error) {
       const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
@@ -97,8 +147,8 @@ export default function RegisterScreen() {
           <FormField label="Last Name" error={validationErrors.lastName}>
             <NativeTextInput style={styles.input} placeholder="Enter Name" placeholderTextColor={PLACEHOLDER_COLOR} value={lastName} onChangeText={setLastName} autoCapitalize="words" returnKeyType="next" />
           </FormField>
-          <View style={styles.row}>
-            <FormField label="Birthdate" error={validationErrors.birthday}>
+          <View style={[styles.row, isCompact && styles.rowStacked]}>
+            <FormField compact={isCompact} label="Birthdate" error={validationErrors.birthday}>
               {Platform.OS === 'web' ? (
                 <NativeTextInput
                   value={birthday}
@@ -129,7 +179,7 @@ export default function RegisterScreen() {
                 />
               )}
             </FormField>
-            <FormField label="Sex" error={validationErrors.sex}>
+            <FormField compact={isCompact} label="Sex" error={validationErrors.sex}>
               <TouchableOpacity style={styles.selectInput} onPress={() => setIsSexPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Choose sex">
                 <Text style={sex ? styles.selectValue : styles.selectPlaceholder}>{sex || 'Male or Female'}</Text>
               </TouchableOpacity>
@@ -150,6 +200,20 @@ export default function RegisterScreen() {
           <FormField label="Confirm Password" error={validationErrors.confirmPassword}>
             <NativeTextInput style={styles.input} placeholder="Enter password" placeholderTextColor={PLACEHOLDER_COLOR} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoCapitalize="none" returnKeyType="done" />
           </FormField>
+          <View style={styles.householdSection}>
+            <Text style={styles.householdLabel}>HOUSEHOLD MEMBERS</Text>
+            <TouchableOpacity style={styles.addMemberButton} onPress={() => openMemberDialog()} disabled={householdMembers.length >= 20} accessibilityRole="button" accessibilityLabel="Add household member">
+              <MaterialCommunityIcons name="plus" size={20} color={Colors.white} />
+            </TouchableOpacity>
+            {householdMembers.map((member, index) => (
+              <View key={`${index}-${member.name}`} style={styles.memberRow}>
+                <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{member.relationship}</Text></View>
+                <TouchableOpacity style={styles.memberAction} onPress={() => openMemberDialog(index)} accessibilityRole="button" accessibilityLabel={`Edit ${member.name}`}><MaterialCommunityIcons name="pencil-outline" size={18} color="#1769AA" /></TouchableOpacity>
+                <TouchableOpacity style={styles.memberAction} onPress={() => setHouseholdMembers((current) => current.filter((_item, itemIndex) => itemIndex !== index))} accessibilityRole="button" accessibilityLabel={`Delete ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={18} color={Colors.emergency} /></TouchableOpacity>
+              </View>
+            ))}
+            {!!validationErrors.householdMembers && <Text style={styles.fieldError}>{validationErrors.householdMembers}</Text>}
+          </View>
           {validationErrors.form && <Text style={styles.formError}>{validationErrors.form}</Text>}
           <TouchableOpacity style={styles.submitButton} onPress={handleRegister} disabled={isSubmitting} accessibilityRole="button">
             {isSubmitting ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.submitText}>Sign Up</Text>}
@@ -168,21 +232,36 @@ export default function RegisterScreen() {
           </View>
         </Pressable>
       </Modal>
+      <Modal transparent visible={isMemberDialogOpen} animationType="fade" onRequestClose={() => setIsMemberDialogOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setIsMemberDialogOpen(false)}>
+          <Pressable style={styles.memberDialog} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.sexTitle}>{editingMemberIndex == null ? 'Add household member' : 'Edit household member'}</Text>
+            <NativeTextInput style={styles.input} placeholder="Full name" placeholderTextColor={PLACEHOLDER_COLOR} value={memberName} onChangeText={setMemberName} autoCapitalize="words" />
+            <NativeTextInput style={[styles.input, styles.memberRelationshipInput]} placeholder="Relationship to you" placeholderTextColor={PLACEHOLDER_COLOR} value={memberRelationship} onChangeText={setMemberRelationship} autoCapitalize="words" />
+            {!!memberError && <Text style={styles.fieldError}>{memberError}</Text>}
+            <View style={styles.memberDialogActions}>
+              <TouchableOpacity style={styles.memberCancel} onPress={() => setIsMemberDialogOpen(false)}><Text style={styles.memberCancelText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.memberSave} onPress={saveMember}><Text style={styles.memberSaveText}>Save member</Text></TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
 interface FormFieldProps {
   label: string;
+  compact?: boolean;
   required?: boolean;
   optional?: boolean;
   error?: string;
   children: React.ReactNode;
 }
 
-function FormField({ label, required = true, optional = false, error, children }: FormFieldProps) {
+function FormField({ label, required = true, optional = false, error, compact = false, children }: FormFieldProps) {
   return (
-    <View style={styles.field}>
+    <View style={[styles.field, compact && styles.fieldStacked]}>
       <Text style={styles.label}>
         {label}{optional && <Text style={styles.optional}> (optional)</Text>}{required && <Text style={styles.required}> *</Text>}
       </Text>
@@ -222,17 +301,19 @@ const FONT_FAMILY = Platform.select({ ios: 'Avenir Next', android: 'sans-serif',
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.white },
-  contentContainer: { flexGrow: 1, paddingBottom: 32 },
+  contentContainer: { flexGrow: 1, width: '100%', maxWidth: 720, alignSelf: 'center', paddingBottom: 32 },
   header: { minHeight: 66, justifyContent: 'center', paddingHorizontal: 14, backgroundColor: GREEN, borderTopLeftRadius: 10, borderTopRightRadius: 10 },
   headerTitle: { color: Colors.white, fontFamily: FONT_FAMILY, fontSize: 32, fontWeight: '800' },
   form: { paddingHorizontal: 14, paddingTop: 13 },
   sectionTitle: { color: '#236B27', fontFamily: FONT_FAMILY, fontSize: 20, fontWeight: '400', marginBottom: 6 },
-  field: { flex: 1, marginBottom: 9 },
+  field: { flex: 1, minWidth: 0, marginBottom: 9 },
+  fieldStacked: { flex: 0, width: '100%' },
   label: { color: '#236B27', fontFamily: FONT_FAMILY, fontSize: 13, marginBottom: 5 },
   optional: { fontStyle: 'italic' },
   required: { color: '#D33A3A' },
   input: { height: 37, paddingHorizontal: 15, paddingVertical: 0, borderWidth: 1, borderColor: '#D7D7D7', borderRadius: 10, backgroundColor: Colors.white, color: '#263B28', fontFamily: FONT_FAMILY, fontSize: 12 },
   row: { flexDirection: 'row', columnGap: 18 },
+  rowStacked: { flexDirection: 'column', columnGap: 0 },
   selectInput: { height: 37, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: '#D7D7D7', borderRadius: 10, backgroundColor: Colors.white },
   selectPlaceholder: { color: PLACEHOLDER_COLOR, fontFamily: FONT_FAMILY, fontSize: 12 },
   selectValue: { color: '#263B28', fontFamily: FONT_FAMILY, fontSize: 12 },
@@ -245,4 +326,19 @@ const styles = StyleSheet.create({
   sexTitle: { color: '#236B27', fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '600', marginBottom: 8 },
   sexOption: { minHeight: 44, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#E5E5E5' },
   sexOptionText: { color: '#263B28', fontFamily: FONT_FAMILY, fontSize: 15 },
+  householdSection: { marginTop: 12 },
+  householdLabel: { color: '#236B27', fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '700', marginBottom: 6 },
+  addMemberButton: { width: '100%', minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: GREEN },
+  memberRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, paddingLeft: 10, borderWidth: 1, borderColor: '#D9E6D9', borderRadius: 7, backgroundColor: '#F7FAF7' },
+  memberCopy: { flex: 1 },
+  memberName: { color: '#263B28', fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700' },
+  memberRelationship: { color: '#617461', fontFamily: FONT_FAMILY, fontSize: 10, marginTop: 2 },
+  memberAction: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
+  memberDialog: { width: '100%', maxWidth: 400, padding: 18, borderRadius: 10, backgroundColor: Colors.white },
+  memberRelationshipInput: { marginTop: 10 },
+  memberDialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 14 },
+  memberCancel: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1, borderColor: '#CCD7CC', borderRadius: 6 },
+  memberCancelText: { color: '#344054', fontWeight: '700' },
+  memberSave: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 6, backgroundColor: GREEN },
+  memberSaveText: { color: Colors.white, fontWeight: '700' },
 });

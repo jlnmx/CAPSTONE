@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Modal, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, AppState, Modal, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthProvider } from '@hooks/useAuth';
@@ -13,6 +13,8 @@ import { syncPendingLocalData } from '@services/syncService';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 
 export default function RootLayout() {
+  const { width } = useWindowDimensions();
+
   useEffect(() => {
     initializeLocalDatabase();
     const sync = () => void syncPendingLocalData();
@@ -32,7 +34,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <View style={styles.root}>
+      <View style={[styles.root, width >= 1024 && styles.desktopRoot]}>
         <Stack
           screenOptions={{
             headerShown: false,
@@ -87,6 +89,11 @@ function NavigationLoadingOverlay() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    width: '100%',
+  },
+  desktopRoot: {
+    maxWidth: 1440,
+    alignSelf: 'center',
   },
   overlay: {
     flex: 1,

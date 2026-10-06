@@ -7,6 +7,7 @@ import { Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { Colors } from '@constants/colors';
+import { AnimatedPressable } from '@components/Buttons';
 import { useAuth } from '@hooks/useAuth';
 
 interface TabBarIconProps {
@@ -36,6 +37,16 @@ export default function ResponderLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarButton: (props) => (
+          <AnimatedPressable
+            onPress={(event) => props.onPress?.(event)}
+            style={props.style}
+            accessibilityRole="button"
+            accessibilityLabel={props.accessibilityLabel}
+          >
+            {props.children}
+          </AnimatedPressable>
+        ),
         tabBarLabelPosition: 'below-icon',
         tabBarActiveTintColor: '#218B25',
         tabBarInactiveTintColor: '#218B25',
@@ -91,6 +102,7 @@ export default function ResponderLayout() {
           tabBarIcon: ({ color }) => <TabBarIcon name="dots-horizontal" color={color} />,
         }}
       />
+      <Tabs.Screen name="responder-center-status" options={{ href: null }} />
     </Tabs>
   );
 }

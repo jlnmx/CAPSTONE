@@ -30,30 +30,6 @@ const MOCK_USERS = {
   },
 };
 
-const DEMO_USERS = {
-  admin: {
-    id: 'demo-admin-001',
-    email: 'demo-admin@handa.local',
-    name: 'Demo Administrator',
-    role: 'admin' as UserRole,
-    isDemo: true,
-  },
-  responder: {
-    id: 'demo-responder-001',
-    email: 'demo-responder@handa.local',
-    name: 'Demo Responder',
-    role: 'responder' as UserRole,
-    isDemo: true,
-  },
-  resident: {
-    id: 'demo-resident-001',
-    email: 'demo-resident@handa.local',
-    name: 'Demo Resident',
-    role: 'resident' as UserRole,
-    isDemo: true,
-  },
-};
-
 export class AuthService {
   /**
    * Authenticate user with email and password
@@ -87,7 +63,8 @@ export class AuthService {
         }
       }
       if (response.status === 401) {
-        return null;
+        const result = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(result?.detail || 'Invalid email or password.');
       }
       throw new Error(`Login service returned ${response.status}.`);
     } catch (error) {
@@ -97,14 +74,6 @@ export class AuthService {
       connectionError = error;
     }
 
-    for (const user of Object.values(MOCK_USERS)) {
-      if (user.email.toLowerCase() === email.toLowerCase() && user.password === password) {
-        // Don't return the password
-        const { password: _, ...userWithoutPassword } = user;
-        return userWithoutPassword;
-      }
-    }
-
     if (connectionError) {
       const message = connectionError instanceof Error && connectionError.name === 'AbortError'
         ? 'The login request timed out. Check the HANDA server connection and try again.'
@@ -112,22 +81,20 @@ export class AuthService {
       throw new Error(message);
     }
 
-    return null;
+    throw new Error('The login service is unavailable. Check that the HANDA server is running and try again.');
   }
 
   /**
    * Login as demo user (for testing without credentials)
    */
   static async loginAsDemo(role: UserRole): Promise<AuthUser | null> {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    const demoUser = DEMO_USERS[role];
-    if (demoUser) {
-      return demoUser;
+    const demoAccount = MOCK_USERS[role];
+    try {
+      const user = await this.login(demoAccount.email, demoAccount.password);
+      return user ? { ...user, isDemo: true } : null;
+    } catch {
+      throw new Error('Demo sign-in requires the HANDA API. Start the backend and try again.');
     }
-
-    return null;
   }
 
   /**

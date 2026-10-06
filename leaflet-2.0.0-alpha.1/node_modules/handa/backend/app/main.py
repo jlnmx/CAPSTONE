@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
 from .db import get_connection
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 
 
 def normalize_id(value: str | None, prefix: str) -> str:
@@ -124,6 +124,21 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ALTER COLUMN current_address SET DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS resident_household_members (
+              id TEXT PRIMARY KEY,
+              resident_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+              name TEXT NOT NULL,
+              relationship TEXT NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """,
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS resident_household_members_user_idx ON resident_household_members (resident_user_id)")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS evacuation_centers (
@@ -674,6 +689,35 @@ def delete_user(user_id: str, user: CurrentUser = Depends(require_roles("admin")
     connection.commit()
 
 
+def household_members_for_user(connection: psycopg.Connection, user_id: str) -> list[dict]:
+    return connection.execute(
+        "SELECT id, name, relationship FROM resident_household_members WHERE resident_user_id = %s ORDER BY created_at, id",
+        (user_id,),
+    ).fetchall()
+
+
+def resident_profile_payload(row: dict, members: list[dict] | None = None) -> dict:
+    name_parts = row["name"].split()
+    middle_name = row.get("middle_name") or ""
+    first_name = row.get("first_name") or (name_parts[0] if name_parts else "")
+    last_name = row.get("last_name") or " ".join(part for part in name_parts[1:] if part != middle_name)
+    birthday = row.get("birthday")
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "email": row["email"],
+        "role": normalize_role(row["role"]),
+        "firstName": first_name,
+        "middleName": middle_name,
+        "lastName": last_name,
+        "birthday": birthday.isoformat() if birthday else "",
+        "sex": row.get("sex") or "",
+        "mobileNumber": row.get("mobile_number") or "",
+        "currentAddress": row.get("current_address") or "",
+        "householdMembers": members if members is not None else [],
+    }
+
+
 @app.post("/api/v1/users/register", status_code=201)
 def register_user(registration: UserRegistration, connection: psycopg.Connection = Depends(get_connection)):
     if not any((char.isupper() for char in registration.password)) or not any((char.islower() for char in registration.password)) or not any((char.isdigit() for char in registration.password)) or not any((not char.isalnum() for char in registration.password)):
@@ -684,52 +728,96 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         connection.execute(
             """
             INSERT INTO users
-                            (id, name, email, birthday, mobile_number, current_address, middle_name, sex, password_hash, role, status)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'Resident', 'Active')
+              (id, name, first_name, middle_name, last_name, email, birthday, mobile_number,
+               current_address, sex, password_hash, role, status)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Resident', 'Active')
             """,
             (
                 user_id,
-                                " ".join(part for part in (registration.firstName.strip(), (registration.middleName or "").strip(), registration.lastName.strip()) if part),
+                " ".join(part for part in (registration.firstName.strip(), (registration.middleName or "").strip(), registration.lastName.strip()) if part),
+                registration.firstName.strip(),
+                (registration.middleName or "").strip() or None,
+                registration.lastName.strip(),
                 registration.email.strip().lower(),
                 registration.birthday,
                 registration.mobileNumber,
                 registration.currentAddress.strip(),
-                                (registration.middleName or "").strip() or None,
-                                registration.sex,
+                registration.sex,
                 hash_password(registration.password),
             ),
         )
+        for member in registration.members:
+            connection.execute(
+                "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
+                (f"resident-household-{uuid4()}", user_id, member.name.strip(), member.relationship.strip()),
+            )
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()
         raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
 
     access_token, expires_in = create_access_token(user_id, "resident", 0)
+    row = connection.execute(
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
+        (user_id,),
+    ).fetchone()
     return {
         "id": user_id,
         "status": "active",
         "message": "Registration completed.",
         "accessToken": access_token,
         "expiresIn": expires_in,
+        "user": resident_profile_payload(row, household_members_for_user(connection, user_id)),
     }
 
 
 @app.post("/api/v1/auth/login")
 def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT id, name, email, role, status, password_hash, token_version FROM users WHERE LOWER(email) = LOWER(%s)",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, password_hash, token_version FROM users WHERE LOWER(email) = LOWER(%s)",
         (credentials.email.strip(),),
     ).fetchone()
     if not row or row["status"] != "Active" or not verify_password(credentials.password, row["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     role = normalize_role(row["role"])
     access_token, expires_in = create_access_token(row["id"], role, row["token_version"])
-    return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "user": {"id": row["id"], "name": row["name"], "email": row["email"], "role": role}}
+    profile = resident_profile_payload(row, household_members_for_user(connection, row["id"]))
+    profile["role"] = role
+    return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "user": profile}
 
 
 @app.get("/api/v1/auth/me")
-def current_user(user: CurrentUser = Depends(get_current_user)):
-    return {"id": user.id, "name": user.name, "email": user.email, "role": user.role}
+def current_user(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
+    row = connection.execute(
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
+        (user.id,),
+    ).fetchone()
+    return resident_profile_payload(row, household_members_for_user(connection, user.id))
+
+
+@app.patch("/api/v1/resident/profile")
+def update_resident_profile(
+    profile: ResidentProfileUpdate,
+    resident: CurrentUser = Depends(require_roles("resident")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    full_name = " ".join(part for part in (profile.firstName.strip(), (profile.middleName or "").strip(), profile.lastName.strip()) if part)
+    connection.execute(
+        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, birthday = %s, sex = %s, mobile_number = %s, current_address = %s, updated_at = NOW() WHERE id = %s",
+        (full_name, profile.firstName.strip(), (profile.middleName or "").strip() or None, profile.lastName.strip(), profile.birthday, profile.sex, profile.mobileNumber, profile.currentAddress.strip(), resident.id),
+    )
+    connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
+    for member in profile.members:
+        connection.execute(
+            "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
+            (f"resident-household-{uuid4()}", resident.id, member.name.strip(), member.relationship.strip()),
+        )
+    connection.commit()
+    row = connection.execute(
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
+        (resident.id,),
+    ).fetchone()
+    return resident_profile_payload(row, household_members_for_user(connection, resident.id))
 
 
 @app.post("/api/v1/auth/logout")

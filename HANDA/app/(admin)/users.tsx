@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
+import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { AdminUserInput, AdminUserRecord, createAdminUser, deleteAdminUser, getAdminUsers, updateAdminUser } from '@services/adminData';
 
 type AccountForm = AdminUserInput;
@@ -49,6 +51,7 @@ function isStrongPassword(value: string): boolean {
 }
 
 export default function AdminUsers() {
+  const { isMobile, isCompact } = useResponsiveLayout();
   const { user } = useAuth();
   const [accounts, setAccounts] = useState<AdminUserRecord[]>([]);
   const [query, setQuery] = useState('');
@@ -170,10 +173,10 @@ export default function AdminUsers() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.heading}><View style={styles.headingCopy}><Text style={styles.eyebrow}>ACCESS CONTROL</Text><Text style={styles.title}>User accounts</Text><Text style={styles.subtitle}>Create accounts and manage role access.</Text></View><Pressable style={styles.createButton} onPress={openCreate}><MaterialCommunityIcons name="account-plus-outline" size={18} color={Colors.white} /><Text style={styles.createButtonText}>Add account</Text></Pressable></View>
-        <View style={styles.summary}><Summary label="All accounts" value={accounts.length} /><Summary label="Responders" value={responders} /><Summary label="Pending approval" value={pending} /></View>
+        <View style={[styles.heading, isMobile && styles.headingMobile]}><View style={styles.headingCopy}><Text style={styles.eyebrow}>ACCESS CONTROL</Text><Text style={styles.title}>User accounts</Text><Text style={styles.subtitle}>Create accounts and manage role access.</Text></View><Pressable style={styles.createButton} onPress={openCreate}><MaterialCommunityIcons name="account-plus-outline" size={18} color={Colors.white} /><Text style={styles.createButtonText}>Add account</Text></Pressable></View>
+        <View style={[styles.summary, isMobile && styles.summaryMobile]}><Summary label="All accounts" value={accounts.length} /><Summary label="Responders" value={responders} /><Summary label="Pending approval" value={pending} /></View>
         <View style={styles.panel}>
-          <View style={styles.toolbar}><View style={styles.search}><MaterialCommunityIcons name="magnify" size={19} color={Colors.textMuted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search users" placeholderTextColor={Colors.textMuted} style={styles.searchInput} /></View><Text style={styles.resultCount}>{visibleAccounts.length} accounts</Text></View>
+          <View style={[styles.toolbar, isMobile && styles.toolbarMobile]}><View style={styles.search}><MaterialCommunityIcons name="magnify" size={19} color={Colors.textMuted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search users" placeholderTextColor={Colors.textMuted} style={styles.searchInput} /></View><Text style={styles.resultCount}>{visibleAccounts.length} accounts</Text></View>
           {pageError ? <Text style={styles.errorText}>{pageError}</Text> : null}
           {visibleAccounts.map((account) => <UserRow key={account.id} account={account} isCurrentUser={account.id === user?.id} onEdit={() => openEdit(account)} onDelete={() => setDeleteTarget(account)} />)}
           {visibleAccounts.length === 0 && <View style={styles.empty}><MaterialCommunityIcons name="account-search-outline" size={30} color={Colors.textMuted} /><Text style={styles.emptyTitle}>No user accounts found</Text><Text style={styles.emptyDetail}>Try another search or create an account.</Text></View>}
@@ -187,7 +190,7 @@ export default function AdminUsers() {
             <ScrollView style={styles.formScroll} contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
               <FormField label="Full name" value={form.name} onChangeText={(name) => setForm((current) => ({ ...current, name }))} />
               <FormField label="Email" value={form.email} onChangeText={(email) => setForm((current) => ({ ...current, email }))} keyboardType="email-address" autoCapitalize="none" />
-              <View style={styles.formRow}><View style={styles.halfField}><FormField label="Birthday" value={form.birthday} onChangeText={(birthday) => setForm((current) => ({ ...current, birthday }))} placeholder="YYYY-MM-DD" inputType={Platform.OS === 'web' ? 'date' : undefined} /></View><View style={styles.halfField}><FormField label="Mobile number" value={form.mobileNumber} onChangeText={(mobileNumber) => setForm((current) => ({ ...current, mobileNumber }))} keyboardType="phone-pad" placeholder="09XXXXXXXXX" /></View></View>
+              <View style={[styles.formRow, isCompact && styles.formRowStacked]}><View style={styles.halfField}><FormField label="Birthday" value={form.birthday} onChangeText={(birthday) => setForm((current) => ({ ...current, birthday }))} placeholder="YYYY-MM-DD" inputType={Platform.OS === 'web' ? 'date' : undefined} /></View><View style={styles.halfField}><FormField label="Mobile number" value={form.mobileNumber} onChangeText={(mobileNumber) => setForm((current) => ({ ...current, mobileNumber }))} keyboardType="phone-pad" placeholder="09XXXXXXXXX" /></View></View>
               <FormField label="Current address" value={form.currentAddress} onChangeText={(currentAddress) => setForm((current) => ({ ...current, currentAddress }))} />
               {!(editingAccount?.id === user?.id) && <>
                 <ChoiceGroup label="Role" values={ROLES} selected={form.role} onSelect={(role) => setForm((current) => ({ ...current, role }))} />
@@ -222,20 +225,23 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#F4F7F9' },
   content: { padding: Spacing.xl, paddingBottom: 48, maxWidth: 1100, width: '100%', alignSelf: 'center' },
   heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
+  headingMobile: { flexDirection: 'column' },
   headingCopy: { flex: 1 },
   eyebrow: { color: Colors.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
   title: { color: Colors.text, fontSize: 30, fontWeight: '800', marginTop: 5 },
   subtitle: { color: Colors.textMuted, fontSize: 14, marginTop: 6 },
-  summary: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  summaryItem: { flex: 1, backgroundColor: Colors.white, padding: 16, borderRadius: BorderRadius.md, ...Shadows.sm },
+  summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 },
+  summaryMobile: { justifyContent: 'space-between' },
+  summaryItem: { flex: 1, minWidth: 112, backgroundColor: Colors.white, padding: 16, borderRadius: BorderRadius.md, ...Shadows.sm },
   summaryValue: { fontSize: 25, fontWeight: '800', color: Colors.text },
   summaryLabel: { color: Colors.textMuted, fontSize: 12, marginTop: 4 },
   panel: { backgroundColor: Colors.white, borderRadius: BorderRadius.md, padding: 18, ...Shadows.sm },
-  toolbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  search: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 10, width: 260 },
+  toolbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 10 },
+  toolbarMobile: { flexDirection: 'column', alignItems: 'stretch' },
+  search: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 10, width: '100%', maxWidth: 260, minWidth: 0 },
   searchInput: { flex: 1, paddingVertical: 9, paddingHorizontal: 8, color: Colors.text, fontSize: 13 },
   resultCount: { color: Colors.textMuted, fontSize: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#EDF1F4', gap: 12 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#EDF1F4', gap: 12 },
   userAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E4EEF4', justifyContent: 'center', alignItems: 'center' },
   avatarText: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
   userInfo: { flex: 1 },
@@ -259,6 +265,7 @@ const styles = StyleSheet.create({
   formScroll: { flexGrow: 0 },
   formContent: { padding: 20, paddingTop: 8 },
   formRow: { flexDirection: 'row', gap: 12 },
+  formRowStacked: { flexDirection: 'column', gap: 0 },
   halfField: { flex: 1 },
   field: { marginTop: 13 },
   fieldLabel: { color: Colors.text, fontSize: 12, fontWeight: '700', marginBottom: 6 },
