@@ -75,7 +75,7 @@ export default function CenterStatusScreen() {
           <View style={styles.state}><ActivityIndicator color={GREEN} /><Text style={styles.stateText}>Loading live center records...</Text></View>
         ) : error && centers.length === 0 ? (
           <View style={styles.state}>
-            <MaterialCommunityIcons name="cloud-alert-outline" size={30} color={RED} />
+            <MaterialCommunityIcons name="alert-circle-outline" size={30} color={RED} />
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={() => void loadCenters(true)}><Text style={styles.retryText}>Try again</Text></TouchableOpacity>
           </View>
@@ -166,7 +166,7 @@ function formatUpdated(value: string) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
-  content: { flexGrow: 1, width: '100%', maxWidth: 1100, alignSelf: 'center', paddingBottom: 16 },
+  content: { flexGrow: 1, width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 16 },
   header: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: GREEN },
   headerTitle: { color: Colors.white, fontSize: 27, lineHeight: 31, fontWeight: '900' },
   headerSubtitle: { color: '#E1F1E1', fontSize: 10, marginTop: 2 },

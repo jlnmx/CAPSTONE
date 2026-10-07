@@ -59,24 +59,27 @@ const leafletMapHtml = `
 export default function MapScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>MAP</Text>
-        <Text style={styles.headerSubtitle}>Biñan City, Laguna</Text>
-      </View>
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>MAP</Text>
+          <Text style={styles.headerSubtitle}>Biñan City, Laguna</Text>
+        </View>
 
-      <View style={styles.webMap}>
-        <iframe
-          title="Binan City Map"
-          srcDoc={leafletMapHtml}
-          style={styles.mapFrame}
-        />
+        <View style={styles.webMap}>
+          <iframe
+            title="Binan City Map"
+            srcDoc={leafletMapHtml}
+            style={styles.mapFrame}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.white },
+  safeArea: { flex: 1, backgroundColor: '#F7FAF7' },
+  content: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center' },
   header: { backgroundColor: '#218B25', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12 },
   headerTitle: { color: Colors.white, fontSize: 28, fontWeight: '800' },
   headerSubtitle: { color: '#DFF1DF', fontSize: 12, marginTop: 2 },
