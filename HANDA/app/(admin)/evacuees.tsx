@@ -5,7 +5,7 @@ import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AdminDataSnapshot, getAdminData } from '@services/adminData';
 
 export default function AdminEvacuees() {
-  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], source: 'unavailable' });
+  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, source: 'unavailable' });
   const [query, setQuery] = useState('');
 
   useEffect(() => {

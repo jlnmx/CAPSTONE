@@ -9,7 +9,7 @@ type Filter = 'All' | 'Incidents' | 'Evacuees';
 
 export default function AdminOperations() {
   const [filter, setFilter] = useState<Filter>('All');
-  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], source: 'unavailable' });
+  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, source: 'unavailable' });
 
   useEffect(() => {
     void getAdminData().then(setData);

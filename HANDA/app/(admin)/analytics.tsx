@@ -8,7 +8,7 @@ import { AdminDataSnapshot, getAdminData } from '@services/adminData';
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function AdminAnalytics() {
-  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], source: 'unavailable' });
+  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, source: 'unavailable' });
 
   useEffect(() => {
     void getAdminData().then(setData);
@@ -26,7 +26,7 @@ export default function AdminAnalytics() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heading}><View><Text style={styles.eyebrow}>REPORTING</Text><Text style={styles.title}>Analytics</Text><Text style={styles.subtitle}>Calculated from {data.source === 'remote' ? 'PostgreSQL' : 'PostgreSQL unavailable'} records.</Text></View><TouchableOpacity style={styles.export} onPress={() => Alert.alert('Report', 'Export is available after the reporting API is enabled.')}><MaterialCommunityIcons name="file-chart-outline" size={18} color={Colors.primary} /><Text style={styles.exportText}>Generate report</Text></TouchableOpacity></View>
-        <View style={styles.stats}><Stat label="Registered evacuees" value={String(data.evacuees.length)} icon="account-group-outline" /><Stat label="Reported incidents" value={String(data.incidents.length)} icon="alert-circle-outline" /><Stat label="High severity incidents" value={String(highSeverity)} icon="alert-octagon-outline" /></View>
+        <View style={styles.stats}><Stat label="Registered evacuees" value={String(data.evacuees.length + data.registeredEvacuees)} icon="account-group-outline" /><Stat label="Reported incidents" value={String(data.incidents.length)} icon="alert-circle-outline" /><Stat label="High severity incidents" value={String(highSeverity)} icon="alert-octagon-outline" /></View>
         <View style={styles.panel}><Text style={styles.panelTitle}>Registration trend</Text><Text style={styles.meta}>New evacuee records by day, last seven days</Text><View style={styles.chart}>{registrations.map((value, index) => <View style={styles.column} key={DAYS[index]}><Text style={styles.value}>{value}</Text><View style={styles.track}><View style={[styles.bar, { height: `${Math.min(value * 20, 100)}%` }]} /></View><Text style={styles.day}>{DAYS[index]}</Text></View>)}</View></View>
         <View style={styles.panel}><Text style={styles.panelTitle}>Data availability</Text><Text style={styles.meta}>Metrics unavailable until their source tables are connected.</Text><Availability label="Evacuee registrations" value={`${data.evacuees.length} records`} /><Availability label="Incident reports" value={`${data.incidents.length} records`} /><Availability label="Incident resolution rate" value="N/A" /><Availability label="Evacuation center utilization" value="N/A" /></View>
       </ScrollView>

@@ -7,7 +7,7 @@ import { getResponderData, ResponderDataSnapshot, updateIncidentStatus } from '@
 
 const CENTER = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
-const EMPTY_DATA: ResponderDataSnapshot = { incidents: [], evacuees: [], disasters: [], centers: [], unavailableSources: [] };
+const EMPTY_DATA: ResponderDataSnapshot = { incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] };
 
 function nextIncidentAction(status: string) {
   if (status === 'reported') return { status: 'acknowledged' as const, label: 'Acknowledge' };

@@ -11,7 +11,7 @@ const dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function AdminOverview() {
   const { user, logout } = useAuth();
-  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], source: 'unavailable' });
+  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, source: 'unavailable' });
 
   useEffect(() => {
     void getAdminData().then(setData);
@@ -49,7 +49,7 @@ export default function AdminOverview() {
         </View>
 
         <View style={styles.statGrid}>
-          <Metric icon="account-group-outline" label="Registered evacuees" value={String(data.evacuees.length)} delta={data.source === 'remote' ? 'From PostgreSQL' : 'Database unavailable'} color="#167A5B" />
+          <Metric icon="account-group-outline" label="Registered evacuees" value={String(data.evacuees.length + data.registeredEvacuees)} delta={data.source === 'remote' ? 'From PostgreSQL' : 'Database unavailable'} color="#167A5B" />
           <Metric icon="alert-circle-outline" label="Reported incidents" value={String(data.incidents.length)} delta={`${highSeverityIncidents} high severity`} color={Colors.emergency} />
           <Metric icon="home-city-outline" label="Evacuation centers" value="—" delta="No database records" color={Colors.secondary} />
           <Metric icon="account-multiple-outline" label="Active personnel" value="—" delta="No database records" color="#8B5E00" />
