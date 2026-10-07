@@ -8,7 +8,7 @@ import { Colors } from '@constants/colors';
 const CENTER: [number, number] = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const LeafletApi = (Leaflet as any).default ?? Leaflet;
-const EMPTY_DATA: ResponderDataSnapshot = { incidents: [], evacuees: [], disasters: [], centers: [], unavailableSources: [] };
+const EMPTY_DATA: ResponderDataSnapshot = { incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] };
 
 function nextIncidentAction(status: ResponderIncident['status']) {
   if (status === 'reported') return { status: 'acknowledged' as const, label: 'Acknowledge' };

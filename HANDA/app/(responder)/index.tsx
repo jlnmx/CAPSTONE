@@ -28,7 +28,7 @@ const formattedDate = new Intl.DateTimeFormat('en-US', {
 }).format(new Date());
 
 export default function ResponderDashboard() {
-  const [data, setData] = useState<ResponderDataSnapshot>({ incidents: [], evacuees: [], disasters: [], centers: [], unavailableSources: [] });
+  const [data, setData] = useState<ResponderDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [dataUnavailable, setDataUnavailable] = useState(false);
 
@@ -52,7 +52,7 @@ export default function ResponderDashboard() {
 
   const activeDisaster = data.disasters.find((disaster) => disaster.status.toLowerCase() === 'active');
   const activeIncidents = data.incidents.filter((incident) => ['reported', 'acknowledged', 'in_progress'].includes(incident.status)).length;
-  const displayedEvacuees = data.unavailableSources.includes('evacuees') ? 'N/A' : data.evacuees.length;
+  const displayedEvacuees = data.unavailableSources.includes('evacuees') || data.unavailableSources.includes('registrations') ? 'N/A' : data.evacuees.length + data.registeredEvacuees;
   const displayedIncidents = data.unavailableSources.includes('incidents') ? 'N/A' : activeIncidents;
   const displayedCenters = data.unavailableSources.includes('centers') ? 'N/A' : data.centers.length;
   const availableCapacity = data.centers.reduce((total, center) => {

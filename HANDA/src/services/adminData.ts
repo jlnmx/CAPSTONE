@@ -9,6 +9,7 @@ export type AdminEvacueeRecord = LocalEvacueeRecord;
 export type AdminDataSnapshot = {
   incidents: AdminIncidentRecord[];
   evacuees: AdminEvacueeRecord[];
+  registeredEvacuees: number;
   source: 'remote' | 'unavailable';
 };
 
@@ -79,20 +80,23 @@ async function fetchRecords<T>(path: string): Promise<T[]> {
 
 export async function getAdminData(): Promise<AdminDataSnapshot> {
   try {
-    const [remoteIncidents, remoteEvacuees] = await Promise.all([
+    const [remoteIncidents, remoteEvacuees, registrations] = await Promise.all([
       fetchRecords<Record<string, any>>('/api/v1/incidents'),
       fetchRecords<Record<string, any>>('/api/v1/evacuees'),
+      fetchRecords<Record<string, any>>('/api/v1/evacuation-registrations'),
     ]);
 
     return {
       incidents: remoteIncidents.map(normalizeIncident),
       evacuees: remoteEvacuees.map(normalizeEvacuee),
+      registeredEvacuees: registrations.reduce((total, registration) => total + Number(registration.household_size ?? registration.householdSize ?? 0), 0),
       source: 'remote',
     };
   } catch {
     return {
       incidents: [],
       evacuees: [],
+      registeredEvacuees: 0,
       source: 'unavailable',
     };
   }
