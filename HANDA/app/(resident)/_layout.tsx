@@ -52,41 +52,48 @@ export default function ResidentLayout() {
           </AnimatedPressable>
         ),
         tabBarActiveTintColor: '#218B25',
-        tabBarInactiveTintColor: '#218B25',
+        tabBarInactiveTintColor: '#6B7B85',
         tabBarStyle: {
           backgroundColor: Colors.white,
           borderTopColor: '#8BC58B',
           borderTopWidth: 1,
-          height: 64,
-          marginHorizontal: 5,
-          borderRadius: 10,
-          paddingBottom: 5,
-          paddingTop: 3,
+          height: 72,
+          marginHorizontal: 8,
+          marginBottom: 8,
+          borderRadius: 16,
+          paddingBottom: 7,
+          paddingTop: 6,
+          shadowColor: '#163A25',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.12,
+          shadowRadius: 8,
+          elevation: 5,
         },
         tabBarLabelStyle: {
-          fontSize: 8,
-          fontWeight: '500',
+          fontSize: 9,
+          fontWeight: '700',
+          lineHeight: 11,
         },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: '',
+          title: 'Home',
           tabBarIcon: ({ color }) => <TabBarIcon name="home-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="report"
         options={{
-          title: '',
+          title: 'Report',
           tabBarIcon: ({ color }) => <TabBarIcon name="alert-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="sos"
         options={{
-          title: '',
+          title: 'SOS',
           tabBarShowLabel: false,
           tabBarIcon: () => <SosTabIcon />,
         }}
@@ -94,14 +101,14 @@ export default function ResidentLayout() {
       <Tabs.Screen
         name="map"
         options={{
-          title: '',
+          title: 'Map',
           tabBarIcon: ({ color }) => <TabBarIcon name="map-outline" color={color} />,
         }}
       />
       <Tabs.Screen
         name="more"
         options={{
-          title: '',
+          title: 'More',
           tabBarIcon: ({ color }) => <TabBarIcon name="dots-horizontal" color={color} />,
         }}
       />

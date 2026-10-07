@@ -242,14 +242,16 @@ export default function ResidentMapScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>MAP</Text>
-        <Text style={styles.headerSubtitle}>Biñan City, Laguna</Text>
-      </View>
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>MAP</Text>
+          <Text style={styles.headerSubtitle}>Biñan City, Laguna</Text>
+        </View>
 
-      {isLoading && <View style={styles.status}><ActivityIndicator color={GREEN} /><Text style={styles.statusText}>Loading evacuation centers...</Text></View>}
-      {!!error && <Text style={styles.error}>{error}</Text>}
-      <View style={styles.webMap}><LeafletMap centers={centers} onSelectCenter={selectCenter} /></View>
+        {isLoading && <View style={styles.status}><ActivityIndicator color={GREEN} /><Text style={styles.statusText}>Loading evacuation centers...</Text></View>}
+        {!!error && <Text style={styles.error}>{error}</Text>}
+        <View style={styles.webMap}><LeafletMap centers={centers} onSelectCenter={selectCenter} /></View>
+      </View>
 
       <Modal visible={!!selectedCenter && !memberEditorOpen} transparent animationType="fade" onRequestClose={() => setSelectedCenter(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setSelectedCenter(null)}>
@@ -328,7 +330,8 @@ export default function ResidentMapScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.white },
+  safeArea: { flex: 1, backgroundColor: '#F7FAF7' },
+  content: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center' },
   header: { backgroundColor: '#218B25', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12 },
   headerTitle: { color: Colors.white, fontSize: 28, fontWeight: '800' },
   headerSubtitle: { color: '#DFF1DF', fontSize: 12, marginTop: 2 },

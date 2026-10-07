@@ -1,0 +1,38 @@
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { Colors, BorderRadius, Spacing } from '@constants/colors';
+import { useAuth } from '@hooks/useAuth';
+import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
+
+export default function AccountScreen() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const { gutter } = useResponsiveLayout();
+  const [callbackNumber, setCallbackNumber] = useState('');
+
+  useEffect(() => { if (!isLoading && !isAuthenticated) router.replace('/(auth)/login'); }, [isAuthenticated, isLoading, router]);
+  if (isLoading || !isAuthenticated) return <View style={styles.loading}><ActivityIndicator color={Colors.secondary} /></View>;
+
+  const saveCallbackNumber = () => Alert.alert('Ready to connect', 'This button is ready for the callback number service.');
+  const editInformation = () => Alert.alert('Ready to connect', 'This button is ready for the profile editing flow.');
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}><Pressable onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back"><MaterialCommunityIcons name="arrow-left" size={23} color={Colors.white} /></Pressable><View><Text style={styles.eyebrow}>YOUR PROFILE</Text><Text style={styles.title}>Account</Text></View></View>
+        <View style={styles.profileCard}><View style={styles.avatar}><MaterialCommunityIcons name="account-outline" size={38} color={Colors.secondary} /></View><View style={styles.profileCopy}><Text style={styles.name}>{user?.name || 'HANDA User'}</Text><Text style={styles.email}>{user?.email || 'No email available'}</Text><View style={styles.rolePill}><Text style={styles.roleText}>{user?.role || 'resident'}</Text></View></View></View>
+        <View style={styles.section}><View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="phone-outline" size={20} color={Colors.success} /></View><View><Text style={styles.sectionTitle}>Emergency callback</Text><Text style={styles.sectionDetail}>A number responders can use during an incident</Text></View></View><TextInput value={callbackNumber} onChangeText={setCallbackNumber} placeholder="09XX XXX XXXX" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" style={styles.input} /><Pressable onPress={saveCallbackNumber} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><MaterialCommunityIcons name="content-save-outline" size={18} color={Colors.white} /><Text style={styles.primaryButtonText}>Save callback number</Text></Pressable></View>
+        <View style={styles.section}><View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="card-account-details-outline" size={20} color={Colors.secondary} /></View><View><Text style={styles.sectionTitle}>Personal information</Text><Text style={styles.sectionDetail}>Update the details attached to your account</Text></View></View><View style={styles.detailList}><DetailRow label="Name" value={user?.name || 'Not provided'} /><DetailRow label="Email" value={user?.email || 'Not provided'} /><DetailRow label="Role" value={user?.role || 'Not provided'} /></View><Pressable onPress={editInformation} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><MaterialCommunityIcons name="pencil-outline" size={18} color={Colors.primary} /><Text style={styles.secondaryButtonText}>Edit information</Text></Pressable></View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) { return <View style={styles.detailRow}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></View>; }
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: Colors.white }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.white }, content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: Spacing['3xl'] }, header: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, backButton: { width: 42, height: 42, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.14)' }, eyebrow: { color: '#D8F0D8', fontSize: 10, fontWeight: '800', letterSpacing: 1.4 }, title: { marginTop: 2, color: Colors.white, fontSize: 28, fontWeight: '800' }, profileCard: { marginTop: Spacing.lg, marginBottom: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderColor: '#8BC58B', borderRadius: BorderRadius.md, backgroundColor: Colors.white, flexDirection: 'row', alignItems: 'center' }, avatar: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EAF3EA', borderWidth: 1, borderColor: '#218B25' }, profileCopy: { flex: 1, marginLeft: Spacing.lg }, name: { color: '#155B19', fontSize: 20, fontWeight: '800' }, email: { marginTop: 4, color: Colors.textMuted, fontSize: 12 }, rolePill: { alignSelf: 'flex-start', marginTop: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: BorderRadius.sm, backgroundColor: '#EAF3EA' }, roleText: { color: '#218B25', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  section: { marginBottom: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderColor: '#8BC58B', borderRadius: BorderRadius.md, backgroundColor: Colors.white }, sectionHeading: { flexDirection: 'row', alignItems: 'center' }, sectionIcon: { width: 38, height: 38, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EAF3EA' }, sectionTitle: { marginLeft: Spacing.md, color: '#155B19', fontSize: 16, fontWeight: '800' }, sectionDetail: { marginLeft: Spacing.md, marginTop: 2, color: Colors.textMuted, fontSize: 11 }, input: { height: 48, marginTop: Spacing.lg, paddingHorizontal: Spacing.md, borderWidth: 1, borderColor: '#D7E0E7', borderRadius: BorderRadius.md, color: Colors.text, backgroundColor: '#FAFCFD', fontSize: 14 }, primaryButton: { height: 46, marginTop: Spacing.md, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: Spacing.sm, backgroundColor: '#218B25' }, primaryButtonText: { color: Colors.white, fontSize: 14, fontWeight: '800' }, detailList: { marginTop: Spacing.lg, borderTopWidth: 1, borderTopColor: '#E8EDF1' }, detailRow: { minHeight: 45, borderBottomWidth: 1, borderBottomColor: '#E8EDF1', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.md }, detailLabel: { color: Colors.textMuted, fontSize: 12 }, detailValue: { flex: 1, color: Colors.text, fontSize: 13, fontWeight: '700', textAlign: 'right' }, secondaryButton: { height: 46, marginTop: Spacing.lg, borderWidth: 1, borderColor: '#218B25', borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: Spacing.sm }, secondaryButtonText: { color: '#155B19', fontSize: 14, fontWeight: '800' }, pressed: { opacity: 0.78 },
+});

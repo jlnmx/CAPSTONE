@@ -18,13 +18,11 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
   const displayName = user?.name || 'HANDA User';
 
   const openSettings = () => {
-    Alert.alert('Settings', 'Settings and notification preferences are available here.');
+    router.push('/settings');
   };
 
   const openAccount = () => {
-    Alert.alert('Account', 'Manage your profile and account preferences.', [
-      { text: 'Close', style: 'cancel' },
-    ]);
+    router.push('/account');
   };
 
   const confirmLogout = () => {

@@ -49,7 +49,7 @@ export default function ResponderDashboard() {
     return () => clearInterval(refresh);
   }, []);
 
-  const activeDisaster = data.disasters.find((disaster) => disaster.status === 'Active');
+  const activeDisaster = data.disasters.find((disaster) => disaster.status.toLowerCase() === 'active');
   const activeIncidents = data.incidents.filter((incident) => ['reported', 'acknowledged', 'in_progress'].includes(incident.status)).length;
   const displayedEvacuees = data.unavailableSources.includes('evacuees') ? 'N/A' : data.evacuees.length;
   const displayedIncidents = data.unavailableSources.includes('incidents') ? 'N/A' : activeIncidents;
@@ -83,17 +83,17 @@ export default function ResponderDashboard() {
           </View>
         </View>
 
-        <ResponderWeatherCard />
+        <ResponderWeatherCard disasterActive={!!activeDisaster} />
 
-        <AnimatedPressable style={styles.disasterCard} onPress={() => router.push('/map')} accessibilityRole="button" accessibilityLabel="Open map to review disaster and incident activity">
+        <AnimatedPressable style={[styles.disasterCard, activeDisaster && styles.disasterCardActive, !activeDisaster && styles.disasterCardEmpty]} onPress={() => activeDisaster && router.push('/map')} disabled={!activeDisaster} accessibilityRole="button" accessibilityLabel="Open map to review disaster and incident activity">
           <MaterialCommunityIcons
             name="alert-circle-outline"
             size={39}
             color={Colors.white}
           />
           <View style={styles.disasterCopy}>
-            <Text style={styles.disasterName}>{activeDisaster?.name ?? 'No active disaster'}</Text>
-            <Text style={styles.disasterDescription}>{activeDisaster ? `${activeDisaster.severity.toUpperCase()} · Active Disaster` : 'Monitoring server records'}</Text>
+            <Text style={[styles.disasterName, activeDisaster && styles.disasterNameActive]}>{activeDisaster?.name ?? 'No active disaster'}</Text>
+            <Text style={[styles.disasterDescription, activeDisaster && styles.disasterDescriptionActive]}>{activeDisaster ? `${activeDisaster.severity.toUpperCase()} · Active Disaster` : 'Monitoring server records'}</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={31} color={Colors.white} />
         </AnimatedPressable>
@@ -143,17 +143,17 @@ function StatTile({ icon, value, label, color, onPress }: StatTileProps) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F7FAF7',
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F7FAF7',
   },
   contentContainer: {
     width: '100%',
-    maxWidth: 1100,
+    maxWidth: 900,
     alignSelf: 'center',
-    paddingBottom: 12,
+    paddingBottom: 18,
   },
   header: {
     flexDirection: 'row',
@@ -220,24 +220,28 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     marginTop: 12,
     marginBottom: 12,
-    paddingHorizontal: 14,
-    height: 102,
-    borderRadius: 9,
+    paddingHorizontal: 10,
+    minHeight: 61,
+    borderRadius: 8,
     backgroundColor: '#D63F43',
   },
+  disasterCardActive: { minHeight: 102, marginBottom: 12, paddingHorizontal: 14, borderRadius: 9 },
+  disasterCardEmpty: { backgroundColor: '#6B7B85' },
   disasterName: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: Colors.white,
   },
+  disasterNameActive: { fontSize: 18, fontWeight: '700' },
   disasterCopy: {
     flex: 1,
     marginLeft: 10,
   },
   disasterDescription: {
-    fontSize: 12,
+    fontSize: 9,
     color: Colors.white,
   },
+  disasterDescriptionActive: { fontSize: 12 },
   statsContainer: {
     flexDirection: 'row',
     marginHorizontal: 18,

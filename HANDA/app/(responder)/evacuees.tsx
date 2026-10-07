@@ -137,7 +137,7 @@ function EvacueeRow({ evacuee, onStatusChange }: { evacuee: ResponderEvacuee; on
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.white },
   container: { flex: 1, backgroundColor: Colors.white },
-  content: { width: '100%', maxWidth: 1100, alignSelf: 'center', paddingBottom: 12 },
+  content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 18 },
   heading: { backgroundColor: GREEN, height: 86, justifyContent: 'center', paddingHorizontal: 16 },
   headingText: { color: Colors.white, fontSize: 25, fontWeight: '800' },
   registrationSection: { marginHorizontal: 16, marginTop: 13, padding: 10, borderWidth: 1, borderColor: '#78B578', borderRadius: 7, backgroundColor: Colors.white },

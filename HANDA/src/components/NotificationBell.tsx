@@ -13,17 +13,18 @@ const notifications = [
 
 export function NotificationBell() {
   const [visible, setVisible] = useState(false);
+  const [hasUnread, setHasUnread] = useState(true);
 
   return (
     <>
       <AnimatedPressable
         style={styles.button}
-        onPress={() => setVisible(true)}
+        onPress={() => { setVisible(true); setHasUnread(false); }}
         accessibilityLabel="Open notifications"
         accessibilityRole="button"
       >
         <MaterialCommunityIcons name="bell-outline" size={29} color={Colors.white} />
-        <View style={styles.dot} />
+        {hasUnread && <View style={styles.dot} />}
       </AnimatedPressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
