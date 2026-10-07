@@ -3,6 +3,31 @@
  * Professional emergency-response application design
  */
 
+import { Platform, PlatformColor } from 'react-native';
+
+function nativeColor(name: string, fallback: string) {
+  return Platform.OS !== 'web' && typeof PlatformColor === 'function' ? PlatformColor(name) : fallback;
+}
+
+const platformSurface = Platform.select({
+  ios: nativeColor('systemBackground', '#FFFFFF'),
+  android: nativeColor('?android:attr/colorBackground', '#FFFFFF'),
+  web: 'var(--handa-surface, #FFFFFF)',
+  default: '#FFFFFF',
+});
+const platformText = Platform.select({
+  ios: nativeColor('label', '#17212B'),
+  android: nativeColor('?android:attr/textColorPrimary', '#17212B'),
+  web: 'var(--handa-text, #17212B)',
+  default: '#17212B',
+});
+const platformTextMuted = Platform.select({
+  ios: nativeColor('secondaryLabel', '#667085'),
+  android: nativeColor('?android:attr/textColorSecondary', '#667085'),
+  web: 'var(--handa-text-muted, #667085)',
+  default: '#667085',
+});
+
 export const Colors = {
   // Primary Colors
   primary: '#0B3A63', // Dark Navy Blue
@@ -14,12 +39,14 @@ export const Colors = {
   warning: '#F4A261', // Amber/Orange for warnings
   
   // Backgrounds
-  background: '#F5F7FA', // Light gray background
-  white: '#FFFFFF', // White
+  background: platformSurface, // Device-aware app background
+  surface: platformSurface,
+  surfaceMuted: Platform.select({ ios: nativeColor('secondarySystemBackground', '#F0F2F5'), android: nativeColor('?android:attr/colorBackground', '#F0F2F5'), web: 'var(--handa-surface-muted, #F0F2F5)', default: '#F0F2F5' }),
+  white: '#FFFFFF', // High-contrast text and light surfaces
   
   // Text Colors
-  text: '#17212B', // Dark text
-  textMuted: '#667085', // Muted text
+  text: platformText, // Device-aware readable text
+  textMuted: platformTextMuted, // Device-aware muted text
   
   // Functional
   offline: '#E63946', // Red for offline status

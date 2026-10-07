@@ -5,26 +5,28 @@ import { useRouter } from 'expo-router';
 import { Colors, BorderRadius, Spacing } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
+import { useTheme } from '@hooks/useTheme';
 
 export default function AccountScreen() {
   const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuth();
   const { gutter } = useResponsiveLayout();
   const [callbackNumber, setCallbackNumber] = useState('');
+  const { palette } = useTheme();
 
   useEffect(() => { if (!isLoading && !isAuthenticated) router.replace('/(auth)/login'); }, [isAuthenticated, isLoading, router]);
-  if (isLoading || !isAuthenticated) return <View style={styles.loading}><ActivityIndicator color={Colors.secondary} /></View>;
+  if (isLoading || !isAuthenticated) return <View style={[styles.loading, { backgroundColor: palette.background }]}><ActivityIndicator color={Colors.secondary} /></View>;
 
   const saveCallbackNumber = () => Alert.alert('Ready to connect', 'This button is ready for the callback number service.');
   const editInformation = () => Alert.alert('Ready to connect', 'This button is ready for the profile editing flow.');
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
         <View style={styles.header}><Pressable onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back"><MaterialCommunityIcons name="arrow-left" size={23} color={Colors.white} /></Pressable><View><Text style={styles.eyebrow}>YOUR PROFILE</Text><Text style={styles.title}>Account</Text></View></View>
-        <View style={styles.profileCard}><View style={styles.avatar}><MaterialCommunityIcons name="account-outline" size={38} color={Colors.secondary} /></View><View style={styles.profileCopy}><Text style={styles.name}>{user?.name || 'HANDA User'}</Text><Text style={styles.email}>{user?.email || 'No email available'}</Text><View style={styles.rolePill}><Text style={styles.roleText}>{user?.role || 'resident'}</Text></View></View></View>
-        <View style={styles.section}><View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="phone-outline" size={20} color={Colors.success} /></View><View><Text style={styles.sectionTitle}>Emergency callback</Text><Text style={styles.sectionDetail}>A number responders can use during an incident</Text></View></View><TextInput value={callbackNumber} onChangeText={setCallbackNumber} placeholder="09XX XXX XXXX" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" style={styles.input} /><Pressable onPress={saveCallbackNumber} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><MaterialCommunityIcons name="content-save-outline" size={18} color={Colors.white} /><Text style={styles.primaryButtonText}>Save callback number</Text></Pressable></View>
-        <View style={styles.section}><View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="card-account-details-outline" size={20} color={Colors.secondary} /></View><View><Text style={styles.sectionTitle}>Personal information</Text><Text style={styles.sectionDetail}>Update the details attached to your account</Text></View></View><View style={styles.detailList}><DetailRow label="Name" value={user?.name || 'Not provided'} /><DetailRow label="Email" value={user?.email || 'Not provided'} /><DetailRow label="Role" value={user?.role || 'Not provided'} /></View><Pressable onPress={editInformation} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><MaterialCommunityIcons name="pencil-outline" size={18} color={Colors.primary} /><Text style={styles.secondaryButtonText}>Edit information</Text></Pressable></View>
+        <View style={[styles.profileCard, { backgroundColor: palette.surface, borderColor: palette.border }]}><View style={styles.avatar}><MaterialCommunityIcons name="account-outline" size={38} color={Colors.secondary} /></View><View style={styles.profileCopy}><Text style={[styles.name, { color: palette.text }]}>{user?.name || 'HANDA User'}</Text><Text style={[styles.email, { color: palette.textMuted }]}>{user?.email || 'No email available'}</Text><View style={styles.rolePill}><Text style={styles.roleText}>{user?.role || 'resident'}</Text></View></View></View>
+        <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}><View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="phone-outline" size={20} color={Colors.success} /></View><View><Text style={[styles.sectionTitle, { color: palette.text }]}>Emergency callback</Text><Text style={[styles.sectionDetail, { color: palette.textMuted }]}>A number responders can use during an incident</Text></View></View><TextInput value={callbackNumber} onChangeText={setCallbackNumber} placeholder="09XX XXX XXXX" placeholderTextColor={palette.textMuted} keyboardType="phone-pad" style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} /><Pressable onPress={saveCallbackNumber} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><MaterialCommunityIcons name="content-save-outline" size={18} color={Colors.white} /><Text style={styles.primaryButtonText}>Save callback number</Text></Pressable></View>
+        <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}><View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="card-account-details-outline" size={20} color={Colors.secondary} /></View><View><Text style={[styles.sectionTitle, { color: palette.text }]}>Personal information</Text><Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Update the details attached to your account</Text></View></View><View style={styles.detailList}><DetailRow label="Name" value={user?.name || 'Not provided'} /><DetailRow label="Email" value={user?.email || 'Not provided'} /><DetailRow label="Role" value={user?.role || 'Not provided'} /></View><Pressable onPress={editInformation} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><MaterialCommunityIcons name="pencil-outline" size={18} color={Colors.primary} /><Text style={styles.secondaryButtonText}>Edit information</Text></Pressable></View>
       </ScrollView>
     </SafeAreaView>
   );

@@ -7,6 +7,7 @@ import { Tabs, useRouter, useSegments } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
+import { useTheme } from '@hooks/useTheme';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -18,6 +19,7 @@ export default function AdminLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  const { palette } = useTheme();
 
   useEffect(() => {
     if (isLoading || segments[0] !== '(admin)') return;
@@ -33,10 +35,10 @@ export default function AdminLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textMuted,
+          tabBarInactiveTintColor: palette.textMuted,
         tabBarStyle: {
-          backgroundColor: Colors.white,
-          borderTopColor: '#D7E2EA',
+          backgroundColor: palette.surface,
+          borderTopColor: palette.border,
           borderTopWidth: 1,
           height: 64,
           paddingBottom: 7,

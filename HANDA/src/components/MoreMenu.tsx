@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, BorderRadius, Spacing } from '@constants/colors';
+import { useTheme } from '@hooks/useTheme';
 
 interface MoreMenuProps {
   roleLabel: string;
@@ -15,6 +16,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
   const router = useRouter();
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { palette } = useTheme();
   const displayName = user?.name || 'HANDA User';
 
   const openSettings = () => {
@@ -44,8 +46,8 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+      <ScrollView style={[styles.container, { backgroundColor: palette.background }]} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>MORE</Text>
         </View>
@@ -55,21 +57,21 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
             <MaterialCommunityIcons name="account-outline" size={42} color="#218B25" />
           </View>
           <View style={styles.profileCopy}>
-            <Text style={styles.name}>{displayName}</Text>
+            <Text style={[styles.name, { color: palette.text }]}>{displayName}</Text>
             <Text style={styles.role}>{roleLabel}</Text>
           </View>
         </View>
 
         <View style={styles.menu}>
-          <TouchableOpacity style={styles.menuButton} onPress={openSettings} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.menuButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={openSettings} activeOpacity={0.8}>
             <MaterialCommunityIcons name="cog-outline" size={46} color="#218B25" />
             <Text style={styles.menuLabel}>SETTINGS</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.menuButton} onPress={openAccount} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.menuButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={openAccount} activeOpacity={0.8}>
             <MaterialCommunityIcons name="account-outline" size={46} color="#218B25" />
             <Text style={styles.menuLabel}>ACCOUNT</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuButton, styles.logoutButton]} onPress={confirmLogout} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.menuButton, styles.logoutButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={confirmLogout} activeOpacity={0.8}>
             <MaterialCommunityIcons name="logout" size={42} color={Colors.emergency} />
             <Text style={[styles.menuLabel, styles.logoutLabel]}>LOG OUT</Text>
           </TouchableOpacity>
@@ -84,8 +86,8 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setIsLogoutDialogOpen(false)}>
           <Pressable style={styles.logoutDialog} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.dialogTitle}>Log out?</Text>
-            <Text style={styles.dialogMessage}>Are you sure you want to log out of your account?</Text>
+            <Text style={[styles.dialogTitle, { color: palette.text }]}>Log out?</Text>
+            <Text style={[styles.dialogMessage, { color: palette.textMuted }]}>Are you sure you want to log out of your account?</Text>
             <View style={styles.dialogActions}>
               <TouchableOpacity
                 style={styles.cancelButton}

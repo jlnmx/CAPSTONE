@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@constants/colors';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
+import { useTheme } from '@hooks/useTheme';
 
 interface ButtonProps {
   label: string;
@@ -85,6 +86,7 @@ export function PrimaryButton({
     <AnimatedPressable
       style={[
         styles.primaryButton,
+        { backgroundColor: Colors.primary },
         { minHeight: buttonHeight, paddingVertical: Spacing.md * scale },
         disabled && styles.primaryButtonDisabled,
         style,
@@ -95,7 +97,7 @@ export function PrimaryButton({
       {loading ? (
         <ActivityIndicator color={Colors.white} size="small" />
       ) : (
-        <Text style={[styles.primaryButtonText, { fontSize: Typography.sizes.base * scale }, textStyle]}>{label}</Text>
+        <Text style={[styles.primaryButtonText, { color: '#FFFFFF', fontSize: Typography.sizes.base * scale }, textStyle]}>{label}</Text>
       )}
     </AnimatedPressable>
   );
@@ -110,11 +112,13 @@ export function SecondaryButton({
   textStyle,
 }: ButtonProps) {
   const { buttonHeight, scale } = useResponsiveLayout();
+  const { palette } = useTheme();
 
   return (
     <AnimatedPressable
       style={[
         styles.secondaryButton,
+        { backgroundColor: palette.surface, borderColor: Colors.primary },
         { minHeight: buttonHeight, paddingVertical: Spacing.md * scale },
         disabled && styles.secondaryButtonDisabled,
         style,
@@ -125,7 +129,7 @@ export function SecondaryButton({
       {loading ? (
         <ActivityIndicator color={Colors.primary} size="small" />
       ) : (
-        <Text style={[styles.secondaryButtonText, { fontSize: Typography.sizes.base * scale }, textStyle]}>{label}</Text>
+        <Text style={[styles.secondaryButtonText, { color: palette.text, fontSize: Typography.sizes.base * scale }, textStyle]}>{label}</Text>
       )}
     </AnimatedPressable>
   );
@@ -138,9 +142,10 @@ interface LinkButtonProps {
 }
 
 export function LinkButton({ label, onPress, style }: LinkButtonProps) {
+  const { palette } = useTheme();
   return (
     <AnimatedPressable onPress={onPress} style={style}>
-      <Text style={styles.linkButtonText}>{label}</Text>
+      <Text style={[styles.linkButtonText, { color: palette.text }]}>{label}</Text>
     </AnimatedPressable>
   );
 }
@@ -161,12 +166,13 @@ export function IconButton({
   style,
 }: IconButtonProps) {
   const { buttonHeight, scale } = useResponsiveLayout();
+  const { palette } = useTheme();
 
   return (
-    <AnimatedPressable style={[styles.iconButton, { minHeight: buttonHeight }, style]} onPress={onPress}>
-      <Text style={[styles.iconButtonIcon, { fontSize: 32 * scale }]}>{icon}</Text>
-      {label && <Text style={styles.iconButtonLabel}>{label}</Text>}
-      {description && <Text style={styles.iconButtonDescription}>{description}</Text>}
+    <AnimatedPressable style={[styles.iconButton, { minHeight: buttonHeight, backgroundColor: palette.surface, borderColor: palette.border }, style]} onPress={onPress}>
+      <Text style={[styles.iconButtonIcon, { color: palette.text, fontSize: 32 * scale }]}>{icon}</Text>
+      {label && <Text style={[styles.iconButtonLabel, { color: palette.text }]}>{label}</Text>}
+      {description && <Text style={[styles.iconButtonDescription, { color: palette.textMuted }]}>{description}</Text>}
     </AnimatedPressable>
   );
 }

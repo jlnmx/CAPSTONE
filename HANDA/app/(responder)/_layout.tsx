@@ -9,6 +9,7 @@ import { Tabs, useRouter, useSegments } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
 import { useAuth } from '@hooks/useAuth';
+import { useTheme } from '@hooks/useTheme';
 
 interface TabBarIconProps {
   name: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -23,6 +24,7 @@ export default function ResponderLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
   const segments = useSegments();
+  const { palette } = useTheme();
 
   useEffect(() => {
     if (isLoading || segments[0] !== '(responder)') return;
@@ -51,8 +53,8 @@ export default function ResponderLayout() {
         tabBarActiveTintColor: '#218B25',
         tabBarInactiveTintColor: '#6B7B85',
         tabBarStyle: {
-          backgroundColor: Colors.white,
-          borderTopColor: '#8BC58B',
+          backgroundColor: palette.surface,
+          borderTopColor: palette.border,
           borderTopWidth: 1,
           height: 72,
           marginHorizontal: 8,

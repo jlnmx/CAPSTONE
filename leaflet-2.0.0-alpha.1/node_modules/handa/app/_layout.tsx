@@ -16,11 +16,17 @@ import { syncPendingLocalData } from '@services/syncService';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AppFontFamily } from '@constants/typography';
 import { ThemeProvider } from '@hooks/useTheme';
+import { useTheme } from '@hooks/useTheme';
 
 const bodyTextStyle = { fontFamily: AppFontFamily };
 
 export default function RootLayout() {
+  return <ThemeProvider><RootLayoutContent /></ThemeProvider>;
+}
+
+function RootLayoutContent() {
   const { width } = useWindowDimensions();
+  const { palette } = useTheme();
   const [fontsLoaded] = useFonts({ Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold, InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold, InstrumentSans_700Bold });
 
   useEffect(() => {
@@ -43,9 +49,8 @@ export default function RootLayout() {
   if (!fontsLoaded) return <View style={styles.fontLoading}><ActivityIndicator color={Colors.secondary} /></View>;
 
   return (
-    <ThemeProvider>
       <AuthProvider>
-        <View style={[styles.root, width >= 1024 && styles.desktopRoot]}>
+        <View style={[styles.root, { backgroundColor: palette.background }, width >= 1024 && styles.desktopRoot]}>
         <Stack
           screenOptions={{
             headerShown: false,
@@ -61,7 +66,6 @@ export default function RootLayout() {
           <NavigationLoadingOverlay />
         </View>
       </AuthProvider>
-    </ThemeProvider>
   );
 }
 

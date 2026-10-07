@@ -10,7 +10,7 @@ import { NotificationBell } from '@components/NotificationBell';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { authenticatedFetch } from '@services/apiClient';
-import { getTimeOfDayPresentation } from '@utils/weatherTime';
+import { getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
 
 const actions = [
   { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/register-evacuee' },
@@ -85,7 +85,7 @@ export default function ResidentDashboard() {
     month: 'long',
     day: 'numeric',
   }).format(now);
-  const timeOfDay = timePresentation.label.toLowerCase();
+  const greeting = getGreeting(now);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: timePresentation.pageBackground }]}>
@@ -97,7 +97,7 @@ export default function ResidentDashboard() {
 
         <View style={styles.greeting}>
           <View>
-            <Text style={styles.greetingTitle}>Good {timeOfDay}, Biñanense!</Text>
+            <Text style={styles.greetingTitle}>{greeting}, Biñanense!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
           <View style={[styles.weatherIcon, { borderColor: presentation.accent, backgroundColor: '#FFFFFF' }]} accessibilityLabel={`${presentation.description}, ${Math.round(weather.temperature)} degrees`}><MaterialCommunityIcons name={presentation.icon} size={26} color={presentation.accent} /></View>

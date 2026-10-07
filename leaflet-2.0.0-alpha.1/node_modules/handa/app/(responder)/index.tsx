@@ -19,7 +19,7 @@ import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { NotificationBell } from '@components/NotificationBell';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, ResponderDataSnapshot } from '@services/responderData';
-import { getTimeOfDayPresentation } from '@utils/weatherTime';
+import { getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
 
 const formattedDate = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -76,7 +76,7 @@ export default function ResponderDashboard() {
 
         <View style={styles.greeting}>
           <View>
-            <Text style={styles.greetingTitle}>Welcome, Responder!</Text>
+            <Text style={styles.greetingTitle}>{getGreeting()}, Responder!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
           <View style={[styles.weatherIcon, { backgroundColor: timePresentation.indicator, borderColor: timePresentation.accent }]} accessibilityLabel={`${timePresentation.label} weather`}>
