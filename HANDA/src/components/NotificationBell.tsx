@@ -62,7 +62,7 @@ export function NotificationBell() {
 
 const styles = StyleSheet.create({
   button: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
-  dot: { position: 'absolute', top: 6, right: 5, width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.warning, borderWidth: 1, borderColor: Colors.white },
+  dot: { position: 'absolute', top: 1, right: -1, zIndex: 2, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.warning, borderWidth: 1, borderColor: Colors.white },
   backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', padding: 18, justifyContent: 'flex-start', alignItems: 'flex-end' },
   modal: { width: '100%', maxWidth: 430, marginTop: 62, backgroundColor: Colors.white, borderRadius: BorderRadius.md, padding: Spacing.lg, ...Shadows.md },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.background },

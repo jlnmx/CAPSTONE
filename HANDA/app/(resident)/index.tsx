@@ -8,6 +8,7 @@ import { WeatherWidget } from '@components/WeatherWidget';
 import { Colors } from '@constants/colors';
 import { NotificationBell } from '@components/NotificationBell';
 import { AnimatedPressable } from '@components/Buttons';
+import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { authenticatedFetch } from '@services/apiClient';
 import { getTimeOfDayPresentation } from '@utils/weatherTime';
 
@@ -104,11 +105,11 @@ export default function ResidentDashboard() {
 
         <WeatherWidget weather={weather} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={!!activeDisaster} />
 
-        <AnimatedPressable style={[styles.disasterCard, activeDisaster && styles.disasterCardActive, !activeDisaster && styles.disasterCardEmpty]} onPress={() => activeDisaster && router.push('/(resident)/alerts')} disabled={!activeDisaster}>
-          <View style={styles.alertIcon}><MaterialCommunityIcons name={activeDisaster ? 'alert-outline' : 'weather-hurricane'} size={29} color={Colors.white} /></View>
-          <View style={styles.disasterCopy}><Text style={[styles.disasterName, activeDisaster && styles.disasterNameActive]}>{isDisasterLoading ? 'Checking disaster status...' : activeDisaster?.name || 'No active disaster'}</Text><Text style={[styles.disasterStatus, activeDisaster && styles.disasterStatusActive]}>{disasterError ? 'Live status unavailable' : activeDisaster ? 'Active Disaster' : 'Monitoring live reports'}</Text></View>
-          {activeDisaster && <MaterialCommunityIcons name="chevron-right" size={30} color={Colors.white} />}
-        </AnimatedPressable>
+        <ActiveDisasterCard
+          active={!!activeDisaster}
+          title={isDisasterLoading ? 'Checking disaster status...' : activeDisaster?.name || 'No active disaster'}
+          description={disasterError ? 'Live status unavailable' : activeDisaster ? 'Active Disaster' : 'Monitoring live reports'}
+        />
 
         <View style={styles.statusRow}>
           <StatusTile

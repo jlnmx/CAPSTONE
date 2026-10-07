@@ -15,6 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
+import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { NotificationBell } from '@components/NotificationBell';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, ResponderDataSnapshot } from '@services/responderData';
@@ -85,18 +86,14 @@ export default function ResponderDashboard() {
 
         <ResponderWeatherCard disasterActive={!!activeDisaster} />
 
-        <AnimatedPressable style={[styles.disasterCard, activeDisaster && styles.disasterCardActive, !activeDisaster && styles.disasterCardEmpty]} onPress={() => activeDisaster && router.push('/map')} disabled={!activeDisaster} accessibilityRole="button" accessibilityLabel="Open map to review disaster and incident activity">
-          <MaterialCommunityIcons
-            name="alert-circle-outline"
-            size={39}
-            color={Colors.white}
-          />
-          <View style={styles.disasterCopy}>
-            <Text style={[styles.disasterName, activeDisaster && styles.disasterNameActive]}>{activeDisaster?.name ?? 'No active disaster'}</Text>
-            <Text style={[styles.disasterDescription, activeDisaster && styles.disasterDescriptionActive]}>{activeDisaster ? `${activeDisaster.severity.toUpperCase()} · Active Disaster` : 'Monitoring server records'}</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={31} color={Colors.white} />
-        </AnimatedPressable>
+        <ActiveDisasterCard
+          active={!!activeDisaster}
+          title={activeDisaster?.name ?? 'No active disaster'}
+          description={activeDisaster ? `${activeDisaster.severity.toUpperCase()} · Active Disaster` : 'Monitoring server records'}
+          onPress={() => router.push('/map')}
+          interactiveWhenInactive
+          accessibilityLabel="Open map to review disaster and incident activity"
+        />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>

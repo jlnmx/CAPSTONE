@@ -2,7 +2,8 @@
  * Resident Stack Layout
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
@@ -19,8 +20,24 @@ function TabBarIcon({ name, color }: TabBarIconProps) {
   return <MaterialCommunityIcons name={name} size={23} color={color} />;
 }
 
-function SosTabIcon() {
-  return <View style={styles.sosTab}><Text style={styles.sosTabText}>SOS</Text></View>;
+function SosTabIcon({ active }: { active: boolean }) {
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!active) {
+      pulse.stopAnimation();
+      pulse.setValue(1);
+      return undefined;
+    }
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1.08, duration: 850, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 1, duration: 850, useNativeDriver: true }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [active, pulse]);
+
+  return <Animated.View style={[styles.sosTab, { transform: [{ scale: pulse }] }]}><Text style={styles.sosTabText}>SOS</Text></Animated.View>;
 }
 
 export default function ResidentLayout() {
@@ -94,8 +111,7 @@ export default function ResidentLayout() {
         name="sos"
         options={{
           title: 'SOS',
-          tabBarShowLabel: false,
-          tabBarIcon: () => <SosTabIcon />,
+          tabBarIcon: ({ focused }) => <SosTabIcon active={focused} />,
         }}
       />
       <Tabs.Screen

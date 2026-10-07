@@ -5,15 +5,22 @@
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Modal, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useFonts } from 'expo-font';
+import { Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold } from '@expo-google-fonts/sora';
+import { InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold, InstrumentSans_700Bold } from '@expo-google-fonts/instrument-sans';
 import { Stack, usePathname } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthProvider } from '@hooks/useAuth';
 import { initializeLocalDatabase } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
+import { AppFontFamily } from '@constants/typography';
+
+const bodyTextStyle = { fontFamily: AppFontFamily };
 
 export default function RootLayout() {
   const { width } = useWindowDimensions();
+  const [fontsLoaded] = useFonts({ Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold, InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold, InstrumentSans_700Bold });
 
   useEffect(() => {
     initializeLocalDatabase();
@@ -31,6 +38,8 @@ export default function RootLayout() {
       appStateSubscription.remove();
     };
   }, []);
+
+  if (!fontsLoaded) return <View style={styles.fontLoading}><ActivityIndicator color={Colors.secondary} /></View>;
 
   return (
     <AuthProvider>
@@ -78,7 +87,7 @@ function NavigationLoadingOverlay() {
             <MaterialCommunityIcons name="shield-check-outline" size={26} color={Colors.white} />
           </View>
           <ActivityIndicator size="small" color={Colors.secondary} />
-          <Text style={styles.loadingTitle}>HANDA</Text>
+          <Text style={[bodyTextStyle, styles.loadingTitle]}>HANDA</Text>
           <Text style={styles.loadingMessage}>Updating response view</Text>
         </View>
       </View>
@@ -91,6 +100,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
+  fontLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.white },
   desktopRoot: {
     maxWidth: 1440,
     alignSelf: 'center',
