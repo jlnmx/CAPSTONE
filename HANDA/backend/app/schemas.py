@@ -71,6 +71,13 @@ class ResidentProfileUpdate(BaseModel):
     members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
 
 
+class ResidentAccountUpdate(BaseModel):
+    email: str | None = Field(default=None, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$", max_length=255)
+    mobileNumber: str | None = Field(default=None, pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
+    currentPassword: str | None = Field(default=None, min_length=1, max_length=128)
+    newPassword: str | None = Field(default=None, min_length=8, max_length=128)
+
+
 class ResidentProfileUpdate(BaseModel):
     firstName: str = Field(min_length=1, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)
@@ -85,6 +92,22 @@ class ResidentProfileUpdate(BaseModel):
 class UserLogin(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=1, max_length=128)
+
+
+class PasswordResetRequest(BaseModel):
+    identifier: str = Field(min_length=3, max_length=255)
+    channel: Literal["email", "sms"]
+
+
+class PasswordResetOtpVerification(BaseModel):
+    resetToken: str = Field(min_length=20, max_length=100)
+    otp: str = Field(pattern=r"^\d{6}$")
+
+
+class PasswordResetCompletion(BaseModel):
+    resetToken: str = Field(min_length=20, max_length=100)
+    otp: str = Field(pattern=r"^\d{6}$")
+    newPassword: str = Field(min_length=8, max_length=128)
 
 
 class AdminUserCreate(BaseModel):

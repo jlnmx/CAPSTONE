@@ -48,6 +48,10 @@ Check the service:
 Invoke-RestMethod http://localhost:8000/health
 ```
 
+### Password reset delivery
+
+The password reset flow supports email and SMS OTPs. Set the `SMTP_*` variables in `.env` for email delivery, or the `TWILIO_*` variables for SMS delivery. When neither provider is configured, the API logs the OTP at warning level for local development only; configure a provider before production use.
+
 Responder data is available from `/api/v1/disasters`, `/api/v1/incidents`, `/api/v1/evacuees`, and `/api/v1/centers`. Responders update incident action state with `PATCH /api/v1/incidents/{id}/status`, evacuee state with `PATCH /api/v1/evacuees/{id}/status`, and household check-in state with `PATCH /api/v1/evacuation-registrations/{id}/status`.
 
 ## Sync contract

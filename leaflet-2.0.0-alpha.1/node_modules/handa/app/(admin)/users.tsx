@@ -222,7 +222,7 @@ function PasswordField({ label, value, onChangeText, visible, onToggleVisibility
 function ChoiceGroup<T extends string>({ label, values, selected, onSelect }: { label: string; values: T[]; selected: T; onSelect: (value: T) => void }) { return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><View style={styles.choiceRow}>{values.map((value) => <Pressable key={value} style={[styles.choice, selected === value && styles.choiceActive]} onPress={() => onSelect(value)}><Text style={[styles.choiceText, selected === value && styles.choiceTextActive]}>{value}</Text></Pressable>)}</View></View>; }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F7F9' },
+  safeArea: { flex: 1, backgroundColor: Colors.surfaceMuted },
   content: { padding: Spacing.xl, paddingBottom: 48, maxWidth: 1100, width: '100%', alignSelf: 'center' },
   heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 22 },
   headingMobile: { flexDirection: 'column' },
@@ -232,10 +232,10 @@ const styles = StyleSheet.create({
   subtitle: { color: Colors.textMuted, fontSize: 14, marginTop: 6 },
   summary: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 },
   summaryMobile: { justifyContent: 'space-between' },
-  summaryItem: { flex: 1, minWidth: 112, backgroundColor: Colors.white, padding: 16, borderRadius: BorderRadius.md, ...Shadows.sm },
+  summaryItem: { flex: 1, minWidth: 112, backgroundColor: Colors.surface, padding: 16, borderRadius: BorderRadius.md, ...Shadows.sm },
   summaryValue: { fontSize: 25, fontWeight: '800', color: Colors.text },
   summaryLabel: { color: Colors.textMuted, fontSize: 12, marginTop: 4 },
-  panel: { backgroundColor: Colors.white, borderRadius: BorderRadius.md, padding: 18, ...Shadows.sm },
+  panel: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: 18, ...Shadows.sm },
   toolbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 10 },
   toolbarMobile: { flexDirection: 'column', alignItems: 'stretch' },
   search: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 10, width: '100%', maxWidth: 260, minWidth: 0 },
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   rowActions: { flexDirection: 'row', gap: 2 },
   iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   modalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 18, backgroundColor: 'rgba(17, 31, 43, 0.48)' },
-  editor: { width: '100%', maxWidth: 560, maxHeight: '92%', backgroundColor: Colors.white, borderRadius: BorderRadius.md, overflow: 'hidden' },
+  editor: { width: '100%', maxWidth: 560, maxHeight: '92%', backgroundColor: Colors.surface, borderRadius: BorderRadius.md, overflow: 'hidden' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', padding: 20, borderBottomWidth: 1, borderBottomColor: '#EDF1F4' },
   modalTitle: { color: Colors.text, fontSize: 20, fontWeight: '800' },
   modalSubtitle: { color: Colors.textMuted, fontSize: 12, marginTop: 5 },
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   halfField: { flex: 1 },
   field: { marginTop: 13 },
   fieldLabel: { color: Colors.text, fontSize: 12, fontWeight: '700', marginBottom: 6 },
-  fieldInput: { minHeight: 43, borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 11, color: Colors.text, fontSize: 13, backgroundColor: Colors.white },
+  fieldInput: { minHeight: 43, borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 11, color: Colors.text, fontSize: 13, backgroundColor: Colors.surface },
   passwordInputWrap: { position: 'relative', justifyContent: 'center' },
   passwordInput: { paddingRight: 46 },
   passwordToggle: { position: 'absolute', right: 5, top: 3, width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
@@ -287,6 +287,6 @@ const styles = StyleSheet.create({
   deleteButton: { minWidth: 125, minHeight: 42, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 15, backgroundColor: Colors.emergency, borderRadius: BorderRadius.sm },
   disabledButton: { opacity: 0.65 },
   saveText: { color: Colors.white, fontSize: 12, fontWeight: '700' },
-  confirmDialog: { width: '100%', maxWidth: 420, padding: 22, backgroundColor: Colors.white, borderRadius: BorderRadius.md },
+  confirmDialog: { width: '100%', maxWidth: 420, padding: 22, backgroundColor: Colors.surface, borderRadius: BorderRadius.md },
   confirmText: { color: Colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 10 },
 });

@@ -31,6 +31,37 @@ const MOCK_USERS = {
 };
 
 export class AuthService {
+  static async requestPasswordReset(identifier: string, channel: 'email' | 'sms'): Promise<{ resetToken?: string; destination?: string; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/password-reset/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier: identifier.trim(), channel }),
+    });
+    const result = await response.json() as { resetToken?: string; destination?: string; message?: string; detail?: string };
+    if (!response.ok) throw new Error(result.detail || 'Unable to request a password reset.');
+    return { resetToken: result.resetToken, destination: result.destination, message: result.message || 'A reset code has been sent.' };
+  }
+
+  static async verifyPasswordReset(resetToken: string, otp: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/password-reset/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetToken, otp }),
+    });
+    const result = await response.json() as { detail?: string };
+    if (!response.ok) throw new Error(result.detail || 'The reset code is invalid or expired.');
+  }
+
+  static async completePasswordReset(resetToken: string, otp: string, newPassword: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/password-reset/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetToken, otp, newPassword }),
+    });
+    const result = await response.json() as { detail?: string };
+    if (!response.ok) throw new Error(result.detail || 'Unable to update your password.');
+  }
+
   /**
    * Authenticate user with email and password
    */

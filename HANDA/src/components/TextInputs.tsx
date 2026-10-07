@@ -54,7 +54,7 @@ export function TextInput({
           !editable && styles.inputDisabled,
         ]}
         placeholder={placeholder}
-        placeholderTextColor={Colors.textMuted}
+        placeholderTextColor="#667085"
         value={value}
         onChangeText={onChangeText}
         editable={editable}
@@ -102,7 +102,7 @@ export function PasswordInput({
             error && styles.inputError,
           ]}
           placeholder={placeholder}
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor="#667085"
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={!showPassword}
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     fontSize: Typography.sizes.base,
-    color: Colors.text,
+    color: '#17212B',
     backgroundColor: Colors.white,
   },
   inputError: {

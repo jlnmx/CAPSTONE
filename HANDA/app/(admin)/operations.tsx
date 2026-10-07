@@ -9,7 +9,7 @@ type Filter = 'All' | 'Incidents' | 'Evacuees';
 
 export default function AdminOperations() {
   const [filter, setFilter] = useState<Filter>('All');
-  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, source: 'unavailable' });
+  const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' });
 
   useEffect(() => {
     void getAdminData().then(setData);
@@ -25,7 +25,7 @@ export default function AdminOperations() {
             <Text style={styles.subtitle}>Live incident and evacuee records from {data.source === 'remote' ? 'PostgreSQL' : 'PostgreSQL unavailable'}.</Text>
           </View>
           <TouchableOpacity style={styles.exportButton} onPress={() => Alert.alert('Export', 'Export is available after the synchronized reporting API is enabled.')}>
-            <MaterialCommunityIcons name="download-outline" size={18} color={Colors.primary} />
+            <MaterialCommunityIcons name="download-outline" size={18} color={Colors.text} />
             <Text style={styles.exportText}>Export data</Text>
           </TouchableOpacity>
         </View>
@@ -79,20 +79,20 @@ export default function AdminOperations() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F7F9' },
+  safeArea: { flex: 1, backgroundColor: Colors.surfaceMuted },
   content: { padding: Spacing.xl, paddingBottom: 48, maxWidth: 1100, width: '100%', alignSelf: 'center' },
   heading: { flexDirection: 'row', justifyContent: 'space-between', gap: 16, marginBottom: 22 },
   eyebrow: { color: Colors.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
   title: { color: Colors.text, fontSize: 30, fontWeight: '800', marginTop: 5 },
   subtitle: { color: Colors.textMuted, fontSize: 14, marginTop: 6 },
   exportButton: { flexDirection: 'row', gap: 7, alignItems: 'center', borderWidth: 1, borderColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 11, borderRadius: BorderRadius.md },
-  exportText: { color: Colors.primary, fontWeight: '700', fontSize: 12 },
+  exportText: { color: Colors.text, fontWeight: '700', fontSize: 12 },
   filters: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   filter: { paddingHorizontal: 15, paddingVertical: 9, borderRadius: 18, backgroundColor: '#E7EEF2' },
   filterActive: { backgroundColor: Colors.primary },
-  filterText: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
+  filterText: { color: '#17212B', fontSize: 12, fontWeight: '700' },
   filterTextActive: { color: Colors.white },
-  panel: { backgroundColor: Colors.white, borderRadius: BorderRadius.md, padding: 18, marginBottom: 16, ...Shadows.sm },
+  panel: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: 18, marginBottom: 16, ...Shadows.sm },
   panelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 7 },
   panelTitle: { color: Colors.text, fontSize: 16, fontWeight: '800' },
   panelMeta: { color: Colors.textMuted, fontSize: 12, marginTop: 4 },

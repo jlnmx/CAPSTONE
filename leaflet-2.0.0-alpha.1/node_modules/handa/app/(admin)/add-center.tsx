@@ -53,7 +53,7 @@ function Field({ label, value, onChangeText, placeholder, keyboardType = 'defaul
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F4F7F9' },
+  safeArea: { flex: 1, backgroundColor: Colors.surfaceMuted },
   content: { padding: Spacing.xl, paddingBottom: 48, maxWidth: 760, width: '100%', alignSelf: 'center' },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginBottom: 18 },
   backText: { color: Colors.secondary, fontSize: 12, fontWeight: '700' },
@@ -61,10 +61,10 @@ const styles = StyleSheet.create({
   eyebrow: { color: Colors.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
   title: { color: Colors.text, fontSize: 30, fontWeight: '800', marginTop: 5 },
   subtitle: { color: Colors.textMuted, fontSize: 14, marginTop: 6 },
-  form: { backgroundColor: Colors.white, padding: 20, borderRadius: BorderRadius.md, ...Shadows.sm },
+  form: { backgroundColor: Colors.surface, padding: 20, borderRadius: BorderRadius.md, ...Shadows.sm },
   field: { marginBottom: 15 },
   label: { color: Colors.text, fontSize: 12, fontWeight: '700', marginBottom: 6 },
-  input: { height: 45, borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 12, color: Colors.text, fontSize: 13, backgroundColor: Colors.white },
+  input: { height: 45, borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 12, color: Colors.text, fontSize: 13, backgroundColor: Colors.surface },
   multiline: { height: 90, paddingTop: 12, textAlignVertical: 'top' },
   error: { color: Colors.emergency, fontSize: 12, marginBottom: 14 },
   submit: { height: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, marginTop: 4 },

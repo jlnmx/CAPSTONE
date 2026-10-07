@@ -58,7 +58,7 @@ export default function VerifyStatusScreen() {
   const statusDescription = status?.status === 'checked_in'
     ? `Verified by ${status.checkedInBy || 'an evacuation responder'}`
     : status?.status === 'evacuated'
-      ? 'Your household is recorded as evacuated.'
+      ? 'Your household evacuation was verified by a responder.'
       : status?.status === 'released'
         ? 'Your household has been released from the center.'
         : 'A responder must confirm your household’s arrival at the center.';

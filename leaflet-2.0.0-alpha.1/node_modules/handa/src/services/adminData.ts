@@ -1,15 +1,31 @@
+import { authenticatedFetch } from './apiClient';
 import { LocalEvacueeRecord, LocalIncidentRecord } from './localDatabase';
 
 export type AdminIncidentRecord = LocalIncidentRecord & {
   status: 'acknowledged' | 'resolved';
 };
 
-export type AdminEvacueeRecord = LocalEvacueeRecord;
+export type AdminEvacueeRecord = LocalEvacueeRecord & {
+  displayName?: string;
+  householdRole?: string;
+  registrationId?: string;
+  centerName?: string;
+};
+
+export type AdminCenterRecord = {
+  id: string;
+  name: string;
+  location: string;
+  capacity: number;
+  currentOccupancy: number;
+  status: string;
+};
 
 export type AdminDataSnapshot = {
   incidents: AdminIncidentRecord[];
   evacuees: AdminEvacueeRecord[];
-  registeredEvacuees: number;
+  centers: AdminCenterRecord[];
+  activePersonnel: number;
   source: 'remote' | 'unavailable';
 };
 
@@ -36,8 +52,17 @@ export type AdminUserInput = {
   currentAddress: string;
   password?: string;
 };
-import { authenticatedFetch } from './apiClient';
 
+export type AdminLogRecord = {
+  id: number;
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  details: string;
+  status: string;
+  created_at: string;
+  actor_name: string;
+};
 
 function normalizeIncident(record: Record<string, any>): AdminIncidentRecord {
   return {
@@ -59,46 +84,93 @@ function normalizeEvacuee(record: Record<string, any>): AdminEvacueeRecord {
     firstName: record.firstName ?? record.first_name,
     middleName: record.middleName ?? record.middle_name ?? undefined,
     lastName: record.lastName ?? record.last_name,
-    age: record.age,
-    sex: record.sex,
+    age: Number(record.age ?? 0),
+    sex: record.sex ?? '',
     contactNumber: record.contactNumber ?? record.contact_number ?? undefined,
     address: record.address ?? undefined,
     householdSize: record.householdSize ?? record.household_size ?? undefined,
     barangay: record.barangay ?? undefined,
-    syncStatus: record.syncStatus ?? 'synced',
+    syncStatus: record.syncStatus ?? record.sync_status ?? 'synced',
     createdAt: record.createdAt ?? record.created_at,
   };
 }
 
+function normalizeRegistrationPeople(registration: Record<string, any>): AdminEvacueeRecord[] {
+  const registrationId = String(registration.id);
+  const headName = [registration.first_name, registration.middle_name, registration.last_name].filter(Boolean).join(' ');
+  const common = {
+    address: registration.address ?? undefined,
+    householdSize: Number(registration.household_size ?? 1),
+    barangay: undefined,
+    syncStatus: registration.status ?? 'registered',
+    createdAt: registration.registered_at,
+    registrationId,
+    centerName: registration.center_name,
+  };
+  const head: AdminEvacueeRecord = {
+    ...common,
+    id: `${registrationId}:head`,
+    firstName: registration.first_name,
+    middleName: registration.middle_name ?? undefined,
+    lastName: registration.last_name,
+    age: Number(registration.age ?? 0),
+    sex: registration.sex ?? '',
+    contactNumber: registration.contact_number ?? undefined,
+    displayName: headName,
+    householdRole: 'Registrant',
+  };
+  const members = Array.isArray(registration.members) ? registration.members : [];
+  return [head, ...members.map((member: Record<string, any>): AdminEvacueeRecord => ({
+    ...common,
+    id: `${registrationId}:member:${member.id}`,
+    firstName: member.name,
+    middleName: undefined,
+    lastName: '',
+    age: 0,
+    sex: '',
+    contactNumber: undefined,
+    displayName: member.name,
+    householdRole: member.relationship,
+  }))];
+}
+
 async function fetchRecords<T>(path: string): Promise<T[]> {
   const response = await authenticatedFetch(path);
-  if (!response.ok) {
-    throw new Error(`Admin data request failed: ${response.status}`);
-  }
+  if (!response.ok) throw new Error(`Admin data request failed: ${response.status}`);
   return response.json() as Promise<T[]>;
+}
+
+export async function getAdminLogs(category: 'sync' | 'audit'): Promise<AdminLogRecord[]> {
+  return fetchRecords<AdminLogRecord>(`/api/v1/logs/${category}`);
 }
 
 export async function getAdminData(): Promise<AdminDataSnapshot> {
   try {
-    const [remoteIncidents, remoteEvacuees, registrations] = await Promise.all([
+    const [remoteIncidents, remoteEvacuees, registrations, centers, users] = await Promise.all([
       fetchRecords<Record<string, any>>('/api/v1/incidents'),
       fetchRecords<Record<string, any>>('/api/v1/evacuees'),
       fetchRecords<Record<string, any>>('/api/v1/evacuation-registrations'),
+      fetchRecords<Record<string, any>>('/api/v1/centers'),
+      fetchRecords<Record<string, any>>('/api/v1/users'),
     ]);
+    const registrationPeople = registrations.flatMap(normalizeRegistrationPeople);
 
     return {
       incidents: remoteIncidents.map(normalizeIncident),
-      evacuees: remoteEvacuees.map(normalizeEvacuee),
-      registeredEvacuees: registrations.reduce((total, registration) => total + Number(registration.household_size ?? registration.householdSize ?? 0), 0),
+      evacuees: [...remoteEvacuees.map(normalizeEvacuee), ...registrationPeople],
+      centers: centers.map((center) => ({
+        id: center.id,
+        name: center.name,
+        location: center.location ?? center.location_text ?? '',
+        capacity: Number(center.capacity ?? 0),
+        currentOccupancy: Number(center.current_occupancy ?? center.currentOccupancy ?? 0),
+        status: center.status,
+      })),
+      activePersonnel: users.filter((user) => user.role === 'Responder' && user.status === 'Active').length,
       source: 'remote',
     };
   } catch {
-    return {
-      incidents: [],
-      evacuees: [],
-      registeredEvacuees: 0,
-      source: 'unavailable',
-    };
+    return { incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' };
   }
 }
 

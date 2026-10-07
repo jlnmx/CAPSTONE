@@ -92,6 +92,9 @@ class AuthTests(unittest.TestCase):
     def test_only_login_and_registration_are_public_api_routes(self):
         public_routes = {
             ("POST", "/api/v1/auth/login"),
+            ("POST", "/api/v1/auth/password-reset/request"),
+            ("POST", "/api/v1/auth/password-reset/verify"),
+            ("POST", "/api/v1/auth/password-reset/complete"),
             ("POST", "/api/v1/users/register"),
         }
         found_public_routes = set()

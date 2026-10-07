@@ -201,10 +201,23 @@ export default function RegisterScreen() {
             <NativeTextInput style={styles.input} placeholder="Enter password" placeholderTextColor={PLACEHOLDER_COLOR} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoCapitalize="none" returnKeyType="done" />
           </FormField>
           <View style={styles.householdSection}>
-            <Text style={styles.householdLabel}>HOUSEHOLD MEMBERS</Text>
-            <TouchableOpacity style={styles.addMemberButton} onPress={() => openMemberDialog()} disabled={householdMembers.length >= 20} accessibilityRole="button" accessibilityLabel="Add household member">
-              <MaterialCommunityIcons name="plus" size={20} color={Colors.white} />
+            <View style={styles.householdHeader}>
+              <View style={styles.householdHeaderCopy}>
+                <Text style={styles.householdLabel}>HOUSEHOLD MEMBERS</Text>
+                <Text style={styles.householdCount}>{householdMembers.length} added</Text>
+              </View>
+              <Text style={styles.householdLimit}>Up to 20</Text>
+            </View>
+            <TouchableOpacity style={[styles.addMemberButton, householdMembers.length >= 20 && styles.addMemberButtonDisabled]} onPress={() => openMemberDialog()} disabled={householdMembers.length >= 20} accessibilityRole="button" accessibilityLabel="Add household member">
+              <View style={styles.addMemberContent}>
+                <View style={styles.addMemberIcon}>
+                  <MaterialCommunityIcons name="plus" size={19} color={GREEN} />
+                </View>
+                <Text style={styles.addMemberText}>Add household member</Text>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={GREEN} />
+              </View>
             </TouchableOpacity>
+            {householdMembers.length === 0 && <Text style={styles.householdEmpty}>Add the people who belong to your household for emergency coordination.</Text>}
             {householdMembers.map((member, index) => (
               <View key={`${index}-${member.name}`} style={styles.memberRow}>
                 <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{member.relationship}</Text></View>
@@ -326,10 +339,19 @@ const styles = StyleSheet.create({
   sexTitle: { color: '#236B27', fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '600', marginBottom: 8 },
   sexOption: { minHeight: 44, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#E5E5E5' },
   sexOptionText: { color: '#263B28', fontFamily: FONT_FAMILY, fontSize: 15 },
-  householdSection: { marginTop: 12 },
-  householdLabel: { color: '#236B27', fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '700', marginBottom: 6 },
-  addMemberButton: { width: '100%', minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: GREEN },
-  memberRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6, paddingLeft: 10, borderWidth: 1, borderColor: '#D9E6D9', borderRadius: 7, backgroundColor: '#F7FAF7' },
+  householdSection: { marginTop: 16, paddingTop: 13, borderTopWidth: 1, borderTopColor: '#E2ECE2' },
+  householdHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 },
+  householdHeaderCopy: { flex: 1 },
+  householdLabel: { color: '#236B27', fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
+  householdCount: { color: '#718171', fontFamily: FONT_FAMILY, fontSize: 11, marginTop: 2 },
+  householdLimit: { color: '#718171', fontFamily: FONT_FAMILY, fontSize: 11, marginTop: 1 },
+  addMemberButton: { width: '100%', minHeight: 52, justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 9, backgroundColor: '#F1F8F1' },
+  addMemberButtonDisabled: { opacity: 0.55 },
+  addMemberContent: { flexDirection: 'row', alignItems: 'center' },
+  addMemberIcon: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', marginRight: 9, borderRadius: 15, backgroundColor: '#DCEEDC' },
+  addMemberText: { flex: 1, color: GREEN, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
+  householdEmpty: { color: '#718171', fontFamily: FONT_FAMILY, fontSize: 11, lineHeight: 16, marginTop: 7, marginHorizontal: 2 },
+  memberRow: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, paddingLeft: 12, borderWidth: 1, borderColor: '#D9E6D9', borderRadius: 8, backgroundColor: '#F7FAF7' },
   memberCopy: { flex: 1 },
   memberName: { color: '#263B28', fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700' },
   memberRelationship: { color: '#617461', fontFamily: FONT_FAMILY, fontSize: 10, marginTop: 2 },

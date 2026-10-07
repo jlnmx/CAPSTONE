@@ -1,7 +1,10 @@
 import json
 import hashlib
 import hmac
+import logging
 import secrets
+import smtplib
+from email.message import EmailMessage
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -13,7 +16,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
 from .db import get_connection
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_id(value: str | None, prefix: str) -> str:
@@ -22,6 +27,13 @@ def normalize_id(value: str | None, prefix: str) -> str:
 
 def timestamp(value: datetime | None) -> datetime:
     return value or datetime.now(UTC)
+
+
+def write_log(connection: psycopg.Connection, category: str, action: str, actor_id: str, entity_type: str, entity_id: str | None, details: str, status: str = "success") -> None:
+    connection.execute(
+        "INSERT INTO application_logs (category, action, actor_id, entity_type, entity_id, details, status) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        (category, action, actor_id, entity_type, entity_id, details, status),
+    )
 
 
 def hash_password(password: str) -> str:
@@ -39,6 +51,48 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return hmac.compare_digest(digest.hex(), digest_hex)
     except (ValueError, TypeError):
         return False
+
+
+def hash_reset_otp(otp: str) -> str:
+    return hmac.new(settings.auth_secret.encode(), otp.encode(), hashlib.sha256).hexdigest()
+
+
+def mask_destination(value: str, channel: str) -> str:
+    if channel == "email":
+        name, domain = value.split("@", 1)
+        return f"{name[:1]}***@{domain}"
+    return f"***{value[-4:]}"
+
+
+def deliver_password_reset_otp(destination: str, channel: str, otp: str) -> None:
+    if channel == "email" and settings.smtp_host and settings.smtp_from:
+        message = EmailMessage()
+        message["Subject"] = "Your HANDA password reset code"
+        message["From"] = settings.smtp_from
+        message["To"] = destination
+        message.set_content(f"Your HANDA password reset code is {otp}. It expires in {settings.password_reset_expiry_minutes} minutes.")
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+            server.starttls()
+            if settings.smtp_username:
+                server.login(settings.smtp_username, settings.smtp_password)
+            server.send_message(message)
+        return
+
+    if channel == "sms" and settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
+        from urllib.parse import urlencode
+        from urllib.request import Request, urlopen
+
+        body = urlencode({"To": destination, "From": settings.twilio_from_number, "Body": f"Your HANDA password reset code is {otp}."}).encode()
+        request = Request(
+            f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
+            data=body,
+            headers={"Authorization": "Basic " + base64.b64encode(f"{settings.twilio_account_sid}:{settings.twilio_auth_token}".encode()).decode()},
+        )
+        with urlopen(request, timeout=10):
+            pass
+        return
+
+    logger.warning("Password reset OTP for %s (%s): %s", mask_destination(destination, channel), channel, otp)
 
 
 MAX_LOGIN_ATTEMPTS = 5
@@ -154,6 +208,22 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''")
         connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS application_logs (
+              id BIGSERIAL PRIMARY KEY,
+              category TEXT NOT NULL CHECK (category IN ('sync', 'audit')),
+              actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+              action TEXT NOT NULL,
+              entity_type TEXT NOT NULL,
+              entity_id TEXT,
+              details TEXT NOT NULL DEFAULT '',
+              status TEXT NOT NULL DEFAULT 'success',
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """,
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS application_logs_category_created_idx ON application_logs (category, created_at DESC)")
+        connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS resident_household_members (
               id TEXT PRIMARY KEY,
               resident_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -165,6 +235,21 @@ def ensure_operational_schema() -> None:
             """,
         )
         connection.execute("CREATE INDEX IF NOT EXISTS resident_household_members_user_idx ON resident_household_members (resident_user_id)")
+        connection.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS password_reset_requests (
+                            token TEXT PRIMARY KEY,
+                            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                            channel TEXT NOT NULL CHECK (channel IN ('email', 'sms')),
+                            otp_hash TEXT NOT NULL,
+                            expires_at TIMESTAMPTZ NOT NULL,
+                            attempts INTEGER NOT NULL DEFAULT 0,
+                            verified_at TIMESTAMPTZ,
+                            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                        )
+                        """,
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS password_reset_requests_user_idx ON password_reset_requests (user_id, created_at DESC)")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS evacuation_centers (
@@ -323,7 +408,7 @@ def create_evacuee(evacuee: EvacueeCreate, connection: psycopg.Connection = Depe
 
 
 @app.post("/api/v1/sync", status_code=207)
-def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     results = []
     for event in batch.events:
         try:
@@ -332,10 +417,22 @@ def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_co
                     result = write_incident(connection, IncidentCreate.model_validate(event.payload))
                 else:
                     result = write_evacuee(connection, EvacueeCreate.model_validate(event.payload))
+                write_log(connection, "sync", "upload", user.id, event.entityType, result["id"], f"Synchronized {event.entityType} from the user device.")
             results.append(result)
         except (ValueError, psycopg.Error) as error:
+            write_log(connection, "sync", "rejected", user.id, event.entityType, event.payload.get("id"), str(error), "failed")
             results.append({"status": "rejected", "entityType": event.entityType, "error": str(error)})
     return {"processed": len(results), "results": results}
+
+
+@app.get("/api/v1/logs/{category}")
+def list_logs(category: str, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
+    if category not in ("sync", "audit"):
+        raise HTTPException(status_code=404, detail="Log category not found.")
+    return connection.execute(
+        "SELECT logs.id, logs.action, logs.entity_type, logs.entity_id, logs.details, logs.status, logs.created_at, COALESCE(actor.name, 'System') AS actor_name FROM application_logs AS logs LEFT JOIN users AS actor ON actor.id = logs.actor_id WHERE logs.category = %s ORDER BY logs.created_at DESC LIMIT 200",
+        (category,),
+    ).fetchall()
 
 
 @app.get("/api/v1/incidents")
@@ -534,11 +631,13 @@ def register_resident_at_center(
 
 @app.get("/api/v1/evacuation-registrations")
 def list_evacuation_registrations(
+    include_released: bool = False,
     connection: psycopg.Connection = Depends(get_connection),
     _: CurrentUser = Depends(require_roles("responder", "admin")),
 ):
+    status_filter = "" if include_released else "WHERE registration.status <> 'released'"
     registrations = connection.execute(
-        """
+        f"""
         SELECT registration.id, registration.status, registration.registered_at,
              registration.checked_in_at, registration.first_name,
              registration.middle_name, registration.last_name, registration.age,
@@ -548,7 +647,7 @@ def list_evacuation_registrations(
         FROM evacuation_registrations AS registration
         JOIN users AS resident ON resident.id = registration.resident_user_id
         JOIN evacuation_centers AS center ON center.id = registration.center_id
-        WHERE registration.status <> 'released'
+        {status_filter}
         ORDER BY CASE WHEN registration.status = 'registered' THEN 0 ELSE 1 END,
                  registration.registered_at DESC
         """,
@@ -633,7 +732,7 @@ def validate_account_password(password: str) -> None:
 
 
 @app.post("/api/v1/users", status_code=201)
-def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
+def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("admin"))):
     validate_account_password(account.password)
     user_id = f"user-{uuid4()}"
     try:
@@ -656,6 +755,7 @@ def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depen
                                 account.status,
                         ),
         ).fetchone()
+        write_log(connection, "audit", "create", user.id, "user", user_id, f"Created {account.role.lower()} account {account.email.strip().lower()}.")
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()
@@ -699,6 +799,7 @@ def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depen
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User account not found.")
+        write_log(connection, "audit", "update", user.id, "user", user_id, f"Updated account fields: {', '.join(changes.keys())}.")
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()
@@ -713,6 +814,7 @@ def delete_user(user_id: str, user: CurrentUser = Depends(require_roles("admin")
     cursor = connection.execute("DELETE FROM users WHERE id = %s", (user_id,))
     if cursor.rowcount == 0:
         raise HTTPException(status_code=404, detail="User account not found.")
+    write_log(connection, "audit", "delete", user.id, "user", user_id, "Deleted a user account.")
     connection.commit()
 
 
@@ -798,6 +900,68 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
     }
 
 
+@app.post("/api/v1/auth/password-reset/request")
+def request_password_reset(request: PasswordResetRequest, connection: psycopg.Connection = Depends(get_connection)):
+    identifier = request.identifier.strip().lower() if request.channel == "email" else request.identifier.strip()
+    column = "email" if request.channel == "email" else "mobile_number"
+    user = connection.execute(
+        f"SELECT id, email, mobile_number FROM users WHERE LOWER({column}) = LOWER(%s) AND status = 'Active'",
+        (identifier,),
+    ).fetchone()
+    response = {"message": "If the account exists, a one-time code has been sent to the selected contact."}
+    if not user:
+        return response
+
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    reset_token = secrets.token_urlsafe(32)
+    connection.execute("DELETE FROM password_reset_requests WHERE user_id = %s", (user["id"],))
+    connection.execute(
+        "INSERT INTO password_reset_requests (token, user_id, channel, otp_hash, expires_at) VALUES (%s, %s, %s, %s, NOW() + (%s * INTERVAL '1 minute'))",
+        (reset_token, user["id"], request.channel, hash_reset_otp(otp), settings.password_reset_expiry_minutes),
+    )
+    connection.commit()
+    destination = user["email"] if request.channel == "email" else user["mobile_number"]
+    deliver_password_reset_otp(destination, request.channel, otp)
+    response["resetToken"] = reset_token
+    response["destination"] = mask_destination(destination, request.channel)
+    return response
+
+
+def verify_reset_request(reset_token: str, otp: str, connection: psycopg.Connection) -> dict:
+    row = connection.execute(
+        "SELECT token, user_id, otp_hash, expires_at, attempts, verified_at FROM password_reset_requests WHERE token = %s",
+        (reset_token,),
+    ).fetchone()
+    if not row or row["expires_at"] <= datetime.now(UTC) or row["attempts"] >= settings.password_reset_max_attempts:
+        raise HTTPException(status_code=400, detail="This reset code is invalid or expired.")
+    if not hmac.compare_digest(row["otp_hash"], hash_reset_otp(otp)):
+        connection.execute("UPDATE password_reset_requests SET attempts = attempts + 1 WHERE token = %s", (reset_token,))
+        connection.commit()
+        raise HTTPException(status_code=400, detail="This reset code is invalid or expired.")
+    connection.execute("UPDATE password_reset_requests SET verified_at = NOW() WHERE token = %s", (reset_token,))
+    connection.commit()
+    return row
+
+
+@app.post("/api/v1/auth/password-reset/verify")
+def verify_password_reset(request: PasswordResetOtpVerification, connection: psycopg.Connection = Depends(get_connection)):
+    verify_reset_request(request.resetToken, request.otp, connection)
+    return {"message": "Code verified. You can now choose a new password."}
+
+
+@app.post("/api/v1/auth/password-reset/complete")
+def complete_password_reset(request: PasswordResetCompletion, connection: psycopg.Connection = Depends(get_connection)):
+    validate_account_password(request.newPassword)
+    reset = verify_reset_request(request.resetToken, request.otp, connection)
+    connection.execute(
+        "UPDATE users SET password_hash = %s, token_version = token_version + 1, failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = %s",
+        (hash_password(request.newPassword), reset["user_id"]),
+    )
+    connection.execute("DELETE FROM password_reset_requests WHERE token = %s", (request.resetToken,))
+    connection.commit()
+    return {"message": "Password updated. You can now sign in."}
+
+
 @app.post("/api/v1/auth/login")
 def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
@@ -862,6 +1026,47 @@ def update_resident_profile(
         (resident.id,),
     ).fetchone()
     return resident_profile_payload(row, household_members_for_user(connection, resident.id))
+
+
+@app.patch("/api/v1/resident/account")
+def update_resident_account(
+    account: ResidentAccountUpdate,
+    resident: CurrentUser = Depends(require_roles("resident")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    if account.email is None and account.mobileNumber is None and account.newPassword is None:
+        raise HTTPException(status_code=422, detail="Provide an email, contact number, or new password.")
+    if (account.email is not None or account.newPassword is not None) and not account.currentPassword:
+        raise HTTPException(status_code=422, detail="Your current password is required for email or password changes.")
+    row = connection.execute("SELECT password_hash FROM users WHERE id = %s", (resident.id,)).fetchone()
+    if account.currentPassword and (not row or not verify_password(account.currentPassword, row["password_hash"])):
+        raise HTTPException(status_code=401, detail="Current password is incorrect.")
+    if account.newPassword:
+        validate_account_password(account.newPassword)
+    assignments: list[str] = []
+    values: list[object] = []
+    if account.email is not None:
+        assignments.append("email = %s")
+        values.append(account.email.strip().lower())
+    if account.mobileNumber is not None:
+        assignments.append("mobile_number = %s")
+        values.append(account.mobileNumber)
+    if account.newPassword is not None:
+        assignments.append("password_hash = %s")
+        values.append(hash_password(account.newPassword))
+    assignments.append("updated_at = NOW()")
+    values.append(resident.id)
+    try:
+        connection.execute(f"UPDATE users SET {', '.join(assignments)} WHERE id = %s", values)
+        connection.commit()
+    except psycopg.errors.UniqueViolation as error:
+        connection.rollback()
+        raise HTTPException(status_code=409, detail="That email address is already in use.") from error
+    updated = connection.execute(
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
+        (resident.id,),
+    ).fetchone()
+    return resident_profile_payload(updated, household_members_for_user(connection, resident.id))
 
 
 @app.post("/api/v1/auth/logout")

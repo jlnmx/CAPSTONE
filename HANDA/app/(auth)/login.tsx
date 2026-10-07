@@ -10,6 +10,7 @@ import {
   Alert,
   Text,
   Platform,
+  Pressable,
 } from 'react-native';
 import { useAuth } from '@hooks/useAuth';
 import { useRouter } from 'expo-router';
@@ -88,13 +89,19 @@ export default function LoginScreen() {
           textStyle={styles.referenceButtonText}
         />
 
-        <Text style={styles.createPrompt}>Don&apos;t have an account yet?</Text>
         <PrimaryButton
-          label="Create an Account"
-          onPress={() => router.push('/(auth)/register')}
-          style={styles.createButton}
-          textStyle={styles.referenceButtonText}
+          label="Forgot Password?"
+          onPress={() => router.push('/(auth)/forgot-password')}
+          style={styles.forgotButton}
+          textStyle={styles.forgotButtonText}
         />
+
+        <View style={styles.createPromptRow}>
+          <Text style={styles.createPrompt}>Don&apos;t have an account yet?</Text>
+          <Pressable onPress={() => router.push('/(auth)/register')} accessibilityRole="link">
+            <Text style={styles.createLink}>Create an Account</Text>
+          </Pressable>
+        </View>
       </View>
     </ScrollView>
   );
@@ -153,7 +160,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
     fontSize: 14,
-    color: Colors.text,
+    color: '#17212B',
   },
   errorContainer: {
     backgroundColor: Colors.emergency,
@@ -184,22 +191,39 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     textAlign: 'center',
-    marginBottom: 12,
+  },
+  createPromptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    columnGap: 4,
+  },
+  forgotButton: {
+    height: 34,
+    minHeight: 34,
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
+    shadowColor: 'transparent',
+    marginBottom: 4,
+  },
+  forgotButtonText: {
+    color: '#218B25',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  createLink: {
+    color: '#218B25',
+    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
+    fontSize: 13,
+    fontWeight: '700',
   },
   referenceButtonText: {
     fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0,
-  },
-  createButton: {
-    height: 48,
-    minHeight: 48,
-    paddingVertical: 0,
-    borderRadius: 9,
-    backgroundColor: '#2D2D2D',
-    shadowOpacity: 0,
-    elevation: 0,
-    shadowColor: 'transparent',
   },
 });
