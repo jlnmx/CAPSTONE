@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS users (
   mobile_number TEXT NOT NULL,
   current_address TEXT NOT NULL DEFAULT '',
   password_hash TEXT NOT NULL,
+  failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TIMESTAMPTZ,
   role TEXT NOT NULL CHECK (role IN ('Responder', 'Resident', 'Administrator')),
   status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive', 'Pending')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

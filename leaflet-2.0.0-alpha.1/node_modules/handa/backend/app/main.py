@@ -41,6 +41,10 @@ def verify_password(password: str, stored_hash: str) -> bool:
         return False
 
 
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_LOCKOUT_MINUTES = 15
+
+
 def write_incident(connection: psycopg.Connection, incident: IncidentCreate) -> dict:
     incident_id = normalize_id(incident.id, "incident")
     created_at = timestamp(incident.createdAt)
@@ -111,6 +115,26 @@ def write_evacuee(connection: psycopg.Connection, evacuee: EvacueeCreate) -> dic
     return {"id": evacuee_id, "entityType": "evacuee", "status": "accepted"}
 
 
+def ensure_disaster_schema(connection: psycopg.Connection) -> None:
+        connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS disasters (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT NOT NULL DEFAULT '',
+                    severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+                    status TEXT NOT NULL DEFAULT 'Upcoming' CHECK (status IN ('Upcoming', 'Active', 'Archived')),
+                    affected_areas INTEGER NOT NULL DEFAULT 0 CHECK (affected_areas >= 0),
+                    started_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """,
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS disasters_status_idx ON disasters (status)")
+        connection.execute("CREATE INDEX IF NOT EXISTS disasters_started_at_idx ON disasters (started_at DESC)")
+
+
 def ensure_operational_schema() -> None:
     with psycopg.connect(settings.database_url) as connection:
         connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'reported'")
@@ -124,6 +148,8 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ALTER COLUMN current_address SET DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''")
         connection.execute(
@@ -155,6 +181,7 @@ def ensure_operational_schema() -> None:
             """,
         )
         connection.execute("CREATE INDEX IF NOT EXISTS evacuation_centers_status_idx ON evacuation_centers (status)")
+        ensure_disaster_schema(connection)
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS evacuation_registrations (
@@ -774,11 +801,28 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
 @app.post("/api/v1/auth/login")
 def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, password_hash, token_version FROM users WHERE LOWER(email) = LOWER(%s)",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s)",
         (credentials.email.strip(),),
     ).fetchone()
-    if not row or row["status"] != "Active" or not verify_password(credentials.password, row["password_hash"]):
+    if not row or row["status"] != "Active":
         raise HTTPException(status_code=401, detail="Invalid email or password.")
+    if row["locked_until"] and row["locked_until"] > datetime.now(UTC):
+        raise HTTPException(status_code=423, detail="Too many failed login attempts. Try again in 15 minutes.")
+    if not verify_password(credentials.password, row["password_hash"]):
+        failed_attempts = row["failed_login_attempts"] + 1
+        if failed_attempts >= MAX_LOGIN_ATTEMPTS:
+            connection.execute(
+                "UPDATE users SET failed_login_attempts = %s, locked_until = NOW() + (%s * INTERVAL '1 minute'), updated_at = NOW() WHERE id = %s",
+                (failed_attempts, LOGIN_LOCKOUT_MINUTES, row["id"]),
+            )
+            connection.commit()
+            raise HTTPException(status_code=423, detail="Too many failed login attempts. Try again in 15 minutes.")
+        connection.execute("UPDATE users SET failed_login_attempts = %s, updated_at = NOW() WHERE id = %s", (failed_attempts, row["id"]))
+        connection.commit()
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    if row["failed_login_attempts"] or row["locked_until"]:
+        connection.execute("UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = %s", (row["id"],))
+        connection.commit()
     role = normalize_role(row["role"])
     access_token, expires_in = create_access_token(row["id"], role, row["token_version"])
     profile = resident_profile_payload(row, household_members_for_user(connection, row["id"]))
