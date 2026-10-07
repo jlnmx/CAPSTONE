@@ -1,38 +1,26 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { CurrentLocationMapProps } from './CurrentLocationMap';
 
 export default function CurrentLocationMap({ coordinate }: CurrentLocationMapProps) {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Map preview unavailable in Expo Go</Text>
-      <Text style={styles.text}>
-        {coordinate
-          ? `Location: ${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}`
-          : 'Location is not available yet.'}
-      </Text>
-    </View>
-  );
+  const center = coordinate ? [coordinate.latitude, coordinate.longitude] : [14.3036, 121.0781];
+  const mapHtml = useMemo(() => `
+    <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>html,body,#map{margin:0;width:100%;height:100%;background:#e5efe8}.leaflet-control-attribution{font-size:8px}</style>
+    </head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+      const position = ${JSON.stringify(center)};
+      const map = L.map('map', { zoomControl: false, attributionControl: true }).setView(position, ${coordinate ? 16 : 13});
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+      ${coordinate ? "L.circleMarker(position, { radius: 10, color: '#FFFFFF', fillColor: '#218B25', fillOpacity: 1, weight: 3 }).addTo(map).bindPopup('<strong>Your current location</strong>').openPopup();" : ''}
+    </script></body></html>
+  `, [coordinate]);
+
+  return <View style={styles.container}><WebView source={{ html: mapHtml }} style={styles.webView} originWhitelist={['*']} javaScriptEnabled domStorageEnabled /></View>;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#e5efe8',
-  },
-  title: {
-    color: '#218B25',
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  text: {
-    marginTop: 6,
-    color: '#4b6350',
-    fontSize: 12,
-    textAlign: 'center',
-  },
+  container: { flex: 1, backgroundColor: '#e5efe8' },
+  webView: { flex: 1 },
 });

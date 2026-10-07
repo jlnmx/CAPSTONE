@@ -436,7 +436,7 @@ def list_logs(category: str, connection: psycopg.Connection = Depends(get_connec
 
 
 @app.get("/api/v1/incidents")
-def list_incidents(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
     rows = connection.execute(
         "SELECT id, type, description, severity, location_text AS location, latitude, longitude, photo_uris, status, action_notes, verified_by, verified_at, created_at FROM incidents ORDER BY created_at DESC"
     ).fetchall()

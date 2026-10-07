@@ -1,1 +1,1 @@
-export { default } from '../(responder)/incidents';
+export { default } from '@components/ResidentIncidentReport';

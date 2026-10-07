@@ -8,6 +8,8 @@ let sqliteModule: typeof SQLite | null = null;
 let databaseUnavailable = false;
 
 export interface LocalIncidentInput {
+  id?: string;
+  createdAt?: string;
   type: string;
   description: string;
   severity: 'low' | 'moderity' | 'high' | 'critical';
@@ -119,8 +121,8 @@ export function saveLocalIncident(input: LocalIncidentInput) {
   }
 
   initializeLocalDatabase();
-  const id = `incident-${Date.now()}`;
-  const createdAt = new Date().toISOString();
+  const id = input.id ?? `incident-${Date.now()}`;
+  const createdAt = input.createdAt ?? new Date().toISOString();
   const payload = JSON.stringify({ ...input, id, createdAt });
 
   db.withTransactionSync(() => {

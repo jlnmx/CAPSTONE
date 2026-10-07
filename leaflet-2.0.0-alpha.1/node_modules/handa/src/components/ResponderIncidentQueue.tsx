@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
 import { getResponderData, IncidentStatus, ResponderIncident, updateIncidentStatus } from '@services/responderData';
@@ -46,6 +46,7 @@ export default function ResponderIncidentQueue() {
     {incidents.map((incident) => <View style={styles.card} key={incident.id}>
       <View style={styles.cardHeader}><View style={styles.icon}><MaterialCommunityIcons name="alert-outline" size={20} color={incident.status === 'resolved' ? '#667085' : '#B42318'} /></View><View style={styles.copy}><Text style={styles.name}>{incident.type}</Text><Text style={styles.detail}>{incident.location} · {incident.severity}</Text></View><Text style={styles.status}>{incident.status.replace('_', ' ')}</Text></View>
       <Text style={styles.description}>{incident.description}</Text>
+      {incident.photoUris.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photos}>{incident.photoUris.map((uri, index) => <Image key={`${incident.id}-photo-${index}`} source={{ uri }} style={styles.photo} />)}</ScrollView>}
       <View style={styles.actions}>{STATUSES.map((status) => <AnimatedPressable key={status} style={[styles.action, incident.status === status && styles.activeAction]} onPress={() => void changeStatus(incident, status)}><Text style={[styles.actionText, incident.status === status && styles.activeActionText]}>{status.replace('_', ' ')}</Text></AnimatedPressable>)}</View>
     </View>)}
   </View>;
@@ -64,6 +65,8 @@ const styles = StyleSheet.create({
   detail: { color: '#667085', fontSize: 10, marginTop: 3 },
   status: { color: GREEN, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
   description: { color: '#667085', fontSize: 11, lineHeight: 16, marginTop: 8 },
+  photos: { marginTop: 9 },
+  photo: { width: 72, height: 72, marginRight: 6, borderRadius: 6, backgroundColor: '#E5EFE8' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 9 },
   action: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 5, backgroundColor: '#E7F0E7' },
   activeAction: { backgroundColor: GREEN },

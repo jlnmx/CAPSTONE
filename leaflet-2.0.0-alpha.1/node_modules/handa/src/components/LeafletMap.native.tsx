@@ -128,7 +128,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
               const incidents = await response.json();
               incidents.filter((incident) => {
                 const status = String(incident.verificationStatus || incident.verification_status || 'confirmed').toLowerCase();
-                return incident.latitude != null && incident.longitude != null && ['confirmed', 'acknowledged', 'resolved', 'accepted'].includes(status);
+                return incident.latitude != null && incident.longitude != null && ['reported', 'acknowledged', 'in_progress', 'resolved', 'confirmed', 'accepted'].includes(status);
               }).forEach((incident) => {
                 const severity = String(incident.severity || 'medium').toLowerCase();
                 const color = severity === 'critical' || severity === 'high' ? '#B42318' : severity === 'medium' ? '#D98C18' : '#2873A8';

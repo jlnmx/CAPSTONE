@@ -103,9 +103,9 @@ export default function ResidentLayout() {
         }}
       />
       <Tabs.Screen
-        name="report"
+        name="incidents"
         options={{
-          title: 'Report',
+          title: 'Incidents',
           tabBarIcon: ({ color }) => <TabBarIcon name="alert-outline" color={color} />,
         }}
       />
@@ -131,6 +131,7 @@ export default function ResidentLayout() {
         }}
       />
       <Tabs.Screen name="alerts" options={{ href: null }} />
+      <Tabs.Screen name="report" options={{ href: null }} />
       <Tabs.Screen name="register-evacuee" options={{ href: null }} />
       <Tabs.Screen name="verify-status" options={{ href: null }} />
       <Tabs.Screen name="center-status" options={{ href: null }} />
