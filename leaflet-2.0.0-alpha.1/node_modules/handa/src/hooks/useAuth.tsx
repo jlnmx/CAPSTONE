@@ -11,24 +11,6 @@ import { AuthService } from '@services/authService';
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_PROFILE_KEY = 'handa.authProfile';
 
-function mergeAuthProfile(serverProfile: AuthUser, cachedProfile: AuthUser | null): AuthUser {
-  if (!cachedProfile) return serverProfile;
-  return {
-    ...cachedProfile,
-    ...serverProfile,
-    firstName: serverProfile.firstName?.trim() || cachedProfile.firstName,
-    middleName: serverProfile.middleName?.trim() || cachedProfile.middleName,
-    lastName: serverProfile.lastName?.trim() || cachedProfile.lastName,
-    birthday: serverProfile.birthday?.trim() || cachedProfile.birthday,
-    sex: serverProfile.sex?.trim() || cachedProfile.sex,
-    mobileNumber: serverProfile.mobileNumber?.trim() || cachedProfile.mobileNumber,
-    currentAddress: serverProfile.currentAddress?.trim() || cachedProfile.currentAddress,
-    householdMembers: serverProfile.householdMembers?.length
-      ? serverProfile.householdMembers
-      : cachedProfile.householdMembers ?? serverProfile.householdMembers ?? [],
-  };
-}
-
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -44,17 +26,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const authUser = await AuthService.restoreSession();
         if (!authUser) return;
-        const cachedProfileValue = await AsyncStorage.getItem(AUTH_PROFILE_KEY);
-        let cachedProfile: AuthUser | null = null;
-        try {
-          cachedProfile = cachedProfileValue ? JSON.parse(cachedProfileValue) as AuthUser : null;
-        } catch {
-          await AsyncStorage.removeItem(AUTH_PROFILE_KEY);
-        }
-        const restoredUser = mergeAuthProfile(authUser, cachedProfile);
         if (!mounted) return;
-        setUser(restoredUser);
-        await AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(restoredUser));
+        setUser(authUser);
+        await AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser));
       } finally {
         if (mounted) setIsLoading(false);
       }

@@ -5,8 +5,7 @@ import { useRouter } from 'expo-router';
 import { Colors, BorderRadius, Spacing } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
-
-type ThemeMode = 'light' | 'system' | 'dark';
+import { ThemeMode, useTheme } from '@hooks/useTheme';
 
 const themeOptions: Array<{ value: ThemeMode; label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; detail: string }> = [
   { value: 'light', label: 'Light', icon: 'white-balance-sunny', detail: 'Keep the interface bright' },
@@ -18,29 +17,29 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
   const { gutter } = useResponsiveLayout();
-  const [themeMode] = useState<ThemeMode>('system');
+  const { mode, palette, setMode } = useTheme();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace('/(auth)/login');
   }, [isAuthenticated, isLoading, router]);
 
-  if (isLoading || !isAuthenticated) return <View style={styles.loading}><ActivityIndicator color={Colors.secondary} /></View>;
+  if (isLoading || !isAuthenticated) return <View style={[styles.loading, { backgroundColor: palette.background }]}><ActivityIndicator color={Colors.secondary} /></View>;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back"><MaterialCommunityIcons name="arrow-left" size={23} color={Colors.white} /></Pressable>
           <View><Text style={styles.eyebrow}>PREFERENCES</Text><Text style={styles.title}>Settings</Text></View>
         </View>
-        <View style={styles.intro}><Text style={styles.introTitle}>Make HANDA yours</Text><Text style={styles.introText}>Choose how the app should feel when you use it. These preferences are prepared for a future release.</Text></View>
-        <View style={styles.section}>
-          <View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="theme-light-dark" size={20} color={Colors.secondary} /></View><View><Text style={styles.sectionTitle}>Appearance</Text><Text style={styles.sectionDetail}>Theme selection is not active yet</Text></View></View>
-          <View style={styles.themeList}>{themeOptions.map((option) => { const selected = option.value === themeMode; return <Pressable key={option.value} disabled style={[styles.themeOption, selected && styles.themeOptionSelected]}><MaterialCommunityIcons name={option.icon} size={22} color={selected ? Colors.secondary : Colors.textMuted} /><View style={styles.themeCopy}><Text style={styles.themeLabel}>{option.label}</Text><Text style={styles.themeDetail}>{option.detail}</Text></View>{selected && <MaterialCommunityIcons name="check-circle" size={20} color={Colors.secondary} />}</Pressable>; })}</View>
+        <View style={styles.intro}><Text style={[styles.introTitle, { color: palette.text }]}>Make HANDA yours</Text><Text style={[styles.introText, { color: palette.textMuted }]}>Choose how HANDA should look. Your choice is saved on this device.</Text></View>
+        <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+          <View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="theme-light-dark" size={20} color={Colors.secondary} /></View><View><Text style={[styles.sectionTitle, { color: palette.text }]}>Appearance</Text><Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Changes apply immediately</Text></View></View>
+          <View style={styles.themeList}>{themeOptions.map((option) => { const selected = option.value === mode; return <Pressable key={option.value} onPress={() => void setMode(option.value)} accessibilityRole="radio" accessibilityState={{ selected }} style={[styles.themeOption, { borderColor: palette.border }, selected && styles.themeOptionSelected]}><MaterialCommunityIcons name={option.icon} size={22} color={selected ? Colors.secondary : palette.textMuted} /><View style={styles.themeCopy}><Text style={[styles.themeLabel, { color: palette.text }]}>{option.label}</Text><Text style={[styles.themeDetail, { color: palette.textMuted }]}>{option.detail}</Text></View>{selected && <MaterialCommunityIcons name="check-circle" size={20} color={Colors.secondary} />}</Pressable>; })}</View>
         </View>
-        <View style={styles.section}>
-          <View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="bell-outline" size={20} color={Colors.secondary} /></View><View><Text style={styles.sectionTitle}>Notifications</Text><Text style={styles.sectionDetail}>More controls can be connected here</Text></View></View>
-          <Pressable disabled style={styles.actionRow}><Text style={styles.actionLabel}>Alert preferences</Text><MaterialCommunityIcons name="chevron-right" size={22} color={Colors.textMuted} /></Pressable>
+        <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+          <View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="bell-outline" size={20} color={Colors.secondary} /></View><View><Text style={[styles.sectionTitle, { color: palette.text }]}>Notifications</Text><Text style={[styles.sectionDetail, { color: palette.textMuted }]}>More controls can be connected here</Text></View></View>
+          <Pressable disabled style={styles.actionRow}><Text style={[styles.actionLabel, { color: palette.text }]}>Alert preferences</Text><MaterialCommunityIcons name="chevron-right" size={22} color={palette.textMuted} /></Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>

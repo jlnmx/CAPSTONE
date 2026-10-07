@@ -15,6 +15,7 @@ import { initializeLocalDatabase } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AppFontFamily } from '@constants/typography';
+import { ThemeProvider } from '@hooks/useTheme';
 
 const bodyTextStyle = { fontFamily: AppFontFamily };
 
@@ -42,8 +43,9 @@ export default function RootLayout() {
   if (!fontsLoaded) return <View style={styles.fontLoading}><ActivityIndicator color={Colors.secondary} /></View>;
 
   return (
-    <AuthProvider>
-      <View style={[styles.root, width >= 1024 && styles.desktopRoot]}>
+    <ThemeProvider>
+      <AuthProvider>
+        <View style={[styles.root, width >= 1024 && styles.desktopRoot]}>
         <Stack
           screenOptions={{
             headerShown: false,
@@ -56,9 +58,10 @@ export default function RootLayout() {
           <Stack.Screen name="(responder)" />
           <Stack.Screen name="(resident)" />
         </Stack>
-        <NavigationLoadingOverlay />
-      </View>
-    </AuthProvider>
+          <NavigationLoadingOverlay />
+        </View>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 
