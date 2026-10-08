@@ -17,6 +17,7 @@ import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AppFontFamily } from '@constants/typography';
 import { ThemeProvider } from '@hooks/useTheme';
 import { useTheme } from '@hooks/useTheme';
+import ChatbotWidget from '@components/ChatbotWidget';
 
 const bodyTextStyle = { fontFamily: AppFontFamily };
 
@@ -63,6 +64,7 @@ function RootLayoutContent() {
           <Stack.Screen name="(responder)" />
           <Stack.Screen name="(resident)" />
         </Stack>
+          <ChatbotWidget />
           <NavigationLoadingOverlay />
         </View>
       </AuthProvider>

@@ -47,6 +47,10 @@ class HouseholdMemberInput(BaseModel):
     relationship: str = Field(min_length=1, max_length=80)
 
 
+class HouseholdMembersUpdate(BaseModel):
+    members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
+
+
 class UserRegistration(BaseModel):
     firstName: str = Field(min_length=1, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)
@@ -138,12 +142,17 @@ class DisasterCreate(BaseModel):
     severity: Literal['low', 'medium', 'high', 'critical'] = 'medium'
     status: Literal['Upcoming', 'Active', 'Archived'] = 'Upcoming'
     affectedAreas: int = Field(default=0, ge=0)
+    affectedBarangays: list[str] = Field(default_factory=list, max_length=50)
     startedAt: datetime | None = None
 
 
 class IncidentStatusUpdate(BaseModel):
     status: Literal['reported', 'acknowledged', 'in_progress', 'resolved']
     actionNotes: str = Field(default='', max_length=2000)
+    responsePeople: str = Field(default='', max_length=500)
+    responseOrganizations: str = Field(default='', max_length=500)
+    responseEtaMinutes: int | None = Field(default=None, ge=0, le=10080)
+    responseNotes: str = Field(default='', max_length=2000)
 
 
 class EvacueeStatusUpdate(BaseModel):

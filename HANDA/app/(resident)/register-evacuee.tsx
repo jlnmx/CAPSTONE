@@ -27,7 +27,7 @@ export default function RegisterEvacueeScreen() {
   const { centerId: routeCenterId } = useLocalSearchParams<{ centerId?: string }>();
   const requestedCenterId = Array.isArray(routeCenterId) ? routeCenterId[0] : routeCenterId;
   const { isCompact } = useResponsiveLayout();
-  const { user } = useAuth();
+  const { user, setAuthenticatedUser } = useAuth();
   const router = useRouter();
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
@@ -180,6 +180,11 @@ export default function RegisterEvacueeScreen() {
       });
       const result = await response.json() as { detail?: unknown };
       if (!response.ok) throw new Error(readApiError(result.detail));
+      try {
+        const profileResponse = await authenticatedFetch('/api/v1/auth/me');
+        if (profileResponse.ok) await setAuthenticatedUser(await profileResponse.json());
+      } catch {
+      }
       setReviewVisible(false);
       Alert.alert('Registration submitted', 'Your household is registered at the selected center. A responder must confirm your check-in.', [
         { text: 'View status', onPress: () => router.push('/(resident)/verify-status') },
@@ -234,15 +239,16 @@ export default function RegisterEvacueeScreen() {
           <TextInput style={styles.input} placeholder="Enter Full Address" placeholderTextColor="#A6C1A7" value={address} onChangeText={setAddress} />
           <View style={styles.householdHeading}>
             <View><Text style={styles.sectionHeading}>HOUSEHOLD MEMBERS</Text><Text style={styles.householdCount}>{members.length + 1} people including you</Text></View>
-            <AnimatedPressable style={styles.addMemberButton} onPress={() => openMemberEditor()} disabled={members.length >= 20} accessibilityRole="button">
+            <AnimatedPressable style={styles.addMemberButton} onPress={() => openMemberEditor()} disabled={members.length >= 20} accessibilityRole="button" accessibilityLabel="Add household member">
               <MaterialCommunityIcons name="plus" size={17} color={Colors.white} /><Text style={styles.addMemberText}>Add member</Text>
             </AnimatedPressable>
           </View>
+          {members.length === 0 && <Text style={styles.noMembers}>No additional household members yet. Use Add member to include them in this registration.</Text>}
           {members.map((member, index) => (
             <View key={`${index}-${member.name}`} style={styles.memberCard}>
               <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{member.relationship}</Text></View>
               <AnimatedPressable style={styles.memberAction} onPress={() => openMemberEditor(index)} accessibilityRole="button" accessibilityLabel={`Edit ${member.name}`}><MaterialCommunityIcons name="pencil-outline" size={19} color="#1769AA" /></AnimatedPressable>
-              <AnimatedPressable style={styles.memberAction} onPress={() => removeMember(index)} accessibilityRole="button" accessibilityLabel={`Remove ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></AnimatedPressable>
+              <AnimatedPressable style={styles.memberAction} onPress={() => removeMember(index)} accessibilityRole="button" accessibilityLabel={`Remove household member ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></AnimatedPressable>
             </View>
           ))}
           {!!formError && <Text style={styles.formError}>{formError}</Text>}
@@ -371,6 +377,7 @@ const styles = StyleSheet.create({
   submitText: { color: Colors.white, fontSize: 11, fontWeight: '700' },
   householdHeading: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   householdCount: { color: '#617461', fontSize: 10, marginTop: 3 },
+  noMembers: { color: '#79967A', fontSize: 10, lineHeight: 15, marginTop: 8 },
   addMemberButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 10, borderRadius: 5, backgroundColor: GREEN },
   addMemberText: { color: Colors.white, fontSize: 11, fontWeight: '700' },
   memberCard: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, paddingLeft: 10, borderWidth: 1, borderColor: '#D9E6D9', borderRadius: 6, backgroundColor: '#F7FAF7' },

@@ -57,8 +57,8 @@ export default function ResidentIncidentReport() {
   const addPhotos = async (source: 'camera' | 'library') => {
     if (photos.length >= 4) return;
     const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.65, base64: true })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: true, selectionLimit: 4 - photos.length, quality: 0.65, base64: true });
+      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.65, base64: true })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: 4 - photos.length, quality: 0.65, base64: true });
     if (result.canceled) return;
     const selected = result.assets.map((asset, index) => ({
       uri: asset.base64 ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` : asset.uri,
@@ -77,15 +77,38 @@ export default function ResidentIncidentReport() {
     const id = `incident-${Date.now()}`;
     const createdAt = new Date().toISOString();
     const payload = { id, type: incidentType, description: description.trim(), severity, location: locationLabel || `Biñan City · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`, latitude: coordinate.latitude, longitude: coordinate.longitude, photoUris: photos.map((photo) => photo.uri), createdAt };
+    const abortController = new AbortController();
+    const requestTimeout = setTimeout(() => abortController.abort(), 15000);
     try {
-      saveLocalIncident(payload);
-      const response = await authenticatedFetch('/api/v1/incidents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!response.ok) throw new Error('The report was saved on this device and will sync when the connection returns.');
-      void syncPendingLocalData();
+      const response = await authenticatedFetch('/api/v1/incidents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: abortController.signal });
+      if (!response.ok) {
+        let detail = '';
+        try {
+          const result = await response.json() as { detail?: unknown };
+          detail = typeof result.detail === 'string' ? result.detail : '';
+        } catch {
+        }
+        throw new Error(detail || `The incident service returned ${response.status}.`);
+      }
       Alert.alert('Incident reported', 'Your report and location are now available to residents and responders.', [{ text: 'View incidents', onPress: () => router.replace('/(resident)/incidents') }]);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'The report was saved locally and will sync later.');
+      let localId: string | null = null;
+      try {
+        localId = saveLocalIncident(payload);
+      } catch {
+        localId = null;
+      }
+      if (localId) {
+        void syncPendingLocalData();
+        const message = submitError instanceof Error && submitError.name === 'AbortError'
+          ? 'The server took too long to respond. Your report was saved on this device and will sync when the connection returns.'
+          : 'The report was saved on this device and will sync when the connection returns.';
+        setError(message);
+      } else {
+        setError(submitError instanceof Error && submitError.name === 'AbortError' ? 'The incident service timed out. Check that your phone and API are on the same Wi-Fi network.' : 'The incident could not be saved. Check your connection and try again.');
+      }
     } finally {
+      clearTimeout(requestTimeout);
       setIsSubmitting(false);
     }
   };

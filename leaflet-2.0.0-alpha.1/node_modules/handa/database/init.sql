@@ -26,7 +26,24 @@ ALTER TABLE incidents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'rep
 ALTER TABLE incidents ADD COLUMN IF NOT EXISTS action_notes TEXT NOT NULL DEFAULT '';
 ALTER TABLE incidents ADD COLUMN IF NOT EXISTS verified_by TEXT;
 ALTER TABLE incidents ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ;
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS reporter_user_id TEXT;
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS response_people TEXT NOT NULL DEFAULT '';
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS response_organizations TEXT NOT NULL DEFAULT '';
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS response_eta_minutes INTEGER;
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS response_notes TEXT NOT NULL DEFAULT '';
 UPDATE incidents SET status = 'reported' WHERE status IS NULL;
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  incident_id TEXT REFERENCES incidents(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications (user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS evacuees (
   id TEXT PRIMARY KEY,
@@ -126,6 +143,7 @@ CREATE TABLE IF NOT EXISTS disasters (
   severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
   status TEXT NOT NULL DEFAULT 'Upcoming' CHECK (status IN ('Upcoming', 'Active', 'Archived')),
   affected_areas INTEGER NOT NULL DEFAULT 0 CHECK (affected_areas >= 0),
+  affected_barangays TEXT[] NOT NULL DEFAULT '{}',
   started_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -77,7 +77,7 @@ export default function VerifyStatusScreen() {
           <View style={styles.centerState}><ActivityIndicator color={GREEN} /><Text style={styles.stateText}>Loading live evacuation status...</Text></View>
         ) : error && !status ? (
           <View style={styles.centerState}>
-            <MaterialCommunityIcons name="cloud-alert-outline" size={32} color="#A34545" />
+            <MaterialCommunityIcons name="alert-circle-outline" size={32} color="#A34545" />
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={() => { setIsLoading(true); void loadStatus(); }}><Text style={styles.retryText}>Try again</Text></TouchableOpacity>
           </View>

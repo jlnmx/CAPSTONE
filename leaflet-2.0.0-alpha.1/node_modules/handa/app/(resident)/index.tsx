@@ -34,6 +34,16 @@ type ResidentEvacuationStatus = {
   householdCount: number;
 };
 
+type ResidentStatusStyle = { backgroundColor: string; iconColor: string; textColor: string };
+
+const RESIDENT_STATUS_STYLES: Record<'safe' | 'checkedIn' | 'evacuated' | 'released' | 'unavailable', ResidentStatusStyle> = {
+  safe: { backgroundColor: '#E7F3E8', iconColor: '#218B25', textColor: '#176B1D' },
+  checkedIn: { backgroundColor: '#E6F0FA', iconColor: '#1769AA', textColor: '#175384' },
+  evacuated: { backgroundColor: '#FFF1D9', iconColor: '#B36E00', textColor: '#8A5700' },
+  released: { backgroundColor: '#ECEFF0', iconColor: '#667085', textColor: '#52606D' },
+  unavailable: { backgroundColor: '#F1EAEA', iconColor: '#A34545', textColor: '#8D3C3C' },
+};
+
 export default function ResidentDashboard() {
   const [activeDisaster, setActiveDisaster] = useState<ActiveDisaster | null>(null);
   const [isDisasterLoading, setIsDisasterLoading] = useState(true);
@@ -48,7 +58,9 @@ export default function ResidentDashboard() {
         const response = await authenticatedFetch('/api/v1/disasters');
         if (!response.ok) throw new Error('Disaster request failed');
         const events = await response.json() as ActiveDisaster[];
-        const current = events.find((event) => event.status.toLowerCase() === 'active') ?? null;
+        const current = events.find((event) => event.status.toLowerCase() === 'active')
+          ?? events.find((event) => event.status.toLowerCase() === 'upcoming')
+          ?? null;
         setActiveDisaster(current);
         setDisasterError(false);
       } catch {
@@ -59,7 +71,7 @@ export default function ResidentDashboard() {
     };
 
     void loadActiveDisaster();
-    const refresh = setInterval(() => void loadActiveDisaster(), 60_000);
+    const refresh = setInterval(() => void loadActiveDisaster(), 15_000);
     return () => clearInterval(refresh);
   }, []);
 
@@ -79,6 +91,7 @@ export default function ResidentDashboard() {
     return () => clearInterval(refresh);
   }, []);
 
+  const disasterIsActive = activeDisaster?.status.toLowerCase() === 'active';
   const timePresentation = getTimeOfDayPresentation(now);
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -103,26 +116,26 @@ export default function ResidentDashboard() {
           <View style={[styles.weatherIcon, { borderColor: presentation.accent, backgroundColor: '#FFFFFF' }]} accessibilityLabel={`${presentation.description}, ${Math.round(weather.temperature)} degrees`}><MaterialCommunityIcons name={presentation.icon} size={26} color={presentation.accent} /></View>
         </View>
 
-        <WeatherWidget weather={weather} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={!!activeDisaster} />
+        <WeatherWidget weather={weather} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={disasterIsActive} />
 
         <ActiveDisasterCard
-          active={!!activeDisaster}
+          active={disasterIsActive}
           title={isDisasterLoading ? 'Checking disaster status...' : activeDisaster?.name || 'No active disaster'}
-          description={disasterError ? 'Live status unavailable' : activeDisaster ? 'Active Disaster' : 'Monitoring live reports'}
+          description={disasterError ? 'Live status unavailable' : activeDisaster ? `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affected_areas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}` : 'Monitoring live reports'}
         />
 
         <View style={styles.statusRow}>
           <StatusTile
             icon="account-outline"
             title="MY STATUS"
-            detail={evacuationStatusUnavailable ? 'Unavailable' : !evacuationStatus ? 'Loading...' : evacuationStatus.status === 'not_registered' ? 'Not registered' : evacuationStatus.status.replace('_', ' ')}
-            onPress={() => router.push('/(resident)/verify-status')}
+            detail={getResidentStatusLabel(evacuationStatusUnavailable, evacuationStatus)}
+            status={getResidentStatusStyle(evacuationStatusUnavailable, evacuationStatus)}
           />
           <StatusTile
             icon="account-multiple-outline"
             title="HOUSEHOLD"
             detail={evacuationStatusUnavailable ? 'Unavailable' : !evacuationStatus ? 'Loading...' : `${evacuationStatus.householdCount} ${evacuationStatus.householdCount === 1 ? 'member' : 'members'}`}
-            onPress={() => router.push('/(resident)/verify-status')}
+            onPress={() => router.push('/(resident)/household')}
           />
         </View>
 
@@ -147,8 +160,23 @@ export default function ResidentDashboard() {
   );
 }
 
-function StatusTile({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {
-  return <AnimatedPressable style={styles.statusTile} onPress={onPress}><MaterialCommunityIcons name={icon} size={29} color="#1E5987" /><View style={styles.statusCopy}><Text style={styles.statusTitle}>{title}</Text><Text style={styles.statusDetail}>{detail}</Text></View></AnimatedPressable>;
+function getResidentStatusLabel(unavailable: boolean, status: ResidentEvacuationStatus | null): string {
+  if (unavailable) return 'Unavailable';
+  if (!status || status.status === 'not_registered') return 'SAFE';
+  return status.status === 'checked_in' ? 'CHECKED-IN' : status.status.toUpperCase();
+}
+
+function getResidentStatusStyle(unavailable: boolean, status: ResidentEvacuationStatus | null): ResidentStatusStyle {
+  if (unavailable) return RESIDENT_STATUS_STYLES.unavailable;
+  if (!status || status.status === 'not_registered') return RESIDENT_STATUS_STYLES.safe;
+  if (status.status === 'checked_in') return RESIDENT_STATUS_STYLES.checkedIn;
+  if (status.status === 'evacuated') return RESIDENT_STATUS_STYLES.evacuated;
+  return RESIDENT_STATUS_STYLES.released;
+}
+
+function StatusTile({ icon, title, detail, onPress, status }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress?: () => void; status?: { backgroundColor: string; iconColor: string; textColor: string } }) {
+  const content = <><MaterialCommunityIcons name={icon} size={29} color={status?.iconColor ?? '#1E5987'} /><View style={styles.statusCopy}><Text style={[styles.statusTitle, status && { color: status.textColor }]}>{title}</Text><Text style={[styles.statusDetail, status && { color: status.textColor }]}>{detail}</Text></View></>;
+  return onPress ? <AnimatedPressable style={[styles.statusTile, status && { backgroundColor: status.backgroundColor }]} onPress={onPress}>{content}</AnimatedPressable> : <View style={[styles.statusTile, status && { backgroundColor: status.backgroundColor }]} accessibilityRole="text">{content}</View>;
 }
 
 function ResourceButton({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {

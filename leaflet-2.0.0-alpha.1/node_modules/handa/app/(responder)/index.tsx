@@ -50,7 +50,9 @@ export default function ResponderDashboard() {
     return () => clearInterval(refresh);
   }, []);
 
-  const activeDisaster = data.disasters.find((disaster) => disaster.status.toLowerCase() === 'active');
+  const activeDisaster = data.disasters.find((disaster) => disaster.status.toLowerCase() === 'active')
+    ?? data.disasters.find((disaster) => disaster.status.toLowerCase() === 'upcoming');
+  const disasterIsActive = activeDisaster?.status.toLowerCase() === 'active';
   const activeIncidents = data.incidents.filter((incident) => ['reported', 'acknowledged', 'in_progress'].includes(incident.status)).length;
   const displayedEvacuees = data.unavailableSources.includes('evacuees') || data.unavailableSources.includes('registrations') ? 'N/A' : data.evacuees.length + data.registeredEvacuees;
   const displayedIncidents = data.unavailableSources.includes('incidents') ? 'N/A' : activeIncidents;
@@ -84,12 +86,12 @@ export default function ResponderDashboard() {
           </View>
         </View>
 
-        <ResponderWeatherCard disasterActive={!!activeDisaster} />
+        <ResponderWeatherCard disasterActive={disasterIsActive} />
 
         <ActiveDisasterCard
-          active={!!activeDisaster}
+          active={disasterIsActive}
           title={activeDisaster?.name ?? 'No active disaster'}
-          description={activeDisaster ? `${activeDisaster.severity.toUpperCase()} · Active Disaster` : 'Monitoring server records'}
+          description={activeDisaster ? `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affectedAreas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}` : 'Monitoring server records'}
           onPress={() => router.push('/map')}
           interactiveWhenInactive
           accessibilityLabel="Open map to review disaster and incident activity"

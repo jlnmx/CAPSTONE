@@ -13,6 +13,10 @@ export type ResponderIncident = {
   photoUris: string[];
   status: IncidentStatus;
   actionNotes: string;
+  responsePeople: string;
+  responseOrganizations: string;
+  responseEtaMinutes?: number;
+  responseNotes: string;
   createdAt: string;
 };
 
@@ -81,6 +85,10 @@ function normalizeIncident(record: Record<string, any>): ResponderIncident {
     photoUris: record.photoUris ?? record.photo_uris ?? [],
     status: record.status ?? 'reported',
     actionNotes: record.actionNotes ?? record.action_notes ?? '',
+    responsePeople: record.responsePeople ?? record.response_people ?? '',
+    responseOrganizations: record.responseOrganizations ?? record.response_organizations ?? '',
+    responseEtaMinutes: record.responseEtaMinutes ?? record.response_eta_minutes ?? undefined,
+    responseNotes: record.responseNotes ?? record.response_notes ?? '',
     createdAt: record.createdAt ?? record.created_at,
   };
 }
@@ -165,8 +173,15 @@ async function patch(path: string, body: Record<string, string>) {
   if (!response.ok) throw new Error(`Update failed: ${response.status}`);
 }
 
-export function updateIncidentStatus(id: string, status: IncidentStatus, actionNotes = '') {
-  return patch(`/api/v1/incidents/${encodeURIComponent(id)}/status`, { status, actionNotes });
+export function updateIncidentStatus(id: string, status: IncidentStatus, response: { people: string; organizations: string; etaMinutes?: number; notes: string }) {
+  return patch(`/api/v1/incidents/${encodeURIComponent(id)}/status`, {
+    status,
+    actionNotes: response.notes,
+    responsePeople: response.people,
+    responseOrganizations: response.organizations,
+    responseEtaMinutes: response.etaMinutes == null ? '' : String(response.etaMinutes),
+    responseNotes: response.notes,
+  });
 }
 
 export function updateEvacueeStatus(id: string, evacuationStatus: EvacuationStatus) {

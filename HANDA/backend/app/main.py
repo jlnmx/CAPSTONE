@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
 from .db import get_connection
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, IncidentStatusUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 
 logger = logging.getLogger(__name__)
 
@@ -99,15 +99,15 @@ MAX_LOGIN_ATTEMPTS = 5
 LOGIN_LOCKOUT_MINUTES = 15
 
 
-def write_incident(connection: psycopg.Connection, incident: IncidentCreate) -> dict:
+def write_incident(connection: psycopg.Connection, incident: IncidentCreate, reporter_id: str | None = None) -> dict:
     incident_id = normalize_id(incident.id, "incident")
     created_at = timestamp(incident.createdAt)
     connection.execute(
         """
         INSERT INTO incidents
           (id, type, description, severity, location_text, latitude, longitude,
-           photo_uris, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+              photo_uris, created_at, reporter_user_id)
+          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (id) DO UPDATE SET
           type = EXCLUDED.type,
           description = EXCLUDED.description,
@@ -115,17 +115,21 @@ def write_incident(connection: psycopg.Connection, incident: IncidentCreate) -> 
           location_text = EXCLUDED.location_text,
           latitude = EXCLUDED.latitude,
           longitude = EXCLUDED.longitude,
-          photo_uris = EXCLUDED.photo_uris
+          photo_uris = EXCLUDED.photo_uris,
+          reporter_user_id = COALESCE(EXCLUDED.reporter_user_id, incidents.reporter_user_id)
         """,
-        incident_id,
-        incident.type,
-        incident.description,
-        "medium" if incident.severity == "moderity" else incident.severity,
-        incident.location,
-        incident.latitude,
-        incident.longitude,
-        json.dumps(incident.photoUris),
-        created_at,
+            (
+                incident_id,
+                incident.type,
+                incident.description,
+                "medium" if incident.severity == "moderity" else incident.severity,
+                incident.location,
+                incident.latitude,
+                incident.longitude,
+                json.dumps(incident.photoUris),
+                created_at,
+                reporter_id,
+            ),
     )
     return {"id": incident_id, "entityType": "incident", "status": "accepted"}
 
@@ -179,6 +183,7 @@ def ensure_disaster_schema(connection: psycopg.Connection) -> None:
                     severity TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
                     status TEXT NOT NULL DEFAULT 'Upcoming' CHECK (status IN ('Upcoming', 'Active', 'Archived')),
                     affected_areas INTEGER NOT NULL DEFAULT 0 CHECK (affected_areas >= 0),
+                    affected_barangays TEXT[] NOT NULL DEFAULT '{}',
                     started_at TIMESTAMPTZ,
                     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -187,6 +192,7 @@ def ensure_disaster_schema(connection: psycopg.Connection) -> None:
         )
         connection.execute("CREATE INDEX IF NOT EXISTS disasters_status_idx ON disasters (status)")
         connection.execute("CREATE INDEX IF NOT EXISTS disasters_started_at_idx ON disasters (started_at DESC)")
+        connection.execute("ALTER TABLE disasters ADD COLUMN IF NOT EXISTS affected_barangays TEXT[] NOT NULL DEFAULT '{}'")
 
 
 def ensure_operational_schema() -> None:
@@ -195,6 +201,11 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS action_notes TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS verified_by TEXT")
         connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ")
+        connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS reporter_user_id TEXT REFERENCES users(id) ON DELETE SET NULL")
+        connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS response_people TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS response_organizations TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS response_eta_minutes INTEGER")
+        connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS response_notes TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS evacuation_status TEXT NOT NULL DEFAULT 'registered'")
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_by TEXT")
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ")
@@ -206,6 +217,20 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''")
+        connection.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS notifications (
+                            id TEXT PRIMARY KEY,
+                            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                            incident_id TEXT REFERENCES incidents(id) ON DELETE CASCADE,
+                            title TEXT NOT NULL,
+                            message TEXT NOT NULL,
+                            read_at TIMESTAMPTZ,
+                            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                        )
+                        """
+                )
+        connection.execute("CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications (user_id, created_at DESC)")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS application_logs (
@@ -398,8 +423,10 @@ def health(connection: psycopg.Connection = Depends(get_connection)):
 
 
 @app.post("/api/v1/incidents", status_code=201)
-def create_incident(incident: IncidentCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
-    return write_incident(connection, incident)
+def create_incident(incident: IncidentCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+    result = write_incident(connection, incident, user.id if user.role == "resident" else None)
+    connection.commit()
+    return result
 
 
 @app.post("/api/v1/evacuees", status_code=201)
@@ -414,7 +441,7 @@ def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_co
         try:
             with connection.transaction():
                 if event.entityType == "incident":
-                    result = write_incident(connection, IncidentCreate.model_validate(event.payload))
+                    result = write_incident(connection, IncidentCreate.model_validate(event.payload), user.id if user.role == "resident" else None)
                 else:
                     result = write_evacuee(connection, EvacueeCreate.model_validate(event.payload))
                 write_log(connection, "sync", "upload", user.id, event.entityType, result["id"], f"Synchronized {event.entityType} from the user device.")
@@ -438,24 +465,77 @@ def list_logs(category: str, connection: psycopg.Connection = Depends(get_connec
 @app.get("/api/v1/incidents")
 def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
     rows = connection.execute(
-        "SELECT id, type, description, severity, location_text AS location, latitude, longitude, photo_uris, status, action_notes, verified_by, verified_at, created_at FROM incidents ORDER BY created_at DESC"
+        "SELECT id, type, description, severity, location_text AS location, latitude, longitude, photo_uris, status, action_notes, response_people, response_organizations, response_eta_minutes, response_notes, verified_by, verified_at, created_at FROM incidents ORDER BY created_at DESC"
     ).fetchall()
     return rows
 
 
+def incident_notification_message(status: str, update: IncidentStatusUpdate) -> tuple[str, str]:
+    status_label = status.replace('_', ' ').upper()
+    title = "Incident update"
+    message = f"Your incident is now {status_label}."
+    if status == "acknowledged":
+        title = "Help is on the way"
+        message = "A responder acknowledged your incident and is coordinating a response."
+    elif status == "in_progress":
+        title = "Response in progress"
+        message = "Responders are actively working on your incident."
+    elif status == "resolved":
+        title = "Incident response completed"
+        message = "Responders marked your incident as resolved."
+    details = []
+    if update.responsePeople.strip(): details.append(f"People: {update.responsePeople.strip()}")
+    if update.responseOrganizations.strip(): details.append(f"Organizations: {update.responseOrganizations.strip()}")
+    if update.responseEtaMinutes is not None: details.append(f"ETA: {update.responseEtaMinutes} minutes")
+    if update.responseNotes.strip(): details.append(update.responseNotes.strip())
+    if details: message += " " + " | ".join(details)
+    return title, message
+
+
 @app.patch("/api/v1/incidents/{incident_id}/status")
-def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
+def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("responder", "admin"))):
     row = connection.execute(
         """
         UPDATE incidents
-        SET status = %s, action_notes = %s, verified_at = NOW()
+        SET status = %s, action_notes = %s, response_people = %s,
+            response_organizations = %s, response_eta_minutes = %s,
+            response_notes = %s, verified_by = %s, verified_at = NOW()
         WHERE id = %s
-        RETURNING id, status, action_notes, verified_at
+        RETURNING id, status, action_notes, response_people,
+                  response_organizations, response_eta_minutes,
+                  response_notes, verified_by, verified_at
         """,
-        (update.status, update.actionNotes.strip(), incident_id),
+        (update.status, update.actionNotes.strip(), update.responsePeople.strip(), update.responseOrganizations.strip(), update.responseEtaMinutes, update.responseNotes.strip(), user.id, incident_id),
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Incident not found.")
+    reporter = connection.execute("SELECT reporter_user_id FROM incidents WHERE id = %s", (incident_id,)).fetchone()
+    if reporter and reporter["reporter_user_id"]:
+        title, message = incident_notification_message(update.status, update)
+        connection.execute(
+            "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
+            (f"notification-{uuid4()}", reporter["reporter_user_id"], incident_id, title, message),
+        )
+    connection.commit()
+    return row
+
+
+@app.get("/api/v1/notifications")
+def list_notifications(connection: psycopg.Connection = Depends(get_connection), resident: CurrentUser = Depends(require_roles("resident"))):
+    return connection.execute(
+        "SELECT id, incident_id, title, message, read_at, created_at FROM notifications WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
+        (resident.id,),
+    ).fetchall()
+
+
+@app.patch("/api/v1/notifications/{notification_id}/read")
+def mark_notification_read(notification_id: str, connection: psycopg.Connection = Depends(get_connection), resident: CurrentUser = Depends(require_roles("resident"))):
+    row = connection.execute(
+        "UPDATE notifications SET read_at = NOW() WHERE id = %s AND user_id = %s RETURNING id, read_at",
+        (notification_id, resident.id),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Notification not found.")
     connection.commit()
     return row
 
@@ -620,6 +700,12 @@ def register_resident_at_center(
             connection.execute(
                 "INSERT INTO evacuation_household_members (id, registration_id, name, relationship) VALUES (%s, %s, %s, %s)",
                 (f"household-member-{uuid4()}", registration_id, member.name.strip(), member.relationship.strip()),
+            )
+        connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
+        for member in registration.members:
+            connection.execute(
+                "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
+                (f"resident-household-{uuid4()}", resident.id, member.name.strip(), member.relationship.strip()),
             )
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
@@ -1003,6 +1089,26 @@ def current_user(user: CurrentUser = Depends(get_current_user), connection: psyc
     return resident_profile_payload(row, household_members_for_user(connection, user.id))
 
 
+@app.patch("/api/v1/resident/household-members")
+def update_resident_household_members(
+    update: HouseholdMembersUpdate,
+    resident: CurrentUser = Depends(require_roles("resident")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    try:
+        connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
+        for member in update.members:
+            connection.execute(
+                "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
+                (f"resident-household-{uuid4()}", resident.id, member.name.strip(), member.relationship.strip()),
+            )
+        connection.commit()
+    except psycopg.Error:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail="Household members could not be saved.") from None
+    return {"members": household_members_for_user(connection, resident.id)}
+
+
 @app.patch("/api/v1/resident/profile")
 def update_resident_profile(
     profile: ResidentProfileUpdate,
@@ -1079,7 +1185,7 @@ def logout_user(user: CurrentUser = Depends(get_current_user), connection: psyco
 @app.get("/api/v1/disasters")
 def list_disasters(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     rows = connection.execute(
-        "SELECT id, name, description, severity, status, affected_areas, started_at, created_at FROM disasters ORDER BY COALESCE(started_at, created_at) DESC"
+        "SELECT id, name, description, severity, status, affected_areas, affected_barangays, started_at, created_at FROM disasters ORDER BY COALESCE(started_at, created_at) DESC"
     ).fetchall()
     return rows
 
@@ -1089,10 +1195,10 @@ def create_disaster(disaster: DisasterCreate, connection: psycopg.Connection = D
     disaster_id = f"disaster-{uuid4()}"
     connection.execute(
         """
-        INSERT INTO disasters (id, name, description, severity, status, affected_areas, started_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO disasters (id, name, description, severity, status, affected_areas, affected_barangays, started_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """,
-        (disaster_id, disaster.name.strip(), disaster.description.strip(), disaster.severity, disaster.status, disaster.affectedAreas, disaster.startedAt),
+        (disaster_id, disaster.name.strip(), disaster.description.strip(), disaster.severity, disaster.status, len(disaster.affectedBarangays) or disaster.affectedAreas, disaster.affectedBarangays, disaster.startedAt),
     )
     connection.commit()
     return {"id": disaster_id, "status": "accepted"}
