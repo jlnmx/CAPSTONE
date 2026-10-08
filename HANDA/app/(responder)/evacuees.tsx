@@ -9,6 +9,7 @@ import { authenticatedFetch } from '@services/apiClient';
 const GREEN = '#218B25';
 const FILTERS: Array<'ALL' | EvacuationStatus> = ['ALL', 'registered', 'checked_in', 'evacuated', 'released'];
 type SortMode = 'recent' | 'name';
+type CenterOption = { key: string; label: string; location: string; count: number };
 
 type CenterRegistration = {
   id: string;
@@ -31,6 +32,7 @@ type CenterRegistration = {
 export default function EvacueesScreen() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<typeof FILTERS[number]>('ALL');
+  const [centerFilter, setCenterFilter] = useState('ALL');
   const [sortMode, setSortMode] = useState<SortMode>('recent');
   const [registrations, setRegistrations] = useState<CenterRegistration[]>([]);
   const [registrationError, setRegistrationError] = useState('');
@@ -56,8 +58,23 @@ export default function EvacueesScreen() {
     return () => clearInterval(refresh);
   }, []);
 
+  const centerOptions = useMemo<CenterOption[]>(() => {
+    const centers = new Map<string, CenterOption>();
+    registrations.forEach((registration) => {
+      const key = getCenterKey(registration);
+      const existing = centers.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        centers.set(key, { key, label: registration.center_name, location: registration.center_location, count: 1 });
+      }
+    });
+    return Array.from(centers.values()).sort((left, right) => left.label.localeCompare(right.label));
+  }, [registrations]);
+
   const visibleRegistrations = useMemo(() => registrations
     .filter((registration) => filter === 'ALL' || registration.status === filter)
+    .filter((registration) => centerFilter === 'ALL' || getCenterKey(registration) === centerFilter)
     .filter((registration) => {
       const name = [registration.first_name, registration.middle_name, registration.last_name, registration.resident_name].filter(Boolean).join(' ').toLowerCase();
       const household = registration.members.map((member) => `${member.name} ${member.relationship}`).join(' ').toLowerCase();
@@ -66,7 +83,7 @@ export default function EvacueesScreen() {
     })
     .sort((left, right) => sortMode === 'name'
       ? getRegistrationName(left).localeCompare(getRegistrationName(right))
-      : String(right.registered_at).localeCompare(String(left.registered_at))), [registrations, filter, search, sortMode]);
+      : String(right.registered_at).localeCompare(String(left.registered_at))), [registrations, filter, centerFilter, search, sortMode]);
 
   const updateStatus = async (registration: CenterRegistration, nextStatus: EvacuationStatus) => {
     try {
@@ -91,6 +108,7 @@ export default function EvacueesScreen() {
       <View style={styles.source}><MaterialCommunityIcons name="database-check-outline" size={16} color="#167A5B" /><Text style={styles.sourceText}>Live PostgreSQL registrations · {registrations.length} households</Text></View>
       <View style={styles.searchBar}><MaterialCommunityIcons name="magnify" size={20} color={Colors.white} /><TextInput value={search} onChangeText={setSearch} placeholder="Search registrants, household members, or centers" placeholderTextColor="#D9F0D9" style={styles.searchInput} /></View>
       <View style={styles.toolbar}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{FILTERS.map((item) => <AnimatedPressable key={item} style={[styles.filterChip, filter === item && styles.activeFilter]} onPress={() => setFilter(item)}><Text style={[styles.filterText, filter === item && styles.activeFilterText]}>{item === 'ALL' ? 'ALL' : item.replace('_', ' ').toUpperCase()}</Text></AnimatedPressable>)}</ScrollView><Pressable style={styles.sortButton} onPress={() => setSortMode(sortMode === 'recent' ? 'name' : 'recent')}><MaterialCommunityIcons name="sort" size={16} color={GREEN} /><Text style={styles.sortText}>{sortMode === 'recent' ? 'Recent' : 'Name'}</Text></Pressable></View>
+      <View style={styles.centerFilterRow}><MaterialCommunityIcons name="map-marker-outline" size={17} color={GREEN} /><Text style={styles.centerFilterLabel}>CENTER</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.centerFilters}><AnimatedPressable style={[styles.centerChip, centerFilter === 'ALL' && styles.activeCenterChip]} onPress={() => setCenterFilter('ALL')}><Text style={[styles.centerChipText, centerFilter === 'ALL' && styles.activeCenterChipText]}>ALL ({registrations.length})</Text></AnimatedPressable>{centerOptions.map((center) => <AnimatedPressable key={center.key} style={[styles.centerChip, centerFilter === center.key && styles.activeCenterChip]} onPress={() => setCenterFilter(center.key)}><Text style={[styles.centerChipText, centerFilter === center.key && styles.activeCenterChipText]}>{center.label} ({center.count})</Text></AnimatedPressable>)}</ScrollView></View>
       <View style={styles.list}>
         {isLoading && <Text style={styles.emptyText}>Loading registered evacuees...</Text>}
         {!!registrationError && <Text style={styles.emptyText}>{registrationError}</Text>}
@@ -103,6 +121,10 @@ export default function EvacueesScreen() {
 
 function getRegistrationName(registration: CenterRegistration): string {
   return [registration.first_name, registration.middle_name, registration.last_name].filter(Boolean).join(' ') || registration.resident_name;
+}
+
+function getCenterKey(registration: Pick<CenterRegistration, 'center_name' | 'center_location'>): string {
+  return `${registration.center_name}|${registration.center_location}`.toLowerCase();
 }
 
 function nextStatusFor(status: EvacuationStatus): EvacuationStatus | null {
@@ -129,5 +151,5 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.white }, container: { flex: 1, backgroundColor: Colors.white }, content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 18 }, heading: { backgroundColor: GREEN, height: 86, justifyContent: 'center', paddingHorizontal: 16 }, headingText: { color: Colors.white, fontSize: 25, fontWeight: '800' }, source: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingTop: 12 }, sourceText: { color: Colors.textMuted, fontSize: 11 }, searchBar: { margin: 16, height: 40, borderRadius: 7, backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }, searchInput: { flex: 1, color: Colors.white, fontSize: 12, paddingHorizontal: 9 }, toolbar: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12 }, filters: { flexGrow: 1, gap: 8, paddingHorizontal: 16 }, filterChip: { paddingHorizontal: 13, paddingVertical: 7, borderRadius: 14, backgroundColor: '#E7F0E7' }, activeFilter: { backgroundColor: GREEN }, filterText: { color: '#548B56', fontSize: 10, fontWeight: '700' }, activeFilterText: { color: Colors.white }, sortButton: { flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 16, padding: 7 }, sortText: { color: GREEN, fontSize: 11, fontWeight: '700' }, list: { paddingHorizontal: 16 }, registrationCard: { borderTopWidth: 1, borderTopColor: '#E8EFE8' }, registrationRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13 }, avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EAF3EA', alignItems: 'center', justifyContent: 'center' }, avatarText: { color: GREEN, fontSize: 12, fontWeight: '800' }, rowCopy: { flex: 1 }, name: { color: Colors.text, fontSize: 13, fontWeight: '700' }, details: { color: Colors.textMuted, fontSize: 11, marginTop: 3 }, verifyButton: { alignSelf: 'center', paddingHorizontal: 9, paddingVertical: 7, borderRadius: 5, backgroundColor: '#E7F0E7' }, verifyText: { color: GREEN, fontSize: 10, fontWeight: '700' }, detailsPanel: { marginBottom: 12, marginLeft: 54, padding: 12, borderRadius: 6, backgroundColor: '#F7FAF7' }, panelTitle: { color: '#17591D', fontSize: 11, fontWeight: '800', marginBottom: 7, marginTop: 3 }, detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 3 }, detailLabel: { color: Colors.textMuted, fontSize: 10 }, detailValue: { flex: 1, color: Colors.text, fontSize: 10, textAlign: 'right' }, member: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8, marginTop: 5, borderTopWidth: 1, borderTopColor: '#D3E3D3' }, memberName: { color: Colors.text, fontSize: 11, fontWeight: '700' }, memberRelation: { color: Colors.textMuted, fontSize: 10, marginTop: 2 }, emptyText: { color: Colors.textMuted, paddingVertical: 24, textAlign: 'center', fontSize: 12 },
+  safeArea: { flex: 1, backgroundColor: Colors.white }, container: { flex: 1, backgroundColor: Colors.white }, content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 18 }, heading: { backgroundColor: GREEN, height: 86, justifyContent: 'center', paddingHorizontal: 16 }, headingText: { color: Colors.white, fontSize: 25, fontWeight: '800' }, source: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingTop: 12 }, sourceText: { color: Colors.textMuted, fontSize: 11 }, searchBar: { margin: 16, height: 40, borderRadius: 7, backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 }, searchInput: { flex: 1, color: Colors.white, fontSize: 12, paddingHorizontal: 9 }, toolbar: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12 }, filters: { flexGrow: 1, gap: 8, paddingHorizontal: 16 }, filterChip: { paddingHorizontal: 13, paddingVertical: 7, borderRadius: 14, backgroundColor: '#E7F0E7' }, activeFilter: { backgroundColor: GREEN }, filterText: { color: '#548B56', fontSize: 10, fontWeight: '700' }, activeFilterText: { color: Colors.white }, sortButton: { flexDirection: 'row', alignItems: 'center', gap: 4, marginRight: 16, padding: 7 }, sortText: { color: GREEN, fontSize: 11, fontWeight: '700' }, centerFilterRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingBottom: 12, paddingHorizontal: 16 }, centerFilterLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: '800' }, centerFilters: { gap: 7, paddingRight: 16 }, centerChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 5, backgroundColor: '#F0F5F0' }, activeCenterChip: { backgroundColor: '#D7EBD7' }, centerChipText: { color: '#548B56', fontSize: 10, fontWeight: '700' }, activeCenterChipText: { color: GREEN }, list: { paddingHorizontal: 16 }, registrationCard: { borderTopWidth: 1, borderTopColor: '#E8EFE8' }, registrationRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13 }, avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#EAF3EA', alignItems: 'center', justifyContent: 'center' }, avatarText: { color: GREEN, fontSize: 12, fontWeight: '800' }, rowCopy: { flex: 1 }, name: { color: Colors.text, fontSize: 13, fontWeight: '700' }, details: { color: Colors.textMuted, fontSize: 11, marginTop: 3 }, verifyButton: { alignSelf: 'center', paddingHorizontal: 9, paddingVertical: 7, borderRadius: 5, backgroundColor: '#E7F0E7' }, verifyText: { color: GREEN, fontSize: 10, fontWeight: '700' }, detailsPanel: { marginBottom: 12, marginLeft: 54, padding: 12, borderRadius: 6, backgroundColor: '#F7FAF7' }, panelTitle: { color: '#17591D', fontSize: 11, fontWeight: '800', marginBottom: 7, marginTop: 3 }, detailRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, paddingVertical: 3 }, detailLabel: { color: Colors.textMuted, fontSize: 10, fontWeight: '800' }, detailValue: { flex: 1, color: Colors.text, fontSize: 10, textAlign: 'right' }, member: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 8, marginTop: 5, borderTopWidth: 1, borderTopColor: '#D3E3D3' }, memberName: { color: Colors.text, fontSize: 11, fontWeight: '700' }, memberRelation: { color: Colors.textMuted, fontSize: 10, marginTop: 2 }, emptyText: { color: Colors.textMuted, paddingVertical: 24, textAlign: 'center', fontSize: 12 },
 });
