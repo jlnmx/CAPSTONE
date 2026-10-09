@@ -4,7 +4,8 @@
 
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Modal, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, AppState, Modal, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { useFonts } from 'expo-font';
 import { Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold } from '@expo-google-fonts/sora';
 import { InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold, InstrumentSans_700Bold } from '@expo-google-fonts/instrument-sans';
@@ -109,7 +110,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
   },
-  fontLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.white },
+  fontLoading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface },
   desktopRoot: {
     maxWidth: 1440,
     alignSelf: 'center',
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xl,
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     ...Shadows.lg,
   },
   loadingIcon: {

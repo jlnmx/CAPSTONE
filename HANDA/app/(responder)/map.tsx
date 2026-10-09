@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -78,11 +79,11 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F7FAF7' },
+  safeArea: { flex: 1, backgroundColor: Colors.background },
   content: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center' },
   header: { backgroundColor: '#218B25', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12 },
   headerTitle: { color: Colors.white, fontSize: 28, fontWeight: '800' },
   headerSubtitle: { color: '#DFF1DF', fontSize: 12, marginTop: 2 },
-  webMap: { flex: 1, margin: 14, borderWidth: 1, borderColor: '#218B25', borderRadius: 8, overflow: 'hidden', backgroundColor: '#EAF2EF' },
+  webMap: { flex: 1, margin: 14, borderWidth: 1, borderColor: '#218B25', borderRadius: 8, overflow: 'hidden', backgroundColor: Colors.surfaceMuted },
   mapFrame: { width: '100%', height: '100%', borderWidth: 0 },
 });

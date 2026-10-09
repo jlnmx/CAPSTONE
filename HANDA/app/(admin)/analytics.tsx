@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
@@ -56,7 +57,7 @@ const styles = StyleSheet.create({
   chart: { height: 220, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', marginTop: 22 },
   column: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'flex-end' },
   value: { color: Colors.textMuted, fontSize: 10, marginBottom: 5 },
-  track: { height: 150, width: 24, justifyContent: 'flex-end', backgroundColor: '#EAF0F4', borderRadius: 5, overflow: 'hidden' },
+  track: { height: 150, width: 24, justifyContent: 'flex-end', backgroundColor: Colors.surfaceMuted, borderRadius: 5, overflow: 'hidden' },
   bar: { width: '100%', backgroundColor: Colors.secondary, borderRadius: 5 },
   day: { color: Colors.textMuted, fontSize: 10, marginTop: 8 },
   availability: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#EDF1F4', paddingVertical: 13, marginTop: 8 },

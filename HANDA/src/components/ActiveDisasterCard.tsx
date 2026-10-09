@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
 import { Colors } from '@constants/colors';
@@ -7,6 +8,7 @@ import { AppHeadingFontFamily } from '@constants/typography';
 
 interface ActiveDisasterCardProps {
   active: boolean;
+  upcoming?: boolean;
   title: string;
   description: string;
   onPress?: () => void;
@@ -14,7 +16,7 @@ interface ActiveDisasterCardProps {
   accessibilityLabel?: string;
 }
 
-export function ActiveDisasterCard({ active, title, description, onPress, interactiveWhenInactive = false, accessibilityLabel }: ActiveDisasterCardProps) {
+export function ActiveDisasterCard({ active, upcoming = false, title, description, onPress, interactiveWhenInactive = false, accessibilityLabel }: ActiveDisasterCardProps) {
   const sheen = useRef(new Animated.Value(-1)).current;
   const chevron = useRef(new Animated.Value(0)).current;
   const chevronAnimation = useRef<Animated.CompositeAnimation | null>(null);
@@ -38,7 +40,7 @@ export function ActiveDisasterCard({ active, title, description, onPress, intera
   }, [active, chevron, sheen]);
 
   const startChevron = () => {
-    if (!active) return;
+    if (!active && !interactiveWhenInactive) return;
     chevronAnimation.current?.stop();
     chevronAnimation.current = Animated.loop(Animated.sequence([
       Animated.timing(chevron, { toValue: 1, duration: 260, useNativeDriver: true }),
@@ -57,7 +59,7 @@ export function ActiveDisasterCard({ active, title, description, onPress, intera
 
   return (
     <AnimatedPressable
-      style={[styles.card, active && styles.cardActive, !active && styles.cardEmpty]}
+      style={[styles.card, active && styles.cardActive, upcoming && !active && styles.cardUpcoming, !active && !upcoming && styles.cardEmpty]}
       onPress={active || interactiveWhenInactive ? onPress : undefined}
       disabled={!active && !interactiveWhenInactive}
       accessibilityRole={active || interactiveWhenInactive ? 'button' : undefined}
@@ -68,13 +70,13 @@ export function ActiveDisasterCard({ active, title, description, onPress, intera
       onPressOut={stopChevron}
     >
       {active && <Animated.View pointerEvents="none" style={[styles.sheen, { transform: [{ translateX: sheenTranslate }, { rotate: '-16deg' }] }]} />}
-      <MaterialCommunityIcons name={active ? 'alert-circle-outline' : 'weather-hurricane'} size={active ? 39 : 29} color={Colors.white} />
+      <MaterialCommunityIcons name={active ? 'alert-circle-outline' : 'weather-hurricane'} size={active ? 39 : 29} color={upcoming && !active ? styles.upcomingText.color : Colors.white} />
       <View style={styles.copy}>
-        <Text style={[styles.name, active && styles.nameActive]}>{title}</Text>
-        <Text style={[styles.description, active && styles.descriptionActive]}>{description}</Text>
+        <Text style={[styles.name, active && styles.nameActive, upcoming && !active && styles.upcomingText]}>{title}</Text>
+        <Text style={[styles.description, active && styles.descriptionActive, upcoming && !active && styles.upcomingText]}>{description}</Text>
       </View>
       <Animated.View style={{ transform: [{ translateX: chevronTranslate }] }}>
-        {(active || interactiveWhenInactive) && <MaterialCommunityIcons name="chevron-right" size={31} color={Colors.white} />}
+        {(active || interactiveWhenInactive) && <MaterialCommunityIcons name="chevron-right" size={31} color={upcoming && !active ? styles.upcomingText.color : Colors.white} />}
       </Animated.View>
     </AnimatedPressable>
   );
@@ -83,6 +85,7 @@ export function ActiveDisasterCard({ active, title, description, onPress, intera
 const styles = StyleSheet.create({
   card: { minHeight: 61, marginHorizontal: 18, marginTop: 0, marginBottom: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#D63F43', flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
   cardActive: { minHeight: 102, marginBottom: 12, paddingHorizontal: 14, borderRadius: 9 },
+  cardUpcoming: { backgroundColor: '#F2C94C' },
   cardEmpty: { backgroundColor: '#6B7B85' },
   sheen: { position: 'absolute', top: -40, bottom: -40, width: 70, backgroundColor: 'rgba(255,255,255,0.25)' },
   copy: { flex: 1, marginLeft: 10 },
@@ -90,4 +93,5 @@ const styles = StyleSheet.create({
   nameActive: { fontSize: 18, fontWeight: '700' },
   description: { color: Colors.white, fontSize: 9, marginTop: 2 },
   descriptionActive: { fontSize: 12 },
+  upcomingText: { color: '#3D3100' },
 });

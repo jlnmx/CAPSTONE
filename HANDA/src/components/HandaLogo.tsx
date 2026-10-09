@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { Colors, Typography, Spacing } from '@constants/colors';
 
 interface LogoProps {

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { Colors } from '@constants/colors';
 import { MapEvacuationCenter } from '@types/index';
 
 const BINAN_CENTER = [14.3036, 121.0781];
@@ -188,7 +189,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#e5efe8',
+    backgroundColor: Colors.surfaceMuted,
   },
   webView: {
     flex: 1,

@@ -1,5 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
+import { Colors } from '@constants/colors';
 
 export type LocationCoordinate = {
   latitude: number;
@@ -19,6 +21,6 @@ export default function CurrentLocationMap({ coordinate }: CurrentLocationMapPro
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e5efe8' },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted },
   text: { color: '#218B25', fontSize: 12 },
 });

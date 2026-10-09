@@ -66,6 +66,6 @@ const styles = {
   map: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#e5efe8',
+    backgroundColor: 'var(--handa-surface-muted, #F0F2F5)',
   },
 };

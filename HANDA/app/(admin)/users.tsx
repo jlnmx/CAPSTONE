@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
@@ -238,11 +239,11 @@ const styles = StyleSheet.create({
   panel: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: 18, ...Shadows.sm },
   toolbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 10 },
   toolbarMobile: { flexDirection: 'column', alignItems: 'stretch' },
-  search: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 10, width: '100%', maxWidth: 260, minWidth: 0 },
+  search: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.sm, paddingHorizontal: 10, width: '100%', maxWidth: 260, minWidth: 0 },
   searchInput: { flex: 1, paddingVertical: 9, paddingHorizontal: 8, color: Colors.text, fontSize: 13 },
   resultCount: { color: Colors.textMuted, fontSize: 12 },
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#EDF1F4', gap: 12 },
-  userAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E4EEF4', justifyContent: 'center', alignItems: 'center' },
+  userAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.surfaceMuted, justifyContent: 'center', alignItems: 'center' },
   avatarText: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
   userInfo: { flex: 1 },
   userName: { color: Colors.text, fontSize: 13, fontWeight: '700' },
@@ -269,19 +270,19 @@ const styles = StyleSheet.create({
   halfField: { flex: 1 },
   field: { marginTop: 13 },
   fieldLabel: { color: Colors.text, fontSize: 12, fontWeight: '700', marginBottom: 6 },
-  fieldInput: { minHeight: 43, borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 11, color: Colors.text, fontSize: 13, backgroundColor: Colors.surface },
+  fieldInput: { minHeight: 43, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.sm, paddingHorizontal: 11, color: Colors.text, fontSize: 13, backgroundColor: Colors.surface },
   passwordInputWrap: { position: 'relative', justifyContent: 'center' },
   passwordInput: { paddingRight: 46 },
   passwordToggle: { position: 'absolute', right: 5, top: 3, width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   choiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  choice: { borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingVertical: 8, paddingHorizontal: 11 },
+  choice: { borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.sm, paddingVertical: 8, paddingHorizontal: 11 },
   choiceActive: { borderColor: Colors.primary, backgroundColor: Colors.primary },
   choiceText: { color: Colors.textMuted, fontSize: 11, fontWeight: '600' },
   choiceTextActive: { color: Colors.white },
   passwordHint: { color: Colors.textMuted, fontSize: 10, marginTop: 6 },
   errorText: { color: Colors.emergency, fontSize: 12, marginTop: 12 },
   modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 9, marginTop: 20 },
-  cancelButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm },
+  cancelButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.sm },
   cancelText: { color: Colors.text, fontSize: 12, fontWeight: '700' },
   saveButton: { minWidth: 125, minHeight: 42, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 15, backgroundColor: Colors.primary, borderRadius: BorderRadius.sm },
   deleteButton: { minWidth: 125, minHeight: 42, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 15, backgroundColor: Colors.emergency, borderRadius: BorderRadius.sm },

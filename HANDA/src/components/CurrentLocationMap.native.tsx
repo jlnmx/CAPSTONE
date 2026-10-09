@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { Colors } from '@constants/colors';
 import { CurrentLocationMapProps } from './CurrentLocationMap';
 
 export default function CurrentLocationMap({ coordinate }: CurrentLocationMapProps) {
@@ -21,6 +22,6 @@ export default function CurrentLocationMap({ coordinate }: CurrentLocationMapPro
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#e5efe8' },
+  container: { flex: 1, backgroundColor: Colors.surfaceMuted },
   webView: { flex: 1 },
 });

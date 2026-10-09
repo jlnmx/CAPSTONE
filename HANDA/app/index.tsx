@@ -3,13 +3,8 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import {
-  Animated,
-  ImageBackground,
-  View,
-  StyleSheet,
-  Text,
-} from 'react-native';
+import { Animated, ImageBackground, View, StyleSheet } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { useRouter } from 'expo-router';
 import { Colors } from '@constants/colors';
 
@@ -104,6 +99,6 @@ const styles = StyleSheet.create({
     width: '98%',
     height: 3,
     borderRadius: 2,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
 });

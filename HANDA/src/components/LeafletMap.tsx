@@ -1,5 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
+import { Colors } from '@constants/colors';
 import { MapEvacuationCenter } from '@types/index';
 
 interface LeafletMapProps {
@@ -20,7 +22,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e5efe8',
+    backgroundColor: Colors.surfaceMuted,
   },
   text: {
     color: '#218B25',

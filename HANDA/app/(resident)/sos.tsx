@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, SafeAreaView, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Animated, SafeAreaView, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
@@ -91,24 +92,24 @@ export default function ResidentSosScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F5F7FA' },
+  safeArea: { flex: 1, backgroundColor: Colors.background },
   content: { flexGrow: 1, alignItems: 'center', paddingTop: 30, paddingHorizontal: 20, paddingBottom: 28 },
   eyebrow: { color: Colors.emergency, fontSize: 10, fontWeight: '900', letterSpacing: 1.6 },
   title: { color: Colors.primary, fontSize: 25, fontWeight: '900', textAlign: 'center', marginTop: 8 },
   description: { maxWidth: 330, color: Colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 7 },
-  readiness: { width: '100%', maxWidth: 430, minHeight: 42, marginTop: 20, paddingHorizontal: 12, borderRadius: 8, backgroundColor: '#E8F3EC', flexDirection: 'row', alignItems: 'center' },
+  readiness: { width: '100%', maxWidth: 430, minHeight: 42, marginTop: 20, paddingHorizontal: 12, borderRadius: 8, backgroundColor: Colors.surfaceMuted, flexDirection: 'row', alignItems: 'center' },
   readinessDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success, marginRight: 8 },
-  readinessText: { color: '#166534', fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
-  readinessDetail: { flex: 1, color: '#54705C', fontSize: 10, textAlign: 'right' },
+  readinessText: { color: Colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
+  readinessDetail: { flex: 1, color: Colors.textMuted, fontSize: 10, textAlign: 'right' },
   sectionTitle: { color: Colors.primary, fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 21 },
   sectionHint: { color: Colors.textMuted, fontSize: 11, marginTop: 4 },
   typeGrid: { maxWidth: 440, marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 7 },
-  typeChip: { minHeight: 36, paddingHorizontal: 12, borderWidth: 1, borderColor: '#D8E0E7', borderRadius: 20, backgroundColor: Colors.white, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  typeChip: { minHeight: 36, paddingHorizontal: 12, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, backgroundColor: Colors.surface, flexDirection: 'row', alignItems: 'center', gap: 6 },
   typeChipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary },
   typeLabel: { color: Colors.primary, fontSize: 10, fontWeight: '700' },
   typeLabelSelected: { color: Colors.white },
   sosShell: { marginTop: 20 },
-  sosRing: { borderWidth: 10, borderColor: '#D99B94', backgroundColor: '#F2D2CE', alignItems: 'center', justifyContent: 'center', shadowColor: '#8F3F35', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 8 },
+  sosRing: { borderWidth: 10, borderColor: '#D99B94', backgroundColor: Colors.surfaceMuted, alignItems: 'center', justifyContent: 'center', shadowColor: '#8F3F35', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 8 },
   sosButton: { backgroundColor: '#B44F45', borderWidth: 4, borderColor: '#D48176', alignItems: 'center', justifyContent: 'center' },
   sosButtonHolding: { backgroundColor: '#983C35' },
   sosButtonActivated: { backgroundColor: '#2E8B57', borderColor: '#9ED5AE' },
@@ -116,7 +117,7 @@ const styles = StyleSheet.create({
   progressArc: { position: 'absolute', borderWidth: 5, borderColor: '#FFF36B' },
   sosLabel: { color: Colors.white, fontSize: 31, fontWeight: '900', marginTop: 2 },
   sosState: { color: '#FFF36B', fontSize: 9, fontWeight: '900', marginTop: 4, letterSpacing: 0.4 },
-  expectCard: { width: '100%', maxWidth: 430, marginTop: 20, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 8, backgroundColor: Colors.white, flexDirection: 'row', alignItems: 'flex-start', shadowColor: Colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 2 },
+  expectCard: { width: '100%', maxWidth: 430, marginTop: 20, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 8, backgroundColor: Colors.surface, flexDirection: 'row', alignItems: 'flex-start', shadowColor: Colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 2 },
   expectCopy: { flex: 1, marginLeft: 10 },
   expectTitle: { color: Colors.primary, fontSize: 11, fontWeight: '900', letterSpacing: 0.7 },
   expectText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 },

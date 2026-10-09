@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Colors } from '@constants/colors';
+import { Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@hooks/useAuth';
 
@@ -46,7 +48,10 @@ function answerQuestion(question: string): string {
 export default function ChatbotWidget() {
   const { isAuthenticated } = useAuth();
   const { width, height } = useWindowDimensions();
+  const rightGutter = Math.max(14, (width - 900) / 2 + 14);
   const [isOpen, setIsOpen] = useState(false);
+  const [showPanel, setShowPanel] = useState(false);
+  const panelTransition = useRef(new Animated.Value(0)).current;
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -54,8 +59,27 @@ export default function ChatbotWidget() {
   ]);
   const panelWidth = Math.min(380, Math.max(260, width - 24));
   const panelHeight = Math.min(470, Math.max(340, height * 0.72));
+  const keyboardLayerStyle = [styles.keyboardLayer, { paddingRight: rightGutter }];
+  const panelTransitionStyle = {
+    opacity: panelTransition,
+    transform: [{ translateY: panelTransition.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+  };
 
   const visibleMessages = useMemo(() => messages.slice(-8), [messages]);
+
+  useEffect(() => {
+    if (isOpen) setShowPanel(true);
+    const animation = Animated.timing(panelTransition, {
+      toValue: isOpen ? 1 : 0,
+      duration: 180,
+      easing: isOpen ? Easing.out(Easing.quad) : Easing.in(Easing.quad),
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => {
+      if (finished && !isOpen) setShowPanel(false);
+    });
+    return () => animation.stop();
+  }, [isOpen, panelTransition]);
 
   if (!isAuthenticated) return null;
 
@@ -75,8 +99,8 @@ export default function ChatbotWidget() {
   };
 
   return <View pointerEvents="box-none" style={styles.layer}>
-    {isOpen && <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none" style={styles.keyboardLayer}>
-      <View style={[styles.panel, { width: panelWidth, maxHeight: panelHeight }]} accessibilityViewIsModal>
+    {showPanel && <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} pointerEvents="box-none" style={keyboardLayerStyle}>
+      <Animated.View style={[styles.panel, { width: panelWidth, maxHeight: panelHeight }, panelTransitionStyle]} accessibilityViewIsModal>
         <View style={styles.panelHeader}>
           <View style={styles.headerIcon}><MaterialCommunityIcons name="robot-outline" size={21} color={GREEN} /></View>
           <View style={styles.headerCopy}><Text style={styles.panelTitle}>Bantay HANDA</Text><Text style={styles.panelSubtitle}>Your quick safety companion</Text></View>
@@ -88,9 +112,9 @@ export default function ChatbotWidget() {
         </ScrollView>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickPrompts} keyboardShouldPersistTaps="handled">{QUICK_PROMPTS.map((prompt) => <Pressable key={prompt} onPress={() => sendMessage(prompt)} style={styles.quickPrompt} accessibilityRole="button"><Text style={styles.quickPromptText}>{prompt}</Text></Pressable>)}</ScrollView>
         <View style={styles.inputRow}><TextInput value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Ask about HANDA or disasters" placeholderTextColor="#8A9B8C" style={styles.input} returnKeyType="send" blurOnSubmit={false} /><Pressable onPress={() => sendMessage()} style={styles.sendButton} accessibilityRole="button" accessibilityLabel="Send assistant question"><MaterialCommunityIcons name="send" size={18} color="#FFFFFF" /></Pressable></View>
-      </View>
+      </Animated.View>
     </KeyboardAvoidingView>}
-    <Pressable onPress={() => setIsOpen((current) => !current)} style={[styles.floatingButton, isOpen && styles.floatingButtonOpen]} accessibilityRole="button" accessibilityLabel={isOpen ? 'Close Bantay HANDA' : 'Open Bantay HANDA'}><MaterialCommunityIcons name={isOpen ? 'close' : 'chat-processing-outline'} size={25} color="#FFFFFF" /><View style={styles.statusDot} /></Pressable>
+    {!showPanel && <Pressable onPress={() => setIsOpen((current) => !current)} style={({ pressed }) => [styles.floatingButton, { right: rightGutter, opacity: pressed ? 0.25 : 0.5 }]} accessibilityRole="button" accessibilityLabel="Open Bantay HANDA"><MaterialCommunityIcons name="chat-processing-outline" size={25} color="#FFFFFF" /><View style={styles.statusDot} /></Pressable>}
   </View>;
 }
 
@@ -122,29 +146,29 @@ function TypingIndicator() {
 const styles = StyleSheet.create({
   layer: { ...StyleSheet.absoluteFillObject, zIndex: 50, elevation: 50 },
   keyboardLayer: { flex: 1, alignItems: 'flex-end', justifyContent: 'flex-end', paddingRight: 14, paddingBottom: 96 },
-  panel: { borderWidth: 1, borderColor: '#B8D5B8', borderRadius: 12, backgroundColor: '#FFFFFF', shadowColor: '#163A25', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 12, overflow: 'hidden' },
-  panelHeader: { minHeight: 62, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#E7EFE7', backgroundColor: '#F5FAF5' },
-  headerIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: '#DFF0DF' },
+  panel: { borderWidth: 1, borderColor: Colors.border, borderRadius: 12, backgroundColor: Colors.surface, shadowColor: '#163A25', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 12, overflow: 'hidden' },
+  panelHeader: { minHeight: 62, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#E7EFE7', backgroundColor: Colors.surfaceMuted },
+  headerIcon: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: Colors.surfaceMuted },
   headerCopy: { flex: 1, marginLeft: 9 },
-  panelTitle: { color: '#17591D', fontSize: 14, fontWeight: '800' },
-  panelSubtitle: { color: '#718171', fontSize: 10, marginTop: 2 },
+  panelTitle: { color: Colors.text, fontSize: 14, fontWeight: '800' },
+  panelSubtitle: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
   closeButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   messages: { flexShrink: 1, minHeight: 150 },
   messageContent: { padding: 11, gap: 8 },
   messageBubble: { maxWidth: '88%', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 9 },
-  assistantBubble: { alignSelf: 'flex-start', backgroundColor: '#F0F6F0', borderBottomLeftRadius: 2 },
+  assistantBubble: { alignSelf: 'flex-start', backgroundColor: Colors.surfaceMuted, borderBottomLeftRadius: 2 },
   userBubble: { alignSelf: 'flex-end', backgroundColor: GREEN, borderBottomRightRadius: 2 },
-  messageText: { color: '#314A34', fontSize: 11, lineHeight: 16 },
+  messageText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16 },
   userMessageText: { color: '#FFFFFF' },
   typingBubble: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  typingLabel: { color: '#718171', fontSize: 10, fontStyle: 'italic' },
+  typingLabel: { color: Colors.textMuted, fontSize: 10, fontStyle: 'italic' },
   typingDots: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   typingDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: GREEN },
   quickPrompts: { gap: 6, paddingHorizontal: 10, paddingBottom: 8 },
-  quickPrompt: { maxWidth: 190, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: '#B8D5B8', borderRadius: 14, backgroundColor: '#FFFFFF' },
+  quickPrompt: { maxWidth: 190, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, backgroundColor: Colors.surface },
   quickPromptText: { color: GREEN, fontSize: 9, fontWeight: '700' },
   inputRow: { minHeight: 48, padding: 7, flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: 1, borderTopColor: '#E7EFE7' },
-  input: { flex: 1, minHeight: 34, paddingHorizontal: 9, paddingVertical: 5, borderWidth: 1, borderColor: '#D4E3D4', borderRadius: 6, color: '#263B28', fontSize: 11 },
+  input: { flex: 1, minHeight: 34, paddingHorizontal: 9, paddingVertical: 5, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, color: Colors.textMuted, fontSize: 11 },
   sendButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: GREEN },
   floatingButton: { position: 'absolute', right: 16, bottom: 92, width: 54, height: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 27, backgroundColor: GREEN, shadowColor: '#163A25', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.24, shadowRadius: 8, elevation: 10 },
   floatingButtonOpen: { backgroundColor: '#17591D' },

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Colors } from '@constants/colors';
 import * as Leaflet from '../vendor/leaflet/LeafletWithGlobals.js';
 import '../vendor/leaflet/leaflet.css';
 import { MapEvacuationCenter } from '@types/index';
@@ -66,7 +67,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       background: '#ffffff',
       boxShadow: '0 3px 14px rgba(23, 33, 43, 0.22)',
       fontFamily: 'Arial, sans-serif',
-      color: '#17212B',
+      color: Colors.text,
       overflowWrap: 'anywhere',
       pointerEvents: 'auto',
     });
@@ -230,6 +231,6 @@ const styles = {
   map: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#e5efe8',
+    backgroundColor: 'var(--handa-surface-muted, #F0F2F5)',
   },
 };

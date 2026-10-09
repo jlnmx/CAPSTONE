@@ -3,17 +3,13 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Text,
-  Alert,
-  SafeAreaView,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, SafeAreaView } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Moon, Sun, Sunrise, Sunset } from 'lucide-react-native';
 import { router } from 'expo-router';
-import { Colors } from '@constants/colors';
+import { Colors, getReadableColor } from '@constants/colors';
+import { useTheme } from '@hooks/useTheme';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { NotificationBell } from '@components/NotificationBell';
@@ -28,6 +24,7 @@ const formattedDate = new Intl.DateTimeFormat('en-US', {
 }).format(new Date());
 
 export default function ResponderDashboard() {
+  const { resolvedTheme } = useTheme();
   const [data, setData] = useState<ResponderDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [dataUnavailable, setDataUnavailable] = useState(false);
@@ -63,6 +60,13 @@ export default function ResponderDashboard() {
   }, 0);
   const displayedCapacity = data.unavailableSources.includes('centers') ? 'N/A' : availableCapacity;
   const timePresentation = getTimeOfDayPresentation();
+  const GreetingIcon = timePresentation.label === 'Dawn'
+    ? Sunrise
+    : timePresentation.label === 'Dusk'
+      ? Sunset
+      : timePresentation.label === 'Night'
+        ? Moon
+        : Sun;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -82,7 +86,7 @@ export default function ResponderDashboard() {
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
           <View style={[styles.weatherIcon, { backgroundColor: timePresentation.indicator, borderColor: timePresentation.accent }]} accessibilityLabel={`${timePresentation.label} weather`}>
-            <MaterialCommunityIcons name={timePresentation.icon} size={26} color={timePresentation.background} />
+            <GreetingIcon size={23} color={timePresentation.background} strokeWidth={2.5} />
           </View>
         </View>
 
@@ -90,6 +94,7 @@ export default function ResponderDashboard() {
 
         <ActiveDisasterCard
           active={disasterIsActive}
+          upcoming={activeDisaster?.status.toLowerCase() === 'upcoming'}
           title={activeDisaster?.name ?? 'No active disaster'}
           description={activeDisaster ? `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affectedAreas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}` : 'Monitoring server records'}
           onPress={() => router.push('/map')}
@@ -127,14 +132,16 @@ interface StatTileProps {
 }
 
 function StatTile({ icon, value, label, color, onPress }: StatTileProps) {
+  const { resolvedTheme } = useTheme();
+  const readableColor = getReadableColor(color, resolvedTheme);
   return (
     <AnimatedPressable style={styles.statTile} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open related records`}>
-      <MaterialCommunityIcons name={icon} size={31} color={color} style={styles.statIcon} />
+      <MaterialCommunityIcons name={icon} size={31} color={readableColor} style={styles.statIcon} />
       <View>
         <Text style={[styles.statValue, { color }]}>{value}</Text>
         <Text style={[styles.statLabel, { color }]}>{label}</Text>
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={17} color={color} style={styles.statChevron} />
+      <MaterialCommunityIcons name="chevron-right" size={17} color={readableColor} style={styles.statChevron} />
     </AnimatedPressable>
   );
 }
@@ -142,11 +149,11 @@ function StatTile({ icon, value, label, color, onPress }: StatTileProps) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7FAF7',
+    backgroundColor: Colors.background,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F7FAF7',
+    backgroundColor: Colors.background,
   },
   contentContainer: {
     width: '100%',
@@ -211,7 +218,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   disasterCard: {
     flexDirection: 'row',
@@ -252,7 +259,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 100,
     borderRadius: 9,
-    backgroundColor: '#EEF2EF',
+    backgroundColor: Colors.surfaceMuted,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -275,7 +282,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     marginBottom: 12,
     borderRadius: 9,
-    backgroundColor: '#EEF2EF',
+    backgroundColor: Colors.surfaceMuted,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,

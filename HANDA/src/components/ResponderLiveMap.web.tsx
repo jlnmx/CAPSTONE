@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import * as Leaflet from '../vendor/leaflet/LeafletWithGlobals.js';
 import '../vendor/leaflet/leaflet.css';
 import { getResponderData, ResponderDataSnapshot, ResponderIncident, updateIncidentStatus } from '@services/responderData';
@@ -168,8 +169,8 @@ export default function ResponderLiveMap() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, minHeight: 320, backgroundColor: '#EAF2EF' },
-  statusBar: { minHeight: 38, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 13, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: '#D7E2EA' },
+  container: { flex: 1, minHeight: 320, backgroundColor: Colors.surfaceMuted },
+  statusBar: { minHeight: 38, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 13, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: '#D7E2EA' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { width: 9, height: 9, borderRadius: 5 },
   legendText: { color: Colors.textMuted, fontSize: 10, fontWeight: '600' },

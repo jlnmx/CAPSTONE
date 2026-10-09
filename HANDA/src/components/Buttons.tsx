@@ -3,15 +3,8 @@
  */
 
 import React, { useState } from 'react';
-import {
-  Pressable,
-  PressableProps,
-  Text,
-  StyleSheet,
-  TextStyle,
-  ViewStyle,
-  ActivityIndicator,
-} from 'react-native';
+import { Pressable, PressableProps, StyleSheet, TextStyle, ViewStyle, ActivityIndicator } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@constants/colors';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { useTheme } from '@hooks/useTheme';
@@ -199,7 +192,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   secondaryButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     borderRadius: BorderRadius.md,
@@ -232,7 +225,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.lg,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: Spacing.sm,

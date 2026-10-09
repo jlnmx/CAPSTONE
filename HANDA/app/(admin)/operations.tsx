@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
@@ -88,9 +89,9 @@ const styles = StyleSheet.create({
   exportButton: { flexDirection: 'row', gap: 7, alignItems: 'center', borderWidth: 1, borderColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 11, borderRadius: BorderRadius.md },
   exportText: { color: Colors.text, fontWeight: '700', fontSize: 12 },
   filters: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  filter: { paddingHorizontal: 15, paddingVertical: 9, borderRadius: 18, backgroundColor: '#E7EEF2' },
+  filter: { paddingHorizontal: 15, paddingVertical: 9, borderRadius: 18, backgroundColor: Colors.surfaceMuted },
   filterActive: { backgroundColor: Colors.primary },
-  filterText: { color: '#17212B', fontSize: 12, fontWeight: '700' },
+  filterText: { color: Colors.text, fontSize: 12, fontWeight: '700' },
   filterTextActive: { color: Colors.white },
   panel: { backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: 18, marginBottom: 16, ...Shadows.sm },
   panelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 7 },
