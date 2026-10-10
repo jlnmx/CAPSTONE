@@ -31,7 +31,7 @@ function SafetyTip({ presentation, time, disasterActive }: { presentation: Weath
   const translateY = useRef(new Animated.Value(10)).current;
   const timePresentation = getTimeOfDayPresentation(time);
   const tip = getSafetyTip(presentation, timePresentation.label, disasterActive);
-  const accent = getReadableColor(presentation.accent, resolvedTheme);
+  const accent = resolvedTheme === 'dark' ? '#1769AA' : presentation.accent;
   const alertColor = getReadableColor(Colors.emergency, resolvedTheme);
 
   useEffect(() => {
@@ -48,7 +48,7 @@ function SafetyTip({ presentation, time, disasterActive }: { presentation: Weath
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 8 }),
     ]).start();
   };
-  if (dismissed) return <Pressable style={styles.restoreTip} onPress={restore}><MaterialCommunityIcons name="information-outline" size={16} color={accent} /><Text style={[styles.restoreText, { color: presentation.accent }]}>Show safety tip</Text></Pressable>;
+  if (dismissed) return <Pressable style={styles.restoreTip} onPress={restore}><MaterialCommunityIcons name="information-outline" size={16} color={accent} /><Text style={[styles.restoreText, { color: accent }]}>{'Show safety tip'}</Text></Pressable>;
   return <Animated.View style={[styles.tipCard, { borderLeftColor: disasterActive ? alertColor : accent, opacity, transform: [{ translateY }] }]}><MaterialCommunityIcons name={disasterActive ? 'alert-outline' : 'information-outline'} size={20} color={disasterActive ? alertColor : accent} /><View style={styles.tipCopy}><Text darkText style={styles.tipTitle}>{tip.title}</Text><Text darkText style={styles.tipText}>{tip.detail}</Text></View><Pressable onPress={dismiss} accessibilityLabel="Dismiss safety tip" style={styles.dismissButton}><MaterialCommunityIcons name="close" size={16} color="#344054" /></Pressable></Animated.View>;
 }
 

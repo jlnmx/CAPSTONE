@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
 import { Colors } from '@constants/colors';
 import { AppHeadingFontFamily } from '@constants/typography';
+import { useTheme } from '@hooks/useTheme';
 
 interface ActiveDisasterCardProps {
   active: boolean;
@@ -17,6 +18,7 @@ interface ActiveDisasterCardProps {
 }
 
 export function ActiveDisasterCard({ active, upcoming = false, title, description, onPress, interactiveWhenInactive = false, accessibilityLabel }: ActiveDisasterCardProps) {
+  const { resolvedTheme } = useTheme();
   const sheen = useRef(new Animated.Value(-1)).current;
   const chevron = useRef(new Animated.Value(0)).current;
   const chevronAnimation = useRef<Animated.CompositeAnimation | null>(null);
@@ -56,6 +58,8 @@ export function ActiveDisasterCard({ active, upcoming = false, title, descriptio
 
   const sheenTranslate = sheen.interpolate({ inputRange: [-1, 1], outputRange: [-150, 520] });
   const chevronTranslate = chevron.interpolate({ inputRange: [0, 1], outputRange: [0, 7] });
+  const darkAlertForeground = resolvedTheme === 'dark' && (active || upcoming);
+  const cardForeground = darkAlertForeground ? '#000000' : upcoming && !active ? styles.upcomingText.color : Colors.white;
 
   return (
     <AnimatedPressable
@@ -70,13 +74,13 @@ export function ActiveDisasterCard({ active, upcoming = false, title, descriptio
       onPressOut={stopChevron}
     >
       {active && <Animated.View pointerEvents="none" style={[styles.sheen, { transform: [{ translateX: sheenTranslate }, { rotate: '-16deg' }] }]} />}
-      <MaterialCommunityIcons name={active ? 'alert-circle-outline' : 'weather-hurricane'} size={active ? 39 : 29} color={upcoming && !active ? styles.upcomingText.color : Colors.white} />
+      <MaterialCommunityIcons name={active ? 'alert-circle-outline' : 'weather-hurricane'} size={active ? 39 : 29} color={cardForeground} />
       <View style={styles.copy}>
-        <Text style={[styles.name, active && styles.nameActive, upcoming && !active && styles.upcomingText]}>{title}</Text>
-        <Text style={[styles.description, active && styles.descriptionActive, upcoming && !active && styles.upcomingText]}>{description}</Text>
+        <Text darkText={darkAlertForeground} style={[styles.name, active && styles.nameActive, upcoming && !active && styles.upcomingText, darkAlertForeground && styles.darkAlertText]}>{title}</Text>
+        <Text darkText={darkAlertForeground} style={[styles.description, active && styles.descriptionActive, upcoming && !active && styles.upcomingText, darkAlertForeground && styles.darkAlertText]}>{description}</Text>
       </View>
       <Animated.View style={{ transform: [{ translateX: chevronTranslate }] }}>
-        {(active || interactiveWhenInactive) && <MaterialCommunityIcons name="chevron-right" size={31} color={upcoming && !active ? styles.upcomingText.color : Colors.white} />}
+        {(active || interactiveWhenInactive) && <MaterialCommunityIcons name="chevron-right" size={31} color={cardForeground} />}
       </Animated.View>
     </AnimatedPressable>
   );
@@ -94,4 +98,5 @@ const styles = StyleSheet.create({
   description: { color: Colors.white, fontSize: 9, marginTop: 2 },
   descriptionActive: { fontSize: 12 },
   upcomingText: { color: '#3D3100' },
+  darkAlertText: { color: '#000000' },
 });
