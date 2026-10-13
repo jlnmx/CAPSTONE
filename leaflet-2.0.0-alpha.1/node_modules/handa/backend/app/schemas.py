@@ -61,6 +61,11 @@ class UserRegistration(BaseModel):
     currentAddress: str = Field(default="", max_length=500)
     email: str = Field(pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
     password: str = Field(min_length=8, max_length=128)
+    role: Literal["Resident", "Responder"] = "Resident"
+    responderType: Literal["Official", "Volunteer"] | None = None
+    verificationDocumentBase64: str | None = Field(default=None, max_length=5_600_000)
+    verificationDocumentMimeType: Literal["image/jpeg", "image/png", "image/webp"] | None = None
+    verificationDocumentName: str | None = Field(default=None, max_length=255)
     members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
 
 
@@ -80,6 +85,12 @@ class ResidentAccountUpdate(BaseModel):
     mobileNumber: str | None = Field(default=None, pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
     currentPassword: str | None = Field(default=None, min_length=1, max_length=128)
     newPassword: str | None = Field(default=None, min_length=8, max_length=128)
+
+
+class SelfProfileUpdate(BaseModel):
+    firstName: str = Field(min_length=1, max_length=120)
+    middleName: str | None = Field(default=None, max_length=120)
+    lastName: str = Field(min_length=1, max_length=120)
 
 
 class ResidentProfileUpdate(BaseModel):
@@ -136,6 +147,11 @@ class AdminUserUpdate(BaseModel):
     status: Literal["Active", "Inactive", "Pending"] | None = None
 
 
+class ResponderApplicationReview(BaseModel):
+    decision: Literal["approved", "rejected"]
+    note: str = Field(default="", max_length=1000)
+
+
 class DisasterCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default='', max_length=2000)
@@ -182,5 +198,12 @@ class CenterCreate(BaseModel):
     capacity: int = Field(default=0, ge=0)
     currentOccupancy: int = Field(default=0, ge=0)
     status: Literal['available', 'limited', 'full', 'closed'] = 'available'
+    coordinatorName: str = Field(default='', max_length=160)
+    contactNumber: str = Field(default='', max_length=40)
+    notes: str = Field(default='', max_length=2000)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
+
+
+class CenterCapacityUpdate(BaseModel):
+    capacity: int = Field(ge=1)

@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AdminDataSnapshot, AdminEvacueeRecord, getAdminData } from '@services/adminData';
 
@@ -22,9 +23,11 @@ export default function AdminEvacuees() {
   const [sortMode, setSortMode] = useState<SortMode>('recent');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    void getAdminData().then(setData);
-  }, []);
+  useFocusEffect(useCallback(() => {
+    let isActive = true;
+    void getAdminData().then((snapshot) => { if (isActive) setData(snapshot); });
+    return () => { isActive = false; };
+  }, []));
 
   const groups = useMemo(() => {
     const grouped = new Map<string, EvacueeGroup>();

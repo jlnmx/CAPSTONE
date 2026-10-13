@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AdminDataSnapshot, getAdminData } from '@services/adminData';
 
@@ -12,9 +13,11 @@ export default function AdminOperations() {
   const [filter, setFilter] = useState<Filter>('All');
   const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' });
 
-  useEffect(() => {
-    void getAdminData().then(setData);
-  }, []);
+  useFocusEffect(useCallback(() => {
+    let isActive = true;
+    void getAdminData().then((snapshot) => { if (isActive) setData(snapshot); });
+    return () => { isActive = false; };
+  }, []));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -47,11 +50,11 @@ export default function AdminOperations() {
             </View>
             {data.incidents.map((incident) => (
               <View style={styles.row} key={incident.id}>
-                <View style={[styles.severity, { backgroundColor: incident.severity === 'high' || incident.severity === 'critical' ? '#FCE8E8' : '#FFF3E5' }]}>
-                  <MaterialCommunityIcons name="alert-outline" size={20} color={incident.severity === 'high' || incident.severity === 'critical' ? Colors.emergency : '#B36B00'} />
+                <View style={[styles.severity, { backgroundColor: incident.status === 'resolved' ? '#E5F3ED' : '#EAF1F8' }]}>
+                  <MaterialCommunityIcons name="alert-outline" size={20} color={incident.status === 'resolved' ? Colors.success : Colors.secondary} />
                 </View>
                 <View style={styles.copy}><Text style={styles.rowTitle}>{incident.type}</Text><Text style={styles.rowDetail}>{incident.location} · {incident.description}</Text></View>
-                <View style={styles.statusWrap}><Text style={styles.severityText}>{incident.severity.toUpperCase()}</Text><Text style={styles.statusText}>{incident.syncStatus}</Text></View>
+                <View style={styles.statusWrap}><Text style={styles.severityText}>{incident.status.replace('_', ' ').toUpperCase()}</Text><Text style={styles.statusText}>{incident.syncStatus}</Text></View>
               </View>
             ))}
             {data.incidents.length === 0 && <Text style={styles.empty}>No incident records found.</Text>}

@@ -12,7 +12,6 @@ export interface LocalIncidentInput {
   createdAt?: string;
   type: string;
   description: string;
-  severity: 'low' | 'moderity' | 'high' | 'critical';
   location: string;
   latitude?: number;
   longitude?: number;
@@ -133,7 +132,7 @@ export function saveLocalIncident(input: LocalIncidentInput) {
       id,
       input.type,
       input.description,
-      input.severity,
+      'medium',
       input.location,
       input.latitude ?? null,
       input.longitude ?? null,
@@ -237,7 +236,6 @@ export function getLocalIncidents() {
        id,
        type,
        description,
-       severity,
        location,
       latitude,
       longitude,

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
@@ -16,11 +16,16 @@ type MemberDraft = { name: string; relationship: string };
 
 type ProfileResponse = { householdMembers?: ResidentHouseholdMember[] };
 type MembersResponse = { members?: ResidentHouseholdMember[] };
+type EvacuationStatusResponse = {
+  status?: string;
+  members?: Array<ResidentHouseholdMember & { status?: string }>;
+};
 
 export default function HouseholdScreen() {
   const router = useRouter();
   const { user, setAuthenticatedUser } = useAuth();
   const [members, setMembers] = useState<ResidentHouseholdMember[]>([]);
+  const [registeredMembers, setRegisteredMembers] = useState<EvacuationStatusResponse['members']>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -30,23 +35,30 @@ export default function HouseholdScreen() {
   const [memberRelationship, setMemberRelationship] = useState('');
   const [memberError, setMemberError] = useState('');
 
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     try {
       const response = await authenticatedFetch('/api/v1/auth/me');
       if (!response.ok) throw new Error('Household members could not be loaded.');
       const result = await response.json() as ProfileResponse;
       setMembers(result.householdMembers ?? []);
+      const evacuationResponse = await authenticatedFetch('/api/v1/resident/evacuation-status').catch(() => null);
+      if (evacuationResponse?.ok) {
+        const evacuation = await evacuationResponse.json() as EvacuationStatusResponse;
+        setRegisteredMembers(evacuation.status && evacuation.status !== 'released' && evacuation.status !== 'not_registered'
+          ? evacuation.members ?? []
+          : []);
+      } else {
+        setRegisteredMembers([]);
+      }
       setError('');
     } catch {
       setError('Household members could not be loaded. Check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    void loadMembers();
   }, []);
+
+  useFocusEffect(useCallback(() => { void loadMembers(); }, [loadMembers]));
 
   const persistMembers = async (nextMembers: MemberDraft[]) => {
     setIsSaving(true);
@@ -102,6 +114,10 @@ export default function HouseholdScreen() {
     ]);
   };
 
+  const savedMemberNames = new Set(members.map((member) => member.name.trim().toLocaleLowerCase()));
+  const registrationOnlyMembers = (registeredMembers ?? []).filter((member) => !savedMemberNames.has(member.name.trim().toLocaleLowerCase()));
+  const householdCount = members.length + registrationOnlyMembers.length + 1;
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -111,11 +127,13 @@ export default function HouseholdScreen() {
           <MaterialCommunityIcons name="account-group-outline" size={30} color="#DFF1DF" />
         </View>
         <View style={styles.intro}><Text style={styles.introTitle}>Household members</Text><Text style={styles.introText}>Keep the people in your household updated for evacuation registration and emergency coordination.</Text></View>
-        <View style={styles.toolbar}><Text style={styles.count}>{members.length} of {MAX_MEMBERS} members</Text><AnimatedPressable style={[styles.addButton, (isSaving || members.length >= MAX_MEMBERS) && styles.disabled]} onPress={() => openEditor()} disabled={isSaving || members.length >= MAX_MEMBERS} accessibilityRole="button" accessibilityLabel="Add household member"><MaterialCommunityIcons name="plus" size={17} color={Colors.white} /><Text style={styles.addText}>Add member</Text></AnimatedPressable></View>
+        <View style={styles.toolbar}><Text style={styles.count}>{householdCount} of {MAX_MEMBERS + 1} people</Text><AnimatedPressable style={[styles.addButton, (isSaving || householdCount >= MAX_MEMBERS + 1) && styles.disabled]} onPress={() => openEditor()} disabled={isSaving || householdCount >= MAX_MEMBERS + 1} accessibilityRole="button" accessibilityLabel="Add household member"><MaterialCommunityIcons name="plus" size={17} color={Colors.white} /><Text style={styles.addText}>Add member</Text></AnimatedPressable></View>
         {isLoading && <View style={styles.state}><ActivityIndicator color={GREEN} /><Text style={styles.stateText}>Loading household members...</Text></View>}
         {!!error && <View style={styles.errorBox}><Text style={styles.error}>{error}</Text><AnimatedPressable onPress={() => { setIsLoading(true); void loadMembers(); }}><Text style={styles.retry}>Try again</Text></AnimatedPressable></View>}
-        {!isLoading && !error && members.length === 0 && <View style={styles.empty}><MaterialCommunityIcons name="account-multiple-outline" size={34} color={GREEN} /><Text style={styles.emptyTitle}>No household members added</Text><Text style={styles.emptyText}>Add household members here and they will be available during evacuation registration.</Text><AnimatedPressable style={styles.emptyButton} onPress={() => openEditor()}><Text style={styles.emptyButtonText}>Add first member</Text></AnimatedPressable></View>}
+        <View style={styles.memberCard}><View style={styles.avatar}><MaterialCommunityIcons name="account-check-outline" size={21} color={GREEN} /></View><View style={styles.memberCopy}><Text style={styles.memberName}>{user?.name || 'You'}</Text><Text style={styles.relationship}>You · HANDA account holder</Text></View><View style={styles.accountBadge}><Text style={styles.accountBadgeText}>YOU</Text></View></View>
+        {!isLoading && !error && householdCount === 1 && <View style={styles.empty}><MaterialCommunityIcons name="account-multiple-outline" size={34} color={GREEN} /><Text style={styles.emptyTitle}>No other household members</Text><Text style={styles.emptyText}>Add household members here and they will be available during evacuation registration.</Text><AnimatedPressable style={styles.emptyButton} onPress={() => openEditor()}><Text style={styles.emptyButtonText}>Add first member</Text></AnimatedPressable></View>}
         {!isLoading && members.map((member, index) => <View key={member.id ?? `${index}-${member.name}`} style={styles.memberCard}><View style={styles.avatar}><Text style={styles.avatarText}>{member.name.trim().charAt(0).toUpperCase()}</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.relationship}>{member.relationship}</Text></View><AnimatedPressable style={styles.iconButton} onPress={() => openEditor(index)} disabled={isSaving} accessibilityRole="button" accessibilityLabel={`Edit ${member.name}`}><MaterialCommunityIcons name="pencil-outline" size={19} color="#1769AA" /></AnimatedPressable><AnimatedPressable style={styles.iconButton} onPress={() => removeMember(index)} disabled={isSaving} accessibilityRole="button" accessibilityLabel={`Delete ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></AnimatedPressable></View>)}
+        {!isLoading && registrationOnlyMembers.map((member, index) => <View key={member.id ?? `registered-${index}-${member.name}`} style={styles.memberCard}><View style={styles.avatar}><MaterialCommunityIcons name="account-check-outline" size={21} color={GREEN} /></View><View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.relationship}>{member.relationship} · In evacuation registration</Text></View></View>)}
       </ScrollView>
       <Modal transparent visible={editorOpen} animationType="fade" onRequestClose={() => setEditorOpen(false)}><Pressable style={styles.backdrop} onPress={() => setEditorOpen(false)}><Pressable style={styles.dialog} onPress={(event) => event.stopPropagation()}><Text style={styles.dialogTitle}>{editingIndex == null ? 'Add household member' : 'Edit household member'}</Text><TextInput style={styles.input} value={memberName} onChangeText={setMemberName} placeholder="Full name" placeholderTextColor="#79967A" autoCapitalize="words" /><TextInput style={styles.input} value={memberRelationship} onChangeText={setMemberRelationship} placeholder="Relationship to registrant" placeholderTextColor="#79967A" autoCapitalize="words" />{!!memberError && <Text style={styles.error}>{memberError}</Text>}<View style={styles.dialogActions}><AnimatedPressable style={styles.cancelButton} onPress={() => setEditorOpen(false)} disabled={isSaving}><Text style={styles.cancelText}>Cancel</Text></AnimatedPressable><AnimatedPressable style={[styles.saveButton, isSaving && styles.disabled]} onPress={() => void saveMember()} disabled={isSaving}>{isSaving ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.saveText}>Save member</Text>}</AnimatedPressable></View></Pressable></Pressable></Modal>
     </SafeAreaView>
@@ -154,6 +172,8 @@ const styles = StyleSheet.create({
   memberCopy: { flex: 1, marginLeft: 10 },
   memberName: { color: Colors.textMuted, fontSize: 13, fontWeight: '800' },
   relationship: { color: Colors.textMuted, fontSize: 11, marginTop: 3 },
+  accountBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, backgroundColor: '#E5F3ED' },
+  accountBadgeText: { color: '#167A5B', fontSize: 9, fontWeight: '800' },
   iconButton: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: 'rgba(0,0,0,0.4)' },
   dialog: { width: '100%', maxWidth: 420, padding: 18, borderRadius: 8, backgroundColor: Colors.surface },

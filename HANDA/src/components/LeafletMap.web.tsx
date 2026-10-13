@@ -27,15 +27,21 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     }
 
     const map = new LeafletApi.Map(mapElement.current);
-    map.fitBounds([
-      [14.2500, 121.0200],
-      [14.3600, 121.1400],
-    ]);
-
+    map.setView(BINAN_CENTER, 14);
+    map.attributionControl.setPrefix(false);
+    Object.assign(map.attributionControl.getContainer().style, {
+      margin: '0 5px 5px 0',
+      padding: '2px 5px',
+      borderRadius: '3px',
+      backgroundColor: 'rgba(255, 255, 255, 0.82)',
+      color: '#526052',
+      fontSize: '9px',
+      lineHeight: '1.3',
+    });
     new LeafletApi.TileLayer(
       `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}&tileSize=512`,
       {
-        attribution: '&copy; Mapbox &copy; OpenStreetMap contributors',
+        attribution: '&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener noreferrer">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
         maxZoom: 19,
       },
     ).addTo(map);
@@ -50,6 +56,13 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         shadowSize: [41, 41],
         shadowAnchor: [12, 41],
       }),
+    }).addTo(map);
+    const binanPoint = new LeafletApi.CircleMarker(BINAN_CENTER, {
+      radius: 5,
+      color: '#ffffff',
+      fillColor: '#218B25',
+      fillOpacity: 1,
+      weight: 2,
     }).addTo(map);
 
     const infoPanel = document.createElement('div');
@@ -70,6 +83,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       color: Colors.text,
       overflowWrap: 'anywhere',
       pointerEvents: 'auto',
+      display: 'none',
     });
     mapElement.current.appendChild(infoPanel);
     LeafletApi.DomEvent.disableClickPropagation(infoPanel);
@@ -82,6 +96,24 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         "'": '&#39;',
         '"': '&quot;',
       })[character]);
+
+    const showInfoPanel = (title: string, content: string) => {
+      infoPanel.style.display = 'block';
+      infoPanel.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px"><strong style="margin:0;font-size:13px">${escapeHtml(title)}</strong><div style="display:flex;gap:4px;flex-shrink:0"><button id="minimize-info-button" type="button" title="Minimize map details" aria-label="Minimize map details" style="margin:0;padding:3px 8px;border:0;border-radius:4px;background:#E8F2E8;color:#175B19;font-weight:700;cursor:pointer">-</button><button id="close-info-button" type="button" title="Close map details" aria-label="Close map details" style="margin:0;padding:3px 8px;border:0;border-radius:4px;background:#F0F2F5;color:#526052;font-weight:700;cursor:pointer">x</button></div></div><div id="info-panel-content">${content}</div>`;
+      const contentElement = infoPanel.querySelector<HTMLElement>('#info-panel-content');
+      const minimizeButton = infoPanel.querySelector<HTMLButtonElement>('#minimize-info-button');
+      minimizeButton?.addEventListener('click', () => {
+        if (!contentElement || !minimizeButton) return;
+        const isMinimized = contentElement.style.display === 'none';
+        contentElement.style.display = isMinimized ? 'block' : 'none';
+        minimizeButton.textContent = isMinimized ? '-' : '+';
+        minimizeButton.title = isMinimized ? 'Minimize map details' : 'Restore map details';
+        minimizeButton.setAttribute('aria-label', minimizeButton.title);
+      });
+      infoPanel.querySelector('#close-info-button')?.addEventListener('click', () => {
+        infoPanel.style.display = 'none';
+      });
+    };
 
     const mappedCenters = centers.flatMap((center) => (
       center.latitude == null || center.longitude == null
@@ -141,7 +173,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       const occupancy = Math.max(0, Number(center.current_occupancy) || 0);
       const spaces = Math.max(0, capacity - occupancy);
       const acceptingRegistrations = center.status !== 'closed' && center.status !== 'full' && spaces > 0;
-      infoPanel.innerHTML = `<strong style="display:block;font-size:16px;margin-bottom:5px">${escapeHtml(center.name)}</strong><span style="display:block;font-size:12px;color:#667085">${escapeHtml(center.location || 'Location not provided')}${distance == null ? '' : ` · ${distance.toFixed(1)} km away`}</span><span style="display:block;font-size:12px;margin-top:6px">Capacity: ${occupancy} of ${capacity} · ${spaces} spaces available</span><span style="display:block;font-size:12px;color:${acceptingRegistrations ? '#218B25' : '#B42318'};font-weight:700;margin-top:2px">${acceptingRegistrations ? 'Accepting registrations' : 'Not accepting registrations'}</span><button id="navigate-button" style="margin-top:10px;margin-right:7px;border:0;border-radius:5px;padding:9px 12px;background:#E8F2E8;color:#175B19;font-weight:700;cursor:pointer">Navigate</button><button id="select-center-button" ${acceptingRegistrations ? '' : 'disabled'} style="margin-top:10px;border:0;border-radius:5px;padding:9px 12px;background:${acceptingRegistrations ? '#218B25' : '#98A29A'};color:#fff;font-weight:700;cursor:${acceptingRegistrations ? 'pointer' : 'not-allowed'}">Select center</button>`;
+      showInfoPanel('Evacuation center', `<strong style="display:block;font-size:16px;margin-bottom:5px">${escapeHtml(center.name)}</strong><span style="display:block;font-size:12px;color:#667085">${escapeHtml(center.location || 'Location not provided')}${distance == null ? '' : ` · ${distance.toFixed(1)} km away`}</span><span style="display:block;font-size:12px;margin-top:6px">Capacity: ${occupancy} of ${capacity} · ${spaces} spaces available</span><span style="display:block;font-size:12px;color:${acceptingRegistrations ? '#218B25' : '#B42318'};font-weight:700;margin-top:2px">${acceptingRegistrations ? 'Accepting registrations' : 'Not accepting registrations'}</span><button id="navigate-button" style="margin-top:10px;margin-right:7px;border:0;border-radius:5px;padding:9px 12px;background:#E8F2E8;color:#175B19;font-weight:700;cursor:pointer">Navigate</button><button id="select-center-button" ${acceptingRegistrations ? '' : 'disabled'} style="margin-top:10px;border:0;border-radius:5px;padding:9px 12px;background:${acceptingRegistrations ? '#218B25' : '#98A29A'};color:#fff;font-weight:700;cursor:${acceptingRegistrations ? 'pointer' : 'not-allowed'}">Select center</button>`);
       infoPanel.querySelector('#navigate-button')?.addEventListener('click', async () => {
         await drawRoute(userPosition, destination);
         infoPanel.insertAdjacentHTML('beforeend', '<span style="display:block;margin-top:8px;color:#218B25;font-size:12px;font-weight:700">In-app navigation active. Follow the highlighted route.</span>');
@@ -153,7 +185,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       const userPosition: [number, number] = [position.lat, position.lng];
       const nearest = findNearestCenter(userPosition);
       if (!nearest.item) {
-        infoPanel.innerHTML = '<strong>No evacuation centers available on the map.</strong>';
+        showInfoPanel('Evacuation centers', '<strong>No evacuation centers available on the map.</strong>');
         clearRoute();
         return;
       }
@@ -182,7 +214,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
               clearRoute();
               const status = String(incident.status ?? incident.verificationStatus ?? 'reported').toLowerCase();
               const actionNotes = String(incident.actionNotes ?? incident.action_notes ?? '');
-              infoPanel.innerHTML = `<strong style="display:block;font-size:16px;margin-bottom:5px;color:${color}">Incident report</strong><span style="display:block;font-size:14px;font-weight:700">${escapeHtml(String(incident.type ?? 'Incident'))}</span><span style="display:block;font-size:12px;color:${color};margin-top:3px">${escapeHtml(String(incident.severity ?? 'Medium'))} severity · ${escapeHtml(status.replace('_', ' '))}</span><span style="display:block;font-size:12px;line-height:1.5;margin-top:6px">${escapeHtml(String(incident.description ?? 'No description provided.'))}</span>${actionNotes ? `<span style="display:block;font-size:12px;line-height:1.5;margin-top:6px;color:#218B25">Action: ${escapeHtml(actionNotes)}</span>` : ''}`;
+              showInfoPanel('Incident report', `<strong style="display:block;font-size:16px;margin-bottom:5px;color:${color}">Incident report</strong><span style="display:block;font-size:14px;font-weight:700">${escapeHtml(String(incident.type ?? 'Incident'))}</span><span style="display:block;font-size:12px;color:${color};margin-top:3px">${escapeHtml(String(incident.severity ?? 'Medium'))} severity · ${escapeHtml(status.replace('_', ' '))}</span><span style="display:block;font-size:12px;line-height:1.5;margin-top:6px">${escapeHtml(String(incident.description ?? 'No description provided.'))}</span>${actionNotes ? `<span style="display:block;font-size:12px;line-height:1.5;margin-top:6px;color:#218B25">Action: ${escapeHtml(actionNotes)}</span>` : ''}`);
             });
             return marker;
           });
@@ -213,12 +245,31 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       void updateInfoPanel(event.latlng);
     });
 
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const currentPosition: [number, number] = [position.coords.latitude, position.coords.longitude];
+        marker.setLatLng(currentPosition);
+        new LeafletApi.CircleMarker(currentPosition, {
+          radius: 8,
+          color: '#ffffff',
+          fillColor: '#2563eb',
+          fillOpacity: 1,
+          weight: 3,
+        }).addTo(map);
+        map.fitBounds([BINAN_CENTER, currentPosition], { padding: [36, 36], maxZoom: 15 });
+        void updateInfoPanel(marker.getLatLng());
+      }, () => {
+        map.setView(BINAN_CENTER, 14);
+      }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 });
+    }
+
     void updateInfoPanel(marker.getLatLng());
 
     return () => {
       window.clearInterval(incidentRefresh);
       infoPanel.remove();
       destinationMarkers.forEach((destinationMarker) => destinationMarker.remove());
+      binanPoint.remove();
       reportedMarkers.forEach((reportedMarker) => reportedMarker.remove());
       map.remove();
     };

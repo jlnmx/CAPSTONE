@@ -1,3 +1,4 @@
+import base64
 import json
 import hashlib
 import hmac
@@ -15,9 +16,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
-from .db import get_connection
+from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import GDACS_SOURCE_URL, get_live_typhoons
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import SelfProfileUpdate
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +98,52 @@ def deliver_password_reset_otp(destination: str, channel: str, otp: str) -> None
     logger.warning("Password reset OTP for %s (%s): %s", mask_destination(destination, channel), channel, otp)
 
 
+def notify_responder_application_status(email: str, mobile_number: str, responder_type: str, status: str, note: str = "") -> None:
+    if status == "Pending":
+        message = f"Your HANDA {responder_type.lower()} responder application was received and is pending administrator review."
+    elif status == "Active":
+        message = "Your HANDA responder application was approved. You can now sign in."
+    else:
+        message = "Your HANDA responder application was not approved. Contact your local administrator for more information."
+    if note.strip():
+        message += f" Administrator note: {note.strip()}"
+
+    if settings.smtp_host and settings.smtp_from:
+        try:
+            email_message = EmailMessage()
+            email_message["Subject"] = "HANDA responder application update"
+            email_message["From"] = settings.smtp_from
+            email_message["To"] = email
+            email_message.set_content(message)
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+                server.starttls()
+                if settings.smtp_username:
+                    server.login(settings.smtp_username, settings.smtp_password)
+                server.send_message(email_message)
+        except Exception:
+            logger.exception("Responder application email notification could not be delivered.")
+    else:
+        logger.warning("Responder application email notification not sent because SMTP is not configured.")
+
+    if settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
+        try:
+            from urllib.parse import urlencode
+            from urllib.request import Request, urlopen
+
+            body = urlencode({"To": mobile_number, "From": settings.twilio_from_number, "Body": message}).encode()
+            request = Request(
+                f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
+                data=body,
+                headers={"Authorization": "Basic " + base64.b64encode(f"{settings.twilio_account_sid}:{settings.twilio_auth_token}".encode()).decode()},
+            )
+            with urlopen(request, timeout=10):
+                pass
+        except Exception:
+            logger.exception("Responder application SMS notification could not be delivered.")
+    else:
+        logger.warning("Responder application SMS notification not sent because Twilio is not configured.")
+
+
 MAX_LOGIN_ATTEMPTS = 5
 LOGIN_LOCKOUT_MINUTES = 15
 
@@ -157,21 +205,33 @@ def write_evacuee(connection: psycopg.Connection, evacuee: EvacueeCreate) -> dic
           latitude = EXCLUDED.latitude,
           longitude = EXCLUDED.longitude
         """,
-        evacuee_id,
-        evacuee.firstName,
-        evacuee.middleName,
-        evacuee.lastName,
-        evacuee.age,
-        evacuee.sex,
-        evacuee.contactNumber,
-        evacuee.address,
-        evacuee.householdSize,
-        evacuee.barangay,
-        evacuee.latitude,
-        evacuee.longitude,
-        created_at,
+                (
+                        evacuee_id,
+                        evacuee.firstName,
+                        evacuee.middleName,
+                        evacuee.lastName,
+                        evacuee.age,
+                        evacuee.sex,
+                        evacuee.contactNumber,
+                        evacuee.address,
+                        evacuee.householdSize,
+                        evacuee.barangay,
+                        evacuee.latitude,
+                        evacuee.longitude,
+                        created_at,
+                ),
     )
     return {"id": evacuee_id, "entityType": "evacuee", "status": "accepted"}
+
+
+def evacuation_center_status(capacity: int, occupancy: int, current_status: str) -> str:
+    if current_status == "closed":
+        return "closed"
+    if occupancy >= capacity:
+        return "full"
+    if occupancy > 0:
+        return "limited"
+    return "available"
 
 
 def ensure_disaster_schema(connection: psycopg.Connection) -> None:
@@ -197,7 +257,7 @@ def ensure_disaster_schema(connection: psycopg.Connection) -> None:
 
 
 def ensure_operational_schema() -> None:
-    with psycopg.connect(settings.database_url) as connection:
+    with psycopg.connect(settings.database_url, connect_timeout=CONNECT_TIMEOUT_SECONDS) as connection:
         connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'reported'")
         connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS action_notes TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS verified_by TEXT")
@@ -218,6 +278,22 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''")
+                connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_type TEXT")
+                connection.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS responder_verification_documents (
+                            user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                            file_name TEXT NOT NULL,
+                            mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/webp')),
+                            file_bytes BYTEA NOT NULL,
+                            uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                            reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+                            reviewed_at TIMESTAMPTZ,
+                            decision TEXT CHECK (decision IS NULL OR decision IN ('approved', 'rejected')),
+                            review_note TEXT NOT NULL DEFAULT ''
+                        )
+                        """,
+                )
         connection.execute(
                         """
                         CREATE TABLE IF NOT EXISTS notifications (
@@ -292,6 +368,9 @@ def ensure_operational_schema() -> None:
             """,
         )
         connection.execute("CREATE INDEX IF NOT EXISTS evacuation_centers_status_idx ON evacuation_centers (status)")
+        connection.execute("ALTER TABLE evacuation_centers ADD COLUMN IF NOT EXISTS coordinator_name TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE evacuation_centers ADD COLUMN IF NOT EXISTS contact_number TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE evacuation_centers ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT ''")
         ensure_disaster_schema(connection)
         connection.execute(
             """
@@ -368,7 +447,7 @@ def ensure_operational_schema() -> None:
 
 
 def ensure_default_users() -> None:
-    with psycopg.connect(settings.database_url) as connection:
+    with psycopg.connect(settings.database_url, connect_timeout=CONNECT_TIMEOUT_SECONDS) as connection:
         connection.execute(
             """
             INSERT INTO users
@@ -401,8 +480,11 @@ def ensure_default_users() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    ensure_operational_schema()
-    ensure_default_users()
+    try:
+        ensure_operational_schema()
+        ensure_default_users()
+    except psycopg.OperationalError as error:
+        logger.warning("Database unavailable during startup; starting API in degraded mode: %s", error)
     yield
 
 
@@ -558,8 +640,7 @@ def update_evacuee_status(evacuee_id: str, update: EvacueeStatusUpdate, connecti
         WHERE id = %s
         RETURNING id, evacuation_status, verified_at
         """,
-        update.evacuationStatus,
-        evacuee_id,
+        (update.evacuationStatus, evacuee_id),
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Evacuee not found.")
@@ -569,30 +650,72 @@ def update_evacuee_status(evacuee_id: str, update: EvacueeStatusUpdate, connecti
 
 @app.get("/api/v1/centers")
 def list_centers(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
-    return connection.execute(
-        "SELECT id, name, location_text AS location, capacity, current_occupancy, status, latitude, longitude, updated_at FROM evacuation_centers ORDER BY name"
+    rows = connection.execute(
+        "SELECT id, name, location_text AS location, capacity, current_occupancy, status, coordinator_name, contact_number, notes, latitude, longitude, updated_at FROM evacuation_centers ORDER BY name"
     ).fetchall()
+    return [
+        {
+            **row,
+            "status": evacuation_center_status(row["capacity"], row["current_occupancy"], row["status"]),
+        }
+        for row in rows
+    ]
 
 
 @app.post("/api/v1/centers", status_code=201)
 def create_center(center: CenterCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
     center_id = f"center-{uuid4()}"
+    status = evacuation_center_status(center.capacity, center.currentOccupancy, center.status)
     row = connection.execute(
         """
         INSERT INTO evacuation_centers
-          (id, name, location_text, capacity, current_occupancy, status, latitude, longitude)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        RETURNING id, name, location_text AS location, capacity, current_occupancy, status, latitude, longitude, updated_at
+                    (id, name, location_text, capacity, current_occupancy, status, coordinator_name, contact_number, notes, latitude, longitude)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id, name, location_text AS location, capacity, current_occupancy, status, coordinator_name, contact_number, notes, latitude, longitude, updated_at
         """,
-        center_id,
-        center.name.strip(),
-        center.location.strip(),
-        center.capacity,
-        center.currentOccupancy,
-        center.status,
-        center.latitude,
-        center.longitude,
+        (
+            center_id,
+            center.name.strip(),
+            center.location.strip(),
+            center.capacity,
+            center.currentOccupancy,
+            status,
+            center.coordinatorName.strip(),
+            center.contactNumber.strip(),
+            center.notes.strip(),
+            center.latitude,
+            center.longitude,
+        ),
     ).fetchone()
+    connection.commit()
+    return row
+
+
+@app.patch("/api/v1/centers/{center_id}")
+def update_center_capacity(
+    center_id: str,
+    update: CenterCapacityUpdate,
+    connection: psycopg.Connection = Depends(get_connection),
+    _: CurrentUser = Depends(require_roles("admin")),
+):
+    row = connection.execute(
+        """
+        UPDATE evacuation_centers
+        SET capacity = %s,
+            status = CASE
+              WHEN status = 'closed' THEN status
+              WHEN current_occupancy >= %s THEN 'full'
+                            WHEN current_occupancy > 0 THEN 'limited'
+                            ELSE 'available'
+            END,
+            updated_at = NOW()
+        WHERE id = %s
+        RETURNING id, name, location_text AS location, capacity, current_occupancy, status, coordinator_name, contact_number, notes, latitude, longitude, updated_at
+        """,
+        (update.capacity, update.capacity, center_id),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Evacuation center not found.")
     connection.commit()
     return row
 
@@ -617,6 +740,10 @@ def resident_evacuation_status(connection: psycopg.Connection, resident: Current
         (resident.id,),
     ).fetchone()
     if not registration:
+        saved_members = connection.execute(
+            "SELECT COUNT(*) AS member_count FROM resident_household_members WHERE resident_user_id = %s",
+            (resident.id,),
+        ).fetchone()
         return {
             "resident": {"id": resident.id, "name": resident.name, "status": "not_registered"},
             "registrationId": None,
@@ -625,7 +752,7 @@ def resident_evacuation_status(connection: psycopg.Connection, resident: Current
             "registeredAt": None,
             "checkedInAt": None,
             "checkedInBy": None,
-            "householdCount": 0,
+            "householdCount": int(saved_members["member_count"]) + 1,
             "evacuee": None,
             "members": [],
         }
@@ -634,6 +761,7 @@ def resident_evacuation_status(connection: psycopg.Connection, resident: Current
         "SELECT id, name, relationship, status, updated_at FROM evacuation_household_members WHERE registration_id = %s ORDER BY name",
         (registration["id"],),
     ).fetchall()
+    household_count = max(int(registration["household_size"] or 0), len(members) + 1, 1)
     return {
         "resident": {"id": resident.id, "name": resident.name, "status": registration["status"]},
         "registrationId": registration["id"],
@@ -646,7 +774,7 @@ def resident_evacuation_status(connection: psycopg.Connection, resident: Current
         "registeredAt": registration["registered_at"],
         "checkedInAt": registration["checked_in_at"],
         "checkedInBy": registration["checked_in_by"],
-        "householdCount": registration["household_size"],
+        "householdCount": household_count,
         "evacuee": {
             "name": " ".join(part for part in (registration["first_name"], registration["middle_name"], registration["last_name"]) if part),
             "age": registration["age"],
@@ -676,12 +804,12 @@ def register_resident_at_center(
         raise HTTPException(status_code=422, detail="Add a name and relationship for every household member besides the evacuee.")
 
     center = connection.execute(
-        "SELECT id, status FROM evacuation_centers WHERE id = %s",
+        "SELECT id, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s",
         (registration.centerId,),
     ).fetchone()
     if not center:
         raise HTTPException(status_code=404, detail="Evacuation center not found.")
-    if center["status"] in ("closed", "full"):
+    if evacuation_center_status(center["capacity"], center["current_occupancy"], center["status"]) in ("closed", "full"):
         raise HTTPException(status_code=409, detail="This evacuation center is not accepting registrations.")
 
     existing = connection.execute(
@@ -781,7 +909,8 @@ def update_evacuation_registration_status(
             "SELECT capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
             (registration["center_id"],),
         ).fetchone()
-        if center["status"] == "closed" or center["current_occupancy"] + household_count > center["capacity"]:
+        center_status = evacuation_center_status(center["capacity"], center["current_occupancy"], center["status"])
+        if center_status == "closed" or center["current_occupancy"] + household_count > center["capacity"]:
             raise HTTPException(status_code=409, detail="The evacuation center does not have enough available capacity for this household.")
         connection.execute(
             "UPDATE evacuation_centers SET current_occupancy = current_occupancy + %s, status = CASE WHEN current_occupancy + %s >= capacity THEN 'full' ELSE 'limited' END, updated_at = NOW() WHERE id = %s",
@@ -789,8 +918,8 @@ def update_evacuation_registration_status(
         )
     elif update.status == "released" and current_status in ("checked_in", "evacuated"):
         connection.execute(
-            "UPDATE evacuation_centers SET current_occupancy = GREATEST(0, current_occupancy - %s), status = CASE WHEN status = 'closed' THEN 'closed' WHEN GREATEST(0, current_occupancy - %s) = 0 THEN 'available' ELSE 'limited' END, updated_at = NOW() WHERE id = %s",
-            (household_count, household_count, registration["center_id"]),
+            "UPDATE evacuation_centers SET current_occupancy = GREATEST(0, current_occupancy - %s), status = CASE WHEN status = 'closed' THEN 'closed' WHEN GREATEST(0, current_occupancy - %s) >= capacity THEN 'full' WHEN GREATEST(0, current_occupancy - %s) > 0 THEN 'limited' ELSE 'available' END, updated_at = NOW() WHERE id = %s",
+            (household_count, household_count, household_count, registration["center_id"]),
         )
 
     connection.execute(
@@ -808,9 +937,56 @@ def update_evacuation_registration_status(
 @app.get("/api/v1/users")
 def list_users(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
     rows = connection.execute(
-        "SELECT id, name, email, birthday, mobile_number, current_address, role, status, created_at, updated_at FROM users ORDER BY created_at DESC"
+        "SELECT users.id, users.name, users.email, users.birthday, users.mobile_number, users.current_address, users.role, users.status, users.responder_type, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
     ).fetchall()
     return rows
+
+
+@app.get("/api/v1/users/{user_id}/verification-document")
+def get_responder_verification_document(user_id: str, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
+    row = connection.execute(
+        "SELECT document.file_name, document.mime_type, document.file_bytes, users.responder_type FROM responder_verification_documents AS document JOIN users ON users.id = document.user_id WHERE document.user_id = %s",
+        (user_id,),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Responder verification document not found.")
+    return {
+        "fileName": row["file_name"],
+        "mimeType": row["mime_type"],
+        "base64": base64.b64encode(bytes(row["file_bytes"])).decode("ascii"),
+        "responderType": row["responder_type"],
+    }
+
+
+@app.patch("/api/v1/users/{user_id}/responder-application")
+def review_responder_application(
+    user_id: str,
+    review: ResponderApplicationReview,
+    admin: CurrentUser = Depends(require_roles("admin")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    applicant = connection.execute(
+        "SELECT users.id, users.name, users.email, users.mobile_number, users.role, users.status, users.responder_type FROM users JOIN responder_verification_documents AS document ON document.user_id = users.id WHERE users.id = %s FOR UPDATE OF users",
+        (user_id,),
+    ).fetchone()
+    if not applicant or applicant["role"] != "Responder":
+        raise HTTPException(status_code=404, detail="Responder application not found.")
+    if applicant["status"] != "Pending":
+        raise HTTPException(status_code=409, detail="This responder application has already been reviewed.")
+
+    new_status = "Active" if review.decision == "approved" else "Inactive"
+    connection.execute(
+        "UPDATE users SET status = %s, token_version = token_version + 1, updated_at = NOW() WHERE id = %s",
+        (new_status, user_id),
+    )
+    connection.execute(
+        "UPDATE responder_verification_documents SET decision = %s, reviewed_by = %s, reviewed_at = NOW(), review_note = %s WHERE user_id = %s",
+        (review.decision, admin.id, review.note.strip(), user_id),
+    )
+    write_log(connection, "audit", review.decision, admin.id, "responder_application", user_id, f"{review.decision.title()} {applicant['responder_type']} responder application.")
+    connection.commit()
+    notify_responder_application_status(applicant["email"], applicant["mobile_number"], applicant["responder_type"], new_status, review.note)
+    return {"id": user_id, "status": new_status, "decision": review.decision}
 
 
 def validate_account_password(password: str) -> None:
@@ -939,14 +1115,34 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
     if not any((char.isupper() for char in registration.password)) or not any((char.islower() for char in registration.password)) or not any((char.isdigit() for char in registration.password)) or not any((not char.isalnum() for char in registration.password)):
         raise HTTPException(status_code=422, detail="Password must include uppercase, lowercase, number, and symbol.")
 
+    document_bytes = None
+    if registration.role == "Responder":
+        if not registration.responderType or not registration.verificationDocumentBase64 or not registration.verificationDocumentMimeType or not registration.verificationDocumentName:
+            raise HTTPException(status_code=422, detail="Choose Official or Volunteer and upload a responder ID.")
+        try:
+            document_bytes = base64.b64decode(registration.verificationDocumentBase64, validate=True)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail="The uploaded responder ID is invalid.") from error
+        if not document_bytes or len(document_bytes) > 4 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Responder ID images must be 4 MB or smaller.")
+        signatures = {
+            "image/jpeg": document_bytes.startswith(b"\xff\xd8\xff"),
+            "image/png": document_bytes.startswith(b"\x89PNG\r\n\x1a\n"),
+            "image/webp": document_bytes.startswith(b"RIFF") and document_bytes[8:12] == b"WEBP",
+        }
+        if not signatures.get(registration.verificationDocumentMimeType, False):
+            raise HTTPException(status_code=422, detail="Upload a valid JPEG, PNG, or WebP responder ID image.")
+
     user_id = f"user-{uuid4()}"
+    is_responder = registration.role == "Responder"
+    account_status = "Pending" if is_responder else "Active"
     try:
         connection.execute(
             """
             INSERT INTO users
               (id, name, first_name, middle_name, last_name, email, birthday, mobile_number,
-               current_address, sex, password_hash, role, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Resident', 'Active')
+               current_address, sex, password_hash, role, status, responder_type)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 user_id,
@@ -960,23 +1156,41 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
                 registration.currentAddress.strip(),
                 registration.sex,
                 hash_password(registration.password),
+                registration.role,
+                account_status,
+                registration.responderType if is_responder else None,
             ),
         )
-        for member in registration.members:
+        if is_responder:
             connection.execute(
-                "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
-                (f"resident-household-{uuid4()}", user_id, member.name.strip(), member.relationship.strip()),
+                "INSERT INTO responder_verification_documents (user_id, file_name, mime_type, file_bytes) VALUES (%s, %s, %s, %s)",
+                (user_id, registration.verificationDocumentName, registration.verificationDocumentMimeType, document_bytes),
             )
+        else:
+            for member in registration.members:
+                connection.execute(
+                    "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
+                    (f"resident-household-{uuid4()}", user_id, member.name.strip(), member.relationship.strip()),
+                )
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()
         raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
 
-    access_token, expires_in = create_access_token(user_id, "resident", 0)
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type FROM users WHERE id = %s",
         (user_id,),
     ).fetchone()
+    if is_responder:
+        notify_responder_application_status(row["email"], row["mobile_number"], row["responder_type"], "Pending")
+        return {
+            "id": user_id,
+            "status": "pending",
+            "message": "Your responder application was submitted for administrator approval. We will notify you by email and SMS when its status changes.",
+            "user": resident_profile_payload(row, []),
+        }
+
+    access_token, expires_in = create_access_token(user_id, "resident", 0)
     return {
         "id": user_id,
         "status": "active",
@@ -1055,7 +1269,7 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
         "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s)",
         (credentials.email.strip(),),
     ).fetchone()
-    if not row or row["status"] != "Active":
+    if not row:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
     if row["locked_until"] and row["locked_until"] > datetime.now(UTC):
         raise HTTPException(status_code=423, detail="Too many failed login attempts. Try again in 15 minutes.")
@@ -1071,6 +1285,10 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
         connection.execute("UPDATE users SET failed_login_attempts = %s, updated_at = NOW() WHERE id = %s", (failed_attempts, row["id"]))
         connection.commit()
         raise HTTPException(status_code=401, detail="Invalid email or password.")
+    if row["status"] != "Active":
+        if row["status"] == "Pending" and row["role"] == "Responder":
+            raise HTTPException(status_code=403, detail="Your responder application is awaiting administrator approval.")
+        raise HTTPException(status_code=403, detail="This account is not active. Contact your administrator.")
     if row["failed_login_attempts"] or row["locked_until"]:
         connection.execute("UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = %s", (row["id"],))
         connection.commit()
@@ -1087,6 +1305,26 @@ def current_user(user: CurrentUser = Depends(get_current_user), connection: psyc
         "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
         (user.id,),
     ).fetchone()
+    return resident_profile_payload(row, household_members_for_user(connection, user.id))
+
+
+@app.patch("/api/v1/auth/profile")
+def update_current_profile(
+    profile: SelfProfileUpdate,
+    user: CurrentUser = Depends(get_current_user),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    first_name = profile.firstName.strip()
+    middle_name = (profile.middleName or "").strip() or None
+    last_name = profile.lastName.strip()
+    full_name = " ".join(part for part in (first_name, middle_name, last_name) if part)
+    row = connection.execute(
+        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, updated_at = NOW() WHERE id = %s RETURNING id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role",
+        (full_name, first_name, middle_name, last_name, user.id),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User account not found.")
+    connection.commit()
     return resident_profile_payload(row, household_members_for_user(connection, user.id))
 
 
@@ -1138,14 +1376,14 @@ def update_resident_profile(
 @app.patch("/api/v1/resident/account")
 def update_resident_account(
     account: ResidentAccountUpdate,
-    resident: CurrentUser = Depends(require_roles("resident")),
+    user: CurrentUser = Depends(get_current_user),
     connection: psycopg.Connection = Depends(get_connection),
 ):
     if account.email is None and account.mobileNumber is None and account.newPassword is None:
         raise HTTPException(status_code=422, detail="Provide an email, contact number, or new password.")
     if (account.email is not None or account.newPassword is not None) and not account.currentPassword:
         raise HTTPException(status_code=422, detail="Your current password is required for email or password changes.")
-    row = connection.execute("SELECT password_hash FROM users WHERE id = %s", (resident.id,)).fetchone()
+    row = connection.execute("SELECT password_hash FROM users WHERE id = %s", (user.id,)).fetchone()
     if account.currentPassword and (not row or not verify_password(account.currentPassword, row["password_hash"])):
         raise HTTPException(status_code=401, detail="Current password is incorrect.")
     if account.newPassword:
@@ -1162,7 +1400,7 @@ def update_resident_account(
         assignments.append("password_hash = %s")
         values.append(hash_password(account.newPassword))
     assignments.append("updated_at = NOW()")
-    values.append(resident.id)
+    values.append(user.id)
     try:
         connection.execute(f"UPDATE users SET {', '.join(assignments)} WHERE id = %s", values)
         connection.commit()
@@ -1171,9 +1409,9 @@ def update_resident_account(
         raise HTTPException(status_code=409, detail="That email address is already in use.") from error
     updated = connection.execute(
         "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
-        (resident.id,),
+        (user.id,),
     ).fetchone()
-    return resident_profile_payload(updated, household_members_for_user(connection, resident.id))
+    return resident_profile_payload(updated, household_members_for_user(connection, user.id))
 
 
 @app.post("/api/v1/auth/logout")

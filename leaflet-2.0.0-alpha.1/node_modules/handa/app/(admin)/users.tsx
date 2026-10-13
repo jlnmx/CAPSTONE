@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
@@ -66,11 +67,16 @@ export default function AdminUsers() {
   const [formError, setFormError] = useState('');
   const [pageError, setPageError] = useState('');
 
-  const loadAccounts = async () => {
-    setAccounts(await getAdminUsers());
-  };
+  const loadAccounts = useCallback(async () => {
+    try {
+      setAccounts(await getAdminUsers());
+      setPageError('');
+    } catch {
+      setPageError('User accounts could not be loaded. Check the server connection and administrator session.');
+    }
+  }, []);
 
-  useEffect(() => { void loadAccounts(); }, []);
+  useFocusEffect(useCallback(() => { void loadAccounts(); }, [loadAccounts]));
 
   const openCreate = () => {
     setEditingAccount(null);

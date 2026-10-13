@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://handa:handa_dev_password@localhost:5432/handa"
     cors_origins: str = "http://localhost:8081,http://localhost:19006"
     auth_secret: str = "handa-development-auth-secret-change-me"
-    access_token_minutes: int = 30
+    access_token_minutes: int = 480
     password_reset_expiry_minutes: int = 10
     password_reset_max_attempts: int = 3
     smtp_host: str = ""

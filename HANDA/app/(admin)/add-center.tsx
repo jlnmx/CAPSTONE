@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
+import { createAdminCenter } from '@services/adminData';
 
 export default function AddCenterScreen() {
   const [name, setName] = useState('');
@@ -15,17 +16,34 @@ export default function AddCenterScreen() {
   const [contactNumber, setContactNumber] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  const submit = () => {
+  const submit = async () => {
     const parsedCapacity = Number(capacity);
     if (!name.trim() || !address.trim() || !barangay.trim() || !Number.isInteger(parsedCapacity) || parsedCapacity < 1) {
       setError('Enter the center name, complete address, barangay, and a valid capacity.');
       return;
     }
 
-    Alert.alert('Center information saved', `${name.trim()} is ready to be added to the evacuation center directory.`, [
-      { text: 'Back to centers', onPress: () => router.replace('/(admin)/centers') },
-    ]);
+    setIsSaving(true);
+    setError('');
+    try {
+      await createAdminCenter({
+        name: name.trim(),
+        location: `${address.trim()}, ${barangay.trim()}`,
+        capacity: parsedCapacity,
+        coordinatorName: coordinator.trim(),
+        contactNumber: contactNumber.trim(),
+        notes: notes.trim(),
+      });
+      Alert.alert('Center saved', `${name.trim()} was added to the server database.`, [
+        { text: 'Back to centers', onPress: () => router.replace('/(admin)/centers') },
+      ]);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'The center could not be saved to PostgreSQL.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -42,7 +60,7 @@ export default function AddCenterScreen() {
           <Field label="Contact number" value={contactNumber} onChangeText={setContactNumber} placeholder="09XXXXXXXXX" keyboardType="phone-pad" />
           <Field label="Notes" value={notes} onChangeText={setNotes} placeholder="Available facilities or access instructions" multiline />
           {error && <Text style={styles.error}>{error}</Text>}
-          <TouchableOpacity style={styles.submit} onPress={submit}><MaterialCommunityIcons name="content-save-outline" size={18} color={Colors.white} /><Text style={styles.submitText}>Save center information</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.submit} onPress={submit} disabled={isSaving}>{isSaving ? <ActivityIndicator color={Colors.white} /> : <><MaterialCommunityIcons name="content-save-outline" size={18} color={Colors.white} /><Text style={styles.submitText}>Save center information</Text></>}</TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>

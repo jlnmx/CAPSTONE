@@ -10,8 +10,8 @@ const tileUrl = mapboxToken
   ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}&tileSize=512`
   : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const attribution = mapboxToken
-  ? '&copy; Mapbox &copy; OpenStreetMap contributors'
-  : '&copy; OpenStreetMap contributors';
+  ? '&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener noreferrer">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors'
+  : '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors';
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 interface LeafletMapProps {
@@ -35,6 +35,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         <style>
           html, body, #map { margin: 0; width: 100%; height: 100%; }
           .leaflet-container { background: #e5efe8; }
+          .leaflet-control-attribution { margin: 0 5px 5px 0 !important; padding: 2px 5px !important; border-radius: 3px; background: rgba(255,255,255,.82) !important; color: #526052; font-size: 9px !important; line-height: 1.3 !important; }
           .location-panel { position: absolute; top: 14px; left: 14px; right: 14px; z-index: 1000; width: auto; max-width: 390px; box-sizing: border-box; padding: 14px 16px; border-radius: 8px; background: #ffffff; box-shadow: 0 3px 14px rgba(23, 33, 43, 0.22); color: #17212B; font: 13px/1.5 Arial, sans-serif; overflow-wrap: anywhere; }
           .location-panel strong { display: block; margin-bottom: 6px; font-size: 16px; }
           .location-panel .center-name { display: block; font-size: 14px; font-weight: 700; }
@@ -52,6 +53,14 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         <script>
           const center = ${JSON.stringify(BINAN_CENTER)};
           const map = L.map('map', { zoomControl: true }).setView(center, 13);
+          map.attributionControl.setPrefix(false);
+          let hasLocatedUser = false;
+          const focusMapOnBinan = () => {
+            map.invalidateSize({ pan: false });
+            if (!hasLocatedUser) map.setView(center, 14, { animate: false });
+          };
+          requestAnimationFrame(() => requestAnimationFrame(focusMapOnBinan));
+          window.addEventListener('resize', () => map.invalidateSize({ pan: false }));
           const infoPanel = document.getElementById('location-panel');
           let routeLine = null;
           function clearRoute() {
@@ -151,9 +160,11 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           });
           if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition((position) => {
+              hasLocatedUser = true;
               const current = [position.coords.latitude, position.coords.longitude];
               L.circleMarker(current, { radius: 8, color: '#2563eb', fillColor: '#60a5fa', fillOpacity: 0.95, weight: 3 }).addTo(map).on('click', () => showNearest(current));
               mainMarker.setLatLng(current);
+              map.fitBounds([center, current], { padding: [36, 36], maxZoom: 15 });
               void showNearest(current);
             });
           }

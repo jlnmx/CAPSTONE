@@ -14,19 +14,16 @@ import { syncPendingLocalData } from '@services/syncService';
 
 const GREEN = '#218B25';
 const INCIDENT_TYPES = ['Fire', 'Flooding', 'Earthquake', 'Landslide', 'Typhoon', 'Severe storm', 'Strong winds', 'Road accident', 'Road obstruction', 'Building collapse', 'Power outage', 'Gas leak', 'Water emergency', 'Medical emergency', 'Missing person', 'Crime or security threat', 'Hazardous spill', 'Other emergency'];
-const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const;
-type Severity = typeof SEVERITIES[number];
 type Photo = { uri: string; name: string };
 
 export default function ResidentIncidentReport() {
   const router = useRouter();
   const [incidentType, setIncidentType] = useState('');
-  const [severity, setSeverity] = useState<Severity>('medium');
   const [description, setDescription] = useState('');
   const [coordinate, setCoordinate] = useState<LocationCoordinate | undefined>();
   const [locationLabel, setLocationLabel] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
-  const [picker, setPicker] = useState<'type' | 'severity' | null>(null);
+  const [picker, setPicker] = useState<'type' | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -78,7 +75,7 @@ export default function ResidentIncidentReport() {
     setError('');
     const id = `incident-${Date.now()}`;
     const createdAt = new Date().toISOString();
-    const payload = { id, type: incidentType, description: description.trim(), severity, location: locationLabel || `Biñan City · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`, latitude: coordinate.latitude, longitude: coordinate.longitude, photoUris: photos.map((photo) => photo.uri), createdAt };
+    const payload = { id, type: incidentType, description: description.trim(), location: locationLabel || `Biñan City · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`, latitude: coordinate.latitude, longitude: coordinate.longitude, photoUris: photos.map((photo) => photo.uri), createdAt };
     const abortController = new AbortController();
     const requestTimeout = setTimeout(() => abortController.abort(), 15000);
     try {
@@ -123,8 +120,6 @@ export default function ResidentIncidentReport() {
           <Text style={styles.sectionTitle}>What is happening?</Text>
           <FieldLabel label="Incident type" required />
           <AnimatedPressable style={styles.select} onPress={() => setPicker('type')} accessibilityRole="button"><Text style={incidentType ? styles.selectValue : styles.selectPlaceholder}>{incidentType || 'Select an incident or disaster'}</Text><MaterialCommunityIcons name="chevron-down" size={20} color="#5B735F" /></AnimatedPressable>
-          <FieldLabel label="Severity" required />
-          <AnimatedPressable style={styles.select} onPress={() => setPicker('severity')} accessibilityRole="button"><Text style={[styles.selectValue, styles[`severity_${severity}` as keyof typeof styles] as object]}>{severity.toUpperCase()}</Text><MaterialCommunityIcons name="chevron-down" size={20} color="#5B735F" /></AnimatedPressable>
           <FieldLabel label="Description" required />
           <TextInput style={styles.descriptionInput} placeholder="Tell responders what they need to know" placeholderTextColor="#8EAF8E" value={description} onChangeText={setDescription} multiline textAlignVertical="top" maxLength={1000} />
           <Text style={styles.characterCount}>{description.length}/1000</Text>
@@ -140,7 +135,19 @@ export default function ResidentIncidentReport() {
           <AnimatedPressable style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={() => void submitReport()} disabled={isSubmitting} accessibilityRole="button">{isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <><MaterialCommunityIcons name="send-check-outline" size={20} color="#FFFFFF" /><Text style={styles.submitText}>Post incident report</Text></>}</AnimatedPressable>
         </View>
       </ScrollView>
-      <Modal transparent visible={picker !== null} animationType="fade" onRequestClose={() => setPicker(null)}><Pressable style={styles.modalBackdrop} onPress={() => setPicker(null)}><Pressable style={styles.optionsCard} onPress={(event) => event.stopPropagation()}><Text style={styles.optionsTitle}>{picker === 'type' ? 'Select incident type' : 'Select severity'}</Text><ScrollView style={styles.optionsScroll} showsVerticalScrollIndicator={false}>{(picker === 'type' ? INCIDENT_TYPES : SEVERITIES).map((option) => <AnimatedPressable key={option} style={styles.option} onPress={() => { if (picker === 'type') setIncidentType(option); else setSeverity(option as Severity); setPicker(null); }}><Text style={styles.optionText}>{picker === 'type' ? option : option.toUpperCase()}</Text>{((picker === 'type' && incidentType === option) || (picker === 'severity' && severity === option)) && <MaterialCommunityIcons name="check" size={19} color={GREEN} />}</AnimatedPressable>)}</ScrollView></Pressable></Pressable></Modal>
+      <Modal transparent visible={picker !== null} animationType="fade" onRequestClose={() => setPicker(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setPicker(null)}>
+          <Pressable style={styles.optionsCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.optionsTitle}>Select incident type</Text>
+            <ScrollView style={styles.optionsScroll} showsVerticalScrollIndicator={false}>
+              {INCIDENT_TYPES.map((option) => <AnimatedPressable key={option} style={styles.option} onPress={() => { setIncidentType(option); setPicker(null); }}>
+                <Text style={styles.optionText}>{option}</Text>
+                {incidentType === option && <MaterialCommunityIcons name="check" size={19} color={GREEN} />}
+              </AnimatedPressable>)}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { authenticatedFetch } from '@services/apiClient';
 
@@ -19,7 +20,8 @@ export default function AdminDisasters() {
   const [status, setStatus] = useState<Disaster['status']>('Active');
   const [affectedAreas, setAffectedAreas] = useState('0');
 
-  const loadDisasters = async () => {
+  const loadDisasters = useCallback(async () => {
+    setIsLoading(true);
     try {
       setError('');
       const response = await authenticatedFetch('/api/v1/disasters');
@@ -31,9 +33,9 @@ export default function AdminDisasters() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { void loadDisasters(); }, []);
+  useFocusEffect(useCallback(() => { void loadDisasters(); }, [loadDisasters]));
 
   const create = () => {
     setName('');

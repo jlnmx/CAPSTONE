@@ -18,8 +18,15 @@ export type AdminCenterRecord = {
   location: string;
   capacity: number;
   currentOccupancy: number;
-  status: string;
+  status: 'available' | 'limited' | 'full' | 'closed';
+  coordinatorName: string;
+  contactNumber: string;
+  notes: string;
+  latitude?: number | null;
+  longitude?: number | null;
 };
+
+export type AdminCenterInput = Pick<AdminCenterRecord, 'name' | 'location' | 'capacity' | 'coordinatorName' | 'contactNumber' | 'notes'>;
 
 export type AdminDataSnapshot = {
   incidents: AdminIncidentRecord[];
@@ -69,7 +76,6 @@ function normalizeIncident(record: Record<string, any>): AdminIncidentRecord {
     id: record.id,
     type: record.type,
     description: record.description,
-    severity: record.severity,
     location: record.location ?? record.location_text ?? '',
     photoUris: record.photoUris ?? record.photo_uris ?? [],
     syncStatus: record.syncStatus ?? 'synced',
@@ -140,58 +146,86 @@ async function fetchRecords<T>(path: string): Promise<T[]> {
   return response.json() as Promise<T[]>;
 }
 
+function normalizeCenter(record: Record<string, any>): AdminCenterRecord {
+  return {
+    id: record.id,
+    name: record.name,
+    location: record.location ?? record.location_text ?? '',
+    capacity: Number(record.capacity ?? 0),
+    currentOccupancy: Number(record.current_occupancy ?? record.currentOccupancy ?? 0),
+    status: record.status,
+    coordinatorName: record.coordinator_name ?? record.coordinatorName ?? '',
+    contactNumber: record.contact_number ?? record.contactNumber ?? '',
+    notes: record.notes ?? '',
+    latitude: record.latitude ?? null,
+    longitude: record.longitude ?? null,
+  };
+}
+
+export async function getAdminCenters(): Promise<AdminCenterRecord[]> {
+  return (await fetchRecords<Record<string, any>>('/api/v1/centers')).map(normalizeCenter);
+}
+
+async function submitCenterRequest(path: string, method: 'POST' | 'PATCH', input: AdminCenterInput | { capacity: number }) {
+  const response = await authenticatedFetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({})) as { detail?: string };
+    throw new Error(result.detail || `Center request failed (${response.status}).`);
+  }
+  return normalizeCenter(await response.json() as Record<string, any>);
+}
+
+export function createAdminCenter(input: AdminCenterInput) {
+  return submitCenterRequest('/api/v1/centers', 'POST', input);
+}
+
+export function updateAdminCenterCapacity(id: string, capacity: number) {
+  return submitCenterRequest(`/api/v1/centers/${encodeURIComponent(id)}`, 'PATCH', { capacity });
+}
+
 export async function getAdminLogs(category: 'sync' | 'audit'): Promise<AdminLogRecord[]> {
   return fetchRecords<AdminLogRecord>(`/api/v1/logs/${category}`);
 }
 
 export async function getAdminData(): Promise<AdminDataSnapshot> {
-  try {
-    const [remoteIncidents, remoteEvacuees, registrations, centers, users] = await Promise.all([
-      fetchRecords<Record<string, any>>('/api/v1/incidents'),
-      fetchRecords<Record<string, any>>('/api/v1/evacuees'),
-      fetchRecords<Record<string, any>>('/api/v1/evacuation-registrations'),
-      fetchRecords<Record<string, any>>('/api/v1/centers'),
-      fetchRecords<Record<string, any>>('/api/v1/users'),
-    ]);
-    const registrationPeople = registrations.flatMap(normalizeRegistrationPeople);
+  const results = await Promise.allSettled([
+    fetchRecords<Record<string, any>>('/api/v1/incidents'),
+    fetchRecords<Record<string, any>>('/api/v1/evacuees'),
+    fetchRecords<Record<string, any>>('/api/v1/evacuation-registrations'),
+    fetchRecords<Record<string, any>>('/api/v1/centers'),
+    fetchRecords<Record<string, any>>('/api/v1/users'),
+  ]);
+  const recordsOrEmpty = (result: PromiseSettledResult<Record<string, any>[]>) => result.status === 'fulfilled' ? result.value : [];
+  const [remoteIncidents, remoteEvacuees, registrations, centers, users] = results.map(recordsOrEmpty);
+  const registrationPeople = registrations.flatMap(normalizeRegistrationPeople);
 
-    return {
-      incidents: remoteIncidents.map(normalizeIncident),
-      evacuees: [...remoteEvacuees.map(normalizeEvacuee), ...registrationPeople],
-      centers: centers.map((center) => ({
-        id: center.id,
-        name: center.name,
-        location: center.location ?? center.location_text ?? '',
-        capacity: Number(center.capacity ?? 0),
-        currentOccupancy: Number(center.current_occupancy ?? center.currentOccupancy ?? 0),
-        status: center.status,
-      })),
-      activePersonnel: users.filter((user) => user.role === 'Responder' && user.status === 'Active').length,
-      source: 'remote',
-    };
-  } catch {
-    return { incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' };
-  }
+  return {
+    incidents: remoteIncidents.map(normalizeIncident),
+    evacuees: [...remoteEvacuees.map(normalizeEvacuee), ...registrationPeople],
+    centers: centers.map(normalizeCenter),
+    activePersonnel: users.filter((user) => user.role === 'Responder' && user.status === 'Active').length,
+    source: results.every((result) => result.status === 'fulfilled') ? 'remote' : 'unavailable',
+  };
 }
 
 export async function getAdminUsers(): Promise<AdminUserRecord[]> {
-  try {
-    const records = await fetchRecords<Record<string, any>>('/api/v1/users');
-    return records.map((record) => ({
-      id: record.id,
-      name: record.name,
-      email: record.email,
-      role: record.role,
-      status: record.status,
-      birthday: record.birthday,
-      mobileNumber: record.mobile_number ?? record.mobileNumber,
-      currentAddress: record.current_address ?? record.currentAddress,
-      createdAt: record.createdAt ?? record.created_at,
-      updatedAt: record.updatedAt ?? record.updated_at,
-    }));
-  } catch {
-    return [];
-  }
+  const records = await fetchRecords<Record<string, any>>('/api/v1/users');
+  return records.map((record) => ({
+    id: record.id,
+    name: record.name,
+    email: record.email,
+    role: record.role,
+    status: record.status,
+    birthday: record.birthday,
+    mobileNumber: record.mobile_number ?? record.mobileNumber,
+    currentAddress: record.current_address ?? record.currentAddress,
+    createdAt: record.createdAt ?? record.created_at,
+    updatedAt: record.updatedAt ?? record.updated_at,
+  }));
 }
 
 async function submitUserRequest(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: Record<string, string>) {

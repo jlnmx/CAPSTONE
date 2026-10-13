@@ -6,7 +6,6 @@ export type ResponderIncident = {
   id: string;
   type: string;
   description: string;
-  severity: string;
   location: string;
   latitude?: number;
   longitude?: number;
@@ -78,7 +77,6 @@ function normalizeIncident(record: Record<string, any>): ResponderIncident {
     id: record.id,
     type: record.type,
     description: record.description,
-    severity: record.severity,
     location: record.location ?? record.location_text ?? '',
     latitude: record.latitude,
     longitude: record.longitude,

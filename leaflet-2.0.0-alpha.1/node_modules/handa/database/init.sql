@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS users (
   mobile_number TEXT NOT NULL,
   current_address TEXT NOT NULL DEFAULT '',
   password_hash TEXT NOT NULL,
+  responder_type TEXT CHECK (responder_type IS NULL OR responder_type IN ('Official', 'Volunteer')),
   failed_login_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until TIMESTAMPTZ,
   role TEXT NOT NULL CHECK (role IN ('Responder', 'Resident', 'Administrator')),
@@ -105,6 +106,19 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS current_address TEXT;
 ALTER TABLE users ALTER COLUMN current_address SET DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_type TEXT;
+
+CREATE TABLE IF NOT EXISTS responder_verification_documents (
+  user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  file_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/webp')),
+  file_bytes BYTEA NOT NULL,
+  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMPTZ,
+  decision TEXT CHECK (decision IS NULL OR decision IN ('approved', 'rejected')),
+  review_note TEXT NOT NULL DEFAULT ''
+);
 
 CREATE TABLE IF NOT EXISTS resident_household_members (
   id TEXT PRIMARY KEY,
@@ -159,12 +173,18 @@ CREATE TABLE IF NOT EXISTS evacuation_centers (
   capacity INTEGER NOT NULL DEFAULT 0 CHECK (capacity >= 0),
   current_occupancy INTEGER NOT NULL DEFAULT 0 CHECK (current_occupancy >= 0),
   status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'limited', 'full', 'closed')),
+  coordinator_name TEXT NOT NULL DEFAULT '',
+  contact_number TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
   latitude DOUBLE PRECISION CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
   longitude DOUBLE PRECISION CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS evacuation_centers_status_idx ON evacuation_centers (status);
+ALTER TABLE evacuation_centers ADD COLUMN IF NOT EXISTS coordinator_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE evacuation_centers ADD COLUMN IF NOT EXISTS contact_number TEXT NOT NULL DEFAULT '';
+ALTER TABLE evacuation_centers ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS evacuation_registrations (
   id TEXT PRIMARY KEY,
@@ -219,3 +239,19 @@ VALUES
   ('center-school-gym', 'School Gymnasium', 'Biñan City, Laguna', 250, 0, 'available', 14.312, 121.089),
   ('center-timbao', 'Timbao Open Field', 'Timbao, Biñan, Laguna', 400, 0, 'available', 14.2864, 121.0942)
 ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS password_reset_requests (
+  token TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  channel TEXT NOT NULL CHECK (channel IN ('email', 'sms')),
+  otp_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS password_reset_requests_user_idx
+  ON password_reset_requests (user_id, created_at DESC);

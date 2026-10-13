@@ -66,7 +66,14 @@ export default function ResponderLiveMap() {
         <div id="map"></div>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script>
-          const map = L.map('map').setView(${JSON.stringify(CENTER)}, 13);
+          const center = ${JSON.stringify(CENTER)};
+          const map = L.map('map').setView(center, 13);
+          const focusMapOnBinan = () => {
+            map.invalidateSize({ pan: false });
+            map.setView(center, 13, { animate: false });
+          };
+          requestAnimationFrame(() => requestAnimationFrame(focusMapOnBinan));
+          window.addEventListener('resize', () => map.invalidateSize({ pan: false }));
           L.tileLayer(${JSON.stringify(mapboxToken ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}&tileSize=512` : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')}, {
             attribution: ${JSON.stringify(mapboxToken ? '&copy; Mapbox &copy; OpenStreetMap contributors' : '&copy; OpenStreetMap contributors')}, maxZoom: 19
           }).addTo(map);
@@ -89,8 +96,7 @@ export default function ResponderLiveMap() {
             });
             (data.incidents || []).filter((incident) => Number.isFinite(Number(incident.latitude)) && Number.isFinite(Number(incident.longitude))).forEach((incident) => {
               const status = String(incident.status || 'reported');
-              const severity = String(incident.severity || 'medium').toLowerCase();
-              const color = status === 'resolved' ? '#667085' : severity === 'critical' || severity === 'high' ? '#B42318' : severity === 'medium' ? '#D98C18' : '#2873A8';
+              const color = status === 'resolved' ? '#667085' : status === 'in_progress' ? '#D98C18' : status === 'acknowledged' ? '#1769AA' : '#B42318';
               const marker = L.circleMarker([Number(incident.latitude), Number(incident.longitude)], {
                 radius: status === 'resolved' ? 8 : 11, color: '#fff', fillColor: color, fillOpacity: .96, weight: 3
               }).addTo(incidentsLayer);
@@ -100,7 +106,7 @@ export default function ResponderLiveMap() {
               title.textContent = String(incident.type || 'Incident');
               popup.appendChild(title);
               const statusLine = document.createElement('div');
-              statusLine.textContent = severity.toUpperCase() + ' · ' + status.replace('_', ' ');
+              statusLine.textContent = status.replace('_', ' ').toUpperCase();
               statusLine.style.color = color;
               statusLine.style.fontWeight = '700';
               popup.appendChild(statusLine);

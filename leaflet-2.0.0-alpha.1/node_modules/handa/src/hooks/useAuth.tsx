@@ -7,6 +7,7 @@ import { createContext, useContext, ReactNode, useEffect, useState } from 'react
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
+import { subscribeToUnauthorized } from '@services/apiClient';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_PROFILE_KEY = 'handa.authProfile';
@@ -35,6 +36,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     })();
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => subscribeToUnauthorized(() => {
+    setUser(null);
+    setError('Your session expired. Sign in again.');
+    void Promise.all([
+      AsyncStorage.removeItem('userId'),
+      AsyncStorage.removeItem(AUTH_PROFILE_KEY),
+    ]).catch((storageError) => console.error('Session cleanup error:', storageError));
+  }), []);
 
   const finishLogin = async (authUser: AuthUser) => {
     setUser(authUser);

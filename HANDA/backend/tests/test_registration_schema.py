@@ -2,7 +2,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from app.schemas import EvacuationRegistrationCreate, ResidentProfileUpdate, UserRegistration
+from app.schemas import CenterCreate, EvacuationRegistrationCreate, ResidentProfileUpdate, UserRegistration
 
 
 class UserRegistrationSchemaTests(unittest.TestCase):
@@ -76,6 +76,20 @@ class UserRegistrationSchemaTests(unittest.TestCase):
 
 
 class EvacuationRegistrationSchemaTests(unittest.TestCase):
+    def test_center_create_accepts_contact_and_notes(self):
+        center = CenterCreate.model_validate({
+            "name": "Community Hall",
+            "location": "Biñan, Laguna",
+            "capacity": 120,
+            "coordinatorName": "Ana Santos",
+            "contactNumber": "09171234567",
+            "notes": "Ground-floor access",
+        })
+
+        self.assertEqual(center.coordinatorName, "Ana Santos")
+        self.assertEqual(center.contactNumber, "09171234567")
+        self.assertEqual(center.notes, "Ground-floor access")
+
     def test_reference_form_fields_and_household_members_are_accepted(self):
         registration = EvacuationRegistrationCreate.model_validate({
             "centerId": "center-poblacion",

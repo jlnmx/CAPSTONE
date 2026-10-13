@@ -6,6 +6,8 @@ import { useRouter } from 'expo-router';
 import { Colors, BorderRadius, Spacing } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
 import { ThemeMode, useTheme } from '@hooks/useTheme';
+import { authenticatedFetch } from '@services/apiClient';
+import { updateAdminUser } from '@services/adminData';
 
 const themeOptions: Array<{ value: ThemeMode; label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; detail: string }> = [
   { value: 'light', label: 'Light', icon: 'white-balance-sunny', detail: 'Keep the interface bright' },
@@ -28,8 +30,13 @@ export default function AdminSettings() {
       Alert.alert('Name required', 'Enter a name before saving your profile.');
       return;
     }
-    await setAuthenticatedUser({ ...user, name: name.trim() });
-    Alert.alert('Profile updated', 'Your profile name has been saved.');
+    try {
+      await updateAdminUser(user.id, { name: name.trim() });
+      await setAuthenticatedUser({ ...user, name: name.trim() });
+      Alert.alert('Profile updated', 'Your profile name has been saved.');
+    } catch (error) {
+      Alert.alert('Update failed', error instanceof Error ? error.message : 'Your profile could not be saved.');
+    }
   };
 
   const saveEmail = async () => {
@@ -37,19 +44,36 @@ export default function AdminSettings() {
       Alert.alert('Invalid email', 'Enter a valid email address before saving.');
       return;
     }
-    await setAuthenticatedUser({ ...user, email: email.trim().toLowerCase() });
-    Alert.alert('Email updated', 'Your email address has been saved locally.');
+    const nextEmail = email.trim().toLowerCase();
+    try {
+      await updateAdminUser(user.id, { email: nextEmail });
+      await setAuthenticatedUser({ ...user, email: nextEmail });
+      Alert.alert('Email updated', 'Your email address has been saved.');
+    } catch (error) {
+      Alert.alert('Update failed', error instanceof Error ? error.message : 'Your email could not be saved.');
+    }
   };
 
-  const changePassword = () => {
+  const changePassword = async () => {
     if (!currentPassword || newPassword.length < 8 || newPassword !== confirmPassword) {
       Alert.alert('Check password details', 'Enter your current password, use at least 8 characters, and make both new passwords match.');
       return;
     }
-    Alert.alert('Password service unavailable', 'The password update API is not connected yet. Your password was not changed.');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    try {
+      const response = await authenticatedFetch('/api/v1/resident/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const result = await response.json() as { detail?: unknown };
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Your password could not be changed.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      Alert.alert('Password updated', 'Your administrator password has been changed.');
+    } catch (error) {
+      Alert.alert('Update failed', error instanceof Error ? error.message : 'Your password could not be changed.');
+    }
   };
 
   return (

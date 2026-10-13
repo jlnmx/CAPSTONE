@@ -18,11 +18,11 @@ function nextIncidentAction(status: ResponderIncident['status']) {
   return null;
 }
 
-function severityColor(severity: string, status: string) {
+function incidentStatusColor(status: string) {
   if (status === 'resolved') return '#667085';
-  if (severity === 'critical' || severity === 'high') return '#B42318';
-  if (severity === 'medium') return '#D98C18';
-  return '#2873A8';
+  if (status === 'in_progress') return '#D98C18';
+  if (status === 'acknowledged') return '#1769AA';
+  return '#B42318';
 }
 
 export default function ResponderLiveMap() {
@@ -113,7 +113,7 @@ export default function ResponderLiveMap() {
       });
 
       data.incidents.filter((incident) => Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude)).forEach((incident) => {
-        const color = severityColor(incident.severity, incident.status);
+        const color = incidentStatusColor(incident.status);
         const marker = new LeafletApi.CircleMarker([incident.latitude, incident.longitude], {
           radius: incident.status === 'resolved' ? 8 : 11,
           color: '#FFFFFF',
@@ -123,7 +123,7 @@ export default function ResponderLiveMap() {
         }).addTo(incidentLayer.current);
         const popup = document.createElement('div');
         popup.appendChild(makeText('strong', incident.type, { display: 'block', marginBottom: '4px' }));
-        popup.appendChild(makeText('div', `${incident.severity.toUpperCase()} · ${incident.status.replace('_', ' ')}`, { color, fontWeight: '800' }));
+        popup.appendChild(makeText('div', incident.status.replace('_', ' ').toUpperCase(), { color, fontWeight: '800' }));
         popup.appendChild(makeText('div', incident.location || 'Location not provided', { marginTop: '4px' }));
         popup.appendChild(makeText('div', incident.description, { marginTop: '4px', maxWidth: '260px', whiteSpace: 'normal' }));
         if (incident.actionNotes) popup.appendChild(makeText('div', `Response: ${incident.actionNotes}`, { marginTop: '5px', color: '#167A5B' }));

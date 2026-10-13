@@ -23,6 +23,24 @@ type EvacuationCenter = {
 };
 
 type HouseholdMemberDraft = { name: string; relationship: string };
+type ResidentProfileResponse = {
+  birthday?: string;
+  mobileNumber?: string;
+  mobile_number?: string;
+  currentAddress?: string;
+  current_address?: string;
+  householdMembers?: HouseholdMemberDraft[];
+};
+
+function calculateAge(birthday?: string): number | null {
+  if (!birthday) return null;
+  const date = new Date(`${birthday.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  if (today.getMonth() < date.getMonth() || (today.getMonth() === date.getMonth() && today.getDate() < date.getDate())) age -= 1;
+  return age >= 0 && age <= 150 ? age : null;
+}
 
 export default function RegisterEvacueeScreen() {
   const { centerId: routeCenterId } = useLocalSearchParams<{ centerId?: string }>();
@@ -33,16 +51,17 @@ export default function RegisterEvacueeScreen() {
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [age, setAge] = useState('');
+  const [age, setAge] = useState(() => String(calculateAge(user?.birthday) ?? ''));
   const [sex, setSex] = useState('');
   const [isSexOpen, setIsSexOpen] = useState(false);
-  const [contactNumber, setContactNumber] = useState('');
+  const [contactNumber, setContactNumber] = useState(() => user?.mobileNumber ?? '');
   const [address, setAddress] = useState('');
   const [centerId, setCenterId] = useState(requestedCenterId ?? '');
   const [centers, setCenters] = useState<EvacuationCenter[]>([]);
   const [isCentersLoading, setIsCentersLoading] = useState(true);
   const [centerError, setCenterError] = useState('');
-  const [members, setMembers] = useState<HouseholdMemberDraft[]>([]);
+  const [members, setMembers] = useState<HouseholdMemberDraft[]>(() => user?.householdMembers?.map(({ name, relationship }) => ({ name, relationship })) ?? []);
+  const [isHouseholdLoading, setIsHouseholdLoading] = useState(true);
   const [memberEditorOpen, setMemberEditorOpen] = useState(false);
   const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null);
   const [memberName, setMemberName] = useState('');
@@ -51,6 +70,7 @@ export default function RegisterEvacueeScreen() {
   const [returnToReview, setReturnToReview] = useState(false);
   const [formError, setFormError] = useState('');
   const [reviewVisible, setReviewVisible] = useState(false);
+  const [registrationSuccessVisible, setRegistrationSuccessVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -63,6 +83,34 @@ export default function RegisterEvacueeScreen() {
     setFirstName((current) => current || nameParts[0]);
     setLastName((current) => current || nameParts.slice(1).join(' '));
   }, [user]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    const loadHouseholdMembers = async () => {
+      try {
+        const response = await authenticatedFetch('/api/v1/auth/me');
+        if (!response.ok) throw new Error('Household members could not be loaded.');
+        const profile = await response.json() as ResidentProfileResponse;
+        if (isCurrent) {
+          setMembers(profile.householdMembers?.map(({ name, relationship }) => ({ name, relationship })) ?? []);
+          setAge((current) => current || String(calculateAge(profile.birthday) ?? ''));
+          setContactNumber((current) => current || profile.mobileNumber || profile.mobile_number || user?.mobileNumber || '');
+          setAddress((current) => current || profile.currentAddress || profile.current_address || user?.currentAddress || '');
+        }
+      } catch {
+        if (isCurrent) {
+          setMembers(user?.householdMembers?.map(({ name, relationship }) => ({ name, relationship })) ?? []);
+          setAge((current) => current || String(calculateAge(user?.birthday) ?? ''));
+          setContactNumber((current) => current || user?.mobileNumber || '');
+          setAddress((current) => current || user?.currentAddress || '');
+        }
+      } finally {
+        if (isCurrent) setIsHouseholdLoading(false);
+      }
+    };
+    void loadHouseholdMembers();
+    return () => { isCurrent = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -152,6 +200,7 @@ export default function RegisterEvacueeScreen() {
   };
 
   const openReview = () => {
+    if (isHouseholdLoading) return;
     if (validateRegistration()) setReviewVisible(true);
   };
 
@@ -187,9 +236,7 @@ export default function RegisterEvacueeScreen() {
       } catch {
       }
       setReviewVisible(false);
-      Alert.alert('Registration submitted', 'Your household is registered at the selected center. A responder must confirm your check-in.', [
-        { text: 'View status', onPress: () => router.push('/(resident)/verify-status') },
-      ]);
+      setRegistrationSuccessVisible(true);
     } catch (error) {
       Alert.alert('Registration failed', error instanceof Error ? error.message : 'The registration could not be saved.');
     } finally {
@@ -240,10 +287,11 @@ export default function RegisterEvacueeScreen() {
           <TextInput style={styles.input} placeholder="Enter Full Address" placeholderTextColor="#A6C1A7" value={address} onChangeText={setAddress} />
           <View style={styles.householdHeading}>
             <View><Text style={styles.sectionHeading}>HOUSEHOLD MEMBERS</Text><Text style={styles.householdCount}>{members.length + 1} people including you</Text></View>
-            <AnimatedPressable style={styles.addMemberButton} onPress={() => openMemberEditor()} disabled={members.length >= 20} accessibilityRole="button" accessibilityLabel="Add household member">
+            <AnimatedPressable style={[styles.addMemberButton, (isHouseholdLoading || members.length >= 20) && styles.submitDisabled]} onPress={() => openMemberEditor()} disabled={isHouseholdLoading || members.length >= 20} accessibilityRole="button" accessibilityLabel="Add household member">
               <MaterialCommunityIcons name="plus" size={17} color={Colors.white} /><Text style={styles.addMemberText}>Add member</Text>
             </AnimatedPressable>
           </View>
+          {isHouseholdLoading && <View style={styles.householdLoading}><ActivityIndicator color={GREEN} size="small" /><Text style={styles.householdCount}>Loading saved household members...</Text></View>}
           {members.length === 0 && <Text style={styles.noMembers}>No additional household members yet. Use Add member to include them in this registration.</Text>}
           {members.map((member, index) => (
             <View key={`${index}-${member.name}`} style={styles.memberCard}>
@@ -267,7 +315,7 @@ export default function RegisterEvacueeScreen() {
           </View>
           {!!centerError && centers.length > 0 && <Text style={styles.centerError}>{centerError}</Text>}
 
-          <AnimatedPressable style={[styles.submitButton, (isSubmitting || isCentersLoading || centers.length === 0) && styles.submitDisabled]} onPress={openReview} disabled={isSubmitting || isCentersLoading || centers.length === 0}>
+          <AnimatedPressable style={[styles.submitButton, (isSubmitting || isCentersLoading || isHouseholdLoading || centers.length === 0) && styles.submitDisabled]} onPress={openReview} disabled={isSubmitting || isCentersLoading || isHouseholdLoading || centers.length === 0}>
             <Text style={styles.submitText}>Review registration</Text>
           </AnimatedPressable>
         </View>
@@ -309,6 +357,26 @@ export default function RegisterEvacueeScreen() {
             </View>
           </Pressable>
         </Pressable>
+      </Modal>
+
+      <Modal visible={registrationSuccessVisible} transparent animationType="fade" onRequestClose={() => setRegistrationSuccessVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.successDialog}>
+            <MaterialCommunityIcons name="check-circle" size={48} color={GREEN} />
+            <Text style={styles.successTitle}>Registration successful</Text>
+            <Text style={styles.successMessage}>Your household is registered for evacuation at {selectedCenter?.name || 'the selected center'}. A responder must confirm your check-in.</Text>
+            <AnimatedPressable
+              style={styles.confirmButton}
+              onPress={() => {
+                setRegistrationSuccessVisible(false);
+                router.push('/(resident)/verify-status');
+              }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.confirmText}>View status</Text>
+            </AnimatedPressable>
+          </View>
+        </View>
       </Modal>
 
       <Modal visible={memberEditorOpen} transparent animationType="fade" onRequestClose={closeMemberEditor}>
@@ -378,6 +446,7 @@ const styles = StyleSheet.create({
   submitText: { color: Colors.white, fontSize: 11, fontWeight: '700' },
   householdHeading: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   householdCount: { color: Colors.textMuted, fontSize: 10, marginTop: 3 },
+  householdLoading: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8 },
   noMembers: { color: Colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 8 },
   addMemberButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 10, borderRadius: 5, backgroundColor: GREEN },
   addMemberText: { color: Colors.white, fontSize: 11, fontWeight: '700' },
@@ -389,6 +458,9 @@ const styles = StyleSheet.create({
   formError: { color: Colors.emergency, fontSize: 11, marginTop: 8 },
   modalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 18, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
   reviewDialog: { width: '100%', maxWidth: 520, maxHeight: '92%', padding: 16, borderRadius: 8, backgroundColor: Colors.surface },
+  successDialog: { width: '100%', maxWidth: 420, alignItems: 'center', padding: 24, borderRadius: 8, backgroundColor: Colors.surface },
+  successTitle: { marginTop: 12, color: Colors.text, fontSize: 20, fontWeight: '800', textAlign: 'center' },
+  successMessage: { marginTop: 8, color: Colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   reviewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#E5EDE5' },
   reviewTitle: { color: Colors.text, fontSize: 18, fontWeight: '800', flex: 1 },
   reviewScroll: { flexShrink: 1 },

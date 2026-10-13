@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AdminLogRecord, getAdminLogs } from '@services/adminData';
 import { useTheme } from '@hooks/useTheme';
@@ -22,7 +22,7 @@ export default function AdminLogs() {
     if (params.tab === 'sync' || params.tab === 'audit') setTab(params.tab);
   }, [params.tab]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let mounted = true;
     setIsLoading(true);
     setError('');
@@ -37,7 +37,8 @@ export default function AdminLogs() {
       if (mounted) setIsLoading(false);
     });
     return () => { mounted = false; };
-  }, [tab]);
+    return () => { mounted = false; };
+  }, [tab]));
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>

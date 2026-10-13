@@ -91,7 +91,7 @@ export default function LoginScreen() {
 
         <View style={styles.createPromptRow}>
           <Text style={styles.createPrompt}>Don&apos;t have an account yet?</Text>
-          <Pressable onPress={() => router.push('/(auth)/register')} accessibilityRole="link">
+          <Pressable onPress={() => router.push('/(auth)/register-role')} accessibilityRole="link">
             <Text style={styles.createLink}>Create an Account</Text>
           </Pressable>
         </View>
@@ -108,8 +108,8 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
     alignItems: 'center',
-    paddingTop: 56,
-    paddingBottom: 56,
+    justifyContent: 'center',
+    paddingVertical: 32,
   },
   brandSection: {
     width: '100%',

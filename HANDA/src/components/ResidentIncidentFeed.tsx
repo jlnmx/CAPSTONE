@@ -1,15 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Colors } from '@constants/colors';
 import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { authenticatedFetch } from '@services/apiClient';
 
 type ResidentIncident = {
   id: string;
   type: string;
   description: string;
-  severity: string;
   location: string;
   latitude?: number;
   longitude?: number;
@@ -23,14 +23,8 @@ const GREEN = '#218B25';
 function normalizeIncident(record: Record<string, unknown>): ResidentIncident {
   const rawPhotos = record.photoUris ?? record.photo_uris;
   return {
-    id: String(record.id), type: String(record.type ?? 'Incident'), description: String(record.description ?? ''), severity: String(record.severity ?? 'medium'), location: String(record.location ?? record.location_text ?? 'Location not provided'), latitude: record.latitude == null ? undefined : Number(record.latitude), longitude: record.longitude == null ? undefined : Number(record.longitude), photoUris: Array.isArray(rawPhotos) ? rawPhotos.map(String) : [], status: String(record.status ?? 'reported'), createdAt: String(record.createdAt ?? record.created_at ?? ''),
+    id: String(record.id), type: String(record.type ?? 'Incident'), description: String(record.description ?? ''), location: String(record.location ?? record.location_text ?? 'Location not provided'), latitude: record.latitude == null ? undefined : Number(record.latitude), longitude: record.longitude == null ? undefined : Number(record.longitude), photoUris: Array.isArray(rawPhotos) ? rawPhotos.map(String) : [], status: String(record.status ?? 'reported'), createdAt: String(record.createdAt ?? record.created_at ?? ''),
   };
-}
-
-function severityColor(severity: string) {
-  if (severity === 'critical' || severity === 'high') return '#B42318';
-  if (severity === 'medium') return '#B36E00';
-  return '#2873A8';
 }
 
 export default function ResidentIncidentFeed() {
@@ -39,7 +33,7 @@ export default function ResidentIncidentFeed() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const load = async (refresh = false) => {
+  const load = useCallback(async (refresh = false) => {
     if (refresh) setIsRefreshing(true);
     try {
       const response = await authenticatedFetch('/api/v1/incidents');
@@ -53,13 +47,13 @@ export default function ResidentIncidentFeed() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     void load();
     const refresh = setInterval(() => void load(), 15000);
     return () => clearInterval(refresh);
-  }, []);
+  }, [load]));
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void load(true)} tintColor={GREEN} />}>
@@ -68,7 +62,7 @@ export default function ResidentIncidentFeed() {
       {!!error && <Text style={styles.error}>{error}</Text>}
       {!isLoading && !error && incidents.length === 0 && <View style={styles.empty}><MaterialCommunityIcons name="shield-check-outline" size={34} color={GREEN} /><Text style={styles.emptyTitle}>No active incidents</Text><Text style={styles.emptyText}>New community reports will appear here as they are posted.</Text></View>}
       {incidents.map((incident) => <View style={styles.card} key={incident.id}>
-        <View style={styles.cardHeader}><View style={[styles.icon, { backgroundColor: `${severityColor(incident.severity)}18` }]}><MaterialCommunityIcons name="alert-outline" size={21} color={severityColor(incident.severity)} /></View><View style={styles.cardCopy}><Text style={styles.cardTitle}>{incident.type}</Text><Text style={[styles.severity, { color: severityColor(incident.severity) }]}>{incident.severity.toUpperCase()} · {incident.status.replace('_', ' ')}</Text></View><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></View>
+        <View style={styles.cardHeader}><View style={[styles.icon, { backgroundColor: `${GREEN}18` }]}><MaterialCommunityIcons name="alert-outline" size={21} color={GREEN} /></View><View style={styles.cardCopy}><Text style={styles.cardTitle}>{incident.type}</Text><Text style={styles.status}>{incident.status.replace('_', ' ').toUpperCase()}</Text></View><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></View>
         <View style={styles.location}><MaterialCommunityIcons name="map-marker-outline" size={15} color={GREEN} /><Text style={styles.locationText}>{incident.location}</Text></View>
         <Text style={styles.description}>{incident.description}</Text>
         {incident.photoUris.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photos}>{incident.photoUris.map((uri, index) => <Image key={`${incident.id}-photo-${index}`} source={{ uri }} style={styles.photo} />)}</ScrollView>}
@@ -84,5 +78,5 @@ function formatTime(value: string) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 14, paddingBottom: 22, backgroundColor: Colors.background }, heading: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }, eyebrow: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 1 }, title: { color: Colors.text, fontSize: 22, fontWeight: '800', marginTop: 3 }, subtitle: { maxWidth: 290, color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, loader: { marginVertical: 24 }, error: { color: '#B42318', fontSize: 12, lineHeight: 17, paddingVertical: 12 }, empty: { alignItems: 'center', paddingVertical: 45, paddingHorizontal: 30, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, emptyTitle: { color: Colors.text, fontSize: 15, fontWeight: '800', marginTop: 9 }, emptyText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 5 }, card: { padding: 12, marginBottom: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, cardHeader: { flexDirection: 'row', alignItems: 'center' }, icon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19 }, cardCopy: { flex: 1, marginLeft: 9 }, cardTitle: { color: Colors.text, fontSize: 13, fontWeight: '800' }, severity: { fontSize: 9, fontWeight: '800', marginTop: 3 }, time: { color: Colors.textMuted, fontSize: 10 }, location: { flexDirection: 'row', alignItems: 'center', marginTop: 10 }, locationText: { flex: 1, color: Colors.textMuted, fontSize: 11, marginLeft: 4 }, description: { color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 7 }, photos: { marginTop: 10 }, photo: { width: 82, height: 82, marginRight: 7, borderRadius: 7, backgroundColor: Colors.surfaceMuted },
+  content: { padding: 14, paddingBottom: 22, backgroundColor: Colors.background }, heading: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }, eyebrow: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 1 }, title: { color: Colors.text, fontSize: 22, fontWeight: '800', marginTop: 3 }, subtitle: { maxWidth: 290, color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, loader: { marginVertical: 24 }, error: { color: '#B42318', fontSize: 12, lineHeight: 17, paddingVertical: 12 }, empty: { alignItems: 'center', paddingVertical: 45, paddingHorizontal: 30, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, emptyTitle: { color: Colors.text, fontSize: 15, fontWeight: '800', marginTop: 9 }, emptyText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 5 }, card: { padding: 12, marginBottom: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, cardHeader: { flexDirection: 'row', alignItems: 'center' }, icon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19 }, cardCopy: { flex: 1, marginLeft: 9 }, cardTitle: { color: Colors.text, fontSize: 13, fontWeight: '800' }, status: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 3, textTransform: 'uppercase' }, time: { color: Colors.textMuted, fontSize: 10 }, location: { flexDirection: 'row', alignItems: 'center', marginTop: 10 }, locationText: { flex: 1, color: Colors.textMuted, fontSize: 11, marginLeft: 4 }, description: { color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 7 }, photos: { marginTop: 10 }, photo: { width: 82, height: 82, marginRight: 7, borderRadius: 7, backgroundColor: Colors.surfaceMuted },
 });

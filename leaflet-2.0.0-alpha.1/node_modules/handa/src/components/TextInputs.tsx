@@ -43,6 +43,7 @@ export function TextInput({
           styles.input,
           { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale },
           inputStyle,
+          { color: '#000000', backgroundColor: '#FFFFFF' },
           error && styles.inputError,
           !editable && styles.inputDisabled,
         ]}
@@ -92,6 +93,7 @@ export function PasswordInput({
             styles.passwordInput,
             { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale },
             inputStyle,
+            { color: '#000000', backgroundColor: '#FFFFFF' },
             error && styles.inputError,
           ]}
           placeholder={placeholder}

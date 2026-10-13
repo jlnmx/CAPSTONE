@@ -77,7 +77,6 @@ export interface IncidentReport {
   type: string;
   description: string;
   location: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
   timestamp: Date;
   status: 'new' | 'acknowledged' | 'resolved';
 }

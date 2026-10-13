@@ -9,8 +9,8 @@ from psycopg.rows import dict_row
 from .config import settings
 
 logger = logging.getLogger(__name__)
-CONNECT_ATTEMPTS = 3
-CONNECT_TIMEOUT_SECONDS = 5
+CONNECT_ATTEMPTS = 2
+CONNECT_TIMEOUT_SECONDS = 2
 
 
 def get_connection() -> Generator[psycopg.Connection, None, None]:

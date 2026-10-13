@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AdminDataSnapshot, getAdminData } from '@services/adminData';
 
@@ -11,9 +12,11 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export default function AdminAnalytics() {
   const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' });
 
-  useEffect(() => {
-    void getAdminData().then(setData);
-  }, []);
+  useFocusEffect(useCallback(() => {
+    let isActive = true;
+    void getAdminData().then((snapshot) => { if (isActive) setData(snapshot); });
+    return () => { isActive = false; };
+  }, []));
 
   const registrations = DAYS.map((_, index) => {
     const day = new Date();
@@ -21,15 +24,25 @@ export default function AdminAnalytics() {
     const key = day.toISOString().slice(0, 10);
     return data.evacuees.filter((evacuee) => evacuee.createdAt.slice(0, 10) === key).length;
   });
-  const highSeverity = data.incidents.filter((incident) => incident.severity === 'high' || incident.severity === 'critical').length;
+  const activeIncidents = data.incidents.filter((incident) => incident.status !== 'resolved').length;
+  const resolvedIncidents = data.incidents.filter((incident) => incident.status === 'resolved').length;
+  const resolutionRate = data.incidents.length > 0
+    ? `${Math.round((resolvedIncidents / data.incidents.length) * 100)}%`
+    : '0%';
+  const openCenters = data.centers.filter((center) => center.status !== 'closed');
+  const totalCapacity = openCenters.reduce((total, center) => total + center.capacity, 0);
+  const totalOccupancy = openCenters.reduce((total, center) => total + center.currentOccupancy, 0);
+  const centerUtilization = totalCapacity > 0
+    ? `${Math.round((totalOccupancy / totalCapacity) * 100)}%`
+    : 'N/A';
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heading}><View><Text style={styles.eyebrow}>REPORTING</Text><Text style={styles.title}>Analytics</Text><Text style={styles.subtitle}>Calculated from {data.source === 'remote' ? 'PostgreSQL' : 'PostgreSQL unavailable'} records.</Text></View><TouchableOpacity style={styles.export} onPress={() => Alert.alert('Report', 'Export is available after the reporting API is enabled.')}><MaterialCommunityIcons name="file-chart-outline" size={18} color={Colors.primary} /><Text style={styles.exportText}>Generate report</Text></TouchableOpacity></View>
-        <View style={styles.stats}><Stat label="Registered evacuees" value={String(data.evacuees.length)} icon="account-group-outline" /><Stat label="Reported incidents" value={String(data.incidents.length)} icon="alert-circle-outline" /><Stat label="High severity incidents" value={String(highSeverity)} icon="alert-octagon-outline" /></View>
+        <View style={styles.stats}><Stat label="Registered evacuees" value={String(data.evacuees.length)} icon="account-group-outline" /><Stat label="Reported incidents" value={String(data.incidents.length)} icon="alert-circle-outline" /><Stat label="Active incidents" value={String(activeIncidents)} icon="alert-octagon-outline" /></View>
         <View style={styles.panel}><Text style={styles.panelTitle}>Registration trend</Text><Text style={styles.meta}>New evacuee records by day, last seven days</Text><View style={styles.chart}>{registrations.map((value, index) => <View style={styles.column} key={DAYS[index]}><Text style={styles.value}>{value}</Text><View style={styles.track}><View style={[styles.bar, { height: `${Math.min(value * 20, 100)}%` }]} /></View><Text style={styles.day}>{DAYS[index]}</Text></View>)}</View></View>
-        <View style={styles.panel}><Text style={styles.panelTitle}>Data availability</Text><Text style={styles.meta}>Metrics unavailable until their source tables are connected.</Text><Availability label="Evacuee registrations" value={`${data.evacuees.length} records`} /><Availability label="Incident reports" value={`${data.incidents.length} records`} /><Availability label="Incident resolution rate" value="N/A" /><Availability label="Evacuation center utilization" value="N/A" /></View>
+        <View style={styles.panel}><Text style={styles.panelTitle}>Operational metrics</Text><Text style={styles.meta}>{data.source === 'remote' ? 'Calculated from live PostgreSQL records.' : 'Calculated from records available from the server.'}</Text><Availability label="Evacuee registrations" value={`${data.evacuees.length} people`} /><Availability label="Incident reports" value={`${data.incidents.length} records`} /><Availability label="Incident resolution rate" value={resolutionRate} /><Availability label="Evacuation center utilization" value={centerUtilization} /></View>
       </ScrollView>
     </SafeAreaView>
   );

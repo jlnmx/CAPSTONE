@@ -14,8 +14,10 @@ import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { TyphoonCard } from '@components/TyphoonCard';
 import { authenticatedFetch } from '@services/apiClient';
+import { useAuth } from '@hooks/useAuth';
 import { getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
 import type { LiveTyphoon } from '@types/weather';
+import type { ResidentHouseholdMember } from '@types/index';
 
 const actions = [
   { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/register-evacuee' },
@@ -37,12 +39,14 @@ type ActiveDisaster = {
 type ResidentEvacuationStatus = {
   status: 'not_registered' | 'registered' | 'checked_in' | 'evacuated' | 'released';
   householdCount: number;
+  members?: ResidentHouseholdMember[];
 };
 
 type ResidentStatusStyle = { backgroundColor: ColorValue; iconColor: ColorValue; textColor: ColorValue };
 
 export default function ResidentDashboard() {
   const { resolvedTheme } = useTheme();
+  const { user } = useAuth();
   const [activeDisaster, setActiveDisaster] = useState<ActiveDisaster | null>(null);
   const [isDisasterLoading, setIsDisasterLoading] = useState(true);
   const [disasterError, setDisasterError] = useState(false);
@@ -96,9 +100,24 @@ export default function ResidentDashboard() {
   useEffect(() => {
     const loadEvacuationStatus = async () => {
       try {
-        const response = await authenticatedFetch('/api/v1/resident/evacuation-status');
+        const [response, profileResponse] = await Promise.all([
+          authenticatedFetch('/api/v1/resident/evacuation-status'),
+          authenticatedFetch('/api/v1/auth/me').catch(() => null),
+        ]);
         if (!response.ok) throw new Error('Evacuation status request failed');
-        setEvacuationStatus(await response.json() as ResidentEvacuationStatus);
+        const status = await response.json() as ResidentEvacuationStatus;
+        const profile = profileResponse?.ok
+          ? await profileResponse.json() as { householdMembers?: ResidentHouseholdMember[] }
+          : null;
+        const memberKeys = new Set<string>();
+        for (const member of [...(profile?.householdMembers ?? user?.householdMembers ?? []), ...(status.members ?? [])]) {
+          memberKeys.add(`${member.name.trim().toLocaleLowerCase()}|${member.relationship.trim().toLocaleLowerCase()}`);
+        }
+        const reportedCount = Number(status.householdCount);
+        setEvacuationStatus({
+          ...status,
+          householdCount: Math.max(memberKeys.size + 1, Number.isFinite(reportedCount) ? reportedCount : 0, 1),
+        });
         setEvacuationStatusUnavailable(false);
       } catch {
         setEvacuationStatusUnavailable(true);
@@ -107,7 +126,7 @@ export default function ResidentDashboard() {
     void loadEvacuationStatus();
     const refresh = setInterval(() => void loadEvacuationStatus(), 15000);
     return () => clearInterval(refresh);
-  }, []);
+  }, [user?.householdMembers]);
 
   const disasterIsActive = activeDisaster?.status.toLowerCase() === 'active';
   const timePresentation = getTimeOfDayPresentation(now);

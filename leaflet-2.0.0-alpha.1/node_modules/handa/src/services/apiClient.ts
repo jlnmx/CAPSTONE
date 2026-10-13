@@ -11,6 +11,13 @@ export const API_BASE_URL = configuredApiUrl
   ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
 
 const ACCESS_TOKEN_KEY = 'handa.accessToken';
+const unauthorizedListeners = new Set<() => void>();
+let unauthorizedHandled = false;
+
+export function subscribeToUnauthorized(listener: () => void): () => void {
+  unauthorizedListeners.add(listener);
+  return () => unauthorizedListeners.delete(listener);
+}
 
 async function webStorageGet() {
   return typeof globalThis.sessionStorage === 'undefined' ? null : globalThis.sessionStorage.getItem(ACCESS_TOKEN_KEY);
@@ -24,6 +31,7 @@ export async function getAccessToken(): Promise<string | null> {
 }
 
 export async function setAccessToken(token: string): Promise<void> {
+  unauthorizedHandled = false;
   if (Platform.OS === 'web') {
     globalThis.sessionStorage?.setItem(ACCESS_TOKEN_KEY, token);
     return;
@@ -45,5 +53,11 @@ export async function authenticatedFetch(path: string, init: RequestInit = {}): 
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  return fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  if (response.status === 401 && token && token === await getAccessToken() && !unauthorizedHandled) {
+    unauthorizedHandled = true;
+    await clearAccessToken();
+    unauthorizedListeners.forEach((listener) => listener());
+  }
+  return response;
 }

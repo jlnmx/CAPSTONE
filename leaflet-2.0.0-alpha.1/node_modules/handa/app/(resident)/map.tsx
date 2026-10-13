@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { Colors } from '@constants/colors';
 import LeafletMap from '@components/LeafletMap';
 import { AnimatedPressable } from '@components/Buttons';
@@ -80,7 +81,7 @@ export default function ResidentMapScreen() {
   const [profileError, setProfileError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let mounted = true;
     void authenticatedFetch('/api/v1/centers')
       .then(async (response) => {
@@ -95,7 +96,7 @@ export default function ResidentMapScreen() {
         if (mounted) setIsLoading(false);
       });
     return () => { mounted = false; };
-  }, []);
+  }, []));
 
   const selectCenter = useCallback(async (centerId: string) => {
     const center = centers.find((item) => item.id === centerId);

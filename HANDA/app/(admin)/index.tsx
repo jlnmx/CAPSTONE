@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, BorderRadius, Shadows, Spacing, Typography } from '@constants/colors';
 import { getAdminData, AdminDataSnapshot } from '@services/adminData';
@@ -14,9 +14,11 @@ export default function AdminOverview() {
   const { user, logout } = useAuth();
   const [data, setData] = useState<AdminDataSnapshot>({ incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' });
 
-  useEffect(() => {
-    void getAdminData().then(setData);
-  }, []);
+  useFocusEffect(useCallback(() => {
+    let isActive = true;
+    void getAdminData().then((snapshot) => { if (isActive) setData(snapshot); });
+    return () => { isActive = false; };
+  }, []));
 
   const weeklyActivity = dayLabels.map((_, index) => {
     const day = new Date();
@@ -24,7 +26,7 @@ export default function AdminOverview() {
     const dayKey = day.toISOString().slice(0, 10);
     return data.evacuees.filter((evacuee) => evacuee.createdAt.slice(0, 10) === dayKey).length;
   });
-  const highSeverityIncidents = data.incidents.filter((incident) => incident.severity === 'high' || incident.severity === 'critical').length;
+  const activeIncidents = data.incidents.filter((incident) => incident.status !== 'resolved').length;
 
   const handleLogout = () => {
     Alert.alert('Sign out', 'End this administrator session?', [
@@ -50,7 +52,7 @@ export default function AdminOverview() {
 
         <View style={styles.statGrid}>
           <Metric icon="account-group-outline" label="Registered evacuees" value={String(data.evacuees.length)} delta={data.source === 'remote' ? 'From PostgreSQL' : 'Database unavailable'} color="#167A5B" />
-          <Metric icon="alert-circle-outline" label="Reported incidents" value={String(data.incidents.length)} delta={`${highSeverityIncidents} high severity`} color={Colors.emergency} />
+          <Metric icon="alert-circle-outline" label="Reported incidents" value={String(data.incidents.length)} delta={`${activeIncidents} active`} color={Colors.emergency} />
           <Metric icon="home-city-outline" label="Evacuation centers" value={String(data.centers.length)} delta={data.source === 'remote' ? 'From PostgreSQL' : 'Database unavailable'} color={Colors.secondary} />
           <Metric icon="account-multiple-outline" label="Active personnel" value={String(data.activePersonnel)} delta={data.source === 'remote' ? 'Active responders' : 'Database unavailable'} color="#8B5E00" />
         </View>
@@ -65,13 +67,13 @@ export default function AdminOverview() {
           <View style={styles.panel}>
             <View style={styles.panelHeader}><View><Text style={styles.panelTitle}>Incident status</Text><Text style={styles.panelMeta}>Current response workload</Text></View></View>
             <View style={styles.donut}><Text style={styles.donutValue}>{data.incidents.length}</Text><Text style={styles.donutLabel}>reported</Text></View>
-            <View style={styles.legend}><Legend color={Colors.emergency} label="High severity" value={String(highSeverityIncidents)} /><Legend color="#F4A261" label="Other severity" value={String(data.incidents.length - highSeverityIncidents)} /><Legend color="#2E8B57" label="Status data" value="N/A" /></View>
+            <View style={styles.legend}><Legend color={Colors.emergency} label="Active" value={String(activeIncidents)} /><Legend color="#667085" label="Resolved" value={String(data.incidents.length - activeIncidents)} /></View>
           </View>
         </View>
 
         <View style={styles.sectionHeading}><Text style={styles.panelTitle}>Needs attention</Text><TouchableOpacity onPress={() => router.push('/(admin)/operations')}><Text style={styles.link}>View operations</Text></TouchableOpacity></View>
         <View style={styles.alertList}>
-          <Attention icon="alert-octagon-outline" title="High severity incidents" detail={`${highSeverityIncidents} reports need review`} color={Colors.emergency} />
+          <Attention icon="alert-octagon-outline" title="Active incidents" detail={`${activeIncidents} reports need response`} color={Colors.emergency} />
           <Attention icon="database-check-outline" title="Data source" detail={data.source === 'remote' ? 'Connected to PostgreSQL' : 'PostgreSQL unavailable'} color={data.source === 'remote' ? '#167A5B' : '#8B5E00'} />
         </View>
       </ScrollView>

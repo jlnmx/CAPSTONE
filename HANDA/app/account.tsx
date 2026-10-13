@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -19,6 +19,12 @@ export default function AccountScreen() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const { palette } = useTheme();
 
   useEffect(() => { if (!isLoading && !isAuthenticated) router.replace('/(auth)/login'); }, [isAuthenticated, isLoading, router]);
@@ -48,7 +54,39 @@ export default function AccountScreen() {
     setNewPassword('');
     setConfirmPassword('');
   };
-  const editInformation = () => Alert.alert('Ready to connect', 'This button is ready for the profile editing flow.');
+  const editInformation = () => {
+    const nameParts = user?.name.split(/\s+/) ?? [];
+    setFirstName(user?.firstName || nameParts[0] || '');
+    setMiddleName(user?.middleName || '');
+    setLastName(user?.lastName || nameParts.slice(1).join(' '));
+    setProfileError('');
+    setIsProfileEditorOpen(true);
+  };
+
+  const saveProfile = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      setProfileError('Enter your first and last name.');
+      return;
+    }
+    setIsSavingProfile(true);
+    setProfileError('');
+    try {
+      const response = await authenticatedFetch('/api/v1/auth/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: firstName.trim(), middleName: middleName.trim() || null, lastName: lastName.trim() }),
+      });
+      const result = await response.json() as { detail?: unknown } & Partial<AuthUser>;
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Your profile could not be updated.');
+      await setAuthenticatedUser(result as AuthUser);
+      setIsProfileEditorOpen(false);
+      Alert.alert('Profile updated', 'Your personal information has been saved.');
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : 'Your profile could not be updated.');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
@@ -60,6 +98,21 @@ export default function AccountScreen() {
         <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}><View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="lock-reset" size={20} color={Colors.secondary} /></View><View><Text style={[styles.sectionTitle, { color: palette.text }]}>Change password</Text><Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Use at least 8 characters with upper, lower, number, and symbol</Text></View></View><TextInput value={newPassword} onChangeText={setNewPassword} secureTextEntry placeholder="New password" placeholderTextColor={palette.textMuted} style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} /><TextInput value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry placeholder="Confirm new password" placeholderTextColor={palette.textMuted} style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} /><Pressable onPress={savePassword} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}><MaterialCommunityIcons name="shield-lock-outline" size={18} color={Colors.white} /><Text style={styles.primaryButtonText}>Update password</Text></Pressable></View>
         <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}><View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name="card-account-details-outline" size={20} color={Colors.secondary} /></View><View><Text style={[styles.sectionTitle, { color: palette.text }]}>Personal information</Text><Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Update the details attached to your account</Text></View></View><View style={styles.detailList}><DetailRow label="Name" value={user?.name || 'Not provided'} /><DetailRow label="Email" value={user?.email || 'Not provided'} /><DetailRow label="Role" value={user?.role || 'Not provided'} /></View><Pressable onPress={editInformation} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}><MaterialCommunityIcons name="pencil-outline" size={18} color={Colors.primary} /><Text style={styles.secondaryButtonText}>Edit information</Text></Pressable></View>
       </ScrollView>
+      <Modal transparent visible={isProfileEditorOpen} animationType="fade" onRequestClose={() => setIsProfileEditorOpen(false)}>
+        <Pressable style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: 'rgba(0,0,0,0.42)' }]} onPress={() => setIsProfileEditorOpen(false)}>
+          <Pressable style={{ width: '100%', maxWidth: 460, padding: Spacing.lg, borderRadius: BorderRadius.md, backgroundColor: palette.surface }} onPress={(event) => event.stopPropagation()}>
+            <Text style={[styles.sectionTitle, { color: palette.text }]}>Edit personal information</Text>
+            <TextInput value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor={palette.textMuted} style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} />
+            <TextInput value={middleName} onChangeText={setMiddleName} placeholder="Middle name (optional)" placeholderTextColor={palette.textMuted} style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} />
+            <TextInput value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor={palette.textMuted} style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} />
+            {!!profileError && <Text style={{ color: Colors.emergency, fontSize: 12, marginTop: Spacing.sm }}>{profileError}</Text>}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.sm, marginTop: Spacing.md }}>
+              <Pressable onPress={() => setIsProfileEditorOpen(false)} style={{ minHeight: 44, paddingHorizontal: Spacing.md, justifyContent: 'center' }} disabled={isSavingProfile}><Text style={[styles.secondaryButtonText, { color: palette.textMuted }]}>Cancel</Text></Pressable>
+              <Pressable onPress={() => void saveProfile()} style={styles.primaryButton} disabled={isSavingProfile}>{isSavingProfile ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.primaryButtonText}>Save information</Text>}</Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
