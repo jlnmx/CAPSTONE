@@ -4,46 +4,12 @@ import { Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@hooks/useAuth';
+import { answerQuestion } from '@services/chatbotAnswers';
 
 const GREEN = '#218B25';
-const QUICK_PROMPTS = ['How do I report an incident?', 'What should I do during a flood?', 'How do evacuation status updates work?'];
+const QUICK_PROMPTS = ['Any typhoons right now?', 'Will it rain in Biñan today?', 'How do I report an incident?', 'How do evacuation status updates work?'];
 
 type ChatMessage = { id: string; role: 'assistant' | 'user'; text: string };
-
-function answerQuestion(question: string): string {
-  const normalized = question.toLowerCase();
-  if (normalized.includes('report') || normalized.includes('incident')) {
-    return 'Open Report incident from the resident Quick Actions, choose the incident type and severity, describe what happened, confirm your location, then post the report. Responders can acknowledge it and add response details.';
-  }
-  if (normalized.includes('flood') || normalized.includes('water')) {
-    return 'Move to higher ground when warned, never walk or drive through moving floodwater, avoid downed power lines, and follow official evacuation instructions. Bring essential medication, water, a charged phone, and identification.';
-  }
-  if (normalized.includes('earthquake')) {
-    return 'Drop, Cover, and Hold On. Stay away from windows and tall furniture, expect aftershocks, leave damaged buildings, and follow official instructions before returning.';
-  }
-  if (normalized.includes('fire')) {
-    return 'Alert others, leave immediately using the safest exit, stay low under smoke, never use an elevator, call emergency services from a safe place, and do not re-enter.';
-  }
-  if (normalized.includes('typhoon') || normalized.includes('storm') || normalized.includes('rain')) {
-    return 'Monitor official advisories, charge phones and power banks, prepare a go bag, secure loose objects, avoid unnecessary travel, and evacuate early when authorities advise it.';
-  }
-  if (normalized.includes('status') || normalized.includes('checked') || normalized.includes('evacuat')) {
-    return 'MY STATUS shows SAFE until an evacuation registration is checked in. It changes to CHECKED-IN, EVACUATED, or RELEASED as responders update your household registration.';
-  }
-  if (normalized.includes('household') || normalized.includes('member')) {
-    return 'Tap HOUSEHOLD on the resident dashboard to add, edit, or remove household members. Changes are saved to the database immediately and are available during evacuation registration.';
-  }
-  if (normalized.includes('center') || normalized.includes('shelter')) {
-    return 'Use Center status or the map to review evacuation centers, capacity, availability, and location. Choose a center that is accepting registrations.';
-  }
-  if (normalized.includes('responder') || normalized.includes('acknowledge') || normalized.includes('help')) {
-    return 'Responders review live incident reports, acknowledge them, and can record people or organizations involved, an ETA, and response notes. The reporter receives the update in Alerts.';
-  }
-  if (normalized.includes('sos') || normalized.includes('emergency')) {
-    return 'Use SOS for immediate assistance and hold the button for two seconds. For immediate danger, also contact the appropriate emergency service when possible.';
-  }
-  return 'I can help with HANDA features, incident reporting, evacuation centers, household registration, responder updates, and disaster preparedness. Try asking about floods, fires, earthquakes, typhoons, SOS, or incident reports.';
-}
 
 export default function ChatbotWidget() {
   const { isAuthenticated } = useAuth();
@@ -83,7 +49,7 @@ export default function ChatbotWidget() {
 
   if (!isAuthenticated) return null;
 
-  const sendMessage = (text = input) => {
+  const sendMessage = async (text = input) => {
     const question = text.trim();
     if (!question || isTyping) return;
     setMessages((current) => [
@@ -92,10 +58,14 @@ export default function ChatbotWidget() {
     ]);
     setInput('');
     setIsTyping(true);
-    setTimeout(() => {
-      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: answerQuestion(question) }]);
+    try {
+      const answer = await answerQuestion(question);
+      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: answer }]);
+    } catch {
+      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: 'I could not retrieve the requested information right now. Please retry or check official PAGASA and local government updates.' }]);
+    } finally {
       setIsTyping(false);
-    }, 650);
+    }
   };
 
   return <View pointerEvents="box-none" style={styles.layer}>
@@ -111,7 +81,7 @@ export default function ChatbotWidget() {
           {isTyping && <TypingIndicator />}
         </ScrollView>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickPrompts} keyboardShouldPersistTaps="handled">{QUICK_PROMPTS.map((prompt) => <Pressable key={prompt} onPress={() => sendMessage(prompt)} style={styles.quickPrompt} accessibilityRole="button"><Text style={styles.quickPromptText}>{prompt}</Text></Pressable>)}</ScrollView>
-        <View style={styles.inputRow}><TextInput value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Ask about HANDA or disasters" placeholderTextColor="#8A9B8C" style={styles.input} returnKeyType="send" blurOnSubmit={false} /><Pressable onPress={() => sendMessage()} style={styles.sendButton} accessibilityRole="button" accessibilityLabel="Send assistant question"><MaterialCommunityIcons name="send" size={18} color="#FFFFFF" /></Pressable></View>
+        <View style={styles.inputRow}><TextInput value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Ask about weather, typhoons, or HANDA" placeholderTextColor="#8A9B8C" style={styles.input} returnKeyType="send" blurOnSubmit={false} /><Pressable onPress={() => sendMessage()} style={styles.sendButton} accessibilityRole="button" accessibilityLabel="Send assistant question"><MaterialCommunityIcons name="send" size={18} color="#FFFFFF" /></Pressable></View>
       </Animated.View>
     </KeyboardAvoidingView>}
     {!showPanel && <Pressable onPress={() => setIsOpen((current) => !current)} style={({ pressed }) => [styles.floatingButton, { right: rightGutter, opacity: pressed ? 0.25 : 0.5 }]} accessibilityRole="button" accessibilityLabel="Open Bantay HANDA"><MaterialCommunityIcons name="chat-processing-outline" size={25} color="#FFFFFF" /><View style={styles.statusDot} /></Pressable>}

@@ -12,8 +12,10 @@ import { useTheme } from '@hooks/useTheme';
 import { NotificationBell } from '@components/NotificationBell';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
+import { TyphoonCard } from '@components/TyphoonCard';
 import { authenticatedFetch } from '@services/apiClient';
 import { getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
+import type { LiveTyphoon } from '@types/weather';
 
 const actions = [
   { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/register-evacuee' },
@@ -44,7 +46,9 @@ export default function ResidentDashboard() {
   const [activeDisaster, setActiveDisaster] = useState<ActiveDisaster | null>(null);
   const [isDisasterLoading, setIsDisasterLoading] = useState(true);
   const [disasterError, setDisasterError] = useState(false);
-  const { weather, presentation, isLoading: isWeatherLoading, isUnavailable: weatherError, now } = useWeather();
+  const { weather, weatherEvents, presentation, isLoading: isWeatherLoading, isUnavailable: weatherError, now } = useWeather();
+  const [liveTyphoons, setLiveTyphoons] = useState<LiveTyphoon[]>([]);
+  const [typhoonFeedUnavailable, setTyphoonFeedUnavailable] = useState(false);
   const [evacuationStatus, setEvacuationStatus] = useState<ResidentEvacuationStatus | null>(null);
   const [evacuationStatusUnavailable, setEvacuationStatusUnavailable] = useState(false);
 
@@ -68,6 +72,24 @@ export default function ResidentDashboard() {
 
     void loadActiveDisaster();
     const refresh = setInterval(() => void loadActiveDisaster(), 15_000);
+    return () => clearInterval(refresh);
+  }, []);
+
+  useEffect(() => {
+    const loadLiveTyphoons = async () => {
+      try {
+        const response = await authenticatedFetch('/api/v1/typhoons');
+        if (!response.ok) throw new Error('Live typhoon feed request failed');
+        const result = await response.json() as { storms: LiveTyphoon[] };
+        setLiveTyphoons(result.storms);
+        setTyphoonFeedUnavailable(false);
+      } catch {
+        setTyphoonFeedUnavailable(true);
+      }
+    };
+
+    void loadLiveTyphoons();
+    const refresh = setInterval(() => void loadLiveTyphoons(), 5 * 60 * 1000);
     return () => clearInterval(refresh);
   }, []);
 
@@ -119,7 +141,7 @@ export default function ResidentDashboard() {
           <View style={[styles.weatherIcon, { borderColor: getReadableColor(presentation.accent, resolvedTheme), backgroundColor: Colors.surface }]} accessibilityLabel={`${timePresentation.label}, ${presentation.description}, ${Math.round(weather.temperature)} degrees`}><GreetingIcon size={23} color={getReadableColor(presentation.accent, resolvedTheme)} strokeWidth={2.5} /></View>
         </View>
 
-        <WeatherWidget weather={weather} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={disasterIsActive} />
+        <WeatherWidget weather={weather} weatherEvents={weatherEvents} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={disasterIsActive} />
 
         <ActiveDisasterCard
           active={disasterIsActive}
@@ -127,6 +149,9 @@ export default function ResidentDashboard() {
           title={isDisasterLoading ? 'Checking disaster status...' : activeDisaster?.name || 'No active disaster'}
           description={disasterError ? 'Live status unavailable' : activeDisaster ? `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affected_areas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}` : 'Monitoring live reports'}
         />
+        {liveTyphoons.map((typhoon) => <TyphoonCard key={typhoon.id} typhoon={typhoon} />)}
+        {typhoonFeedUnavailable && <Text style={styles.forecastFeedWarning}>Live tropical cyclone feed unavailable. Check the PAGASA bulletin.</Text>}
+        {!typhoonFeedUnavailable && liveTyphoons.length === 0 && <Text style={styles.forecastFeedStatus}>No active Western Pacific cyclones reported by GDACS.</Text>}
 
         <View style={styles.statusRow}>
           <StatusTile
@@ -212,6 +237,8 @@ const styles = StyleSheet.create({
   greetingTitle: { color: '#187821', fontSize: 15, fontWeight: '800' },
   greetingDate: { color: '#187821', fontSize: 9, fontWeight: '600', marginTop: 4 },
   weatherIcon: { width: 29, height: 29, borderRadius: 16, borderWidth: 2, borderColor: '#E3A02C', backgroundColor: '#FFD477', alignItems: 'center', justifyContent: 'center' },
+  forecastFeedWarning: { marginHorizontal: 18, marginBottom: 10, color: '#8C302B', fontSize: 10 },
+  forecastFeedStatus: { marginHorizontal: 18, marginBottom: 10, color: Colors.textMuted, fontSize: 9 },
   weatherCard: { minHeight: 112, marginHorizontal: 18, marginTop: 2, marginBottom: 9, borderRadius: 8, overflow: 'hidden' },
   weatherGradient: { flex: 1, minHeight: 112, paddingHorizontal: 14, paddingVertical: 12, overflow: 'hidden' },
   backgroundGlyph: { position: 'absolute', right: -12, bottom: -22 },
