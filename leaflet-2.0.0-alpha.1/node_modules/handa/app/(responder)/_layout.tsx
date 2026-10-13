@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { Text } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { Colors } from '@constants/colors';

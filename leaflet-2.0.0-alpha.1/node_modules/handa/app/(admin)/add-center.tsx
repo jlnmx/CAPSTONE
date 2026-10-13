@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -64,7 +65,7 @@ const styles = StyleSheet.create({
   form: { backgroundColor: Colors.surface, padding: 20, borderRadius: BorderRadius.md, ...Shadows.sm },
   field: { marginBottom: 15 },
   label: { color: Colors.text, fontSize: 12, fontWeight: '700', marginBottom: 6 },
-  input: { height: 45, borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 12, color: Colors.text, fontSize: 13, backgroundColor: Colors.surface },
+  input: { height: 45, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.sm, paddingHorizontal: 12, color: Colors.text, fontSize: 13, backgroundColor: Colors.surface },
   multiline: { height: 90, paddingTop: 12, textAlignVertical: 'top' },
   error: { color: Colors.emergency, fontSize: 12, marginBottom: 14 },
   submit: { height: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, marginTop: 4 },

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -32,6 +33,8 @@ function formatTime(value: string): string {
 }
 
 export function NotificationBell() {
+  const { width } = useWindowDimensions();
+  const rightGutter = Math.max(18, (width - 900) / 2 + 18);
   const router = useRouter();
   const { user } = useAuth();
   const { presentation, isLoading: isWeatherLoading, isUnavailable: isWeatherUnavailable } = useWeather();
@@ -115,7 +118,7 @@ export function NotificationBell() {
       </AnimatedPressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setVisible(false)}>
+        <Pressable style={[styles.backdrop, { paddingRight: rightGutter }]} onPress={() => setVisible(false)}>
           <Pressable style={styles.modal} onPress={(event) => event.stopPropagation()}>
             <View style={styles.modalHeader}>
               <View>
@@ -154,20 +157,20 @@ const styles = StyleSheet.create({
   dot: { position: 'absolute', top: -1, right: -5, zIndex: 2, minWidth: 16, height: 16, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.warning, borderWidth: 1, borderColor: Colors.white },
   dotText: { color: '#3D3100', fontSize: 8, fontWeight: '900' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', padding: 18, justifyContent: 'flex-start', alignItems: 'flex-end' },
-  modal: { width: '100%', maxWidth: 430, marginTop: 62, backgroundColor: Colors.white, borderRadius: BorderRadius.md, padding: Spacing.lg, ...Shadows.md },
+  modal: { width: '100%', maxWidth: 430, marginTop: 62, backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.lg, ...Shadows.md },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.background },
   title: { color: Colors.text, fontSize: 20, fontWeight: '800' },
   subtitle: { color: Colors.textMuted, fontSize: 12, marginTop: 3 },
   notification: { flexDirection: 'row', paddingVertical: 13, paddingHorizontal: 7, borderBottomWidth: 1, borderBottomColor: Colors.background, borderRadius: 6 },
-  unreadNotification: { backgroundColor: '#F1F8F1' },
+  unreadNotification: { backgroundColor: Colors.surfaceMuted },
   icon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   copy: { flex: 1 },
   notificationHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   notificationTitle: { color: Colors.text, fontSize: 13, fontWeight: '600' },
-  unreadTitle: { color: '#17591D', fontWeight: '900' },
+  unreadTitle: { color: Colors.text, fontWeight: '900' },
   time: { color: Colors.textMuted, fontSize: 10, marginLeft: 8 },
   detail: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 },
-  unreadDetail: { color: '#314A34', fontWeight: '600' },
+  unreadDetail: { color: Colors.textMuted, fontWeight: '600' },
   readRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5 },
   readHint: { color: '#8A9B8C', fontSize: 9 },
   markRead: { color: GREEN, fontSize: 9, fontWeight: '800' },

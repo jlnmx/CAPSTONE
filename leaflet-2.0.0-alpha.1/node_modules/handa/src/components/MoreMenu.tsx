@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -116,11 +117,11 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   content: {
     flexGrow: 1,
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#218B25',
     borderRadius: 34,
-    backgroundColor: '#EAF3EA',
+    backgroundColor: Colors.surfaceMuted,
   },
   profileCopy: {
     flex: 1,
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
   },
   name: {
     flexShrink: 1,
-    color: '#155B19',
+    color: Colors.text,
     fontSize: 21,
     fontWeight: '800',
   },
@@ -184,14 +185,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#218B25',
     borderRadius: 4,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   logoutButton: {
     borderColor: Colors.emergency,
   },
   menuLabel: {
     marginLeft: 16,
-    color: '#155B19',
+    color: Colors.text,
     fontSize: 21,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     padding: 20,
     borderRadius: 8,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   dialogTitle: {
     color: Colors.text,
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: '#D0D5DD',
+    borderColor: Colors.border,
     borderRadius: 5,
   },
   cancelButtonText: {

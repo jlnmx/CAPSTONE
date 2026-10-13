@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -165,44 +166,44 @@ function formatUpdated(value: string) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.white },
+  safe: { flex: 1, backgroundColor: Colors.surface },
   content: { flexGrow: 1, width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 16 },
   header: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: GREEN },
   headerTitle: { color: Colors.white, fontSize: 27, lineHeight: 31, fontWeight: '900' },
   headerSubtitle: { color: '#E1F1E1', fontSize: 10, marginTop: 2 },
   refreshButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   intro: { marginHorizontal: 14, marginTop: 7, marginBottom: 17 },
-  sectionTitle: { color: '#17591D', fontSize: 20, fontWeight: '900' },
-  sectionSubtitle: { color: '#356E39', fontSize: 10, marginTop: 1 },
+  sectionTitle: { color: Colors.text, fontSize: 20, fontWeight: '900' },
+  sectionSubtitle: { color: Colors.textMuted, fontSize: 10, marginTop: 1 },
   list: { gap: 11 },
-  card: { minHeight: 160, paddingHorizontal: 8, paddingVertical: 9, borderWidth: 1, borderColor: GREEN, borderRadius: 9, backgroundColor: Colors.white },
+  card: { minHeight: 160, paddingHorizontal: 8, paddingVertical: 9, borderWidth: 1, borderColor: GREEN, borderRadius: 9, backgroundColor: Colors.surface },
   iconCircle: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: GREEN, borderRadius: 20 },
-  centerName: { marginTop: 7, color: '#17591D', fontSize: 14, fontWeight: '900' },
+  centerName: { marginTop: 7, color: Colors.text, fontSize: 14, fontWeight: '900' },
   locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  location: { color: '#356E39', fontSize: 9 },
+  location: { color: Colors.textMuted, fontSize: 9 },
   capacityRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  capacityLabel: { color: '#356E39', fontSize: 8 },
-  capacityValue: { color: '#344054', fontSize: 9 },
-  progressTrack: { height: 6, marginTop: 5, overflow: 'hidden', borderRadius: 4, backgroundColor: '#E5E7EB' },
+  capacityLabel: { color: Colors.textMuted, fontSize: 8 },
+  capacityValue: { color: Colors.textMuted, fontSize: 9 },
+  progressTrack: { height: 6, marginTop: 5, overflow: 'hidden', borderRadius: 4, backgroundColor: Colors.surfaceMuted },
   progressFill: { height: '100%', borderRadius: 4 },
   cardFooter: { minHeight: 27, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
   availability: { fontSize: 9, fontWeight: '800' },
   detailsButton: { minWidth: 82, alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: '#72A876' },
   detailsText: { color: Colors.white, fontSize: 8, fontWeight: '600' },
   state: { minHeight: 220, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 10 },
-  stateText: { color: '#526652', fontSize: 12 },
+  stateText: { color: Colors.textMuted, fontSize: 12 },
   errorText: { color: '#A34545', fontSize: 12, textAlign: 'center' },
   retryButton: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 5, backgroundColor: GREEN },
   retryText: { color: Colors.white, fontSize: 11, fontWeight: '700' },
-  emptyText: { padding: 24, color: '#526652', textAlign: 'center' },
+  emptyText: { padding: 24, color: Colors.textMuted, textAlign: 'center' },
   staleMessage: { marginHorizontal: 14, marginTop: 10, color: '#A34545', fontSize: 10 },
   modalBackdrop: { flex: 1, justifyContent: 'center', padding: 22, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
-  modalCard: { padding: 16, borderRadius: 8, backgroundColor: Colors.white },
+  modalCard: { padding: 16, borderRadius: 8, backgroundColor: Colors.surface },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
-  modalTitle: { flex: 1, color: '#17591D', fontSize: 17, fontWeight: '900' },
+  modalTitle: { flex: 1, color: Colors.text, fontSize: 17, fontWeight: '900' },
   detailRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: '#EDF2ED' },
   detailCopy: { flex: 1 },
-  detailLabel: { color: '#356E39', fontSize: 8, fontWeight: '800' },
-  detailValue: { marginTop: 2, color: '#263B28', fontSize: 11, fontWeight: '600' },
-  contactNote: { marginTop: 9, color: '#667566', fontSize: 10, lineHeight: 15 },
+  detailLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800' },
+  detailValue: { marginTop: 2, color: Colors.textMuted, fontSize: 11, fontWeight: '600' },
+  contactNote: { marginTop: 9, color: Colors.textMuted, fontSize: 10, lineHeight: 15 },
 });

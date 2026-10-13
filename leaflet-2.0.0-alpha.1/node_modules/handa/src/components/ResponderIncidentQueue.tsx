@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Colors } from '@constants/colors';
+import { Alert, Image, Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
 import { getResponderData, IncidentStatus, ResponderIncident, updateIncidentStatus } from '@services/responderData';
@@ -90,35 +92,35 @@ export default function ResponderIncidentQueue() {
 }
 
 const styles = StyleSheet.create({
-  section: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 4, backgroundColor: '#F7FAF7' },
+  section: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 4, backgroundColor: Colors.background },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   eyebrow: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  title: { color: '#17212B', fontSize: 17, fontWeight: '800', marginTop: 3 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 7, padding: 11, marginBottom: 9, borderWidth: 1, borderColor: '#DFEADF' },
+  title: { color: Colors.text, fontSize: 17, fontWeight: '800', marginTop: 3 },
+  card: { backgroundColor: Colors.surface, borderRadius: 7, padding: 11, marginBottom: 9, borderWidth: 1, borderColor: Colors.border },
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  icon: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#FCE8E8', alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1, marginLeft: 9 },
-  name: { color: '#17212B', fontSize: 12, fontWeight: '800' },
-  detail: { color: '#667085', fontSize: 10, marginTop: 3 },
+  name: { color: Colors.text, fontSize: 12, fontWeight: '800' },
+  detail: { color: Colors.textMuted, fontSize: 10, marginTop: 3 },
   status: { color: GREEN, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
-  description: { color: '#667085', fontSize: 11, lineHeight: 16, marginTop: 8 },
+  description: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
   photos: { marginTop: 9 },
-  photo: { width: 72, height: 72, marginRight: 6, borderRadius: 6, backgroundColor: '#E5EFE8' },
+  photo: { width: 72, height: 72, marginRight: 6, borderRadius: 6, backgroundColor: Colors.surfaceMuted },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 9 },
-  action: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 5, backgroundColor: '#E7F0E7' },
+  action: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 5, backgroundColor: Colors.surfaceMuted },
   activeAction: { backgroundColor: GREEN },
   actionText: { color: GREEN, fontSize: 9, fontWeight: '700', textTransform: 'capitalize' },
   activeActionText: { color: '#FFFFFF' },
-  empty: { color: '#667085', fontSize: 11, paddingVertical: 12 },
+  empty: { color: Colors.textMuted, fontSize: 11, paddingVertical: 12 },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: 'rgba(0,0,0,0.4)' },
-  responseDialog: { width: '100%', maxWidth: 440, padding: 18, borderRadius: 8, backgroundColor: '#FFFFFF' },
-  dialogTitle: { color: '#17591D', fontSize: 17, fontWeight: '800' },
-  dialogSubtitle: { color: '#667085', fontSize: 11, lineHeight: 16, marginTop: 4, marginBottom: 5 },
-  input: { minHeight: 42, marginTop: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: '#D5E2D5', borderRadius: 5, color: '#263B28', fontSize: 12 },
+  responseDialog: { width: '100%', maxWidth: 440, padding: 18, borderRadius: 8, backgroundColor: Colors.surface },
+  dialogTitle: { color: Colors.text, fontSize: 17, fontWeight: '800' },
+  dialogSubtitle: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4, marginBottom: 5 },
+  input: { minHeight: 42, marginTop: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 5, color: Colors.textMuted, fontSize: 12 },
   notesInput: { minHeight: 78, paddingTop: 10 },
   dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 14 },
-  cancelButton: { minHeight: 40, paddingHorizontal: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#CCD7CC', borderRadius: 5 },
-  cancelText: { color: '#344054', fontSize: 11, fontWeight: '700' },
+  cancelButton: { minHeight: 40, paddingHorizontal: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, borderRadius: 5 },
+  cancelText: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
   confirmButton: { minHeight: 40, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 5, backgroundColor: GREEN },
   confirmText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
 });

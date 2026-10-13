@@ -1,5 +1,7 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Colors } from '@constants/colors';
+import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import ResponderIncidentQueue from '@components/ResponderIncidentQueue';
 
 const GREEN = '#218B25';
@@ -19,7 +21,7 @@ export default function IncidentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7FAF7' },
+  container: { flex: 1, backgroundColor: Colors.background },
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 10 },
   titleBand: { backgroundColor: GREEN, paddingHorizontal: 14, paddingTop: 18, paddingBottom: 9 },
   title: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', lineHeight: 22 },

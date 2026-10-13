@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Animated, Easing, Image, ImageSourcePropType, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, ColorValue, Easing, Image, ImageSourcePropType, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
@@ -7,7 +8,7 @@ import { Colors } from '@constants/colors';
 type Guide = {
   title: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  color: string;
+  color: ColorValue;
   image: ImageSourcePropType;
   before: string[];
   during: string[];
@@ -23,7 +24,7 @@ const guides: Guide[] = [
     after: ['Wait for the all-clear before leaving your shelter.', 'Avoid downed power lines, debris, and floodwater.', 'Check on neighbors and report hazards to responders.', 'Document damage only when it is safe to do so.'],
   },
   {
-    title: 'FLASH FLOOD', icon: 'waves', color: '#607A8B',
+    title: 'FLASH FLOOD', icon: 'waves', color: Colors.textMuted,
     image: require('../../pics/flash-flood.webp'),
     before: ['Know whether your home is in a flood-prone area.', 'Keep important documents in a waterproof container.', 'Prepare a Go Bag and move valuables to higher ground.', 'Plan a route to the nearest safe, elevated location.'],
     during: ['Move to higher ground immediately when warned.', 'Never walk, swim, or drive through moving floodwater.', 'Turn off electricity only if you can do so safely.', 'Follow evacuation orders and official updates.'],
@@ -123,8 +124,8 @@ function titleCase(value: string) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.white },
-  container: { flex: 1, backgroundColor: Colors.white },
+  safeArea: { flex: 1, backgroundColor: Colors.surface },
+  container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 850, alignSelf: 'center', paddingBottom: 24 },
   header: { height: 58, paddingHorizontal: 10, justifyContent: 'center', backgroundColor: '#218B25' },
   headerTitle: { color: Colors.white, fontSize: 24, fontWeight: '900', lineHeight: 25 },
@@ -134,16 +135,16 @@ const styles = StyleSheet.create({
   list: { gap: 9, marginHorizontal: 9 },
   guideCard: { minHeight: 57, paddingLeft: 10, paddingRight: 6, borderRadius: 6, flexDirection: 'row', alignItems: 'center' },
   guideTitle: { flex: 1, color: Colors.white, fontSize: 12, fontWeight: '900' },
-  guideIcon: { width: 48, height: 48, borderRadius: 5, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center' },
+  guideIcon: { width: 48, height: 48, borderRadius: 5, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
   detail: { paddingHorizontal: 10, paddingTop: 10 },
   backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingVertical: 4 },
   backText: { color: '#218B25', fontSize: 11, fontWeight: '700', marginLeft: 5 },
-  detailTitle: { color: '#17212B', fontSize: 18, fontWeight: '800', marginTop: 6, marginBottom: 6 },
+  detailTitle: { color: Colors.text, fontSize: 18, fontWeight: '800', marginTop: 6, marginBottom: 6 },
   disasterImage: { width: '100%', height: 125, borderRadius: 7, resizeMode: 'cover' },
   accordionList: { gap: 9, marginTop: 14 },
   accordion: { borderWidth: 1, borderColor: '#8BC58B', borderRadius: 8, overflow: 'hidden' },
   accordionHeader: { minHeight: 58, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  accordionTitle: { color: '#155B19', fontSize: 16, fontWeight: '800' },
+  accordionTitle: { color: Colors.text, fontSize: 16, fontWeight: '800' },
   accordionBody: { paddingHorizontal: 12, paddingBottom: 10 },
-  tip: { color: '#35623A', fontSize: 10, lineHeight: 15, marginTop: 2 },
+  tip: { color: Colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 2 },
 });

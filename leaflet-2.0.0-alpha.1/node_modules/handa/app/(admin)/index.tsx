@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -118,10 +119,10 @@ const styles = StyleSheet.create({
   chart: { height: 190, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', marginTop: 20 },
   barColumn: { flex: 1, alignItems: 'center', height: '100%', justifyContent: 'flex-end' },
   barValue: { color: Colors.textMuted, fontSize: 10, marginBottom: 5 },
-  barTrack: { height: 125, width: 22, justifyContent: 'flex-end', backgroundColor: '#EAF0F4', borderRadius: 6, overflow: 'hidden' },
+  barTrack: { height: 125, width: 22, justifyContent: 'flex-end', backgroundColor: Colors.surfaceMuted, borderRadius: 6, overflow: 'hidden' },
   bar: { width: '100%', backgroundColor: Colors.secondary, borderRadius: 6 },
   day: { color: Colors.textMuted, fontSize: 10, marginTop: 8 },
-  donut: { alignSelf: 'center', width: 128, height: 128, borderRadius: 64, borderWidth: 20, borderColor: '#DDEAF1', borderTopColor: Colors.emergency, borderRightColor: '#F4A261', alignItems: 'center', justifyContent: 'center', marginVertical: 20 },
+  donut: { alignSelf: 'center', width: 128, height: 128, borderRadius: 64, borderWidth: 20, borderColor: Colors.border, borderTopColor: Colors.emergency, borderRightColor: '#F4A261', alignItems: 'center', justifyContent: 'center', marginVertical: 20 },
   donutValue: { color: Colors.text, fontSize: 28, fontWeight: '800' },
   donutLabel: { color: Colors.textMuted, fontSize: 11 },
   legend: { gap: 10 },

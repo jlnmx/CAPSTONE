@@ -6,7 +6,8 @@ import React, { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
 import { useAuth } from '@hooks/useAuth';
@@ -143,6 +144,6 @@ export default function ResidentLayout() {
 }
 
 const styles = StyleSheet.create({
-  sosTab: { width: 42, height: 42, marginTop: -10, borderRadius: 22, borderWidth: 2, borderColor: '#E33E48', backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center' },
+  sosTab: { width: 42, height: 42, marginTop: -10, borderRadius: 22, borderWidth: 2, borderColor: '#E33E48', backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
   sosTabText: { color: '#E33E48', fontSize: 13, fontWeight: '900' },
 });

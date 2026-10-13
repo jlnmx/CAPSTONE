@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Colors } from '@constants/colors';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { useRouter } from 'expo-router';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { AuthService } from '@services/authService';
@@ -163,18 +165,18 @@ function ActionButton({ label, onPress, loading }: { label: string; onPress: () 
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: Colors.surface },
   content: { flexGrow: 1, alignItems: 'center', paddingTop: 70, paddingBottom: 56 },
   brand: { color: GREEN, fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }), fontSize: 42, fontWeight: '800', letterSpacing: 2 },
-  title: { color: '#17212B', fontSize: 25, fontWeight: '700', marginTop: 28 },
-  subtitle: { color: '#667085', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 21, marginTop: 8, marginBottom: 24 },
-  form: { width: 360, maxWidth: '92%', padding: 22, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 16, backgroundColor: '#F0F2F5' },
+  title: { color: Colors.text, fontSize: 25, fontWeight: '700', marginTop: 28 },
+  subtitle: { color: Colors.textMuted, fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 21, marginTop: 8, marginBottom: 24 },
+  form: { width: 360, maxWidth: '92%', padding: 22, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 16, backgroundColor: Colors.surfaceMuted },
   channelRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  channelButton: { flex: 1, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: FIELD_BORDER, borderRadius: 9, backgroundColor: '#FFFFFF' },
-  channelButtonActive: { borderColor: GREEN, backgroundColor: '#E7F3E7' },
-  channelText: { color: '#667085', fontWeight: '600' },
+  channelButton: { flex: 1, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: FIELD_BORDER, borderRadius: 9, backgroundColor: Colors.surface },
+  channelButtonActive: { borderColor: GREEN, backgroundColor: Colors.surfaceMuted },
+  channelText: { color: Colors.textMuted, fontWeight: '600' },
   channelTextActive: { color: GREEN },
-  input: { height: 48, borderWidth: 1, borderColor: FIELD_BORDER, borderRadius: 9, backgroundColor: '#FFFFFF', paddingHorizontal: 14, marginBottom: 16, color: '#17212B', fontSize: 14 },
+  input: { height: 48, borderWidth: 1, borderColor: FIELD_BORDER, borderRadius: 9, backgroundColor: Colors.surface, paddingHorizontal: 14, marginBottom: 16, color: Colors.text, fontSize: 14 },
   actionButton: { height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: '#2D2D2D', marginBottom: 12 },
   actionText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
   linkButton: { alignItems: 'center', padding: 8 },
@@ -182,5 +184,5 @@ const styles = StyleSheet.create({
   success: { color: GREEN, fontSize: 13, lineHeight: 19, marginTop: 8 },
   error: { color: '#B42318', fontSize: 13, lineHeight: 19, marginTop: 8 },
   backButton: { alignItems: 'center', padding: 8, marginTop: 12 },
-  backText: { color: '#667085', fontSize: 13 },
+  backText: { color: Colors.textMuted, fontSize: 13 },
 });

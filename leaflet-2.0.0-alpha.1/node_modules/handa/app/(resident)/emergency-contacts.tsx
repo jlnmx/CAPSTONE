@@ -1,5 +1,6 @@
 import React from 'react';
-import { Linking, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
@@ -34,19 +35,19 @@ export default function EmergencyContactsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.white },
-  container: { flex: 1, backgroundColor: Colors.white },
+  safeArea: { flex: 1, backgroundColor: Colors.surface },
+  container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 850, alignSelf: 'center', paddingBottom: 24 },
   header: { minHeight: 87, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerTitle: { color: Colors.white, fontSize: 23, fontWeight: '900', lineHeight: 24 },
   headerSubtitle: { color: Colors.white, fontSize: 15, fontWeight: '800', lineHeight: 17 },
-  intro: { color: '#4C7750', fontSize: 11, marginHorizontal: 16, marginVertical: 14 },
+  intro: { color: Colors.textMuted, fontSize: 11, marginHorizontal: 16, marginVertical: 14 },
   list: { gap: 8, marginHorizontal: 9 },
-  contactCard: { minHeight: 58, paddingHorizontal: 8, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white },
-  contactIcon: { width: 43, height: 43, borderWidth: 1, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F8F5' },
+  contactCard: { minHeight: 58, paddingHorizontal: 8, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface },
+  contactIcon: { width: 43, height: 43, borderWidth: 1, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted },
   contactCopy: { flex: 1, marginLeft: 7 },
-  contactName: { color: '#155B19', fontSize: 18, fontWeight: '900' },
-  contactDetail: { color: '#4C7750', fontSize: 8, marginTop: 2 },
-  contactNumber: { color: '#155B19', fontSize: 12, marginLeft: 5 },
+  contactName: { color: Colors.text, fontSize: 18, fontWeight: '900' },
+  contactDetail: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
+  contactNumber: { color: Colors.text, fontSize: 12, marginLeft: 5 },
   note: { color: Colors.textMuted, fontSize: 9, textAlign: 'center', marginHorizontal: 24, marginTop: 16 },
 });

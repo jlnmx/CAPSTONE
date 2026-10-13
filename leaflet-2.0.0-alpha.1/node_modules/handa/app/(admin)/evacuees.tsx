@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AdminDataSnapshot, AdminEvacueeRecord, getAdminData } from '@services/adminData';
@@ -92,7 +93,7 @@ const styles = StyleSheet.create({
   total: { color: Colors.text, fontSize: 26, fontWeight: '800' },
   summaryLabel: { color: Colors.textMuted, fontSize: 12 },
   panel: { backgroundColor: Colors.surface, padding: 18, borderRadius: BorderRadius.md, ...Shadows.sm },
-  search: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#D7E2EA', borderRadius: BorderRadius.sm, paddingHorizontal: 10, marginBottom: 8 },
+  search: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.sm, paddingHorizontal: 10, marginBottom: 8 },
   input: { flex: 1, padding: 10, color: Colors.text, fontSize: 13 },
   toolbar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 8 },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -104,7 +105,7 @@ const styles = StyleSheet.create({
   sortText: { color: Colors.secondary, fontSize: 11, fontWeight: '700' },
   group: { borderTopWidth: 1, borderTopColor: '#EDF1F4' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderTopColor: '#EDF1F4', paddingVertical: 14 },
-  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#E4EEF4', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: Colors.primary, fontSize: 12, fontWeight: '800' },
   copy: { flex: 1 },
   name: { color: Colors.text, fontSize: 13, fontWeight: '700' },

@@ -3,15 +3,8 @@
  */
 
 import React, { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  Text,
-  Platform,
-  Pressable,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Platform, Pressable } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { useAuth } from '@hooks/useAuth';
 import { useRouter } from 'expo-router';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
@@ -110,7 +103,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
   },
   contentContainer: {
     flexGrow: 1,
@@ -145,7 +138,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#8BC58B',
     borderRadius: 16,
-    backgroundColor: '#F0F2F5',
+    backgroundColor: Colors.surfaceMuted,
     marginTop: 0,
   },
   inputContainer: {
@@ -155,12 +148,12 @@ const styles = StyleSheet.create({
     height: 48,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderColor: '#D5D5D5',
+    borderColor: Colors.border,
     borderRadius: 9,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
     fontSize: 14,
-    color: '#17212B',
+    color: Colors.text,
   },
   errorContainer: {
     backgroundColor: Colors.emergency,

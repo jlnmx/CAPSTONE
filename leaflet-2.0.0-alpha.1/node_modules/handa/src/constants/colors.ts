@@ -5,6 +5,20 @@
 
 import { Platform, PlatformColor } from 'react-native';
 
+export function getReadableColor(color: string, theme: 'light' | 'dark'): string {
+  if (theme !== 'dark' || !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) return color;
+
+  const hex = color.slice(1);
+  const channels = hex.length === 3
+    ? hex.split('').map((channel) => parseInt(channel + channel, 16))
+    : [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
+
+  if (channels.every((channel) => channel === 0) || channels.every((channel) => channel === 255)) return color;
+
+  const lightened = channels.map((channel) => Math.round(channel + (255 - channel) * 0.45));
+  return `#${lightened.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+}
+
 function nativeColor(name: string, fallback: string) {
   return Platform.OS !== 'web' && typeof PlatformColor === 'function' ? PlatformColor(name) : fallback;
 }
@@ -27,6 +41,12 @@ const platformTextMuted = Platform.select({
   web: 'var(--handa-text-muted, #667085)',
   default: '#667085',
 });
+const platformBorder = Platform.select({
+  ios: nativeColor('separator', '#D7E2EA'),
+  android: nativeColor('?android:attr/colorControlHighlight', '#D7E2EA'),
+  web: 'var(--handa-border, #D7E2EA)',
+  default: '#D7E2EA',
+});
 
 export const Colors = {
   // Primary Colors
@@ -47,6 +67,7 @@ export const Colors = {
   // Text Colors
   text: platformText, // Device-aware readable text
   textMuted: platformTextMuted, // Device-aware muted text
+  border: platformBorder,
   
   // Functional
   offline: '#E63946', // Red for offline status

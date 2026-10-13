@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@constants/colors';
 
@@ -124,7 +125,7 @@ export function Card({ children, onPress, style, isEmergency = false }: CardProp
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing.lg,
     ...Shadows.sm,
@@ -195,7 +196,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   card: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginVertical: Spacing.md,

@@ -1,11 +1,14 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ColorValue, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Moon, Sun, Sunrise, Sunset } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useWeather } from '@hooks/useWeather';
 import { WeatherWidget } from '@components/WeatherWidget';
-import { Colors } from '@constants/colors';
+import { Colors, getReadableColor } from '@constants/colors';
+import { useTheme } from '@hooks/useTheme';
 import { NotificationBell } from '@components/NotificationBell';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
@@ -34,17 +37,10 @@ type ResidentEvacuationStatus = {
   householdCount: number;
 };
 
-type ResidentStatusStyle = { backgroundColor: string; iconColor: string; textColor: string };
-
-const RESIDENT_STATUS_STYLES: Record<'safe' | 'checkedIn' | 'evacuated' | 'released' | 'unavailable', ResidentStatusStyle> = {
-  safe: { backgroundColor: '#E7F3E8', iconColor: '#218B25', textColor: '#176B1D' },
-  checkedIn: { backgroundColor: '#E6F0FA', iconColor: '#1769AA', textColor: '#175384' },
-  evacuated: { backgroundColor: '#FFF1D9', iconColor: '#B36E00', textColor: '#8A5700' },
-  released: { backgroundColor: '#ECEFF0', iconColor: '#667085', textColor: '#52606D' },
-  unavailable: { backgroundColor: '#F1EAEA', iconColor: '#A34545', textColor: '#8D3C3C' },
-};
+type ResidentStatusStyle = { backgroundColor: ColorValue; iconColor: ColorValue; textColor: ColorValue };
 
 export default function ResidentDashboard() {
+  const { resolvedTheme } = useTheme();
   const [activeDisaster, setActiveDisaster] = useState<ActiveDisaster | null>(null);
   const [isDisasterLoading, setIsDisasterLoading] = useState(true);
   const [disasterError, setDisasterError] = useState(false);
@@ -93,6 +89,13 @@ export default function ResidentDashboard() {
 
   const disasterIsActive = activeDisaster?.status.toLowerCase() === 'active';
   const timePresentation = getTimeOfDayPresentation(now);
+  const GreetingIcon = timePresentation.label === 'Dawn'
+    ? Sunrise
+    : timePresentation.label === 'Dusk'
+      ? Sunset
+      : timePresentation.label === 'Night'
+        ? Moon
+        : Sun;
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
@@ -113,13 +116,14 @@ export default function ResidentDashboard() {
             <Text style={styles.greetingTitle}>{greeting}, Biñanense!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
-          <View style={[styles.weatherIcon, { borderColor: presentation.accent, backgroundColor: '#FFFFFF' }]} accessibilityLabel={`${presentation.description}, ${Math.round(weather.temperature)} degrees`}><MaterialCommunityIcons name={presentation.icon} size={26} color={presentation.accent} /></View>
+          <View style={[styles.weatherIcon, { borderColor: getReadableColor(presentation.accent, resolvedTheme), backgroundColor: Colors.surface }]} accessibilityLabel={`${timePresentation.label}, ${presentation.description}, ${Math.round(weather.temperature)} degrees`}><GreetingIcon size={23} color={getReadableColor(presentation.accent, resolvedTheme)} strokeWidth={2.5} /></View>
         </View>
 
         <WeatherWidget weather={weather} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={disasterIsActive} />
 
         <ActiveDisasterCard
           active={disasterIsActive}
+          upcoming={activeDisaster?.status.toLowerCase() === 'upcoming'}
           title={isDisasterLoading ? 'Checking disaster status...' : activeDisaster?.name || 'No active disaster'}
           description={disasterError ? 'Live status unavailable' : activeDisaster ? `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affected_areas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}` : 'Monitoring live reports'}
         />
@@ -129,7 +133,7 @@ export default function ResidentDashboard() {
             icon="account-outline"
             title="MY STATUS"
             detail={getResidentStatusLabel(evacuationStatusUnavailable, evacuationStatus)}
-            status={getResidentStatusStyle(evacuationStatusUnavailable, evacuationStatus)}
+            status={getResidentStatusStyle(evacuationStatusUnavailable, evacuationStatus, resolvedTheme)}
           />
           <StatusTile
             icon="account-multiple-outline"
@@ -140,7 +144,7 @@ export default function ResidentDashboard() {
         </View>
 
         <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-        <View style={styles.actionGrid}>{actions.map((action) => <AnimatedPressable key={action.label} style={styles.actionButton} onPress={() => router.push(action.route)}><Text style={styles.actionLabel}>{action.label}</Text><MaterialCommunityIcons name={action.icon} size={32} color="#218B25" style={styles.actionIcon} /></AnimatedPressable>)}</View>
+        <View style={styles.actionGrid}>{actions.map((action) => <AnimatedPressable key={action.label} style={styles.actionButton} onPress={() => router.push(action.route)}><Text style={styles.actionLabel}>{action.label}</Text><MaterialCommunityIcons name={action.icon} size={32} color={getReadableColor('#218B25', resolvedTheme)} style={styles.actionIcon} /></AnimatedPressable>)}</View>
         <View style={styles.resourceRow}>
           <ResourceButton
             icon="phone-in-talk-outline"
@@ -166,26 +170,38 @@ function getResidentStatusLabel(unavailable: boolean, status: ResidentEvacuation
   return status.status === 'checked_in' ? 'CHECKED-IN' : status.status.toUpperCase();
 }
 
-function getResidentStatusStyle(unavailable: boolean, status: ResidentEvacuationStatus | null): ResidentStatusStyle {
-  if (unavailable) return RESIDENT_STATUS_STYLES.unavailable;
-  if (!status || status.status === 'not_registered') return RESIDENT_STATUS_STYLES.safe;
-  if (status.status === 'checked_in') return RESIDENT_STATUS_STYLES.checkedIn;
-  if (status.status === 'evacuated') return RESIDENT_STATUS_STYLES.evacuated;
-  return RESIDENT_STATUS_STYLES.released;
+function getResidentStatusStyle(unavailable: boolean, status: ResidentEvacuationStatus | null, theme: 'light' | 'dark'): ResidentStatusStyle {
+  const selected = unavailable
+    ? ['#A34545', '#8D3C3C']
+    : !status || status.status === 'not_registered'
+      ? ['#218B25', '#176B1D']
+      : status.status === 'checked_in'
+        ? ['#1769AA', '#175384']
+        : status.status === 'evacuated'
+          ? ['#B36E00', '#8A5700']
+          : ['#667085', '#52606D'];
+  return {
+    backgroundColor: Colors.surfaceMuted,
+    iconColor: getReadableColor(selected[0], theme),
+    textColor: selected[1],
+  };
 }
 
-function StatusTile({ icon, title, detail, onPress, status }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress?: () => void; status?: { backgroundColor: string; iconColor: string; textColor: string } }) {
-  const content = <><MaterialCommunityIcons name={icon} size={29} color={status?.iconColor ?? '#1E5987'} /><View style={styles.statusCopy}><Text style={[styles.statusTitle, status && { color: status.textColor }]}>{title}</Text><Text style={[styles.statusDetail, status && { color: status.textColor }]}>{detail}</Text></View></>;
+function StatusTile({ icon, title, detail, onPress, status }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress?: () => void; status?: ResidentStatusStyle }) {
+  const { resolvedTheme } = useTheme();
+  const content = <><MaterialCommunityIcons name={icon} size={29} color={status?.iconColor ?? getReadableColor('#1E5987', resolvedTheme)} /><View style={styles.statusCopy}><Text style={[styles.statusTitle, { color: status?.textColor ?? '#1E5987' }]}>{title}</Text><Text style={[styles.statusDetail, { color: status?.textColor ?? '#1E5987' }]}>{detail}</Text></View></>;
   return onPress ? <AnimatedPressable style={[styles.statusTile, status && { backgroundColor: status.backgroundColor }]} onPress={onPress}>{content}</AnimatedPressable> : <View style={[styles.statusTile, status && { backgroundColor: status.backgroundColor }]} accessibilityRole="text">{content}</View>;
 }
 
 function ResourceButton({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {
-  return <AnimatedPressable style={styles.resourceButton} onPress={onPress}><View style={styles.resourceCopy}><Text style={styles.resourceTitle}>{title}</Text><Text style={styles.resourceDetail}>{detail}</Text></View><MaterialCommunityIcons name={icon} size={28} color="#218B25" /></AnimatedPressable>;
+  const { resolvedTheme } = useTheme();
+  const accent = getReadableColor('#218B25', resolvedTheme);
+  return <AnimatedPressable style={styles.resourceButton} onPress={onPress}><View style={styles.resourceCopy}><Text style={[styles.resourceTitle, { color: accent }]}>{title}</Text><Text style={styles.resourceDetail}>{detail}</Text></View><MaterialCommunityIcons name={icon} size={28} color={accent} /></AnimatedPressable>;
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.white },
-  container: { flex: 1, backgroundColor: Colors.white },
+  safeArea: { flex: 1, backgroundColor: Colors.surface },
+  container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 22 },
   header: { height: 86, paddingHorizontal: 18, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brandRow: { flexDirection: 'row', alignItems: 'center' },
@@ -208,8 +224,8 @@ const styles = StyleSheet.create({
   weatherMeta: { color: '#F3FAFF', fontSize: 9, marginTop: 9 },
   tipCard: { minHeight: 62, marginHorizontal: 18, marginBottom: 12, paddingHorizontal: 12, paddingVertical: 10, borderLeftWidth: 4, borderRadius: 7, backgroundColor: 'rgba(255,255,255,0.78)', flexDirection: 'row', alignItems: 'center' },
   tipCopy: { flex: 1, marginLeft: 9 },
-  tipTitle: { color: '#345044', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
-  tipText: { color: '#40544A', fontSize: 10, lineHeight: 15, marginTop: 3 },
+  tipTitle: { color: Colors.textMuted, fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  tipText: { color: Colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 3 },
   disasterCard: { minHeight: 61, marginHorizontal: 18, marginTop: 0, marginBottom: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#D63F43', flexDirection: 'row', alignItems: 'center' },
   disasterCardActive: { minHeight: 102, marginBottom: 12, paddingHorizontal: 14, borderRadius: 9 },
   disasterCardEmpty: { backgroundColor: '#6B7B85' },
@@ -221,19 +237,19 @@ const styles = StyleSheet.create({
   disasterStatus: { color: Colors.white, fontSize: 9, marginTop: 2 },
   disasterStatusActive: { fontSize: 12 },
   statusRow: { flexDirection: 'row', gap: 9, marginHorizontal: 18, marginBottom: 14 },
-  statusTile: { flex: 1, minHeight: 70, paddingHorizontal: 8, borderRadius: 8, backgroundColor: '#EEF2EF', flexDirection: 'row', alignItems: 'center' },
+  statusTile: { flex: 1, minHeight: 70, paddingHorizontal: 8, borderRadius: 8, backgroundColor: Colors.surfaceMuted, flexDirection: 'row', alignItems: 'center' },
   statusCopy: { marginLeft: 8 },
   statusTitle: { color: '#1E5987', fontSize: 10, fontWeight: '800' },
   statusDetail: { color: '#218B25', fontSize: 9, marginTop: 3 },
   resourceRow: { gap: 9, marginHorizontal: 18, marginTop: 10, marginBottom: 14 },
-  resourceButton: { minHeight: 46, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#EEF2EF', flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+  resourceButton: { minHeight: 46, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.surfaceMuted, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
   resourceCopy: { flex: 1, marginRight: 8 },
   resourceTitle: { color: '#218B25', fontSize: 9, fontWeight: '800', flexShrink: 1 },
-  resourceDetail: { color: '#4C7750', fontSize: 9, marginTop: 2 },
+  resourceDetail: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
   sectionTitle: { color: '#218B25', fontSize: 16, fontWeight: '800', marginHorizontal: 18, marginTop: 0, marginBottom: 8 },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, marginHorizontal: 18 },
-  actionButton: { width: '48%', height: 74, borderRadius: 8, backgroundColor: '#EEF2EF', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: 'transparent' },
-  actionButtonHovered: { transform: [{ translateY: -3 }], backgroundColor: '#FFFFFF', borderColor: '#8BC58B', shadowColor: '#1769AA', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.16, shadowRadius: 7, elevation: 5 },
+  actionButton: { width: '48%', height: 74, borderRadius: 8, backgroundColor: Colors.surfaceMuted, justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: 'transparent' },
+  actionButtonHovered: { transform: [{ translateY: -3 }], backgroundColor: Colors.surface, borderColor: '#8BC58B', shadowColor: '#1769AA', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.16, shadowRadius: 7, elevation: 5 },
   buttonPressed: { transform: [{ translateY: 1 }] },
   actionLabel: { color: '#218B25', fontSize: 11, fontWeight: '700', flexShrink: 1 },
   actionIcon: { alignSelf: 'flex-end' },

@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, StyleSheet, View } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import ResponderLiveMap from '@components/ResponderLiveMap';
 
@@ -22,10 +23,10 @@ export default function MapScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F7FAF7' },
+  safeArea: { flex: 1, backgroundColor: Colors.background },
   content: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center' },
   header: { backgroundColor: GREEN, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12 },
   headerTitle: { color: Colors.white, fontSize: 28, fontWeight: '800' },
   headerSubtitle: { color: '#DFF1DF', fontSize: 12, marginTop: 2 },
-  webMap: { flex: 1, margin: 14, borderWidth: 1, borderColor: GREEN, borderRadius: 8, overflow: 'hidden', backgroundColor: '#EAF2EF' },
+  webMap: { flex: 1, margin: 14, borderWidth: 1, borderColor: GREEN, borderRadius: 8, overflow: 'hidden', backgroundColor: Colors.surfaceMuted },
 });

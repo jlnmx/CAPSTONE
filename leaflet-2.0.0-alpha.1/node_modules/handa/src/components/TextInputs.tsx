@@ -4,15 +4,8 @@
 
 import React, { useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import {
-  View,
-  TextInput as RNTextInput,
-  Text,
-  StyleSheet,
-  ViewStyle,
-  TextStyle,
-  StyleProp,
-} from 'react-native';
+import { View, TextInput as RNTextInput, StyleSheet, ViewStyle, TextStyle, StyleProp } from 'react-native';
+import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
@@ -142,8 +135,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     fontSize: Typography.sizes.base,
-    color: '#17212B',
-    backgroundColor: Colors.white,
+    color: Colors.text,
+    backgroundColor: Colors.surface,
   },
   inputError: {
     borderColor: Colors.emergency,
