@@ -3,27 +3,30 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { Animated } from 'react-native';
+import { Animated, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
 import { StartupLocationPermission } from '@components/StartupLocationPermission';
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
+import { getResponsiveTabBarOptions, getResponsiveTabIconSize } from '@utils/responsiveTabBar';
 
 interface TabBarIconProps {
   name: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   color: string;
+  size: number;
 }
 
-function TabBarIcon({ name, color }: TabBarIconProps) {
-  return <MaterialCommunityIcons name={name} size={23} color={color} />;
+function TabBarIcon({ name, color, size }: TabBarIconProps) {
+  return <MaterialCommunityIcons name={name} size={size} color={color} />;
 }
 
-function SosTabIcon({ active }: { active: boolean }) {
+function SosTabIcon({ active, size }: { active: boolean; size: number }) {
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -40,7 +43,7 @@ function SosTabIcon({ active }: { active: boolean }) {
     return () => animation.stop();
   }, [active, pulse]);
 
-  return <Animated.View style={[styles.sosTab, { transform: [{ scale: pulse }] }]}><Text style={styles.sosTabText}>SOS</Text></Animated.View>;
+  return <Animated.View style={[styles.sosTab, { width: size + 18, height: size + 18, transform: [{ scale: pulse }] }]}><Text style={styles.sosTabText}>SOS</Text></Animated.View>;
 }
 
 export default function ResidentLayout() {
@@ -48,6 +51,10 @@ export default function ResidentLayout() {
   const router = useRouter();
   const segments = useSegments();
   const { palette } = useTheme();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const responsiveTabBar = getResponsiveTabBarOptions(width, insets.bottom, palette);
+  const tabIconSize = getResponsiveTabIconSize(width);
 
   useEffect(() => {
     if (isLoading || segments[0] !== '(resident)') return;
@@ -62,6 +69,7 @@ export default function ResidentLayout() {
     <>
     <Tabs
       screenOptions={{
+        ...responsiveTabBar,
         headerShown: false,
         tabBarButton: (props) => (
           <AnimatedPressable
@@ -75,62 +83,42 @@ export default function ResidentLayout() {
         ),
         tabBarActiveTintColor: '#218B25',
         tabBarInactiveTintColor: '#6B7B85',
-        tabBarStyle: {
-          backgroundColor: palette.surface,
-          borderTopColor: palette.border,
-          borderTopWidth: 1,
-          height: 72,
-          marginHorizontal: 8,
-          marginBottom: 8,
-          borderRadius: 16,
-          paddingBottom: 7,
-          paddingTop: 6,
-          shadowColor: '#163A25',
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.12,
-          shadowRadius: 8,
-          elevation: 5,
-        },
-        tabBarLabelStyle: {
-          fontSize: 9,
-          fontWeight: '700',
-          lineHeight: 11,
-        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <TabBarIcon name="home-outline" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="home-outline" color={color} size={tabIconSize} />,
         }}
       />
       <Tabs.Screen
         name="incidents"
         options={{
           title: 'Incidents',
-          tabBarIcon: ({ color }) => <TabBarIcon name="alert-outline" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="alert-outline" color={color} size={tabIconSize} />,
         }}
       />
       <Tabs.Screen
         name="sos"
         options={{
           title: 'SOS',
-          tabBarIcon: ({ focused }) => <SosTabIcon active={focused} />,
+          tabBarLabel: () => null,
+          tabBarIcon: ({ focused }) => <SosTabIcon active={focused} size={tabIconSize} />,
         }}
       />
       <Tabs.Screen
         name="map"
         options={{
           title: 'Map',
-          tabBarIcon: ({ color }) => <TabBarIcon name="map-outline" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="map-outline" color={color} size={tabIconSize} />,
         }}
       />
       <Tabs.Screen
         name="more"
         options={{
           title: 'More',
-          tabBarIcon: ({ color }) => <TabBarIcon name="dots-horizontal" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="dots-horizontal" color={color} size={tabIconSize} />,
         }}
       />
       <Tabs.Screen name="alerts" options={{ href: null }} />
@@ -148,6 +136,6 @@ export default function ResidentLayout() {
 }
 
 const styles = StyleSheet.create({
-  sosTab: { width: 42, height: 42, marginTop: -10, borderRadius: 22, borderWidth: 2, borderColor: '#E33E48', backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
+  sosTab: { marginTop: -4, borderRadius: 999, borderWidth: 2, borderColor: '#E33E48', backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
   sosTabText: { color: '#E33E48', fontSize: 13, fontWeight: '900' },
 });

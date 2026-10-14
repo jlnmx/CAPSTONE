@@ -110,6 +110,21 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           .navigation-route span { display: block; margin-top: 2px; color: #667085; font-size: 10px; }
           .navigation-message { margin: 9px 2px 2px; color: #667085; font-size: 11px; }
           .navigation-stop { width: 100%; margin-top: 8px; background: #FCEEEE; color: #A52D2D; }
+          .navigation-actions { display: flex; gap: 6px; flex-shrink: 0; }
+          .navigation-toggle { width: 38px; background: #F0F2F5; color: #344054; font-size: 17px; }
+          .navigation-panel.compact { padding: 8px 10px; }
+          .navigation-panel.compact .navigation-modes, .navigation-panel.compact .navigation-routes { display: none; }
+          .navigation-panel.compact .navigation-toggle { background: #E8F2E8; color: #175B19; }
+          .navigation-panel.compact .navigation-stop { width: auto; min-height: 30px; display: block; margin: 6px auto 0; padding: 4px 12px; }
+          .navigation-actions { display: flex; gap: 6px; flex-shrink: 0; }
+          .navigation-toggle { width: 38px; font-size: 0; }
+          .navigation-chevron { display: block; width: 8px; height: 8px; margin: 0 auto; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .16s ease; }
+          .navigation-toggle[aria-expanded="false"] .navigation-chevron { transform: rotate(225deg); }
+          .navigation-title { display: -webkit-box; overflow: hidden; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+          .navigation-stats { line-height: 1.35; overflow-wrap: anywhere; }
+          .navigation-routes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr)); gap: 7px; overflow: visible; }
+          .navigation-route { width: 100%; min-width: 0; min-height: 54px; box-sizing: border-box; }
+          @media(max-width:350px) { .navigation-panel { left: 5px; right: 5px; bottom: 8px; padding: 9px; } .navigation-actions { gap: 4px; } .navigation-panel button { padding: 6px 7px; font-size: 10px; } .navigation-toggle { width: 34px; } .navigation-modes button { padding: 7px 3px; font-size: 10px; } .navigation-panel.compact { padding: 7px 9px; } .navigation-panel.compact .navigation-stop { min-height: 28px; } }
           @media(max-width:480px) { .navigation-panel { left: 7px; right: 7px; bottom: 10px; padding: 10px; } .navigation-modes button { padding: 7px 3px; font-size: 10px; } }
         </style>
       </head>
@@ -229,6 +244,12 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             navigationPanel.querySelectorAll('[data-route-index]').forEach((button) => button.classList.toggle('active', Number(button.dataset.routeIndex) === index));
             if (fit && routeLayers[index]) map.fitBounds(routeLayers[index].getBounds(), { padding: [45, 45] });
             updateNavigationStats();
+            navigationPanel.classList.add('compact');
+            const toggle = navigationPanel.querySelector('.navigation-toggle');
+            if (toggle) {
+              toggle.setAttribute('aria-label', 'Show route options');
+              toggle.setAttribute('aria-expanded', 'false');
+            }
           }
           async function loadRoutes() {
             const stats = navigationStats();
@@ -260,6 +281,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             navigationRoutes = [];
             routeRequestId += 1;
             clearRoute();
+            navigationPanel.classList.remove('compact');
             navigationPanel.style.display = 'none';
             infoPanel.style.display = 'block';
           }
@@ -268,7 +290,8 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             followingUser = true;
             activeProfile = 'driving';
             activeDestination = item.position;
-            navigationPanel.innerHTML = '<div class="navigation-top"><div class="navigation-copy"><span class="navigation-eyebrow">NAVIGATING TO</span><strong class="navigation-title">' + escapeHtml(item.name) + '</strong><span class="navigation-stats">' + (hasLocatedUser ? 'Finding routes…' : locationUnavailableMessage || 'Waiting for a GPS signal…') + '</span></div><button class="navigation-recenter" type="button">Recenter</button></div><div class="navigation-modes"><button type="button" data-profile="walking">On foot</button><button type="button" data-profile="cycling">Two wheels</button><button class="active" type="button" data-profile="driving">Four wheels</button></div><div class="navigation-routes"></div><button class="navigation-stop" type="button">End navigation</button>';
+            navigationPanel.classList.remove('compact');
+            navigationPanel.innerHTML = '<div class="navigation-top"><div class="navigation-copy"><span class="navigation-eyebrow">NAVIGATING TO</span><strong class="navigation-title">' + escapeHtml(item.name) + '</strong><span class="navigation-stats">' + (hasLocatedUser ? 'Finding routes…' : locationUnavailableMessage || 'Waiting for a GPS signal…') + '</span></div><div class="navigation-actions"><button class="navigation-recenter" type="button">Recenter</button><button class="navigation-toggle" type="button" aria-label="Minimize route options" aria-expanded="true"><span class="navigation-chevron"></span></button></div></div><div class="navigation-modes"><button type="button" data-profile="walking">On foot</button><button type="button" data-profile="cycling">Two wheels</button><button class="active" type="button" data-profile="driving">Four wheels</button></div><div class="navigation-routes"></div><button class="navigation-stop" type="button">End navigation</button>';
             infoPanel.style.display = 'none';
             navigationPanel.style.display = 'block';
             if (hasLocatedUser) void loadRoutes();
@@ -276,7 +299,13 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           navigationPanel.addEventListener('click', (event) => {
             const target = event.target;
             const profileButton = target.closest('[data-profile]');
-            if (target.closest('.navigation-recenter')) { followingUser = true; if (hasLocatedUser) map.setView(currentPosition, Math.max(map.getZoom(), 16), { animate: true }); }
+            const toggle = target.closest('.navigation-toggle');
+            if (toggle) {
+              const isExpanded = navigationPanel.classList.toggle('compact') === false;
+              toggle.setAttribute('aria-label', isExpanded ? 'Minimize route options' : 'Show route options');
+              toggle.setAttribute('aria-expanded', String(isExpanded));
+            }
+            else if (target.closest('.navigation-recenter')) { followingUser = true; if (hasLocatedUser) map.setView(currentPosition, Math.max(map.getZoom(), 16), { animate: true }); }
             else if (target.closest('.navigation-stop')) stopNavigation();
             else if (profileButton && profileButton.dataset.profile !== activeProfile) {
               activeProfile = profileButton.dataset.profile;
