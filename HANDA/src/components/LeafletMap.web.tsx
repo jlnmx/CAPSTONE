@@ -7,11 +7,9 @@ import { MapEvacuationCenter } from '@types/index';
 const BINAN_CENTER: [number, number] = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const LeafletApi = (Leaflet as any).default ?? Leaflet;
-const markerIconAsset = require('../vendor/leaflet/images/marker-icon.png');
-const markerShadowAsset = require('../vendor/leaflet/images/marker-shadow.png');
-const markerIconUrl = markerIconAsset?.default?.uri ?? markerIconAsset?.default ?? markerIconAsset?.uri ?? markerIconAsset;
-const markerShadowUrl = markerShadowAsset?.default?.uri ?? markerShadowAsset?.default ?? markerShadowAsset?.uri ?? markerShadowAsset;
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+const hasAppLocationPermission = () => typeof window !== 'undefined'
+  && (window as Window & { __handaLocationGranted?: boolean }).__handaLocationGranted === true;
 
 interface LeafletMapProps {
   centers?: MapEvacuationCenter[];
@@ -27,6 +25,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     }
 
     const map = new LeafletApi.Map(mapElement.current);
+    let isDisposed = false;
     map.setView(BINAN_CENTER, 14);
     map.attributionControl.setPrefix(false);
     Object.assign(map.attributionControl.getContainer().style, {
@@ -46,24 +45,8 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       },
     ).addTo(map);
 
-    const marker = new LeafletApi.Marker(BINAN_CENTER, {
-      draggable: true,
-      icon: new LeafletApi.Icon({
-        iconUrl: markerIconUrl,
-        shadowUrl: markerShadowUrl,
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        shadowSize: [41, 41],
-        shadowAnchor: [12, 41],
-      }),
-    }).addTo(map);
-    const binanPoint = new LeafletApi.CircleMarker(BINAN_CENTER, {
-      radius: 5,
-      color: '#ffffff',
-      fillColor: '#218B25',
-      fillOpacity: 1,
-      weight: 2,
-    }).addTo(map);
+    let userLocationMarker: any = null;
+    let userAccuracyCircle: any = null;
 
     const infoPanel = document.createElement('div');
     Object.assign(infoPanel.style, {
@@ -87,6 +70,15 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     });
     mapElement.current.appendChild(infoPanel);
     LeafletApi.DomEvent.disableClickPropagation(infoPanel);
+
+    const navigationPanel = document.createElement('div');
+    navigationPanel.className = 'handa-navigation-panel';
+    navigationPanel.innerHTML = '<div class="handa-navigation-top"><div class="handa-navigation-copy"><span class="handa-navigation-eyebrow">NAVIGATING TO</span><strong class="handa-navigation-title"></strong><span class="handa-navigation-stats">Finding your location…</span></div><button class="handa-recenter" type="button">Recenter</button></div><div class="handa-navigation-modes"><button type="button" data-profile="walking">On foot</button><button type="button" data-profile="cycling">Two wheels</button><button class="active" type="button" data-profile="driving">Four wheels</button></div><div class="handa-navigation-routes"></div><button class="handa-navigation-stop" type="button">End navigation</button>';
+    mapElement.current.appendChild(navigationPanel);
+    const navigationStyle = document.createElement('style');
+    navigationStyle.textContent = '.handa-navigation-panel{position:absolute;z-index:1000;left:12px;right:12px;bottom:24px;max-width:460px;margin:0 auto;padding:14px;background:#fff;border:1px solid #D7E2EA;border-radius:12px;box-shadow:0 4px 18px rgba(23,33,43,.2);font:14px/1.4 InstrumentSans_400Regular,Arial,sans-serif;color:#17212B;display:none;box-sizing:border-box}.handa-navigation-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.handa-navigation-copy{min-width:0;display:flex;flex-direction:column}.handa-navigation-eyebrow{color:#667085;font-size:10px;font-weight:800;letter-spacing:.7px}.handa-navigation-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px}.handa-navigation-stats{color:#175B19;font-size:13px;font-weight:700;margin-top:2px}.handa-navigation-modes{display:flex;gap:4px;padding:4px;margin-top:12px;border-radius:8px;background:#F0F2F5}.handa-navigation-modes button,.handa-recenter,.handa-navigation-route,.handa-navigation-stop{min-height:40px;border:0;border-radius:6px;padding:8px 10px;font:600 12px InstrumentSans_400Regular,Arial,sans-serif;cursor:pointer}.handa-navigation-modes button{flex:1;background:transparent;color:#526052}.handa-navigation-modes button.active{background:#fff;color:#218B25;box-shadow:0 1px 4px rgba(23,33,43,.16)}.handa-recenter{flex-shrink:0;background:#E8F2E8;color:#175B19}.handa-navigation-routes{display:flex;gap:7px;margin-top:9px;overflow-x:auto}.handa-navigation-route{min-width:112px;flex:1;text-align:left;background:#F7F9FA;border:1px solid #D7E2EA;color:#17212B}.handa-navigation-route.active{border-color:#218B25;background:#EDF7EE}.handa-navigation-route strong,.handa-navigation-route span{display:block}.handa-navigation-route span{margin-top:2px;color:#667085;font-size:11px}.handa-navigation-message{margin:10px 2px 2px;color:#667085;font-size:12px}.handa-navigation-stop{width:100%;margin-top:9px;background:#FCEEEE;color:#A52D2D;font-weight:700}@media(max-width:480px){.handa-navigation-panel{left:8px;right:8px;bottom:12px;padding:11px}.handa-navigation-modes button{padding:8px 4px;font-size:11px}.handa-navigation-route{min-width:100px}}';
+    document.head.appendChild(navigationStyle);
+    LeafletApi.DomEvent.disableClickPropagation(navigationPanel);
 
     const escapeHtml = (value: string) =>
       value.replace(/[&<>'"]/g, (character) => ({
@@ -129,13 +121,50 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       }),
     }).addTo(map));
     let reportedMarkers: any[] = [];
-    let routeLine: any = null;
+    let routeLayers: any[] = [];
+    let trackedPosition: [number, number] | null = null;
+    let navigationDestination: [number, number] | null = null;
+    let navigationRoutes: any[] = [];
+    let selectedRouteIndex = 0;
+    let activeProfile = 'driving';
+    let locationWatchId: number | null = null;
+    let locationAccuracy = 0;
+    let routeRequestId = 0;
+    let followingUser = true;
+    let isNavigating = false;
+
+    const updateUserLocation = (position: [number, number], accuracy: number) => {
+      trackedPosition = position;
+      locationAccuracy = accuracy;
+      if (!userLocationMarker) {
+        userLocationMarker = new LeafletApi.CircleMarker(position, {
+          radius: 8,
+          color: '#ffffff',
+          fillColor: '#2563eb',
+          fillOpacity: 1,
+          weight: 3,
+          interactive: false,
+        }).addTo(map);
+      } else {
+        userLocationMarker.setLatLng(position);
+      }
+      if (!userAccuracyCircle) {
+        userAccuracyCircle = new LeafletApi.Circle(position, accuracy, {
+          color: '#2563eb',
+          fillColor: '#2563eb',
+          fillOpacity: 0.08,
+          weight: 1,
+          interactive: false,
+        }).addTo(map);
+      } else {
+        userAccuracyCircle.setLatLng(position);
+        userAccuracyCircle.setRadius(accuracy);
+      }
+    };
 
     const clearRoute = () => {
-      if (routeLine) {
-        routeLine.remove();
-        routeLine = null;
-      }
+      routeLayers.forEach((layer) => layer.remove());
+      routeLayers = [];
     };
 
     const distanceInKm = (first: [number, number], second: [number, number]) => {
@@ -151,37 +180,172 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       return distance < nearest.distance ? { item, distance } : nearest;
     }, { item: null, distance: Number.POSITIVE_INFINITY });
 
-    const drawRoute = async (start: [number, number], destination: [number, number]) => {
-      if (routeLine) routeLine.remove();
-      let route: [number, number][] = [start, destination];
-      if (mapboxToken) {
-        try {
-          const response = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${start[1]},${start[0]};${destination[1]},${destination[0]}?geometries=geojson&overview=full&access_token=${mapboxToken}`);
-          const data = await response.json();
-          const coordinates = data.routes?.[0]?.geometry?.coordinates;
-          if (coordinates?.length) route = coordinates.map(([longitude, latitude]: [number, number]) => [latitude, longitude]);
-        } catch {
-          // Keep the direct guidance line when routing is unavailable.
+    const formatDistance = (meters: number) => meters < 1000 ? `${Math.max(0, Math.round(meters))} m` : `${(meters / 1000).toFixed(1)} km`;
+    const formatDuration = (seconds: number) => {
+      const minutes = Math.max(1, Math.round(seconds / 60));
+      return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
+    };
+    const navigationStats = navigationPanel.querySelector<HTMLElement>('.handa-navigation-stats');
+    const navigationTitle = navigationPanel.querySelector<HTMLElement>('.handa-navigation-title');
+    const navigationRoutesElement = navigationPanel.querySelector<HTMLElement>('.handa-navigation-routes');
+
+    const updateNavigationStats = (position: [number, number]) => {
+      const route = navigationRoutes[selectedRouteIndex];
+      if (!route || !navigationStats) return;
+      const coordinates = route.geometry.coordinates.map(([longitude, latitude]: [number, number]) => [latitude, longitude] as [number, number]);
+      let nearestIndex = 0;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      coordinates.forEach((coordinate: [number, number], index: number) => {
+        const distance = distanceInKm(position, coordinate);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestIndex = index;
         }
+      });
+      let remainingKm = distanceInKm(position, coordinates[nearestIndex]);
+      for (let index = nearestIndex; index < coordinates.length - 1; index += 1) {
+        remainingKm += distanceInKm(coordinates[index], coordinates[index + 1]);
       }
-      routeLine = new LeafletApi.Polyline(route, { color: '#D98C18', weight: 5, opacity: 0.85 }).addTo(map);
-      map.fitBounds(routeLine.getBounds(), { padding: [42, 42] });
+      const remainingRatio = route.distance > 0 ? Math.min(1, remainingKm * 1000 / route.distance) : 0;
+      navigationStats.textContent = `${formatDistance(remainingKm * 1000)} remaining · ${formatDuration(route.duration * remainingRatio)}${trackedPosition ? ` · GPS ±${Math.round(locationAccuracy)} m` : ''}`;
     };
 
-    const showCenter = (center: MapEvacuationCenter, destination: [number, number], userPosition: [number, number], distance?: number) => {
+    const selectRoute = (index: number, fit = false) => {
+      if (!navigationRoutes[index]) return;
+      selectedRouteIndex = index;
+      clearRoute();
+      navigationRoutes.forEach((route, routeIndex) => {
+        const coordinates = route.geometry.coordinates.map(([longitude, latitude]: [number, number]) => [latitude, longitude] as [number, number]);
+        const selected = routeIndex === selectedRouteIndex;
+        const layer = new LeafletApi.Polyline(coordinates, {
+          color: selected ? '#1769AA' : '#8FA6B0',
+          weight: selected ? 7 : 4,
+          opacity: selected ? 0.95 : 0.65,
+          dashArray: selected ? undefined : '7 8',
+        }).addTo(map);
+        routeLayers.push(layer);
+      });
+      navigationRoutesElement?.querySelectorAll<HTMLButtonElement>('[data-route-index]').forEach((button) => {
+        button.classList.toggle('active', Number(button.dataset.routeIndex) === selectedRouteIndex);
+      });
+      if (fit && routeLayers[index]) map.fitBounds(routeLayers[index].getBounds(), { padding: [48, 48] });
+      if (trackedPosition) updateNavigationStats(trackedPosition);
+    };
+
+    const loadRoutes = async () => {
+      if (!trackedPosition || !navigationDestination || !navigationStats) return;
+      if (!mapboxToken) {
+        navigationStats.textContent = 'Directions unavailable. Check the map routing configuration.';
+        return;
+      }
+      const requestId = ++routeRequestId;
+      navigationStats.textContent = 'Finding routes…';
+      clearRoute();
+      try {
+        const start = trackedPosition;
+        const destination = navigationDestination;
+        const url = `https://api.mapbox.com/directions/v5/mapbox/${activeProfile}/${start[1]},${start[0]};${destination[1]},${destination[0]}?alternatives=true&steps=true&geometries=geojson&overview=full&access_token=${mapboxToken}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Route request failed');
+        const result = await response.json();
+        if (isDisposed || requestId !== routeRequestId) return;
+        if (result.code !== 'Ok' || !Array.isArray(result.routes) || result.routes.length === 0) throw new Error('No routes found');
+        navigationRoutes = result.routes;
+        selectedRouteIndex = 0;
+        if (navigationRoutesElement) {
+          navigationRoutesElement.innerHTML = navigationRoutes.map((route: any, index: number) => `<button class="handa-navigation-route${index === 0 ? ' active' : ''}" type="button" data-route-index="${index}" aria-label="Route ${index + 1}, ${formatDistance(route.distance)}, ${formatDuration(route.duration)}"><strong>Route ${index + 1}</strong><span>${formatDistance(route.distance)} · ${formatDuration(route.duration)}</span></button>`).join('');
+          navigationRoutesElement.querySelectorAll<HTMLButtonElement>('[data-route-index]').forEach((button) => {
+            button.addEventListener('click', () => selectRoute(Number(button.dataset.routeIndex)));
+          });
+        }
+        selectRoute(0, true);
+      } catch {
+        if (!isDisposed && requestId === routeRequestId) navigationStats.textContent = 'Could not get road directions. Check your connection and try again.';
+      }
+    };
+
+    const startLocationWatch = () => {
+      if (!hasAppLocationPermission()) {
+        if (navigationStats) navigationStats.textContent = 'Allow location access from the app startup dialog before navigating.';
+        return;
+      }
+      if (!navigator.geolocation) {
+        if (navigationStats) navigationStats.textContent = 'Location is unavailable in this browser.';
+        return;
+      }
+      if (locationWatchId != null) return;
+      locationWatchId = navigator.geolocation.watchPosition((position) => {
+        if (isDisposed) return;
+        const previousPosition = trackedPosition;
+        const nextPosition: [number, number] = [position.coords.latitude, position.coords.longitude];
+        updateUserLocation(nextPosition, position.coords.accuracy);
+        if (!previousPosition) {
+          map.setView(nextPosition, 15, { animate: false });
+          void updateInfoPanel({ lat: nextPosition[0], lng: nextPosition[1] });
+        }
+        if (isNavigating && followingUser) map.panTo(trackedPosition, { animate: true, duration: 0.35 });
+        if (isNavigating && navigationRoutes.length > 0) updateNavigationStats(trackedPosition);
+        else if (isNavigating) void loadRoutes();
+      }, () => {
+        if (navigationStats) navigationStats.textContent = 'Waiting for a GPS signal…';
+      }, { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 });
+    };
+
+    const stopNavigation = () => {
+      isNavigating = false;
+      navigationDestination = null;
+      navigationRoutes = [];
+      routeRequestId += 1;
+      clearRoute();
+      navigationPanel.style.display = 'none';
+      infoPanel.style.display = 'block';
+    };
+
+    const startNavigation = (center: MapEvacuationCenter, destination: [number, number]) => {
+      isNavigating = true;
+      navigationDestination = destination;
+      followingUser = true;
+      activeProfile = 'driving';
+      navigationPanel.querySelectorAll<HTMLButtonElement>('[data-profile]').forEach((button) => button.classList.toggle('active', button.dataset.profile === activeProfile));
+      navigationTitle && (navigationTitle.textContent = center.name);
+      infoPanel.style.display = 'none';
+      navigationPanel.style.display = 'block';
+      startLocationWatch();
+      if (trackedPosition) void loadRoutes();
+    };
+
+    navigationPanel.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('.handa-recenter')) {
+        followingUser = true;
+        if (trackedPosition) map.setView(trackedPosition, Math.max(map.getZoom(), 16), { animate: true });
+      } else if (target.closest('.handa-navigation-stop')) {
+        stopNavigation();
+      } else {
+        const profileButton = target.closest<HTMLButtonElement>('[data-profile]');
+        if (profileButton && profileButton.dataset.profile !== activeProfile) {
+          activeProfile = profileButton.dataset.profile ?? 'driving';
+          navigationPanel.querySelectorAll<HTMLButtonElement>('[data-profile]').forEach((button) => button.classList.toggle('active', button === profileButton));
+          void loadRoutes();
+        }
+      }
+    });
+    map.on('dragstart', () => {
+      if (isNavigating) followingUser = false;
+    });
+
+    const showCenter = (center: MapEvacuationCenter, destination: [number, number], distance?: number) => {
       const capacity = Math.max(0, Number(center.capacity) || 0);
       const occupancy = Math.max(0, Number(center.current_occupancy) || 0);
       const spaces = Math.max(0, capacity - occupancy);
       const acceptingRegistrations = center.status !== 'closed' && center.status !== 'full' && spaces > 0;
-      showInfoPanel('Evacuation center', `<strong style="display:block;font-size:16px;margin-bottom:5px">${escapeHtml(center.name)}</strong><span style="display:block;font-size:12px;color:#667085">${escapeHtml(center.location || 'Location not provided')}${distance == null ? '' : ` · ${distance.toFixed(1)} km away`}</span><span style="display:block;font-size:12px;margin-top:6px">Capacity: ${occupancy} of ${capacity} · ${spaces} spaces available</span><span style="display:block;font-size:12px;color:${acceptingRegistrations ? '#218B25' : '#B42318'};font-weight:700;margin-top:2px">${acceptingRegistrations ? 'Accepting registrations' : 'Not accepting registrations'}</span><button id="navigate-button" style="margin-top:10px;margin-right:7px;border:0;border-radius:5px;padding:9px 12px;background:#E8F2E8;color:#175B19;font-weight:700;cursor:pointer">Navigate</button><button id="select-center-button" ${acceptingRegistrations ? '' : 'disabled'} style="margin-top:10px;border:0;border-radius:5px;padding:9px 12px;background:${acceptingRegistrations ? '#218B25' : '#98A29A'};color:#fff;font-weight:700;cursor:${acceptingRegistrations ? 'pointer' : 'not-allowed'}">Select center</button>`);
-      infoPanel.querySelector('#navigate-button')?.addEventListener('click', async () => {
-        await drawRoute(userPosition, destination);
-        infoPanel.insertAdjacentHTML('beforeend', '<span style="display:block;margin-top:8px;color:#218B25;font-size:12px;font-weight:700">In-app navigation active. Follow the highlighted route.</span>');
-      });
+      showInfoPanel('Evacuation center', `<strong style="display:block;font-size:16px;margin-bottom:5px">${escapeHtml(center.name)}</strong><span style="display:block;font-size:12px;color:#667085">${escapeHtml(center.location || 'Location not provided')}${distance == null ? '' : ` · ${distance.toFixed(1)} km straight-line`}</span><span style="display:block;font-size:12px;margin-top:6px">Capacity: ${occupancy} of ${capacity} · ${spaces} spaces available</span><span style="display:block;font-size:12px;color:${acceptingRegistrations ? '#218B25' : '#B42318'};font-weight:700;margin-top:2px">${acceptingRegistrations ? 'Accepting registrations' : 'Not accepting registrations'}</span><button id="navigate-button" style="margin-top:10px;margin-right:7px;border:0;border-radius:5px;padding:9px 12px;background:#E8F2E8;color:#175B19;font-weight:700;cursor:pointer">Navigate</button><button id="select-center-button" ${acceptingRegistrations ? '' : 'disabled'} style="margin-top:10px;border:0;border-radius:5px;padding:9px 12px;background:${acceptingRegistrations ? '#218B25' : '#98A29A'};color:#fff;font-weight:700;cursor:${acceptingRegistrations ? 'pointer' : 'not-allowed'}">${acceptingRegistrations ? 'Select center' : 'Unavailable'}</button>`);
+      infoPanel.querySelector('#navigate-button')?.addEventListener('click', () => startNavigation(center, destination));
       infoPanel.querySelector('#select-center-button')?.addEventListener('click', () => onSelectCenter?.(center.id));
     };
 
     const updateInfoPanel = async (position: any) => {
+      if (isDisposed) return;
       const userPosition: [number, number] = [position.lat, position.lng];
       const nearest = findNearestCenter(userPosition);
       if (!nearest.item) {
@@ -189,17 +353,19 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         clearRoute();
         return;
       }
-      showCenter(nearest.item.center, nearest.item.position, userPosition, nearest.distance);
+      showCenter(nearest.item.center, nearest.item.position, nearest.distance);
       clearRoute();
     };
 
     const loadReportedIncidents = async () => {
       try {
+        if (isDisposed) return;
         reportedMarkers.forEach((reportedMarker) => reportedMarker.remove());
         reportedMarkers = [];
         const response = await fetch(`${API_BASE_URL}/api/v1/incidents`);
-        if (!response.ok) return;
+        if (!response.ok || isDisposed) return;
         const incidents = await response.json() as Array<Record<string, unknown>>;
+        if (isDisposed) return;
         reportedMarkers = incidents
           .filter((incident) => {
             const status = String(incident.status ?? incident.verificationStatus ?? incident.verification_status ?? 'reported').toLowerCase();
@@ -228,48 +394,50 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
 
     destinationMarkers.forEach((destinationMarker, index) => {
       destinationMarker.on('click', () => {
+        if (isNavigating) stopNavigation();
         clearRoute();
         const selected = mappedCenters[index];
-        const userPosition = marker.getLatLng();
-        showCenter(selected.center, selected.position, [userPosition.lat, userPosition.lng], distanceInKm([userPosition.lat, userPosition.lng], selected.position));
+        showCenter(selected.center, selected.position, trackedPosition ? distanceInKm(trackedPosition, selected.position) : undefined);
       });
     });
 
-    marker.on('dragend', () => {
-      void updateInfoPanel(marker.getLatLng());
-    });
-
-    map.on('click', (event: any) => {
-      clearRoute();
-      marker.setLatLng(event.latlng);
-      void updateInfoPanel(event.latlng);
-    });
-
-    if (navigator.geolocation) {
+    const requestCurrentPosition = () => {
+      if (!hasAppLocationPermission() || !navigator.geolocation) {
+        map.setView(BINAN_CENTER, 14);
+        return;
+      }
       navigator.geolocation.getCurrentPosition((position) => {
+        if (isDisposed) return;
         const currentPosition: [number, number] = [position.coords.latitude, position.coords.longitude];
-        marker.setLatLng(currentPosition);
-        new LeafletApi.CircleMarker(currentPosition, {
-          radius: 8,
-          color: '#ffffff',
-          fillColor: '#2563eb',
-          fillOpacity: 1,
-          weight: 3,
-        }).addTo(map);
-        map.fitBounds([BINAN_CENTER, currentPosition], { padding: [36, 36], maxZoom: 15 });
-        void updateInfoPanel(marker.getLatLng());
+        updateUserLocation(currentPosition, position.coords.accuracy);
+        map.setView(currentPosition, 15, { animate: false });
+        void updateInfoPanel({ lat: currentPosition[0], lng: currentPosition[1] });
       }, () => {
         map.setView(BINAN_CENTER, 14);
       }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 });
-    }
+    };
+    window.addEventListener('handa-location-permission-changed', requestCurrentPosition);
+    requestCurrentPosition();
 
-    void updateInfoPanel(marker.getLatLng());
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(() => {
+        if (!isDisposed) map.invalidateSize();
+      });
+    resizeObserver?.observe(mapElement.current);
 
     return () => {
+      isDisposed = true;
+      resizeObserver?.disconnect();
       window.clearInterval(incidentRefresh);
+      window.removeEventListener('handa-location-permission-changed', requestCurrentPosition);
+      if (locationWatchId != null && navigator.geolocation) navigator.geolocation.clearWatch(locationWatchId);
       infoPanel.remove();
+      navigationPanel.remove();
+      navigationStyle.remove();
       destinationMarkers.forEach((destinationMarker) => destinationMarker.remove());
-      binanPoint.remove();
+      userLocationMarker?.remove();
+      userAccuracyCircle?.remove();
       reportedMarkers.forEach((reportedMarker) => reportedMarker.remove());
       map.remove();
     };

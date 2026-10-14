@@ -48,7 +48,6 @@ export default function ResidentDashboard() {
   const { resolvedTheme } = useTheme();
   const { user } = useAuth();
   const [activeDisaster, setActiveDisaster] = useState<ActiveDisaster | null>(null);
-  const [isDisasterLoading, setIsDisasterLoading] = useState(true);
   const [disasterError, setDisasterError] = useState(false);
   const { weather, weatherEvents, presentation, isLoading: isWeatherLoading, isUnavailable: weatherError, now } = useWeather();
   const [liveTyphoons, setLiveTyphoons] = useState<LiveTyphoon[]>([]);
@@ -69,8 +68,6 @@ export default function ResidentDashboard() {
         setDisasterError(false);
       } catch {
         setDisasterError(true);
-      } finally {
-        setIsDisasterLoading(false);
       }
     };
 
@@ -162,12 +159,13 @@ export default function ResidentDashboard() {
 
         <WeatherWidget weather={weather} weatherEvents={weatherEvents} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={disasterIsActive} />
 
-        <ActiveDisasterCard
-          active={disasterIsActive}
-          upcoming={activeDisaster?.status.toLowerCase() === 'upcoming'}
-          title={isDisasterLoading ? 'Checking disaster status...' : activeDisaster?.name || 'No active disaster'}
-          description={disasterError ? 'Live status unavailable' : activeDisaster ? `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affected_areas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}` : 'Monitoring live reports'}
-        />
+        {disasterIsActive && activeDisaster && (
+          <ActiveDisasterCard
+            active
+            title={activeDisaster.name}
+            description={disasterError ? 'Live status unavailable' : `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affected_areas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}`}
+          />
+        )}
         {liveTyphoons.map((typhoon) => <TyphoonCard key={typhoon.id} typhoon={typhoon} />)}
         {typhoonFeedUnavailable && <Text style={styles.forecastFeedWarning}>Live tropical cyclone feed unavailable. Check the PAGASA bulletin.</Text>}
         {!typhoonFeedUnavailable && liveTyphoons.length === 0 && <Text style={styles.forecastFeedStatus}>No active Western Pacific cyclones reported by GDACS.</Text>}
@@ -253,8 +251,8 @@ const styles = StyleSheet.create({
   notificationButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
   notificationDot: { position: 'absolute', top: 6, right: 5, width: 6, height: 6, borderRadius: 3, backgroundColor: '#F5D14B' },
   greeting: { minHeight: 55, paddingHorizontal: 18, paddingTop: 11, paddingBottom: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  greetingTitle: { color: '#187821', fontSize: 15, fontWeight: '800' },
-  greetingDate: { color: '#187821', fontSize: 9, fontWeight: '600', marginTop: 4 },
+  greetingTitle: { color: '#218B25', fontSize: 15, fontWeight: '800' },
+  greetingDate: { color: '#218B25', fontSize: 9, fontWeight: '600', marginTop: 4 },
   weatherIcon: { width: 29, height: 29, borderRadius: 16, borderWidth: 2, borderColor: '#E3A02C', backgroundColor: '#FFD477', alignItems: 'center', justifyContent: 'center' },
   forecastFeedWarning: { marginHorizontal: 18, marginBottom: 10, color: '#8C302B', fontSize: 10 },
   forecastFeedStatus: { marginHorizontal: 18, marginBottom: 10, color: Colors.textMuted, fontSize: 9 },

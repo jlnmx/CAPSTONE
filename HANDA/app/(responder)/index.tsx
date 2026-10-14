@@ -92,15 +92,15 @@ export default function ResponderDashboard() {
 
         <ResponderWeatherCard disasterActive={disasterIsActive} />
 
-        <ActiveDisasterCard
-          active={disasterIsActive}
-          upcoming={activeDisaster?.status.toLowerCase() === 'upcoming'}
-          title={activeDisaster?.name ?? 'No active disaster'}
-          description={activeDisaster ? `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affectedAreas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}` : 'Monitoring server records'}
-          onPress={() => router.push('/map')}
-          interactiveWhenInactive
-          accessibilityLabel="Open map to review disaster and incident activity"
-        />
+        {disasterIsActive && activeDisaster && (
+          <ActiveDisasterCard
+            active
+            title={activeDisaster.name}
+            description={`${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affectedAreas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}`}
+            onPress={() => router.push('/map')}
+            accessibilityLabel="Open map to review disaster and incident activity"
+          />
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
@@ -185,12 +185,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   greetingTitle: {
-    color: '#187821',
+    color: '#218B25',
     fontSize: 15,
     fontWeight: '800',
   },
   greetingDate: {
-    color: '#187821',
+    color: '#218B25',
     fontSize: 9,
     fontWeight: '600',
     marginTop: 4,

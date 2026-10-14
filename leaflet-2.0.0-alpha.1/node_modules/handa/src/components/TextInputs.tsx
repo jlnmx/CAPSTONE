@@ -9,6 +9,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
+import { useTheme } from '@hooks/useTheme';
 
 interface TextInputProps {
   label?: string;
@@ -34,6 +35,8 @@ export function TextInput({
   keyboardType = 'default',
 }: TextInputProps) {
   const { buttonHeight, scale } = useResponsiveLayout();
+  const { palette, resolvedTheme } = useTheme();
+  const [focused, setFocused] = useState(false);
 
   return (
     <View style={containerStyle}>
@@ -41,9 +44,9 @@ export function TextInput({
       <RNTextInput
         style={[
           styles.input,
-          { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale },
+          { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale, color: palette.text, backgroundColor: palette.surface },
           inputStyle,
-          { color: '#000000', backgroundColor: '#FFFFFF' },
+          { borderColor: error ? Colors.emergency : focused ? Colors.secondary : palette.border },
           error && styles.inputError,
           !editable && styles.inputDisabled,
         ]}
@@ -53,6 +56,10 @@ export function TextInput({
         onChangeText={onChangeText}
         editable={editable}
         keyboardType={keyboardType}
+        keyboardAppearance={resolvedTheme}
+        selectionColor={Colors.secondary}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
@@ -82,6 +89,8 @@ export function PasswordInput({
 }: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
   const { buttonHeight, scale } = useResponsiveLayout();
+  const { palette, resolvedTheme } = useTheme();
+  const [focused, setFocused] = useState(false);
 
   return (
     <View style={containerStyle}>
@@ -91,9 +100,9 @@ export function PasswordInput({
           style={[
             styles.input,
             styles.passwordInput,
-            { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale },
+            { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale, color: palette.text, backgroundColor: palette.surface },
             inputStyle,
-            { color: '#000000', backgroundColor: '#FFFFFF' },
+            { borderColor: error ? Colors.emergency : focused ? Colors.secondary : palette.border },
             error && styles.inputError,
           ]}
           placeholder={placeholder}
@@ -102,6 +111,10 @@ export function PasswordInput({
           onChangeText={onChangeText}
           secureTextEntry={!showPassword}
           autoCapitalize="none"
+          keyboardAppearance={resolvedTheme}
+          selectionColor={Colors.secondary}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
         />
         {showVisibilityToggle && (
           <TouchableOpacity
@@ -132,7 +145,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: Colors.background,
+    borderColor: Colors.border,
     borderRadius: BorderRadius.md,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,

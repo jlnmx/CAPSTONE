@@ -18,7 +18,7 @@ from .auth import CurrentUser, create_access_token, get_current_user, normalize_
 from .config import settings
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import GDACS_SOURCE_URL, get_live_typhoons
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 
 logger = logging.getLogger(__name__)
@@ -142,6 +142,47 @@ def notify_responder_application_status(email: str, mobile_number: str, responde
             logger.exception("Responder application SMS notification could not be delivered.")
     else:
         logger.warning("Responder application SMS notification not sent because Twilio is not configured.")
+
+
+def deliver_incident_alert(email: str, mobile_number: str, title: str, message: str, email_enabled: bool, sms_enabled: bool) -> None:
+    if email_enabled:
+        if not settings.smtp_host or not settings.smtp_from:
+            logger.warning("Incident email alert skipped because SMTP is not configured.")
+        else:
+            try:
+                email_message = EmailMessage()
+                email_message["Subject"] = f"HANDA alert: {title}"
+                email_message["From"] = settings.smtp_from
+                email_message["To"] = email
+                email_message.set_content(message)
+                with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+                    server.starttls()
+                    if settings.smtp_username:
+                        server.login(settings.smtp_username, settings.smtp_password)
+                    server.send_message(email_message)
+            except Exception:
+                logger.exception("Incident email alert could not be delivered.")
+
+    if sms_enabled:
+        if not (settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number):
+            logger.warning("Incident SMS alert skipped because Twilio is not configured.")
+        elif not mobile_number:
+            logger.warning("Incident SMS alert skipped because the user has no mobile number.")
+        else:
+            try:
+                from urllib.parse import urlencode
+                from urllib.request import Request, urlopen
+
+                body = urlencode({"To": mobile_number, "From": settings.twilio_from_number, "Body": f"{title}: {message}"}).encode()
+                request = Request(
+                    f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
+                    data=body,
+                    headers={"Authorization": "Basic " + base64.b64encode(f"{settings.twilio_account_sid}:{settings.twilio_auth_token}".encode()).decode()},
+                )
+                with urlopen(request, timeout=10):
+                    pass
+            except Exception:
+                logger.exception("Incident SMS alert could not be delivered.")
 
 
 MAX_LOGIN_ATTEMPTS = 5
@@ -278,35 +319,37 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''")
-                connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_type TEXT")
-                connection.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS responder_verification_documents (
-                            user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-                            file_name TEXT NOT NULL,
-                            mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/webp')),
-                            file_bytes BYTEA NOT NULL,
-                            uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                            reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
-                            reviewed_at TIMESTAMPTZ,
-                            decision TEXT CHECK (decision IS NULL OR decision IN ('approved', 'rejected')),
-                            review_note TEXT NOT NULL DEFAULT ''
-                        )
-                        """,
-                )
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_type TEXT")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute(
-                        """
-                        CREATE TABLE IF NOT EXISTS notifications (
-                            id TEXT PRIMARY KEY,
-                            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                            incident_id TEXT REFERENCES incidents(id) ON DELETE CASCADE,
-                            title TEXT NOT NULL,
-                            message TEXT NOT NULL,
-                            read_at TIMESTAMPTZ,
-                            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                        )
-                        """
-                )
+            """
+            CREATE TABLE IF NOT EXISTS responder_verification_documents (
+                user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                file_name TEXT NOT NULL,
+                mime_type TEXT NOT NULL CHECK (mime_type IN ('image/jpeg', 'image/png', 'image/webp')),
+                file_bytes BYTEA NOT NULL,
+                uploaded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+                reviewed_at TIMESTAMPTZ,
+                decision TEXT CHECK (decision IS NULL OR decision IN ('approved', 'rejected')),
+                review_note TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS notifications (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                incident_id TEXT REFERENCES incidents(id) ON DELETE CASCADE,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                read_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
         connection.execute("CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications (user_id, created_at DESC)")
         connection.execute(
             """
@@ -592,14 +635,33 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Incident not found.")
-    reporter = connection.execute("SELECT reporter_user_id FROM incidents WHERE id = %s", (incident_id,)).fetchone()
-    if reporter and reporter["reporter_user_id"]:
+    reporter = connection.execute(
+        """
+        SELECT users.id, users.email, users.mobile_number,
+               users.email_alerts_enabled, users.sms_alerts_enabled
+        FROM incidents
+        JOIN users ON users.id = incidents.reporter_user_id
+        WHERE incidents.id = %s
+        """,
+        (incident_id,),
+    ).fetchone()
+    if reporter:
         title, message = incident_notification_message(update.status, update)
         connection.execute(
             "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
-            (f"notification-{uuid4()}", reporter["reporter_user_id"], incident_id, title, message),
+            (f"notification-{uuid4()}", reporter["id"], incident_id, title, message),
         )
     connection.commit()
+    if reporter:
+        title, message = incident_notification_message(update.status, update)
+        deliver_incident_alert(
+            reporter["email"],
+            reporter["mobile_number"],
+            title,
+            message,
+            reporter["email_alerts_enabled"],
+            reporter["sms_alerts_enabled"],
+        )
     return row
 
 
@@ -609,6 +671,61 @@ def list_notifications(connection: psycopg.Connection = Depends(get_connection),
         "SELECT id, incident_id, title, message, read_at, created_at FROM notifications WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
         (resident.id,),
     ).fetchall()
+
+
+def notification_preferences_payload(row: dict) -> dict:
+    email_configured = bool(settings.smtp_host and settings.smtp_from)
+    sms_configured = bool(settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number)
+    return {
+        "emailEnabled": row["email_alerts_enabled"],
+        "smsEnabled": row["sms_alerts_enabled"],
+        "emailConfigured": email_configured,
+        "smsConfigured": sms_configured,
+        "emailAvailable": email_configured and bool(row["email"]),
+        "smsAvailable": sms_configured and bool(row["mobile_number"]),
+        "emailAddress": row["email"],
+        "mobileNumber": row["mobile_number"] or "",
+    }
+
+
+@app.get("/api/v1/notifications/preferences")
+def get_notification_preferences(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
+    row = connection.execute(
+        "SELECT email, mobile_number, email_alerts_enabled, sms_alerts_enabled FROM users WHERE id = %s",
+        (user.id,),
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User account not found.")
+    return notification_preferences_payload(row)
+
+
+@app.patch("/api/v1/notifications/preferences")
+def update_notification_preferences(
+    update: NotificationPreferencesUpdate,
+    user: CurrentUser = Depends(get_current_user),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    if update.emailEnabled is None and update.smsEnabled is None:
+        raise HTTPException(status_code=400, detail="Choose at least one notification preference to update.")
+    try:
+        row = connection.execute(
+            """
+            UPDATE users
+            SET email_alerts_enabled = COALESCE(%s, email_alerts_enabled),
+                sms_alerts_enabled = COALESCE(%s, sms_alerts_enabled),
+                updated_at = NOW()
+            WHERE id = %s
+            RETURNING email, mobile_number, email_alerts_enabled, sms_alerts_enabled
+            """,
+            (update.emailEnabled, update.smsEnabled, user.id),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User account not found.")
+        connection.commit()
+    except psycopg.Error:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail="Notification preferences could not be saved.") from None
+    return notification_preferences_payload(row)
 
 
 @app.patch("/api/v1/notifications/{notification_id}/read")

@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
+import { StartupLocationPermission } from '@components/StartupLocationPermission';
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
 
@@ -36,6 +37,7 @@ export default function ResponderLayout() {
   }, [isAuthenticated, isLoading, router, segments, user]);
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -112,5 +114,7 @@ export default function ResponderLayout() {
       />
       <Tabs.Screen name="responder-center-status" options={{ href: null }} />
     </Tabs>
+    <StartupLocationPermission />
+    </>
   );
 }

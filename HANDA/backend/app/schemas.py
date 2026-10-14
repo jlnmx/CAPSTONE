@@ -109,6 +109,11 @@ class UserLogin(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class NotificationPreferencesUpdate(BaseModel):
+    emailEnabled: bool | None = None
+    smsEnabled: bool | None = None
+
+
 class PasswordResetRequest(BaseModel):
     identifier: str = Field(min_length=3, max_length=255)
     channel: Literal["email", "sms"]

@@ -10,6 +10,7 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
+import { StartupLocationPermission } from '@components/StartupLocationPermission';
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
 
@@ -58,6 +59,7 @@ export default function ResidentLayout() {
   }, [isAuthenticated, isLoading, router, segments, user]);
 
   return (
+    <>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -140,6 +142,8 @@ export default function ResidentLayout() {
       <Tabs.Screen name="emergency-contacts" options={{ href: null }} />
       <Tabs.Screen name="preparedness-guide" options={{ href: null }} />
     </Tabs>
+    <StartupLocationPermission />
+    </>
   );
 }
 

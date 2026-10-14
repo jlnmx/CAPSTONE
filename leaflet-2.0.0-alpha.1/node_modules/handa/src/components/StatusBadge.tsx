@@ -3,6 +3,7 @@
  */
 
 import React from 'react';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
@@ -14,18 +15,19 @@ export interface StatusBadgeProps {
 
 export function StatusBadge({ status, style }: StatusBadgeProps) {
   const statusConfig = {
-    online: { color: Colors.online, label: '🟢 Online', icon: '🟢' },
-    offline: { color: Colors.offline, label: '🔴 Offline', icon: '🔴' },
-    synced: { color: Colors.success, label: 'Synced', icon: '✓' },
-    pending: { color: Colors.warning, label: 'Pending', icon: '⏳' },
-    error: { color: Colors.emergency, label: 'Error', icon: '✕' },
+    online: { color: Colors.online, background: '#E6F3EC', label: 'Online', icon: 'wifi' as const },
+    offline: { color: Colors.offline, background: '#FBEAEA', label: 'Offline', icon: 'wifi-off' as const },
+    synced: { color: Colors.success, background: '#E6F3EC', label: 'Synced', icon: 'check-circle-outline' as const },
+    pending: { color: Colors.warning, background: '#FFF1DF', label: 'Pending', icon: 'clock-outline' as const },
+    error: { color: Colors.emergency, background: '#FBEAEA', label: 'Error', icon: 'alert-circle-outline' as const },
   };
 
   const config = statusConfig[status];
 
   return (
-    <View style={[styles.badge, { backgroundColor: config.color }, style]}>
-      <Text style={styles.badgeText}>{config.label}</Text>
+    <View style={[styles.badge, { backgroundColor: config.background }, style]} accessibilityRole="text">
+      <MaterialCommunityIcons name={config.icon} size={14} color={config.color} />
+      <Text style={[styles.badgeText, { color: config.color }]}>{config.label}</Text>
     </View>
   );
 }
@@ -138,15 +140,19 @@ export function ActivityItem({
 
 const styles = StyleSheet.create({
   badge: {
-    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignSelf: 'flex-start',
   },
   badgeText: {
-    color: Colors.white,
     fontSize: Typography.sizes.xs,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   connectivityContainer: {
     flexDirection: 'row',
