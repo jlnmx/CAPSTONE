@@ -77,7 +77,7 @@ export default function ResidentSosScreen() {
         <Animated.View style={[styles.sosShell, { transform: [{ scale: pulse }] }]}>
           <View style={[styles.sosRing, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2 }]}>
             <Pressable style={({ pressed }) => [styles.sosButton, { width: sosButtonDiameter, height: sosButtonDiameter, borderRadius: sosButtonDiameter / 2 }, isHolding && styles.sosButtonHolding, isActivated && styles.sosButtonActivated, pressed && styles.sosButtonPressed]} onPressIn={startHolding} onPressOut={stopHolding} accessibilityLabel="Press and hold to activate emergency SOS">
-              <MaterialCommunityIcons name={isActivated ? 'check-circle-outline' : 'alarm-light-outline'} size={43} color={isHolding || isActivated ? '#FFF36B' : Colors.white} />
+              <MaterialCommunityIcons name={isActivated ? 'check-circle-outline' : 'alarm-light-outline'} size={43} color={Colors.white} />
               <Text style={styles.sosLabel}>{isActivated ? 'SENT' : 'SOS'}</Text>
               <Text style={styles.sosState}>{isActivated ? 'HELP IS ON THE WAY' : isHolding ? 'KEEP HOLDING...' : 'PRESS & HOLD 2 SEC'}</Text>
             </Pressable>
