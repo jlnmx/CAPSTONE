@@ -18,7 +18,7 @@ export function TyphoonCard({ typhoon }: { typhoon: LiveTyphoon }) {
         <MaterialCommunityIcons name="weather-hurricane" size={26} color="#9A3434" />
         <View style={styles.titleCopy}>
           <Text style={styles.label}>INTERNATIONAL NAME</Text>
-          <Text style={styles.name}>Typhoon {typhoon.international_name}</Text>
+          <Text style={styles.name}>{typhoon.classification} {typhoon.international_name}</Text>
           <Text style={styles.status}>ACTIVE · {typhoon.par_status.toUpperCase()}</Text>
           <Text style={styles.updated}>{formatUpdateTime(typhoon.updated_at)}</Text>
         </View>
@@ -30,7 +30,7 @@ export function TyphoonCard({ typhoon }: { typhoon: LiveTyphoon }) {
         </View>
         <View style={styles.dataItem}>
           <Text style={styles.label}>GUST SPEED</Text>
-          <Text style={styles.value}>{typhoon.gust_speed_kmh === null ? 'Not reported by GDACS' : `${typhoon.gust_speed_kmh} km/h`}</Text>
+          <Text style={styles.value}>{typhoon.gust_speed_kmh === null ? 'Not reported' : `${typhoon.gust_speed_kmh} km/h`}</Text>
         </View>
         <View style={styles.dataItem}>
           <Text style={styles.label}>PAGASA SIGNAL</Text>

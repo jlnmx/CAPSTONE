@@ -1,9 +1,15 @@
 import unittest
 
-from app.typhoons import is_inside_par, parse_gdacs_typhoons
+from app.typhoons import is_inside_par, pagasa_reports_no_active_cyclone, parse_gdacs_typhoons
 
 
 class TyphoonFeedTests(unittest.TestCase):
+    def test_detects_pagasa_no_active_cyclone_bulletin(self):
+        self.assertTrue(pagasa_reports_no_active_cyclone(
+            "<h3>No Active Tropical Cyclone within the Philippine Area of Responsibility</h3>"
+        ))
+        self.assertFalse(pagasa_reports_no_active_cyclone("<h3>Tropical Cyclone Bulletin</h3>"))
+
     def test_identifies_par_boundary_membership(self):
         self.assertTrue(is_inside_par(125, 15))
         self.assertTrue(is_inside_par(115, 10))
@@ -47,6 +53,7 @@ class TyphoonFeedTests(unittest.TestCase):
         self.assertEqual([storm["international_name"] for storm in storms], ["Kiko", "Luzon"])
         self.assertEqual(storms[0]["par_status"], "Inside PAR")
         self.assertEqual(storms[0]["max_wind_kmh"], 120)
+        self.assertEqual(storms[0]["classification"], "Typhoon")
         self.assertIsNone(storms[0]["gust_speed_kmh"])
         self.assertEqual(storms[1]["par_status"], "Outside PAR")
         self.assertEqual(storms[1]["max_wind_kmh"], 108)

@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
-from .typhoons import GDACS_SOURCE_URL, get_live_typhoons
+from .typhoons import get_live_typhoon_report
 from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 
@@ -1549,10 +1549,10 @@ def list_disasters(connection: psycopg.Connection = Depends(get_connection), _: 
 @app.get("/api/v1/typhoons")
 def list_live_typhoons(_: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     try:
-        storms = get_live_typhoons()
+        report = get_live_typhoon_report()
     except RuntimeError as error:
         raise HTTPException(status_code=502, detail="Live tropical cyclone data is temporarily unavailable.") from error
-    return {"source": "GDACS", "sourceUrl": GDACS_SOURCE_URL, "storms": storms}
+    return report
 
 
 @app.post("/api/v1/disasters", status_code=201)

@@ -16,7 +16,7 @@ import { TyphoonCard } from '@components/TyphoonCard';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
-import type { LiveTyphoon } from '@types/weather';
+import type { LiveTyphoon, LiveTyphoonReport } from '@types/weather';
 import type { ResidentHouseholdMember } from '@types/index';
 
 const actions = [
@@ -51,6 +51,8 @@ export default function ResidentDashboard() {
   const [disasterError, setDisasterError] = useState(false);
   const { weather, weatherEvents, presentation, isLoading: isWeatherLoading, isUnavailable: weatherError, now } = useWeather();
   const [liveTyphoons, setLiveTyphoons] = useState<LiveTyphoon[]>([]);
+  const [typhoonReport, setTyphoonReport] = useState<LiveTyphoonReport | null>(null);
+  const [typhoonFeedLoading, setTyphoonFeedLoading] = useState(true);
   const [typhoonFeedUnavailable, setTyphoonFeedUnavailable] = useState(false);
   const [evacuationStatus, setEvacuationStatus] = useState<ResidentEvacuationStatus | null>(null);
   const [evacuationStatusUnavailable, setEvacuationStatusUnavailable] = useState(false);
@@ -81,11 +83,14 @@ export default function ResidentDashboard() {
       try {
         const response = await authenticatedFetch('/api/v1/typhoons');
         if (!response.ok) throw new Error('Live typhoon feed request failed');
-        const result = await response.json() as { storms: LiveTyphoon[] };
+        const result = await response.json() as LiveTyphoonReport;
+        setTyphoonReport(result);
         setLiveTyphoons(result.storms);
         setTyphoonFeedUnavailable(false);
+        setTyphoonFeedLoading(false);
       } catch {
         setTyphoonFeedUnavailable(true);
+        setTyphoonFeedLoading(false);
       }
     };
 
@@ -168,7 +173,17 @@ export default function ResidentDashboard() {
         )}
         {liveTyphoons.map((typhoon) => <TyphoonCard key={typhoon.id} typhoon={typhoon} />)}
         {typhoonFeedUnavailable && <Text style={styles.forecastFeedWarning}>Live tropical cyclone feed unavailable. Check the PAGASA bulletin.</Text>}
-        {!typhoonFeedUnavailable && liveTyphoons.length === 0 && <Text style={styles.forecastFeedStatus}>No active Western Pacific cyclones reported by GDACS.</Text>}
+        {!typhoonFeedUnavailable && typhoonFeedLoading && <Text style={styles.forecastFeedStatus}>Checking the current PAGASA bulletin...</Text>}
+        {!typhoonFeedUnavailable && !typhoonFeedLoading && typhoonReport && liveTyphoons.length === 0 && (
+          <View style={styles.forecastFeedStatus}>
+            <Text style={styles.forecastFeedTitle}>{typhoonReport.laguna_signal_no === 0 ? 'NO ACTIVE TROPICAL CYCLONE' : 'CYCLONE DETAILS UNAVAILABLE'}</Text>
+            <Text style={styles.forecastFeedDetail}>International name: {typhoonReport.laguna_signal_no === 0 ? 'None' : 'Check PAGASA bulletin'}</Text>
+            <Text style={styles.forecastFeedDetail}>Classification: {typhoonReport.laguna_signal_no === 0 ? 'None' : 'Not confirmed'}</Text>
+            <Text style={styles.forecastFeedDetail}>Maximum wind / gust: {typhoonReport.laguna_signal_no === 0 ? 'Not applicable' : 'Not reported'}</Text>
+            <Text style={styles.forecastFeedDetail}>Laguna: {typhoonReport.laguna_signal_no === 0 ? 'Signal No. 0' : 'Check current PAGASA signal'}</Text>
+            <Text style={styles.forecastFeedSource}>PAGASA · checked {new Date(typhoonReport.checked_at).toLocaleTimeString()}</Text>
+          </View>
+        )}
 
         <View style={styles.statusRow}>
           <StatusTile
@@ -255,7 +270,10 @@ const styles = StyleSheet.create({
   greetingDate: { color: '#218B25', fontSize: 9, fontWeight: '600', marginTop: 4 },
   weatherIcon: { width: 29, height: 29, borderRadius: 16, borderWidth: 2, borderColor: '#E3A02C', backgroundColor: '#FFD477', alignItems: 'center', justifyContent: 'center' },
   forecastFeedWarning: { marginHorizontal: 18, marginBottom: 10, color: '#8C302B', fontSize: 10 },
-  forecastFeedStatus: { marginHorizontal: 18, marginBottom: 10, color: Colors.textMuted, fontSize: 9 },
+  forecastFeedStatus: { marginHorizontal: 18, marginBottom: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: '#287A54', backgroundColor: '#EAF5EE' },
+  forecastFeedTitle: { color: '#205C3F', fontSize: 10, fontWeight: '800' },
+  forecastFeedDetail: { color: Colors.text, fontSize: 10, marginTop: 3 },
+  forecastFeedSource: { color: Colors.textMuted, fontSize: 8, marginTop: 6 },
   weatherCard: { minHeight: 112, marginHorizontal: 18, marginTop: 2, marginBottom: 9, borderRadius: 8, overflow: 'hidden' },
   weatherGradient: { flex: 1, minHeight: 112, paddingHorizontal: 14, paddingVertical: 12, overflow: 'hidden' },
   backgroundGlyph: { position: 'absolute', right: -12, bottom: -22 },
