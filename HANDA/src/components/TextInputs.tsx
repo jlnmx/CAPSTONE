@@ -44,8 +44,8 @@ export function TextInput({
       <RNTextInput
         style={[
           styles.input,
-          { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale, color: palette.text, backgroundColor: palette.surface },
           inputStyle,
+          { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale, color: palette.text, backgroundColor: palette.surface },
           { borderColor: error ? Colors.emergency : focused ? Colors.secondary : palette.border },
           error && styles.inputError,
           !editable && styles.inputDisabled,
@@ -100,8 +100,8 @@ export function PasswordInput({
           style={[
             styles.input,
             styles.passwordInput,
-            { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale, color: palette.text, backgroundColor: palette.surface },
             inputStyle,
+            { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale, color: palette.text, backgroundColor: palette.surface },
             { borderColor: error ? Colors.emergency : focused ? Colors.secondary : palette.border },
             error && styles.inputError,
           ]}

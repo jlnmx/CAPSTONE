@@ -2,8 +2,8 @@
  * Button Components
  */
 
-import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Platform, Pressable, PressableProps, StyleSheet, TextStyle, ViewStyle } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Pressable, PressableProps, StyleSheet, TextStyle, ViewStyle } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@constants/colors';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
@@ -36,11 +36,6 @@ export function AnimatedPressable({
   ...props
 }: AnimatedPressableProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const pressScale = useRef(new Animated.Value(1)).current;
-
-  const animateScale = (toValue: number) => {
-    Animated.spring(pressScale, { toValue, useNativeDriver: Platform.OS !== 'web', speed: 28, bounciness: 3 }).start();
-  };
 
   const handleHoverIn: NonNullable<PressableProps['onHoverIn']> = (event) => {
     if (!disabled) setIsHovered(true);
@@ -53,12 +48,10 @@ export function AnimatedPressable({
   };
 
   const handlePressIn: NonNullable<PressableProps['onPressIn']> = (event) => {
-    if (!disabled) animateScale(0.985);
     onPressIn?.(event);
   };
 
   const handlePressOut: NonNullable<PressableProps['onPressOut']> = (event) => {
-    animateScale(1);
     onPressOut?.(event);
   };
 
@@ -72,7 +65,7 @@ export function AnimatedPressable({
         return [
           baseStyle,
           isHovered && !disabled && { opacity: Math.max(activeOpacity, 0.92) },
-          { transform: [...transform, { scale: pressScale }] },
+          { transform: [...transform, { scale: state.pressed && !disabled ? 0.985 : 1 }] },
           state.pressed && !disabled && styles.pressed,
         ];
       }}

@@ -122,13 +122,13 @@ class DatabaseDependencyTests(unittest.TestCase):
             id="incident-1",
             type="Flooding",
             description="Flood water is rising.",
-            severity="high",
             location="Poblacion",
         )
 
         result = create_incident(incident, connection, MagicMock(id="resident-1", role="resident"))
 
         self.assertEqual(result["status"], "accepted")
+        self.assertEqual(connection.execute.call_args.args[1][3], "medium")
         self.assertEqual(connection.execute.call_args.args[1][-1], "resident-1")
         connection.commit.assert_called_once()
 

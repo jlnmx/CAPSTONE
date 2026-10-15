@@ -24,6 +24,7 @@ export default function ResidentIncidentReport() {
   const [locationLabel, setLocationLabel] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [picker, setPicker] = useState<'type' | null>(null);
+  const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -64,6 +65,15 @@ export default function ResidentIncidentReport() {
       name: asset.fileName || `incident-photo-${Date.now()}-${index}.jpg`,
     }));
     setPhotos((current) => [...current, ...selected].slice(0, 4));
+  };
+
+  const requestSubmit = () => {
+    if (!incidentType || !description.trim() || !coordinate) {
+      setError('Choose an incident type, describe what happened, and allow location access.');
+      return;
+    }
+    setError('');
+    setIsConfirmationVisible(true);
   };
 
   const submitReport = async () => {
@@ -132,7 +142,7 @@ export default function ResidentIncidentReport() {
             {photos.length < 4 && <View style={styles.photoActions}><AnimatedPressable style={styles.photoButton} onPress={() => void addPhotos('camera')} accessibilityRole="button"><MaterialCommunityIcons name="camera-outline" size={22} color={GREEN} /><Text style={styles.photoButtonText}>Take photo</Text></AnimatedPressable><AnimatedPressable style={styles.photoButton} onPress={() => void addPhotos('library')} accessibilityRole="button"><MaterialCommunityIcons name="image-multiple-outline" size={22} color={GREEN} /><Text style={styles.photoButtonText}>Upload</Text></AnimatedPressable></View>}
           </View>
           {!!error && <Text style={styles.error}>{error}</Text>}
-          <AnimatedPressable style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={() => void submitReport()} disabled={isSubmitting} accessibilityRole="button">{isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <><MaterialCommunityIcons name="send-check-outline" size={20} color="#FFFFFF" /><Text style={styles.submitText}>Post incident report</Text></>}</AnimatedPressable>
+          <AnimatedPressable style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={requestSubmit} disabled={isSubmitting} accessibilityRole="button">{isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <><MaterialCommunityIcons name="send-check-outline" size={20} color="#FFFFFF" /><Text style={styles.submitText}>Post incident report</Text></>}</AnimatedPressable>
         </View>
       </ScrollView>
       <Modal transparent visible={picker !== null} animationType="fade" onRequestClose={() => setPicker(null)}>
@@ -148,6 +158,22 @@ export default function ResidentIncidentReport() {
           </Pressable>
         </Pressable>
       </Modal>
+      <Modal transparent visible={isConfirmationVisible} animationType="fade" onRequestClose={() => setIsConfirmationVisible(false)}>
+        <Pressable style={confirmationStyles.backdrop} onPress={() => setIsConfirmationVisible(false)}>
+          <Pressable style={confirmationStyles.card} onPress={(event) => event.stopPropagation()}>
+            <Text style={confirmationStyles.title}>Submit incident report?</Text>
+            <Text style={confirmationStyles.message}>Your {incidentType.toLowerCase()} report and location will be shared with responders.</Text>
+            <View style={confirmationStyles.actions}>
+              <AnimatedPressable style={confirmationStyles.cancelButton} onPress={() => setIsConfirmationVisible(false)} accessibilityRole="button">
+                <Text style={confirmationStyles.cancelText}>Review report</Text>
+              </AnimatedPressable>
+              <AnimatedPressable style={confirmationStyles.confirmButton} onPress={() => { setIsConfirmationVisible(false); void submitReport(); }} disabled={isSubmitting} accessibilityRole="button">
+                <Text style={confirmationStyles.confirmText}>Confirm and submit</Text>
+              </AnimatedPressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -156,4 +182,16 @@ function FieldLabel({ label, required = false }: { label: string; required?: boo
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingBottom: 30 }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 19, paddingBottom: 15, backgroundColor: GREEN }, eyebrow: { color: '#DFF1DF', fontSize: 9, fontWeight: '800', letterSpacing: 1.1 }, title: { color: '#FFFFFF', fontSize: 25, fontWeight: '800', marginTop: 3 }, form: { paddingHorizontal: 16, paddingTop: 18 }, sectionTitle: { color: Colors.text, fontSize: 16, fontWeight: '800' }, label: { color: Colors.text, fontSize: 12, fontWeight: '700', marginTop: 15, marginBottom: 6 }, required: { color: '#D33A3A' }, select: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 13, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 9, backgroundColor: Colors.surface }, selectValue: { color: Colors.textMuted, fontSize: 13, fontWeight: '700' }, selectPlaceholder: { color: '#8EAF8E', fontSize: 13 }, severity_low: { color: '#2873A8' }, severity_medium: { color: '#B36E00' }, severity_high: { color: '#B42318' }, severity_critical: { color: '#8B1020' }, descriptionInput: { minHeight: 112, paddingHorizontal: 13, paddingTop: 12, paddingBottom: 10, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 9, backgroundColor: Colors.surface, color: Colors.textMuted, fontSize: 13, lineHeight: 19 }, characterCount: { color: Colors.textMuted, fontSize: 10, textAlign: 'right', marginTop: 3 }, locationHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22 }, helper: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 }, refreshButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 19, backgroundColor: Colors.surface }, mapFrame: { height: 230, overflow: 'hidden', marginTop: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, backgroundColor: Colors.surfaceMuted }, locationReadout: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }, locationText: { flex: 1, color: Colors.textMuted, fontSize: 11, lineHeight: 16 }, photoHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 17, marginBottom: 9 }, photoCount: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' }, photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, photoItem: { width: 86, height: 86, position: 'relative', borderRadius: 8, overflow: 'hidden', backgroundColor: Colors.surfaceMuted }, photo: { width: '100%', height: '100%' }, removePhoto: { position: 'absolute', top: 4, right: 4, width: 23, height: 23, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: 'rgba(23,33,43,0.72)' }, photoActions: { flexDirection: 'row', gap: 8 }, photoButton: { width: 104, height: 86, alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, backgroundColor: Colors.surface }, photoButtonText: { color: GREEN, fontSize: 11, fontWeight: '700' }, error: { color: '#B42318', fontSize: 12, lineHeight: 17, marginTop: 14 }, submitButton: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 18, borderRadius: 9, backgroundColor: GREEN }, submitButtonDisabled: { opacity: 0.65 }, submitText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' }, modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.35)' }, optionsCard: { width: '100%', maxWidth: 430, maxHeight: '78%', padding: 17, borderRadius: 12, backgroundColor: Colors.surface }, optionsTitle: { color: Colors.text, fontSize: 17, fontWeight: '800', marginBottom: 8 }, optionsScroll: { maxHeight: 410 }, option: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#E7EFE7' }, optionText: { color: Colors.textMuted, fontSize: 13 },
+});
+
+const confirmationStyles = StyleSheet.create({
+  backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.52)' },
+  card: { width: '100%', maxWidth: 420, padding: 20, borderRadius: 12, backgroundColor: Colors.surface },
+  title: { color: Colors.text, fontSize: 18, fontWeight: '800' },
+  message: { color: Colors.textMuted, fontSize: 14, lineHeight: 20, marginTop: 8 },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 22 },
+  cancelButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 8, backgroundColor: Colors.surface },
+  cancelText: { color: Colors.text, fontSize: 13, fontWeight: '700' },
+  confirmButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 8, backgroundColor: GREEN },
+  confirmText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', textAlign: 'center' },
 });

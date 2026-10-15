@@ -8,7 +8,7 @@ class IncidentCreate(BaseModel):
     id: str | None = None
     type: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1)
-    severity: Literal["low", "medium", "moderity", "high", "critical"]
+    severity: Literal["low", "medium", "moderity", "high", "critical"] = "medium"
     location: str = Field(min_length=1, max_length=255)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
