@@ -7,7 +7,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 
 export default function AuthLayout() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, logout } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
@@ -18,7 +18,7 @@ export default function AuthLayout() {
 
     if (isAuthenticated && inAuthGroup) {
       if (user?.role === 'admin') {
-        router.replace('/(admin)');
+        void logout();
       } else if (user?.role === 'resident') {
         router.replace('/(resident)');
       } else {
@@ -28,7 +28,7 @@ export default function AuthLayout() {
       // User is not authenticated, redirect to login
       router.replace('/(auth)/login');
     }
-  }, [isAuthenticated, isLoading, segments, user]);
+  }, [isAuthenticated, isLoading, logout, segments, user]);
 
   return (
     <Stack

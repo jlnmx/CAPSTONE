@@ -67,7 +67,8 @@ export class AuthService {
    */
   static async login(
     email: string,
-    password: string
+    password: string,
+    allowedRoles?: readonly UserRole[],
   ): Promise<AuthUser | null> {
     let apiReachable = false;
     let connectionError: unknown;
@@ -89,6 +90,11 @@ export class AuthService {
       if (response.ok) {
         const result = await response.json() as { accessToken?: string; user?: AuthUser };
         if (result.accessToken && result.user) {
+            if (allowedRoles && !allowedRoles.includes(result.user.role)) {
+              throw new Error(allowedRoles.includes('admin')
+                ? 'Only administrator accounts can sign in to the Command Center.'
+                : 'Administrator accounts must sign in through the HANDA Command Center.');
+            }
           await setAccessToken(result.accessToken);
           return result.user;
         }

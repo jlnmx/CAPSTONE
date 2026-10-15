@@ -16,7 +16,7 @@ import { TyphoonCard } from '@components/TyphoonCard';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
-import type { LiveTyphoon, LiveTyphoonReport } from '@types/weather';
+import type { LiveTyphoon } from '@types/weather';
 import type { ResidentHouseholdMember } from '@types/index';
 
 const actions = [
@@ -51,9 +51,6 @@ export default function ResidentDashboard() {
   const [disasterError, setDisasterError] = useState(false);
   const { weather, weatherEvents, presentation, isLoading: isWeatherLoading, isUnavailable: weatherError, now } = useWeather();
   const [liveTyphoons, setLiveTyphoons] = useState<LiveTyphoon[]>([]);
-  const [typhoonReport, setTyphoonReport] = useState<LiveTyphoonReport | null>(null);
-  const [typhoonFeedLoading, setTyphoonFeedLoading] = useState(true);
-  const [typhoonFeedUnavailable, setTyphoonFeedUnavailable] = useState(false);
   const [evacuationStatus, setEvacuationStatus] = useState<ResidentEvacuationStatus | null>(null);
   const [evacuationStatusUnavailable, setEvacuationStatusUnavailable] = useState(false);
 
@@ -83,14 +80,10 @@ export default function ResidentDashboard() {
       try {
         const response = await authenticatedFetch('/api/v1/typhoons');
         if (!response.ok) throw new Error('Live typhoon feed request failed');
-        const result = await response.json() as LiveTyphoonReport;
-        setTyphoonReport(result);
+        const result = await response.json() as { storms: LiveTyphoon[] };
         setLiveTyphoons(result.storms);
-        setTyphoonFeedUnavailable(false);
-        setTyphoonFeedLoading(false);
       } catch {
-        setTyphoonFeedUnavailable(true);
-        setTyphoonFeedLoading(false);
+        setLiveTyphoons([]);
       }
     };
 
@@ -172,18 +165,6 @@ export default function ResidentDashboard() {
           />
         )}
         {liveTyphoons.map((typhoon) => <TyphoonCard key={typhoon.id} typhoon={typhoon} />)}
-        {typhoonFeedUnavailable && <Text style={styles.forecastFeedWarning}>Live tropical cyclone feed unavailable. Check the PAGASA bulletin.</Text>}
-        {!typhoonFeedUnavailable && typhoonFeedLoading && <Text style={styles.forecastFeedStatus}>Checking the current PAGASA bulletin...</Text>}
-        {!typhoonFeedUnavailable && !typhoonFeedLoading && typhoonReport && liveTyphoons.length === 0 && (
-          <View style={styles.forecastFeedStatus}>
-            <Text style={styles.forecastFeedTitle}>{typhoonReport.laguna_signal_no === 0 ? 'NO ACTIVE TROPICAL CYCLONE' : 'CYCLONE DETAILS UNAVAILABLE'}</Text>
-            <Text style={styles.forecastFeedDetail}>International name: {typhoonReport.laguna_signal_no === 0 ? 'None' : 'Check PAGASA bulletin'}</Text>
-            <Text style={styles.forecastFeedDetail}>Classification: {typhoonReport.laguna_signal_no === 0 ? 'None' : 'Not confirmed'}</Text>
-            <Text style={styles.forecastFeedDetail}>Maximum wind / gust: {typhoonReport.laguna_signal_no === 0 ? 'Not applicable' : 'Not reported'}</Text>
-            <Text style={styles.forecastFeedDetail}>Laguna: {typhoonReport.laguna_signal_no === 0 ? 'Signal No. 0' : 'Check current PAGASA signal'}</Text>
-            <Text style={styles.forecastFeedSource}>PAGASA · checked {new Date(typhoonReport.checked_at).toLocaleTimeString()}</Text>
-          </View>
-        )}
 
         <View style={styles.statusRow}>
           <StatusTile

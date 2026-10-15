@@ -32,7 +32,7 @@ export default function LoginScreen() {
       return;
     }
 
-    await login(email, password);
+    await login(email, password, ['resident', 'responder']);
   };
 
   return (

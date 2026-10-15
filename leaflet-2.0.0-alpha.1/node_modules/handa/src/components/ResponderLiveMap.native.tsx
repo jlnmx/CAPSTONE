@@ -94,11 +94,11 @@ export default function ResponderLiveMap() {
               }).addTo(centersLayer);
               marker.bindPopup('<strong>' + escapeHtml(center.name) + '</strong><br>' + escapeHtml(center.location || 'Location not provided') + '<br>Status: ' + escapeHtml(String(center.status).replace('_', ' ')) + '<br>Occupancy: ' + occupied + ' / ' + capacity + '<br><strong>' + available + ' spaces available</strong>');
             });
-            (data.incidents || []).filter((incident) => Number.isFinite(Number(incident.latitude)) && Number.isFinite(Number(incident.longitude))).forEach((incident) => {
+            (data.incidents || []).filter((incident) => incident.status !== 'resolved' && Number.isFinite(Number(incident.latitude)) && Number.isFinite(Number(incident.longitude))).forEach((incident) => {
               const status = String(incident.status || 'reported');
-              const color = status === 'resolved' ? '#667085' : status === 'in_progress' ? '#D98C18' : status === 'acknowledged' ? '#1769AA' : '#B42318';
+              const color = '#D62828';
               const marker = L.circleMarker([Number(incident.latitude), Number(incident.longitude)], {
-                radius: status === 'resolved' ? 8 : 11, color: '#fff', fillColor: color, fillOpacity: .96, weight: 3
+                radius: 11, color: '#fff', fillColor: color, fillOpacity: .96, weight: 3
               }).addTo(incidentsLayer);
               const action = nextAction(status);
               const popup = document.createElement('div');
@@ -157,8 +157,7 @@ export default function ResponderLiveMap() {
     <View style={styles.container}>
       <View style={styles.statusBar}>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#218B25' }]} /><Text style={styles.legendText}>Centers</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#B42318' }]} /><Text style={styles.legendText}>High / critical</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#D98C18' }]} /><Text style={styles.legendText}>Medium</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#D62828' }]} /><Text style={styles.legendText}>Incidents</Text></View>
         <View style={styles.statusCopy}>{isLoading ? <ActivityIndicator size="small" color={Colors.secondary} /> : <Text style={[styles.syncStatus, loadError && styles.errorStatus]}>{loadError ? data.unavailableSources.length ? `Partial data · ${data.unavailableSources.join(', ')}` : 'Live data unavailable' : `Live · ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</Text>}</View>
       </View>
       <WebView ref={webView} source={{ html: mapHtml }} style={styles.webView} javaScriptEnabled domStorageEnabled geolocationEnabled originWhitelist={['*']} onMessage={handleMessage} />

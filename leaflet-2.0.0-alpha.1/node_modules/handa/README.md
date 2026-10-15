@@ -1,14 +1,14 @@
 # HANDA — Offline-First Disaster Evacuation & Field Operations Management
 
-An offline-first mobile application for managing disaster evacuations and field operations in Barangay communities.
+An offline-first resident and responder mobile app, paired with a separate browser-based HANDA Command Center for administrators.
 
 **Tagline:** "Ready When Connectivity Isn't."
 
 ## 📋 Project Status
 
-This is the **initial foundation** of the HANDA system with:
+The HANDA system includes:
 - ✅ Splash Screen
-- ✅ Login Screen with mock authentication
+- ✅ Role-specific sign-in backed by the HANDA API
 - ✅ Responder Dashboard
 - ✅ Resident Dashboard
 - ✅ Role-aware navigation
@@ -16,6 +16,7 @@ This is the **initial foundation** of the HANDA system with:
 - ✅ Professional UI with emergency-response design
 - ✅ SQLite local database and offline outbox
 - ✅ FastAPI + PostgreSQL/PostGIS backend scaffold
+- ✅ Separate desktop-first Admin Command Center web app
 
 **Coming Next:**
 - Real GPS tracking with expo-location
@@ -63,6 +64,22 @@ This is the **initial foundation** of the HANDA system with:
 
    - Press `i` in the terminal
 
+### Admin Command Center
+
+The administrator console runs as its own web app and is not part of the resident/responder mobile navigation. From the project root:
+
+```bash
+npm run admin:web
+```
+
+To create a production web export:
+
+```bash
+npm run admin:build
+```
+
+The mobile app and Admin Command Center use the same backend accounts and role verification. Administrators sign in at the Command Center; residents and responders sign in through the mobile app. Set `VITE_API_URL` for the Admin web app when the API is not available at `http://localhost:8000`.
+
 ## 🔐 Testing Authentication
 
 ### Responder Account
@@ -81,11 +98,12 @@ This is the **initial foundation** of the HANDA system with:
 
 - **Email:** `admin@handa.local`
 - **Password:** `admin123`
-- **Dashboard:** Web-friendly command overview, analytics, access control, evacuation centers, and operations records
+- **Sign-in:** Admin Command Center web app (`npm run admin:web`)
+- **Dashboard:** Command overview, analytics, access control, evacuation centers, and operations records
 
-### Demo Login
+### Sign-in Boundaries
 
-All user roles include demo login support for quick testing without entering credentials.
+Resident and responder accounts use the mobile sign-in screen. Administrator access is restricted to the separate Command Center web app.
 
 ### Administrator Console
 
@@ -95,6 +113,7 @@ Administrators can manage authorized user accounts, responder access, evacuation
 
 ```
 HANDA/
+├── admin-web/                    # Standalone web app for the Command Center
 ├── app/                           # Expo Router screens and layouts
 │   ├── _layout.tsx               # Root layout with AuthProvider
 │   ├── index.tsx                 # Splash screen

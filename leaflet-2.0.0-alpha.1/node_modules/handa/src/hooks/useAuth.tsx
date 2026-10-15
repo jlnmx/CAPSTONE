@@ -54,12 +54,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     ]);
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, allowedRoles?: readonly UserRole[]) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const authUser = await AuthService.login(email, password);
+      const authUser = await AuthService.login(email, password, allowedRoles);
 
       if (authUser) {
         await finishLogin(authUser);

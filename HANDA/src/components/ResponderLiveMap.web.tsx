@@ -18,13 +18,6 @@ function nextIncidentAction(status: ResponderIncident['status']) {
   return null;
 }
 
-function incidentStatusColor(status: string) {
-  if (status === 'resolved') return '#667085';
-  if (status === 'in_progress') return '#D98C18';
-  if (status === 'acknowledged') return '#1769AA';
-  return '#B42318';
-}
-
 export default function ResponderLiveMap() {
   const mapElement = useRef<HTMLDivElement | null>(null);
   const centerLayer = useRef<any>(null);
@@ -112,10 +105,10 @@ export default function ResponderLiveMap() {
         marker.bindPopup(popup);
       });
 
-      data.incidents.filter((incident) => Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude)).forEach((incident) => {
-        const color = incidentStatusColor(incident.status);
+      data.incidents.filter((incident) => incident.status !== 'resolved' && Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude)).forEach((incident) => {
+        const color = '#D62828';
         const marker = new LeafletApi.CircleMarker([incident.latitude, incident.longitude], {
-          radius: incident.status === 'resolved' ? 8 : 11,
+          radius: 11,
           color: '#FFFFFF',
           fillColor: color,
           fillOpacity: 0.95,
@@ -159,8 +152,7 @@ export default function ResponderLiveMap() {
     <View style={styles.container}>
       <View style={styles.statusBar}>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#218B25' }]} /><Text style={styles.legendText}>Centers</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#B42318' }]} /><Text style={styles.legendText}>High / critical</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#D98C18' }]} /><Text style={styles.legendText}>Medium</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#D62828' }]} /><Text style={styles.legendText}>Incidents</Text></View>
         <View style={styles.statusCopy}>{isLoading ? <ActivityIndicator size="small" color={Colors.secondary} /> : <Text style={[styles.syncStatus, loadError && styles.errorStatus]}>{loadError ? data.unavailableSources.length ? `Partial data · ${data.unavailableSources.join(', ')}` : 'Live data unavailable' : `Live · ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}</Text>}</View>
       </View>
       <div ref={mapElement} style={{ width: '100%', height: '100%', minHeight: 280 }} />

@@ -8,6 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "admin:web": "npm --prefix admin-web run dev",
+    "admin:build": "npm --prefix admin-web run build",
     "test": "jest --watch --no-coverage",
     "test:ci": "jest --no-coverage",
     "lint": "eslint . --ext .ts,.tsx",
@@ -61,5 +63,8 @@
     "leaflet": "file:../leaflet-2.0.0-alpha.1",
     "typescript": "^5.3.3"
   },
-  "private": true
+  "private": true,
+  "workspaces": [
+    "admin-web"
+  ]
 }
