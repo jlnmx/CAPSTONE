@@ -4,7 +4,7 @@ import { createCenter, getCenters, updateCenterCapacity } from '../api';
 import type { CenterRecord } from '../types';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
 
-const blankForm = { name: '', address: '', barangay: '', capacity: '', coordinatorName: '', contactNumber: '', notes: '' };
+const blankForm = { name: '', address: '', barangay: '', capacity: '', coordinatorName: '', contactNumber: '', notes: '', latitude: '', longitude: '' };
 
 export default function CentersView() {
   const [centers, setCenters] = useState<CenterRecord[]>([]);
@@ -32,7 +32,13 @@ export default function CentersView() {
     try {
       const capacity = Number(form.capacity);
       if (!Number.isInteger(capacity) || capacity < 1) throw new Error('Enter a whole-number capacity greater than zero.');
-      await createCenter({ name: form.name.trim(), location: `${form.address.trim()}, ${form.barangay.trim()}`, capacity, coordinatorName: form.coordinatorName.trim(), contactNumber: form.contactNumber.trim(), notes: form.notes.trim() });
+      const hasLatitude = form.latitude.trim() !== '';
+      const hasLongitude = form.longitude.trim() !== '';
+      if (hasLatitude !== hasLongitude) throw new Error('Enter both map coordinates, or leave both blank.');
+      const latitude = hasLatitude ? Number(form.latitude) : null;
+      const longitude = hasLongitude ? Number(form.longitude) : null;
+      if (latitude !== null && (latitude < -90 || latitude > 90 || longitude! < -180 || longitude! > 180)) throw new Error('Enter valid latitude and longitude values.');
+      await createCenter({ name: form.name.trim(), location: `${form.address.trim()}, ${form.barangay.trim()}`, capacity, coordinatorName: form.coordinatorName.trim(), contactNumber: form.contactNumber.trim(), notes: form.notes.trim(), latitude, longitude });
       setForm(blankForm);
       setFormOpen(false);
       await refresh();
@@ -75,6 +81,8 @@ export default function CentersView() {
       <Field label="Complete address" value={form.address} onChange={(address) => setForm({ ...form, address })} placeholder="Street, city" required />
       <Field label="Barangay / city" value={form.barangay} onChange={(barangay) => setForm({ ...form, barangay })} placeholder="Barangay Poblacion" required />
       <Field label="Maximum capacity" value={form.capacity} onChange={(capacity) => setForm({ ...form, capacity })} placeholder="0" type="number" required />
+      <Field label="Map latitude" value={form.latitude} onChange={(latitude) => setForm({ ...form, latitude })} placeholder="14.3036" type="number" />
+      <Field label="Map longitude" value={form.longitude} onChange={(longitude) => setForm({ ...form, longitude })} placeholder="121.0781" type="number" />
       <Field label="Center coordinator" value={form.coordinatorName} onChange={(coordinatorName) => setForm({ ...form, coordinatorName })} placeholder="Full name" />
       <Field label="Contact number" value={form.contactNumber} onChange={(contactNumber) => setForm({ ...form, contactNumber })} placeholder="09XXXXXXXXX" />
       <Field label="Notes" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Facilities or access instructions" wide />

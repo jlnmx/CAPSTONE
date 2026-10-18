@@ -43,6 +43,14 @@ function normalizeIncident(record: Record<string, any>): IncidentRecord {
     createdAt: record.createdAt ?? record.created_at ?? '',
     status: record.status || 'acknowledged',
     syncStatus: record.syncStatus ?? record.sync_status ?? 'synced',
+    latitude: record.latitude ?? null,
+    longitude: record.longitude ?? null,
+    severity: record.severity || 'medium',
+    actionNotes: record.actionNotes ?? record.action_notes ?? '',
+    responsePeople: record.responsePeople ?? record.response_people ?? '',
+    responseOrganizations: record.responseOrganizations ?? record.response_organizations ?? '',
+    responseEtaMinutes: record.responseEtaMinutes ?? record.response_eta_minutes ?? null,
+    responseNotes: record.responseNotes ?? record.response_notes ?? '',
   };
 }
 
@@ -72,11 +80,21 @@ function normalizeCenter(record: Record<string, any>): CenterRecord {
     coordinatorName: record.coordinator_name ?? record.coordinatorName ?? '',
     contactNumber: record.contact_number ?? record.contactNumber ?? '',
     notes: record.notes || '',
+    latitude: record.latitude ?? null,
+    longitude: record.longitude ?? null,
   };
 }
 
 async function records<T>(path: string): Promise<T[]> {
   return apiRequest<T[]>(path);
+}
+
+export async function getCommandMapSnapshot() {
+  const [incidents, centers] = await Promise.all([
+    records<Record<string, any>>('/api/v1/incidents'),
+    records<Record<string, any>>('/api/v1/centers'),
+  ]);
+  return { incidents: incidents.map(normalizeIncident), centers: centers.map(normalizeCenter) };
 }
 
 export async function getAdminSnapshot(): Promise<AdminSnapshot> {

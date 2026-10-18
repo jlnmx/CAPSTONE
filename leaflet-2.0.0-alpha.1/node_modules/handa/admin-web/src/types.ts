@@ -15,6 +15,14 @@ export interface IncidentRecord {
   createdAt: string;
   status: string;
   syncStatus: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  severity?: string;
+  actionNotes?: string;
+  responsePeople?: string;
+  responseOrganizations?: string;
+  responseEtaMinutes?: number | null;
+  responseNotes?: string;
 }
 
 export interface EvacueeRecord {
@@ -38,6 +46,8 @@ export interface CenterRecord {
   coordinatorName: string;
   contactNumber: string;
   notes: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface AdminSnapshot {

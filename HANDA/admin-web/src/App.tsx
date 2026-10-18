@@ -3,6 +3,7 @@ import { useAuth } from './auth';
 import AdminShell from './components/AdminShell';
 import LoginView from './views/LoginView';
 import DashboardView from './views/DashboardView';
+import MapView from './views/MapView';
 import RecordsView from './views/RecordsView';
 import CentersView from './views/CentersView';
 import UsersView from './views/UsersView';
@@ -22,6 +23,7 @@ export default function App() {
       <Route path="/login" element={user?.role === 'admin' ? <Navigate to="/" replace /> : <LoginView />} />
       <Route element={<ProtectedLayout />}>
         <Route index element={<DashboardView />} />
+        <Route path="map" element={<MapView />} />
         <Route path="operations" element={<RecordsView mode="all" />} />
         <Route path="evacuees" element={<RecordsView mode="evacuees" />} />
         <Route path="centers" element={<CentersView />} />

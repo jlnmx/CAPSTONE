@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity, AlertTriangle, BarChart3, Building2, ChevronDown, ClipboardList,
-  Command, LayoutDashboard, LogOut, Menu, Radio, Settings, ShieldCheck,
+  Command, LayoutDashboard, LogOut, Map, Menu, Radio, Settings, ShieldCheck,
   Siren, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../auth';
 
 const navigation = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/map', label: 'Live map', icon: Map },
   { to: '/operations', label: 'Operations', icon: Activity },
   { to: '/evacuees', label: 'Evacuees', icon: Users },
   { to: '/centers', label: 'Centers', icon: Building2 },
@@ -19,7 +20,7 @@ const navigation = [
 ];
 
 const pageNames: Record<string, string> = {
-  '/': 'Overview', '/operations': 'Operations', '/evacuees': 'Evacuees', '/centers': 'Centers',
+  '/': 'Overview', '/map': 'Live map', '/operations': 'Operations', '/evacuees': 'Evacuees', '/centers': 'Centers',
   '/disasters': 'Disasters', '/analytics': 'Analytics', '/users': 'Users', '/logs': 'Logs',
   '/system': 'System', '/settings': 'Settings',
 };
