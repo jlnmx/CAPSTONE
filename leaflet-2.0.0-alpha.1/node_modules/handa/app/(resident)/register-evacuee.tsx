@@ -11,7 +11,7 @@ import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 
 const GREEN = '#218B25';
 const FIELD_GREEN = '#548B56';
-const SEXES = ['Female', 'Male', 'Other'];
+const SEXES = ['Female', 'Male'];
 
 type EvacuationCenter = {
   id: string;
@@ -45,7 +45,7 @@ function calculateAge(birthday?: string): number | null {
 export default function RegisterEvacueeScreen() {
   const { centerId: routeCenterId } = useLocalSearchParams<{ centerId?: string }>();
   const requestedCenterId = Array.isArray(routeCenterId) ? routeCenterId[0] : routeCenterId;
-  const { isCompact } = useResponsiveLayout();
+  const { isCompact, isMobile } = useResponsiveLayout();
   const { user, setAuthenticatedUser } = useAuth();
   const router = useRouter();
   const [firstName, setFirstName] = useState('');
@@ -260,7 +260,7 @@ export default function RegisterEvacueeScreen() {
           <FieldLabel label="Last Name" required />
           <TextInput style={styles.input} placeholder="Enter last name" placeholderTextColor="#A6C1A7" value={lastName} onChangeText={setLastName} />
 
-          <View style={[styles.inlineFields, isCompact && styles.inlineFieldsStacked]}>
+          <View style={[styles.inlineFields, isMobile && styles.inlineFieldsStacked]}>
             <View style={[styles.halfField, isCompact && styles.halfFieldStacked]}>
               <FieldLabel label="Age" required />
               <TextInput style={styles.input} placeholder="Years" placeholderTextColor="#A6C1A7" keyboardType="number-pad" value={age} onChangeText={setAge} />
@@ -426,10 +426,10 @@ const styles = StyleSheet.create({
   input: { height: 31, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, paddingHorizontal: 12, color: FIELD_GREEN, fontSize: 10, backgroundColor: Colors.surface },
   inlineFields: { flexDirection: 'row', gap: 10 },
   inlineFieldsStacked: { flexDirection: 'column', gap: 0 },
-  halfField: { flex: 1 },
+  halfField: { flex: 1, minWidth: 0 },
   halfFieldStacked: { flex: 0 },
   memberFields: { marginTop: 2, paddingLeft: 9, borderLeftWidth: 2, borderLeftColor: '#A6CFA7' },
-  selectField: { height: 31, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectField: { width: '100%', height: 31, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   fieldText: { color: FIELD_GREEN, fontSize: 10 },
   placeholder: { color: '#A6C1A7' },
   sexOptions: { position: 'absolute', top: 58, left: 0, right: 0, zIndex: 2, borderWidth: 1, borderColor: '#79B879', borderRadius: 6, backgroundColor: Colors.surface },

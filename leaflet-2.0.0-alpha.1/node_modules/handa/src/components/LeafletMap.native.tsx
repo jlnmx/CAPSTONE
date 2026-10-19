@@ -3,6 +3,7 @@ import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
 import { Colors } from '@constants/colors';
+import { useTheme } from '@hooks/useTheme';
 import { MapEvacuationCenter } from '@types/index';
 
 const BINAN_CENTER = [14.3036, 121.0781];
@@ -21,6 +22,7 @@ interface LeafletMapProps {
 }
 
 export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapProps) {
+  const { palette } = useTheme();
   const [ready, setReady] = useState(false);
   const webView = useRef<WebView | null>(null);
   const mappedCenters = useMemo(() => centers.flatMap((item) => (
@@ -85,36 +87,37 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           html, body, #map { margin: 0; width: 100%; height: 100%; }
           .leaflet-container { background: #e5efe8; }
           .leaflet-control-attribution { margin: 0 5px 5px 0 !important; padding: 2px 5px !important; border-radius: 3px; background: rgba(255,255,255,.82) !important; color: #526052; font-size: 9px !important; line-height: 1.3 !important; }
-          .location-panel { position: absolute; top: 14px; left: 14px; right: 14px; z-index: 1000; width: auto; max-width: 390px; box-sizing: border-box; padding: 14px 16px; border-radius: 8px; background: #ffffff; box-shadow: 0 3px 14px rgba(23, 33, 43, 0.22); color: #17212B; font: 13px/1.5 Arial, sans-serif; overflow-wrap: anywhere; }
+          .location-panel { position: absolute; top: 14px; left: 14px; right: 14px; z-index: 1000; width: auto; max-width: 390px; box-sizing: border-box; padding: 14px 16px; border: 1px solid ${palette.border}; border-radius: 8px; background: ${palette.surface}; box-shadow: 0 3px 14px rgba(23, 33, 43, 0.22); color: ${palette.text}; font: 13px/1.5 Arial, sans-serif; overflow-wrap: anywhere; }
           .location-panel strong { display: block; margin-bottom: 6px; font-size: 16px; }
           .location-panel .center-name { display: block; font-size: 14px; font-weight: 700; }
-          .location-panel .muted { display: block; margin-top: 2px; color: #667085; font-size: 12px; }
+          .location-panel .muted { display: block; margin-top: 2px; color: ${palette.textMuted}; font-size: 12px; }
           .location-panel button { margin-top: 10px; border: 0; border-radius: 5px; padding: 9px 12px; background: #218B25; color: #ffffff; font-weight: 700; }
           .location-panel .secondary { margin-right: 7px; background: #E8F2E8; color: #175B19; }
           .evacuation-center-icon { background: transparent; border: 0; }
           .evacuation-center-icon div { width: 32px; height: 32px; border: 3px solid #ffffff; border-radius: 8px; background: #218B25; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 23px; font-weight: 800; line-height: 1; box-shadow: 0 2px 6px rgba(23,33,43,.35); }
-          .navigation-panel { position: absolute; display: none; left: 10px; right: 10px; bottom: 18px; z-index: 1100; max-width: 460px; margin: 0 auto; padding: 12px; box-sizing: border-box; border: 1px solid #D7E2EA; border-radius: 12px; background: #ffffff; box-shadow: 0 4px 18px rgba(23,33,43,.2); color: #17212B; font: 13px/1.4 Arial, sans-serif; }
+          .navigation-panel { position: absolute; display: none; left: 10px; right: 10px; bottom: 18px; z-index: 1100; max-width: 460px; margin: 0 auto; padding: 12px; box-sizing: border-box; border: 1px solid ${palette.border}; border-radius: 12px; background: ${palette.surface}; box-shadow: 0 4px 18px rgba(23,33,43,.2); color: ${palette.text}; font: 13px/1.4 Arial, sans-serif; }
           .navigation-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
           .navigation-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; }
-          .navigation-eyebrow { color: #667085; font-size: 9px; font-weight: 800; letter-spacing: .7px; }
+          .navigation-eyebrow { color: ${palette.textMuted}; font-size: 9px; font-weight: 800; letter-spacing: .7px; }
           .navigation-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 800; }
-          .navigation-stats { color: #175B19; font-size: 12px; font-weight: 700; }
-          .navigation-modes { display: flex; gap: 4px; margin-top: 10px; padding: 4px; border-radius: 7px; background: #F0F2F5; }
+          .navigation-stats { color: ${palette.text}; font-size: 12px; font-weight: 700; }
+          .navigation-modes { display: flex; gap: 4px; margin-top: 10px; padding: 4px; border-radius: 7px; background: ${palette.surfaceMuted}; }
           .navigation-panel button { min-height: 38px; border: 0; border-radius: 5px; padding: 7px 9px; font-weight: 700; }
-          .navigation-modes button { flex: 1; background: transparent; color: #526052; font-size: 11px; }
-          .navigation-modes button.active { background: #ffffff; color: #218B25; box-shadow: 0 1px 4px rgba(23,33,43,.16); }
-          .navigation-recenter { flex-shrink: 0; background: #E8F2E8; color: #175B19; }
+          .navigation-modes button { flex: 1; background: transparent; color: ${palette.textMuted}; font-size: 11px; }
+          .navigation-modes button.active { background: ${palette.surface}; color: ${palette.text}; box-shadow: 0 1px 4px rgba(23,33,43,.16); }
+          .navigation-recenter { flex-shrink: 0; background: ${palette.surfaceMuted}; color: ${palette.text}; }
           .navigation-routes { display: flex; gap: 6px; overflow-x: auto; margin-top: 8px; }
-          .navigation-route { min-width: 100px; flex: 1; text-align: left; background: #F7F9FA; border: 1px solid #D7E2EA !important; color: #17212B; font-size: 11px; }
-          .navigation-route.active { border-color: #218B25 !important; background: #EDF7EE; }
-          .navigation-route span { display: block; margin-top: 2px; color: #667085; font-size: 10px; }
-          .navigation-message { margin: 9px 2px 2px; color: #667085; font-size: 11px; }
-          .navigation-stop { width: 100%; margin-top: 8px; background: #FCEEEE; color: #A52D2D; }
+          .navigation-route { min-width: 100px; flex: 1; text-align: left; background: ${palette.surfaceMuted}; border: 1px solid ${palette.border} !important; color: ${palette.text}; font-size: 11px; }
+          .navigation-route.active { border-color: #64A96A !important; background: ${palette.surface}; }
+          .navigation-route span { display: block; margin-top: 2px; color: ${palette.textMuted}; font-size: 10px; }
+          .navigation-route span { display: block; margin-top: 2px; color: ${palette.textMuted}; font-size: 10px; }
+          .navigation-message { margin: 9px 2px 2px; color: ${palette.textMuted}; font-size: 11px; }
+          .navigation-stop { width: 100%; margin-top: 8px; background: ${palette.surfaceMuted}; color: ${palette.text}; }
           .navigation-actions { display: flex; gap: 6px; flex-shrink: 0; }
-          .navigation-toggle { width: 38px; background: #F0F2F5; color: #344054; font-size: 17px; }
+          .navigation-toggle { width: 38px; background: ${palette.surfaceMuted}; color: ${palette.text}; font-size: 17px; }
           .navigation-panel.compact { padding: 8px 10px; }
           .navigation-panel.compact .navigation-modes, .navigation-panel.compact .navigation-routes { display: none; }
-          .navigation-panel.compact .navigation-toggle { background: #E8F2E8; color: #175B19; }
+          .navigation-panel.compact .navigation-toggle { background: ${palette.surfaceMuted}; color: ${palette.text}; }
           .navigation-panel.compact .navigation-stop { width: auto; min-height: 30px; display: block; margin: 6px auto 0; padding: 4px 12px; }
           .navigation-actions { display: flex; gap: 6px; flex-shrink: 0; }
           .navigation-toggle { width: 38px; font-size: 0; }
@@ -374,7 +377,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         </script>
       </body>
     </html>
-  `, [mappedCenters]);
+  `, [mappedCenters, palette]);
 
   return (
     <View style={styles.container}>

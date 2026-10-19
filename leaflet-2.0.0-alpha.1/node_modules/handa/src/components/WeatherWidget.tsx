@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -44,9 +44,6 @@ export function WeatherWidget({ weather, weatherEvents, presentation, isLoading,
         <Text style={styles.forecastSource}>{weatherEvents.length > 0 ? `Event ${weatherEvents.length > 1 ? `${weatherEventIndex + 1} of ` : ''}${weatherEvents.length} · ` : ''}{isUnavailable ? 'Forecast unavailable' : 'Open-Meteo model outlook'}</Text>
       </View>
       {weatherEvents.length > 0 ? <WeatherEventSlideshow events={weatherEvents} index={weatherEventIndex} setIndex={setSelectedWeatherEventIndex} /> : <Text style={styles.noEvents}>{isLoading ? 'Checking the hourly forecast...' : isUnavailable ? 'Hourly forecast unavailable. Check official PAGASA advisories.' : 'No significant modeled rain, thunderstorm, wind, or heat events detected.'}</Text>}
-      <Pressable onPress={() => void Linking.openURL('https://www.pagasa.dost.gov.ph/')} accessibilityRole="link">
-        <Text style={styles.officialLink}>Official typhoon, Habagat/Amihan, LPA/HPA, and El Niño/La Niña bulletins: PAGASA</Text>
-      </Pressable>
       <Text style={styles.forecastDisclaimer}>Model outlook is not an official warning. Check PAGASA and local government advisories.</Text>
     </View>
   </>;

@@ -118,8 +118,9 @@ export function NotificationBell() {
       </AnimatedPressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)}>
-        <Pressable style={[styles.backdrop, { paddingRight: rightGutter }]} onPress={() => setVisible(false)}>
-          <Pressable style={styles.modal} onPress={(event) => event.stopPropagation()}>
+        <View style={[styles.backdrop, { paddingRight: rightGutter }]}>
+          <Pressable style={styles.backdropDismiss} onPress={() => setVisible(false)} accessibilityLabel="Close notifications" accessibilityRole="button" />
+          <View style={styles.modal}>
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.title}>Notifications</Text>
@@ -131,22 +132,27 @@ export function NotificationBell() {
             </View>
             {notifications.length === 0 && <View style={styles.empty}><MaterialCommunityIcons name="bell-sleep-outline" size={30} color={Colors.textMuted} /><Text style={styles.emptyTitle}>No notifications</Text><Text style={styles.emptyDetail}>Relevant safety updates will appear here.</Text></View>}
             {notifications.map((notification) => (
-              <Pressable key={notification.id} onPress={() => void openNotification(notification)} style={[styles.notification, !notification.read && styles.unreadNotification]} accessibilityRole="button" accessibilityLabel={`Open ${notification.title} notification`}>
-                <View style={[styles.icon, { backgroundColor: `${notification.color}18` }]}>
-                  <MaterialCommunityIcons name={notification.icon} size={22} color={notification.color} />
-                </View>
-                <View style={styles.copy}>
-                  <View style={styles.notificationHeading}>
-                    <Text style={[styles.notificationTitle, !notification.read && styles.unreadTitle]}>{notification.title}</Text>
-                    <Text style={styles.time}>{notification.time}</Text>
+              <View key={notification.id} style={[styles.notification, !notification.read && styles.unreadNotification]}>
+                <Pressable onPress={() => void openNotification(notification)} accessibilityRole="button" accessibilityLabel={`Open ${notification.title} notification`}>
+                  <View style={styles.notificationContent}>
+                    <View style={[styles.icon, { backgroundColor: `${notification.color}18` }]}>
+                      <MaterialCommunityIcons name={notification.icon} size={22} color={notification.color} />
+                    </View>
+                    <View style={styles.copy}>
+                      <View style={styles.notificationHeading}>
+                        <Text style={[styles.notificationTitle, !notification.read && styles.unreadTitle]}>{notification.title}</Text>
+                        <Text style={styles.time}>{notification.time}</Text>
+                      </View>
+                      <Text style={[styles.detail, !notification.read && styles.unreadDetail]}>{notification.detail}</Text>
+                      <Text style={styles.readHint}>{notification.read ? 'Read' : 'Tap to open'}</Text>
+                    </View>
                   </View>
-                  <Text style={[styles.detail, !notification.read && styles.unreadDetail]}>{notification.detail}</Text>
-                  <View style={styles.readRow}><Text style={styles.readHint}>{notification.read ? 'Read' : 'Tap to open'}</Text>{!notification.read && <Pressable onPress={(event) => { event.stopPropagation(); void markNotificationRead(notification); }} accessibilityRole="button"><Text style={styles.markRead}>Mark as read</Text></Pressable>}</View>
-                </View>
-              </Pressable>
+                </Pressable>
+                {!notification.read && <View style={styles.readRow}><Pressable onPress={() => void markNotificationRead(notification)} accessibilityRole="button" accessibilityLabel={`Mark ${notification.title} as read`}><Text style={styles.markRead}>Mark as read</Text></Pressable></View>}
+              </View>
             ))}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </>
   );
@@ -157,11 +163,13 @@ const styles = StyleSheet.create({
   dot: { position: 'absolute', top: -1, right: -5, zIndex: 2, minWidth: 16, height: 16, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.warning, borderWidth: 1, borderColor: Colors.white },
   dotText: { color: '#3D3100', fontSize: 8, fontWeight: '900' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.45)', padding: 18, justifyContent: 'flex-start', alignItems: 'flex-end' },
+  backdropDismiss: { ...StyleSheet.absoluteFillObject },
   modal: { width: '100%', maxWidth: 430, marginTop: 62, backgroundColor: Colors.surface, borderRadius: BorderRadius.md, padding: Spacing.lg, ...Shadows.md },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingBottom: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.background },
   title: { color: Colors.text, fontSize: 20, fontWeight: '800' },
   subtitle: { color: Colors.textMuted, fontSize: 12, marginTop: 3 },
-  notification: { flexDirection: 'row', paddingVertical: 13, paddingHorizontal: 7, borderBottomWidth: 1, borderBottomColor: Colors.background, borderRadius: 6 },
+  notification: { paddingVertical: 13, paddingHorizontal: 7, borderBottomWidth: 1, borderBottomColor: Colors.background, borderRadius: 6 },
+  notificationContent: { flexDirection: 'row' },
   unreadNotification: { backgroundColor: Colors.surfaceMuted },
   icon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   copy: { flex: 1 },
@@ -171,7 +179,7 @@ const styles = StyleSheet.create({
   time: { color: Colors.textMuted, fontSize: 10, marginLeft: 8 },
   detail: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 },
   unreadDetail: { color: Colors.textMuted, fontWeight: '600' },
-  readRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 5 },
+  readRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 5 },
   readHint: { color: '#8A9B8C', fontSize: 9 },
   markRead: { color: GREEN, fontSize: 9, fontWeight: '800' },
   empty: { alignItems: 'center', paddingVertical: 34 },
