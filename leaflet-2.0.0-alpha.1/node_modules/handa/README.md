@@ -31,8 +31,8 @@ The HANDA system includes:
 ### Prerequisites
 
 - **Node.js** 16+ and npm
-- **Expo CLI**: `npm install -g expo-cli`
-- **Android Studio** (for Android emulator) or **Xcode** (for iOS simulator)
+- **Android Studio** with the Android SDK (for Android) or **Xcode** (for iOS simulator)
+- A Java JDK for Android builds (Android Studio's bundled JDK is suitable)
 - An Android device or simulator for testing
 
 ### Installation
@@ -40,13 +40,13 @@ The HANDA system includes:
 1. **Navigate to the project directory:**
 
    ```bash
-   cd c:\Codes\HANDA
+   cd "F:\Py code\Capstone\CAPSTONE\HANDA"
    ```
 
 2. **Install dependencies:**
 
    ```bash
-   npm install
+   npm install --legacy-peer-deps
    ```
 
 3. **Start the development server:**
@@ -57,12 +57,85 @@ The HANDA system includes:
 
 4. **Run on Android:**
 
-   - Press `a` in the terminal to launch Android emulator
-   - Or scan the QR code with the Expo Go app on your physical Android device
+   - Use `npx expo run:android` to build and run the native app on a connected
+     Android device or emulator.
+   - For the USB steps to install and use a debug APK on a phone, see
+     [Install a Development APK on an Android Phone](#install-a-development-apk-on-an-android-phone)
 
 5. **Run on iOS (macOS only):**
 
    - Press `i` in the terminal
+
+### Install a Development APK on an Android Phone
+
+A debug APK is a native development build, not an Expo Go app. It needs the
+Metro development server running on your computer to load the JavaScript
+bundle. Keep the phone connected by USB while developing.
+
+#### Requirements
+
+- Node.js and npm dependencies installed in `HANDA/`
+- Java and the Android SDK installed
+- Android USB debugging enabled on the phone
+- `HANDA/android/local.properties` configured with your Android SDK path if
+  Gradle cannot find the SDK
+
+#### Build the debug APK
+
+From a PowerShell terminal:
+
+```powershell
+Set-Location "F:\Py code\Capstone\CAPSTONE\HANDA"
+$sdk = "$env:LOCALAPPDATA\Android\Sdk"
+Set-Content ".\android\local.properties" "sdk.dir=$($sdk -replace '\\','/')"
+$env:NODE_ENV = "production"
+Set-Location ".\android"
+.\gradlew.bat assembleDebug
+```
+
+The `local.properties` command assumes Android Studio's default Windows SDK
+location. If your SDK is elsewhere, set `$sdk` to that folder instead. This
+machine-specific file is ignored by Git.
+
+The APK is created at:
+
+```text
+HANDA\android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+#### Install or update the APK over USB
+
+Connect and unlock the phone, enable USB debugging, and accept the
+authorization prompt if Android displays one. From a PowerShell terminal in
+the `HANDA/` directory:
+
+```powershell
+$adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+& $adb devices
+& $adb install -r ".\android\app\build\outputs\apk\debug\app-debug.apk"
+& $adb reverse tcp:8081 tcp:8081
+```
+
+`adb devices` should show the phone as `device`. If it shows `unauthorized`,
+unlock the phone and accept the USB debugging prompt, then run `adb devices`
+again. The `-r` option updates an existing install while preserving app data.
+If Android rejects the update because its signing key differs, uninstall the
+existing app from the phone and run the install command again; uninstalling
+will clear that app's data.
+
+#### Start Metro and open the app
+
+In another PowerShell terminal, start Metro from `HANDA/` and leave it running:
+
+```powershell
+Set-Location "F:\Py code\Capstone\CAPSTONE\HANDA"
+npx expo start --localhost
+```
+
+Open or reload HANDA on the phone. If Metro is already running, use its
+terminal to reload the app. If you add or update a package with native Android
+code, rebuild the APK and reinstall it before testing; JavaScript-only changes
+can be picked up by Metro without reinstalling.
 
 ### Admin Command Center
 
