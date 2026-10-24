@@ -107,6 +107,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS current_address TEXT;
 ALTER TABLE users ALTER COLUMN current_address SET DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_type TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_organization TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_barangay TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 
@@ -234,13 +236,7 @@ CREATE TABLE IF NOT EXISTS evacuation_household_members (
 CREATE INDEX IF NOT EXISTS evacuation_household_members_registration_idx
   ON evacuation_household_members (registration_id);
 
-INSERT INTO evacuation_centers (id, name, location_text, capacity, current_occupancy, status, latitude, longitude)
-VALUES
-  ('center-poblacion', 'Barangay Poblacion Covered Court', 'Poblacion, Biñan, Laguna', 300, 0, 'available', 14.301, 121.082),
-  ('center-multipurpose', 'Biñan City Multi-Purpose Hall', 'Biñan City, Laguna', 500, 0, 'available', 14.307, 121.071),
-  ('center-school-gym', 'School Gymnasium', 'Biñan City, Laguna', 250, 0, 'available', 14.312, 121.089),
-  ('center-timbao', 'Timbao Open Field', 'Timbao, Biñan, Laguna', 400, 0, 'available', 14.2864, 121.0942)
-ON CONFLICT (id) DO NOTHING;
+-- Biñan evacuation centers are seeded by the API at startup from backend/app/data/binan_evacuation_centers.json.
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;
 

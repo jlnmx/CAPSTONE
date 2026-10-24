@@ -31,22 +31,27 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 Binding to `0.0.0.0` lets Expo Go on a phone reach the API over the same local network. Keep the phone and development computer on the same Wi-Fi network.
 
-The connection string uses `sslmode=require` for Supabase. Before starting the API, run `database/init.sql` in the Supabase SQL Editor so the `incidents` and `evacuees` tables and PostGIS indexes exist.
+For Supabase, copy **Session pooler** from the project's **Connect** dialog and use that full connection string as `DATABASE_URL`. Its shared pooler supports IPv4-only networks; do not substitute a Direct connection unless the backend host supports the project's required IP version. Preserve `sslmode=require` and use the exact pooler host and username provided by Supabase. Never commit the populated `.env` file.
+
+Before starting the API, run `database/init.sql` in the Supabase SQL Editor so the `incidents` and `evacuees` tables and PostGIS indexes exist.
 
 For an existing Supabase database, also run `database/migrations/20261001_evacuation_status.sql` in the SQL Editor to add resident evacuation registrations and household members. The API adds the same tables at startup for local databases.
 
-When using Docker Compose, set `DATABASE_URL` in the shell before starting it; Compose will use that value instead of the local Postgres fallback:
+When using Docker Compose with Supabase, set `DATABASE_URL` in the shell before starting it; Compose will use that value instead of the local Postgres fallback. Use the Session pooler connection string copied from the Dashboard, not a constructed or placeholder host:
 
 ```powershell
-$env:DATABASE_URL = "postgresql://postgres:[YOUR-PASSWORD]@db.dvqgxrlkqdlqzsrqeqtb.supabase.co:5432/postgres?sslmode=require"
+$env:DATABASE_URL = "postgresql://postgres.[PROJECT-REF]:[YOUR-PASSWORD]@[POOLER-HOST]:5432/postgres?sslmode=require"
 docker compose up --build api
 ```
 
-Check the service:
+Check application liveness and database readiness separately:
 
 ```powershell
 Invoke-RestMethod http://localhost:8000/health
+Invoke-RestMethod http://localhost:8000/health/ready
 ```
+
+`/health` reports whether FastAPI is running and does not contact PostgreSQL. `/health/ready` performs a lightweight database query and returns `503` when the database cannot be reached.
 
 ### Password reset delivery
 

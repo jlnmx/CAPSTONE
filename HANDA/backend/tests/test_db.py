@@ -1,3 +1,4 @@
+import json
 import unittest
 from unittest.mock import MagicMock, call, patch
 
@@ -5,14 +6,15 @@ import psycopg
 from fastapi import HTTPException
 
 from app.db import CONNECT_ATTEMPTS, get_connection
-from app.main import create_center, create_incident, evacuation_center_status, lifespan, resident_evacuation_status, update_current_profile, update_evacuee_status, write_evacuee
+from app.main import BINAN_CENTERS_FILE, create_center, create_incident, database_readiness, evacuation_center_status, health, lifespan, resident_evacuation_status, seed_binan_evacuation_centers, update_current_profile, update_evacuee_status, write_evacuee
 from app.schemas import CenterCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, SelfProfileUpdate
 
 
 class DatabaseDependencyTests(unittest.TestCase):
     @patch("app.db.time.sleep")
+    @patch("app.db.random.uniform", return_value=0.5)
     @patch("app.db.psycopg.connect")
-    def test_retries_transient_connection_failure(self, connect, sleep):
+    def test_retries_transient_connection_failure(self, connect, jitter, sleep):
         connection = MagicMock()
         connect.side_effect = [psycopg.OperationalError("temporary timeout"), connection]
 
@@ -22,7 +24,7 @@ class DatabaseDependencyTests(unittest.TestCase):
             next(dependency)
 
         self.assertEqual(connect.call_count, 2)
-        self.assertEqual(connect.call_args.kwargs["connect_timeout"], 2)
+        self.assertEqual(connect.call_args.kwargs["connect_timeout"], 4)
         self.assertEqual(sleep.call_args_list, [call(0.5)])
         connection.__exit__.assert_called_once_with(None, None, None)
 
@@ -36,7 +38,55 @@ class DatabaseDependencyTests(unittest.TestCase):
         self.assertEqual(error.exception.status_code, 503)
         self.assertEqual(connect.call_count, CONNECT_ATTEMPTS)
         self.assertEqual(sleep.call_count, CONNECT_ATTEMPTS - 1)
-        log_warning.assert_called_once()
+        self.assertEqual(log_warning.call_count, 2)
+        self.assertIn("Retrying database connection", log_warning.call_args_list[0].args[0])
+        self.assertIn("Database connection failed", log_warning.call_args_list[1].args[0])
+
+    @patch("app.db.time.sleep")
+    @patch("app.db.psycopg.connect")
+    def test_does_not_retry_permanent_authentication_failure(self, connect, sleep):
+        class AuthenticationError(psycopg.OperationalError):
+            @property
+            def sqlstate(self):
+                return "28P01"
+
+        connect.side_effect = AuthenticationError("authentication failed")
+
+        with self.assertRaises(HTTPException) as error:
+            next(get_connection())
+
+        self.assertEqual(error.exception.status_code, 503)
+        connect.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_liveness_does_not_require_database(self):
+        self.assertEqual(health(), {"status": "ok"})
+
+    def test_readiness_executes_lightweight_database_query(self):
+        connection = MagicMock()
+
+        self.assertEqual(database_readiness(connection), {"status": "ready", "database": "ok"})
+        connection.execute.assert_called_once_with("SELECT 1")
+
+    def test_binan_center_seed_data_is_complete_and_unique(self):
+        centers = json.loads(BINAN_CENTERS_FILE.read_text(encoding="utf-8"))
+
+        self.assertEqual(len(centers), 26)
+        self.assertEqual(len({center["id"] for center in centers}), 26)
+        self.assertTrue(all(center["name"] and center["location"] and center["contactNumber"] for center in centers))
+        self.assertFalse(any("?" in center["location"] for center in centers))
+
+    def test_seeding_upserts_centers_without_overwriting_admin_edits(self):
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+
+        seed_binan_evacuation_centers(connection)
+
+        sql = cursor.executemany.call_args.args[0]
+        self.assertEqual(len(cursor.executemany.call_args.args[1]), 26)
+        self.assertIn("ON CONFLICT (id) DO UPDATE", sql)
+        self.assertNotIn("capacity = EXCLUDED", sql)
+        self.assertIn("NOT EXISTS", connection.execute.call_args.args[0])
 
     def test_write_evacuee_passes_sql_parameters_as_a_tuple(self):
         connection = MagicMock()

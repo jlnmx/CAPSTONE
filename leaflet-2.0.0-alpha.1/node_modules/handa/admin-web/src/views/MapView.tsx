@@ -10,7 +10,7 @@ const LeafletApi = Leaflet as any;
 
 const incidentColors: Record<string, string> = {
   reported: '#d83b36',
-  acknowledged: '#e0a134',
+  acknowledged: '#f28c28',
   in_progress: '#267da4',
   resolved: '#737f78',
 };
@@ -50,7 +50,6 @@ export default function MapView() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [showCenters, setShowCenters] = useState(true);
   const [showIncidents, setShowIncidents] = useState(true);
-  const [showResolved, setShowResolved] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const refresh = useCallback(async (quiet = false) => {
@@ -116,7 +115,7 @@ export default function MapView() {
       marker.bindPopup(popup);
     });
 
-    data.incidents.filter((incident) => hasCoordinates(incident) && (showResolved || incident.status.toLowerCase() !== 'resolved')).forEach((incident) => {
+    data.incidents.filter((incident) => hasCoordinates(incident) && incident.status.toLowerCase() !== 'resolved').forEach((incident) => {
       const status = incident.status.toLowerCase();
       const marker = new LeafletApi.CircleMarker([incident.latitude, incident.longitude], {
         radius: status === 'reported' ? 10 : 8,
@@ -136,6 +135,11 @@ export default function MapView() {
       const detail = document.createElement('div');
       detail.textContent = incident.actionNotes || incident.responseNotes || incident.description;
       popup.append(name, state, location, detail);
+      if (incident.reporterContact) {
+        const reporter = document.createElement('div');
+        reporter.textContent = `Reporter: ${incident.reporterName || 'Resident'} · ${incident.reporterContact}`;
+        popup.append(reporter);
+      }
       marker.bindPopup(popup);
       incidentMarkers.current.set(incident.id, marker);
     });
@@ -144,7 +148,7 @@ export default function MapView() {
     else mapRef.current.removeLayer(centerLayer.current);
     if (showIncidents) incidentLayer.current.addTo(mapRef.current);
     else mapRef.current.removeLayer(incidentLayer.current);
-  }, [data, showCenters, showIncidents, showResolved]);
+  }, [data, showCenters, showIncidents]);
 
   useEffect(() => {
     const syncFullscreen = () => setIsFullscreen(document.fullscreenElement === mapFrame.current);
@@ -159,13 +163,12 @@ export default function MapView() {
   }, [isFullscreen]);
 
   const activeIncidents = useMemo(() => data.incidents.filter((incident) => incident.status.toLowerCase() !== 'resolved'), [data.incidents]);
-  const visibleIncidents = useMemo(() => data.incidents
-    .filter((incident) => showResolved || incident.status.toLowerCase() !== 'resolved')
+  const visibleIncidents = useMemo(() => [...activeIncidents]
     .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())
-    .slice(0, 12), [data.incidents, showResolved]);
-  const geolocatedIncidents = data.incidents.filter(hasCoordinates).length;
+    .slice(0, 12), [activeIncidents]);
+  const geolocatedIncidents = activeIncidents.filter(hasCoordinates).length;
   const geolocatedCenters = data.centers.filter(hasCoordinates).length;
-  const unlocatedCount = data.incidents.length - geolocatedIncidents + data.centers.length - geolocatedCenters;
+  const unlocatedCount = activeIncidents.length - geolocatedIncidents + data.centers.length - geolocatedCenters;
 
   async function toggleFullscreen() {
     if (!mapFrame.current) return;
@@ -201,9 +204,8 @@ export default function MapView() {
       <div className="command-map-canvas-wrap">
         <div ref={mapElement} className="command-map-canvas" aria-label="Map of incidents and evacuation centers in Biñan City" />
         <div className="map-layer-control" aria-label="Map layers">
-          <label><input type="checkbox" checked={showIncidents} onChange={(event) => setShowIncidents(event.target.checked)} /><i className="map-legend-dot legend-incident" /><span>Incidents</span><strong>{data.incidents.length}</strong></label>
+          <label><input type="checkbox" checked={showIncidents} onChange={(event) => setShowIncidents(event.target.checked)} /><i className="map-legend-dot legend-incident" /><span>Incidents</span><strong>{activeIncidents.length}</strong></label>
           <label><input type="checkbox" checked={showCenters} onChange={(event) => setShowCenters(event.target.checked)} /><i className="map-legend-dot legend-center" /><span>Evacuation centers</span><strong>{data.centers.length}</strong></label>
-          <label><input type="checkbox" checked={showResolved} onChange={(event) => setShowResolved(event.target.checked)} /><i className="map-legend-dot legend-resolved" /><span>Resolved incidents</span></label>
           <div className="map-status-key"><span><i className="legend-incident" />Needs response</span><span><i className="legend-acknowledged" />Acknowledged</span><span><i className="legend-progress" />Responding</span></div>
         </div>
         {loading && <div className="map-loading-indicator"><span className="loader" />Loading live field data</div>}

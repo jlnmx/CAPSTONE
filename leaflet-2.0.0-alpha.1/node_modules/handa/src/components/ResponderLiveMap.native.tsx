@@ -5,6 +5,8 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
+import { INCIDENT_STATUS_COLORS, INCIDENT_STATUS_LABELS } from '@constants/incidentStatus';
+import { estimateResponseEta } from '@services/responderEta';
 import { getResponderData, ResponderDataSnapshot, updateIncidentStatus } from '@services/responderData';
 
 const CENTER = [14.3036, 121.0781];
@@ -153,6 +155,8 @@ export default function ResponderLiveMap() {
           let userMarker = null;
           const escapeHtml = (value) => String(value ?? '').replace(/[&<>\"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' })[character]);
           const nextAction = (status) => status === 'reported' ? ['acknowledged', 'Acknowledge'] : status === 'acknowledged' ? ['in_progress', 'Start response'] : status === 'in_progress' ? ['resolved', 'Resolve incident'] : null;
+          const statusColors = ${JSON.stringify(INCIDENT_STATUS_COLORS)};
+          const statusLabels = ${JSON.stringify(INCIDENT_STATUS_LABELS)};
           window.postIncidentAction = (id, status, label) => window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'incident-action', id, status, label }));
           window.postIncidentNavigation = (name, latitude, longitude) => window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'incident-navigation', name, latitude, longitude }));
           function formatDistance(meters) { return meters < 1000 ? Math.round(meters) + ' m' : (meters / 1000).toFixed(1) + ' km'; }
@@ -330,7 +334,7 @@ export default function ResponderLiveMap() {
             });
             (data.incidents || []).filter((incident) => incident.status !== 'resolved' && incident.latitude != null && incident.longitude != null && Number.isFinite(Number(incident.latitude)) && Number.isFinite(Number(incident.longitude)) && Math.abs(Number(incident.latitude)) <= 90 && Math.abs(Number(incident.longitude)) <= 180).forEach((incident) => {
               const status = String(incident.status || 'reported');
-              const color = '#D62828';
+              const color = statusColors[status] || statusColors.reported;
               const marker = L.circleMarker([Number(incident.latitude), Number(incident.longitude)], {
                 radius: 11, color: '#fff', fillColor: color, fillOpacity: .96, weight: 3
               }).addTo(incidentsLayer);
@@ -340,7 +344,7 @@ export default function ResponderLiveMap() {
               title.textContent = String(incident.type || 'Incident');
               popup.appendChild(title);
               const statusLine = document.createElement('div');
-              statusLine.textContent = status.replace('_', ' ').toUpperCase();
+              statusLine.textContent = (statusLabels[status] || status.replace('_', ' ')).toUpperCase();
               statusLine.style.color = color;
               statusLine.style.fontWeight = '700';
               popup.appendChild(statusLine);
@@ -427,7 +431,11 @@ export default function ResponderLiveMap() {
         return;
       }
       if (message.type !== 'incident-action' || !message.id || !message.status) return;
-      await updateIncidentStatus(message.id, message.status, `Updated from responder map: ${(message.label || 'status update').toLowerCase()}.`);
+      const incident = data.incidents.find((item) => item.id === message.id);
+      const eta = message.status === 'acknowledged' && incident?.latitude != null && incident.longitude != null
+        ? await estimateResponseEta({ latitude: Number(incident.latitude), longitude: Number(incident.longitude) })
+        : null;
+      await updateIncidentStatus(message.id, message.status, eta ? { etaMinutes: eta.minutes } : {});
       await loadData();
     } catch {
       Alert.alert('Update failed', 'The incident status could not be saved. Check your connection and try again.');
@@ -438,7 +446,9 @@ export default function ResponderLiveMap() {
     <View style={styles.container}>
       <View style={styles.statusBar}>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#218B25' }]} /><Text style={styles.legendText}>Centers</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#D62828' }]} /><Text style={styles.legendText}>Incidents</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: INCIDENT_STATUS_COLORS.reported }]} /><Text style={styles.legendText}>Reported</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: INCIDENT_STATUS_COLORS.acknowledged }]} /><Text style={styles.legendText}>Acknowledged</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: INCIDENT_STATUS_COLORS.in_progress }]} /><Text style={styles.legendText}>In progress</Text></View>
         <View style={styles.statusCopy}>{isLoading ? <ActivityIndicator size="small" color={Colors.secondary} /> : <Text style={[styles.syncStatus, loadError && styles.errorStatus]}>{loadError ? data.unavailableSources.length ? `Partial data · ${data.unavailableSources.join(', ')}` : 'Live data unavailable' : `Live · ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</Text>}</View>
       </View>
       <WebView ref={webView} source={{ html: mapHtml }} style={styles.webView} javaScriptEnabled domStorageEnabled geolocationEnabled originWhitelist={['*']} onMessage={handleMessage} />

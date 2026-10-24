@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Colors } from '@constants/colors';
+import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import * as Leaflet from '../vendor/leaflet/LeafletWithGlobals.js';
 import '../vendor/leaflet/leaflet.css';
 import { MapEvacuationCenter } from '@types/index';
@@ -98,6 +99,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       })[character]);
 
     const showInfoPanel = (title: string, content: string) => {
+      shownIncidentId = null;
       infoPanel.style.display = 'block';
       infoPanel.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px"><strong style="margin:0;font-size:13px">${escapeHtml(title)}</strong><div style="display:flex;gap:4px;flex-shrink:0"><button id="minimize-info-button" type="button" title="Minimize map details" aria-label="Minimize map details" style="margin:0;padding:3px 8px;border:0;border-radius:4px;background:#E8F2E8;color:#175B19;font-weight:700;cursor:pointer">-</button><button id="close-info-button" type="button" title="Close map details" aria-label="Close map details" style="margin:0;padding:3px 8px;border:0;border-radius:4px;background:#F0F2F5;color:#526052;font-weight:700;cursor:pointer">x</button></div></div><div id="info-panel-content">${content}</div>`;
       const contentElement = infoPanel.querySelector<HTMLElement>('#info-panel-content');
@@ -129,6 +131,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       }),
     }).addTo(map));
     let reportedMarkers: any[] = [];
+    let shownIncidentId: string | null = null;
     let routeLayers: any[] = [];
     let trackedPosition: [number, number] | null = null;
     let navigationDestination: [number, number] | null = null;
@@ -387,21 +390,31 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         if (!response.ok || isDisposed) return;
         const incidents = await response.json() as Array<Record<string, unknown>>;
         if (isDisposed) return;
-        reportedMarkers = incidents
-          .filter((incident) => {
-            const status = String(incident.status ?? incident.verificationStatus ?? incident.verification_status ?? 'reported').toLowerCase();
-            return incident.latitude != null && incident.longitude != null && ['reported', 'acknowledged', 'in_progress', 'resolved', 'confirmed', 'accepted'].includes(status);
-          })
+        const activeIncidents = incidents.filter((incident) => {
+          const status = String(incident.status ?? incident.verificationStatus ?? incident.verification_status ?? 'reported').toLowerCase();
+          return incident.latitude != null && incident.longitude != null && ['reported', 'acknowledged', 'in_progress'].includes(status);
+        });
+        if (shownIncidentId && !activeIncidents.some((incident) => String(incident.id) === shownIncidentId)) {
+          infoPanel.style.display = 'none';
+          shownIncidentId = null;
+        }
+        reportedMarkers = activeIncidents
           .map((incident) => {
-            const severity = String(incident.severity ?? 'medium').toLowerCase();
-            const color = severity === 'critical' || severity === 'high' ? '#B42318' : severity === 'medium' ? '#D98C18' : '#2873A8';
+            const markerStatus = String(incident.status ?? incident.verificationStatus ?? incident.verification_status ?? 'reported').toLowerCase();
+            const color = incidentStatusColor(markerStatus);
             const position: [number, number] = [Number(incident.latitude), Number(incident.longitude)];
-            const marker = new LeafletApi.CircleMarker(position, { radius: 10, color, fillColor: color, fillOpacity: 0.9, weight: 3 }).addTo(map);
+            const marker = new LeafletApi.CircleMarker(position, { radius: 10, color: '#FFFFFF', fillColor: color, fillOpacity: 0.95, weight: 3 }).addTo(map);
             marker.on('click', () => {
               clearRoute();
-              const status = String(incident.status ?? incident.verificationStatus ?? 'reported').toLowerCase();
+              const status = markerStatus;
               const actionNotes = String(incident.actionNotes ?? incident.action_notes ?? '');
-              showInfoPanel('Incident report', `<strong style="display:block;font-size:16px;margin-bottom:5px;color:${color}">Incident report</strong><span style="display:block;font-size:14px;font-weight:700">${escapeHtml(String(incident.type ?? 'Incident'))}</span><span style="display:block;font-size:12px;color:${color};margin-top:3px">${escapeHtml(String(incident.severity ?? 'Medium'))} severity · ${escapeHtml(status.replace('_', ' '))}</span><span style="display:block;font-size:12px;line-height:1.5;margin-top:6px">${escapeHtml(String(incident.description ?? 'No description provided.'))}</span>${actionNotes ? `<span style="display:block;font-size:12px;line-height:1.5;margin-top:6px;color:#218B25">Action: ${escapeHtml(actionNotes)}</span>` : ''}`);
+              const eta = incident.responseEtaMinutes ?? incident.response_eta_minutes;
+              const organizations = String(incident.responseOrganizations ?? incident.response_organizations ?? '');
+              const onTheWay = status === 'acknowledged' || status === 'in_progress'
+                ? `<span style="display:block;font-size:12px;line-height:1.5;margin-top:6px;color:${color};font-weight:700">Responders are on the way${eta != null ? ` · ETA ${escapeHtml(String(eta))} min` : ''}${organizations ? ` · ${escapeHtml(organizations)}` : ''}</span>`
+                : '';
+              showInfoPanel('Incident report', `<strong style="display:block;font-size:16px;margin-bottom:5px;color:${color}">Incident report</strong><span style="display:block;font-size:14px;font-weight:700">${escapeHtml(String(incident.type ?? 'Incident'))}</span><span style="display:block;font-size:12px;color:${color};margin-top:3px;font-weight:700">${escapeHtml(incidentStatusLabel(status))} · ${escapeHtml(String(incident.severity ?? 'Medium'))} severity</span>${onTheWay}<span style="display:block;font-size:12px;line-height:1.5;margin-top:6px">${escapeHtml(String(incident.description ?? 'No description provided.'))}</span>${actionNotes ? `<span style="display:block;font-size:12px;line-height:1.5;margin-top:6px;color:#218B25">Action: ${escapeHtml(actionNotes)}</span>` : ''}`);
+              shownIncidentId = String(incident.id);
             });
             return marker;
           });

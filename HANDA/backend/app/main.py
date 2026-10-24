@@ -8,6 +8,7 @@ import smtplib
 from email.message import EmailMessage
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 import psycopg
@@ -297,6 +298,43 @@ def ensure_disaster_schema(connection: psycopg.Connection) -> None:
         connection.execute("ALTER TABLE disasters ADD COLUMN IF NOT EXISTS affected_barangays TEXT[] NOT NULL DEFAULT '{}'")
 
 
+BINAN_CENTERS_FILE = Path(__file__).parent / "data" / "binan_evacuation_centers.json"
+# The source list has no capacities; admins replace this placeholder per center.
+DEFAULT_CENTER_CAPACITY = 100
+LEGACY_DEMO_CENTER_IDS = [
+    "center-poblacion", "center-multipurpose", "center-school-gym", "center-timbao",
+    "center-binan-brgy-briones", "center-binan-brgy-caingin", "center-binan-brgy-calaboso",
+]
+
+
+def seed_binan_evacuation_centers(connection: psycopg.Connection) -> None:
+    centers = json.loads(BINAN_CENTERS_FILE.read_text(encoding="utf-8"))
+    with connection.cursor() as cursor:
+        # Capacity, occupancy, status, and existing coordinates are left untouched on re-run so admin edits persist.
+        cursor.executemany(
+            """
+            INSERT INTO evacuation_centers (id, name, location_text, capacity, current_occupancy, status, contact_number, notes, latitude, longitude)
+            VALUES (%s, %s, %s, %s, 0, 'available', %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              location_text = EXCLUDED.location_text,
+              contact_number = EXCLUDED.contact_number,
+              notes = EXCLUDED.notes,
+              latitude = COALESCE(evacuation_centers.latitude, EXCLUDED.latitude),
+              longitude = COALESCE(evacuation_centers.longitude, EXCLUDED.longitude)
+            """,
+            [(c["id"], c["name"], c["location"], DEFAULT_CENTER_CAPACITY, c["contactNumber"], c["notes"], c.get("latitude"), c.get("longitude")) for c in centers],
+        )
+    connection.execute(
+        """
+        DELETE FROM evacuation_centers
+        WHERE id = ANY(%s)
+          AND NOT EXISTS (SELECT 1 FROM evacuation_registrations WHERE center_id = evacuation_centers.id)
+        """,
+        (LEGACY_DEMO_CENTER_IDS,),
+    )
+
+
 def ensure_operational_schema() -> None:
     with psycopg.connect(settings.database_url, connect_timeout=CONNECT_TIMEOUT_SECONDS) as connection:
         connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'reported'")
@@ -320,6 +358,8 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_type TEXT")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_organization TEXT")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_barangay TEXT")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute(
@@ -475,17 +515,7 @@ def ensure_operational_schema() -> None:
             ON evacuation_household_members (registration_id)
             """,
         )
-        connection.execute(
-            """
-            INSERT INTO evacuation_centers (id, name, location_text, capacity, current_occupancy, status, latitude, longitude)
-            VALUES
-              ('center-poblacion', 'Barangay Poblacion Covered Court', 'Poblacion, Biñan, Laguna', 300, 0, 'available', 14.301, 121.082),
-              ('center-multipurpose', 'Biñan City Multi-Purpose Hall', 'Biñan City, Laguna', 500, 0, 'available', 14.307, 121.071),
-              ('center-school-gym', 'School Gymnasium', 'Biñan City, Laguna', 250, 0, 'available', 14.312, 121.089),
-              ('center-timbao', 'Timbao Open Field', 'Timbao, Biñan, Laguna', 400, 0, 'available', 14.2864, 121.0942)
-            ON CONFLICT (id) DO NOTHING
-            """,
-        )
+        seed_binan_evacuation_centers(connection)
         connection.commit()
 
 
@@ -527,7 +557,10 @@ async def lifespan(_: FastAPI):
         ensure_operational_schema()
         ensure_default_users()
     except psycopg.OperationalError as error:
-        logger.warning("Database unavailable during startup; starting API in degraded mode: %s", error)
+        logger.warning(
+            "Database unavailable during startup; starting API in degraded mode error_type=%s sqlstate=%s",
+            type(error).__name__, getattr(error, "sqlstate", None),
+        )
     yield
 
 
@@ -543,9 +576,14 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health(connection: psycopg.Connection = Depends(get_connection)):
+def health():
+    return {"status": "ok"}
+
+
+@app.get("/health/ready")
+def database_readiness(connection: psycopg.Connection = Depends(get_connection)):
     connection.execute("SELECT 1")
-    return {"status": "ok", "database": "ok"}
+    return {"status": "ready", "database": "ok"}
 
 
 @app.post("/api/v1/incidents", status_code=201)
@@ -596,49 +634,102 @@ def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
     return rows
 
 
-def incident_notification_message(status: str, update: IncidentStatusUpdate) -> tuple[str, str]:
+@app.get("/api/v1/incidents/reporters")
+def list_incident_reporters(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
+    # Contact details are personal data, so they stay out of the public incident list.
+    return connection.execute(
+        """
+        SELECT incidents.id AS incident_id, users.name, users.mobile_number
+        FROM incidents
+        JOIN users ON users.id = incidents.reporter_user_id
+        WHERE incidents.status <> 'resolved'
+        """
+    ).fetchall()
+
+
+def responder_organization_label(organization: str | None, barangay: str | None) -> str:
+    if not organization:
+        return ""
+    if organization == "Barangay Responder" and barangay:
+        return f"Barangay Responder (Brgy. {barangay})"
+    return organization
+
+
+def resolve_response_details(connection: psycopg.Connection, user: CurrentUser, update: IncidentStatusUpdate) -> IncidentStatusUpdate:
+    """Fill people and organizations from the acknowledging responder only when the client omitted them."""
+    people, organizations = update.responsePeople, update.responseOrganizations
+    if update.status == "acknowledged" and user.role == "responder" and (people is None or organizations is None):
+        profile = connection.execute(
+            "SELECT name, responder_organization, responder_barangay FROM users WHERE id = %s",
+            (user.id,),
+        ).fetchone() or {}
+        if people is None:
+            people = profile.get("name") or user.name
+        if organizations is None:
+            organizations = responder_organization_label(profile.get("responder_organization"), profile.get("responder_barangay"))
+    return update.model_copy(update={
+        "responsePeople": None if people is None else people.strip(),
+        "responseOrganizations": None if organizations is None else organizations.strip(),
+    })
+
+
+def incident_notification_message(status: str, update: IncidentStatusUpdate, incident_type: str = "incident") -> tuple[str, str]:
     status_label = status.replace('_', ' ').upper()
+    report = f"{incident_type.strip() or 'incident'} report"
     title = "Incident update"
-    message = f"Your incident is now {status_label}."
+    message = f"Your {report} is now {status_label}."
     if status == "acknowledged":
         title = "Help is on the way"
-        message = "A responder acknowledged your incident and is coordinating a response."
+        message = f"Responders acknowledged your {report} and are on the way. Please stay safe and stay where responders can find you. Status: {status_label}."
     elif status == "in_progress":
         title = "Response in progress"
-        message = "Responders are actively working on your incident."
+        message = f"Responders are now responding to your {report}. Please stay safe and follow their instructions. Status: {status_label}."
     elif status == "resolved":
         title = "Incident response completed"
-        message = "Responders marked your incident as resolved."
+        message = f"Responders marked your {report} as resolved. Stay safe, and report again if you need help. Status: {status_label}."
     details = []
-    if update.responsePeople.strip(): details.append(f"People: {update.responsePeople.strip()}")
-    if update.responseOrganizations.strip(): details.append(f"Organizations: {update.responseOrganizations.strip()}")
+    if (update.responsePeople or "").strip(): details.append(f"People: {update.responsePeople.strip()}")
+    if (update.responseOrganizations or "").strip(): details.append(f"Organizations: {update.responseOrganizations.strip()}")
     if update.responseEtaMinutes is not None: details.append(f"ETA: {update.responseEtaMinutes} minutes")
-    if update.responseNotes.strip(): details.append(update.responseNotes.strip())
+    if (update.responseNotes or "").strip(): details.append(update.responseNotes.strip())
     if details: message += " " + " | ".join(details)
     return title, message
 
 
 @app.patch("/api/v1/incidents/{incident_id}/status")
 def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("responder", "admin"))):
+    update = resolve_response_details(connection, user, update)
+    clean = lambda value: None if value is None else value.strip()
     row = connection.execute(
         """
         UPDATE incidents
-        SET status = %s, action_notes = %s, response_people = %s,
-            response_organizations = %s, response_eta_minutes = %s,
-            response_notes = %s, verified_by = %s, verified_at = NOW()
+        SET status = %s,
+            action_notes = COALESCE(%s, action_notes),
+            response_people = COALESCE(%s, response_people),
+            response_organizations = COALESCE(%s, response_organizations),
+            response_eta_minutes = COALESCE(%s, response_eta_minutes),
+            response_notes = COALESCE(%s, response_notes),
+            verified_by = %s, verified_at = NOW()
         WHERE id = %s
         RETURNING id, status, action_notes, response_people,
                   response_organizations, response_eta_minutes,
                   response_notes, verified_by, verified_at
         """,
-        (update.status, update.actionNotes.strip(), update.responsePeople.strip(), update.responseOrganizations.strip(), update.responseEtaMinutes, update.responseNotes.strip(), user.id, incident_id),
+        (update.status, clean(update.actionNotes), clean(update.responsePeople), clean(update.responseOrganizations), update.responseEtaMinutes, clean(update.responseNotes), user.id, incident_id),
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Incident not found.")
+    saved = update.model_copy(update={
+        "responsePeople": row["response_people"],
+        "responseOrganizations": row["response_organizations"],
+        "responseEtaMinutes": row["response_eta_minutes"],
+        "responseNotes": row["response_notes"],
+    })
     reporter = connection.execute(
         """
         SELECT users.id, users.email, users.mobile_number,
-               users.email_alerts_enabled, users.sms_alerts_enabled
+               users.email_alerts_enabled, users.sms_alerts_enabled,
+               incidents.type AS incident_type
         FROM incidents
         JOIN users ON users.id = incidents.reporter_user_id
         WHERE incidents.id = %s
@@ -646,14 +737,13 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
         (incident_id,),
     ).fetchone()
     if reporter:
-        title, message = incident_notification_message(update.status, update)
+        title, message = incident_notification_message(update.status, saved, reporter["incident_type"])
         connection.execute(
             "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
             (f"notification-{uuid4()}", reporter["id"], incident_id, title, message),
         )
     connection.commit()
     if reporter:
-        title, message = incident_notification_message(update.status, update)
         deliver_incident_alert(
             reporter["email"],
             reporter["mobile_number"],
@@ -1054,7 +1144,7 @@ def update_evacuation_registration_status(
 @app.get("/api/v1/users")
 def list_users(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
     rows = connection.execute(
-        "SELECT users.id, users.name, users.email, users.birthday, users.mobile_number, users.current_address, users.role, users.status, users.responder_type, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
+        "SELECT users.id, users.name, users.email, users.birthday, users.mobile_number, users.current_address, users.role, users.status, users.responder_type, users.responder_organization, users.responder_barangay, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
     ).fetchall()
     return rows
 
@@ -1224,6 +1314,9 @@ def resident_profile_payload(row: dict, members: list[dict] | None = None) -> di
         "mobileNumber": row.get("mobile_number") or "",
         "currentAddress": row.get("current_address") or "",
         "householdMembers": members if members is not None else [],
+        "responderType": row.get("responder_type"),
+        "responderOrganization": row.get("responder_organization"),
+        "responderBarangay": row.get("responder_barangay"),
     }
 
 
@@ -1258,8 +1351,9 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
             """
             INSERT INTO users
               (id, name, first_name, middle_name, last_name, email, birthday, mobile_number,
-               current_address, sex, password_hash, role, status, responder_type)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               current_address, sex, password_hash, role, status, responder_type,
+               responder_organization, responder_barangay)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 user_id,
@@ -1276,6 +1370,8 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
                 registration.role,
                 account_status,
                 registration.responderType if is_responder else None,
+                registration.responderOrganization if is_responder else None,
+                registration.responderBarangay if is_responder else None,
             ),
         )
         if is_responder:
@@ -1295,7 +1391,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
 
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay FROM users WHERE id = %s",
         (user_id,),
     ).fetchone()
     if is_responder:
@@ -1383,7 +1479,7 @@ def complete_password_reset(request: PasswordResetCompletion, connection: psycop
 @app.post("/api/v1/auth/login")
 def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s)",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s)",
         (credentials.email.strip(),),
     ).fetchone()
     if not row:
@@ -1419,7 +1515,7 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
 @app.get("/api/v1/auth/me")
 def current_user(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, responder_type, responder_organization, responder_barangay FROM users WHERE id = %s",
         (user.id,),
     ).fetchone()
     return resident_profile_payload(row, household_members_for_user(connection, user.id))

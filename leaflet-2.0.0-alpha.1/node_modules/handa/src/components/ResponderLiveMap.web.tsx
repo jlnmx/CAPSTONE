@@ -4,6 +4,8 @@ import { ThemedText as Text } from '@components/ThemedText';
 import * as Leaflet from '../vendor/leaflet/LeafletWithGlobals.js';
 import '../vendor/leaflet/leaflet.css';
 import { getResponderData, ResponderDataSnapshot, ResponderIncident, updateIncidentStatus } from '@services/responderData';
+import { estimateResponseEta } from '@services/responderEta';
+import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import { Colors } from '@constants/colors';
 
 const CENTER: [number, number] = [14.3036, 121.0781];
@@ -418,7 +420,7 @@ export default function ResponderLiveMap() {
       });
 
       data.incidents.filter((incident) => incident.status !== 'resolved' && incident.latitude != null && incident.longitude != null && Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude) && Math.abs(incident.latitude) <= 90 && Math.abs(incident.longitude) <= 180).forEach((incident) => {
-        const color = '#D62828';
+        const color = incidentStatusColor(incident.status);
         const marker = new LeafletApi.CircleMarker([incident.latitude, incident.longitude], {
           radius: 11,
           color: '#FFFFFF',
@@ -428,7 +430,7 @@ export default function ResponderLiveMap() {
         }).addTo(incidentLayer.current);
         const popup = document.createElement('div');
         popup.appendChild(makeText('strong', incident.type, { display: 'block', marginBottom: '4px' }));
-        popup.appendChild(makeText('div', incident.status.replace('_', ' ').toUpperCase(), { color, fontWeight: '800' }));
+        popup.appendChild(makeText('div', incidentStatusLabel(incident.status).toUpperCase(), { color, fontWeight: '800' }));
         popup.appendChild(makeText('div', incident.location || 'Location not provided', { marginTop: '4px' }));
         popup.appendChild(makeText('div', incident.description, { marginTop: '4px', maxWidth: '260px', whiteSpace: 'normal' }));
         if (incident.actionNotes) popup.appendChild(makeText('div', `Response: ${incident.actionNotes}`, { marginTop: '5px', color: '#167A5B' }));
@@ -446,7 +448,8 @@ export default function ResponderLiveMap() {
             button.disabled = true;
             button.textContent = 'Saving...';
             try {
-              await updateIncidentStatus(incident.id, action.status, `Updated from responder map: ${action.label.toLowerCase()}.`);
+              const eta = action.status === 'acknowledged' ? await estimateResponseEta({ latitude: incident.latitude!, longitude: incident.longitude! }) : null;
+              await updateIncidentStatus(incident.id, action.status, eta ? { etaMinutes: eta.minutes } : {});
               const freshData = await getResponderData();
               setData(freshData);
               setLastUpdated(new Date());
@@ -468,7 +471,9 @@ export default function ResponderLiveMap() {
     <View style={styles.container}>
       <View style={styles.statusBar}>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#218B25' }]} /><Text style={styles.legendText}>Centers</Text></View>
-        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#D62828' }]} /><Text style={styles.legendText}>Incidents</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: incidentStatusColor('reported') }]} /><Text style={styles.legendText}>Reported</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: incidentStatusColor('acknowledged') }]} /><Text style={styles.legendText}>Acknowledged</Text></View>
+        <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: incidentStatusColor('in_progress') }]} /><Text style={styles.legendText}>In progress</Text></View>
         <View style={styles.statusCopy}>{isLoading ? <ActivityIndicator size="small" color={Colors.secondary} /> : <Text style={[styles.syncStatus, loadError && styles.errorStatus]}>{loadError ? data.unavailableSources.length ? `Partial data · ${data.unavailableSources.join(', ')}` : 'Live data unavailable' : `Live · ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`}</Text>}</View>
       </View>
       <div ref={mapElement} style={{ width: '100%', height: '100%', minHeight: 280 }} />

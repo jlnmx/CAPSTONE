@@ -1,0 +1,236 @@
+[
+  {
+    "id": "center-binan-alonte-sports-arena",
+    "name": "Alonte Sports Arena",
+    "location": "Zapote Street, Biñan, 4024 Laguna",
+    "contactNumber": "+63 49 513 5006 / Biñan C3",
+    "notes": "City-Wide Mega-Shelters & Staging Centers. Primary city-wide disaster command, relief distribution center, and mega-evacuation hub.",
+    "latitude": 14.3139409,
+    "longitude": 121.0792203
+  },
+  {
+    "id": "center-binan-jacobo-z-gonzales-memorial-school-of-arts-and-trades-jzgmst",
+    "name": "Jacobo Z. Gonzales Memorial School of Arts and Trades (JZGMST)",
+    "location": "National Highway, Brgy. Zapote / Biñan Proper, 4024 Laguna",
+    "contactNumber": "(049) 511-6133 / 0991-392-6215",
+    "notes": "City-Wide Mega-Shelters & Staging Centers. Major regional tech-voc institution utilized for wide-scale sheltering and agency staging.",
+    "latitude": 14.3374626,
+    "longitude": 121.0893404
+  },
+  {
+    "id": "center-binan-binan-elementary-school",
+    "name": "Biñan Elementary School",
+    "location": "P. Burgos Street, Sto. Domingo Zone 2, Biñan, Laguna",
+    "contactNumber": "(049) 547-0105 / DepEd Biñan",
+    "notes": "Major Public Schools. Primary/secondary evacuation center (triggers modular remote learning during heavy storms).",
+    "latitude": 14.336492,
+    "longitude": 121.081824
+  },
+  {
+    "id": "center-binan-binan-integrated-national-high-school",
+    "name": "Biñan Integrated National High School",
+    "location": "Nong Street, Sto. Domingo, Biñan, Laguna",
+    "contactNumber": "(049) 411-3422 / DepEd Biñan",
+    "notes": "Major Public Schools. Primary/secondary evacuation center with spacious grounds and multi-purpose classrooms.",
+    "latitude": 14.3358816,
+    "longitude": 121.0808149
+  },
+  {
+    "id": "center-binan-dela-paz-elementary-school-main",
+    "name": "Dela Paz Elementary School (Main)",
+    "location": "172 P. Paterno Street, Dela Paz, Biñan, Laguna",
+    "contactNumber": "(049) 511-8438 / DepEd Biñan",
+    "notes": "Major Public Schools. Official evacuation center for residents displaced by local flooding and severe weather.",
+    "latitude": 14.3479572,
+    "longitude": 121.0849152
+  },
+  {
+    "id": "center-binan-southville-5-a-elementary-high-school",
+    "name": "Southville 5-A Elementary & High School",
+    "location": "Brgy. Langkiwa, Biñan, Laguna",
+    "contactNumber": "0975-876-4685 / DepEd Biñan",
+    "notes": "Major Public Schools. Localized public school facility activated for sector-specific residents needing immediate shelter.",
+    "latitude": 14.2956148,
+    "longitude": 121.0592159
+  },
+  {
+    "id": "center-binan-brgy-binan-poblacion",
+    "name": "Poblacion Multi-Purpose Hall & Local Covered Courts",
+    "location": "Brgy. Biñan (Poblacion), Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3387065,
+    "longitude": 121.0847392
+  },
+  {
+    "id": "center-binan-brgy-canlalay",
+    "name": "Canlalay Covered Court & Barangay Gymnasium",
+    "location": "Brgy. Canlalay, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3378169,
+    "longitude": 121.0718176
+  },
+  {
+    "id": "center-binan-brgy-casile",
+    "name": "Casile Multi-Purpose Hall & Covered Spaces",
+    "location": "Brgy. Casile, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3432917,
+    "longitude": 121.0881098
+  },
+  {
+    "id": "center-binan-brgy-dela-paz",
+    "name": "Dela Paz Covered Court & School Grounds",
+    "location": "Brgy. Dela Paz, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter and flood response center.",
+    "latitude": 14.3489723,
+    "longitude": 121.0849198
+  },
+  {
+    "id": "center-binan-brgy-ganado",
+    "name": "Ganado Covered Court",
+    "location": "Brgy. Ganado, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.2831304,
+    "longitude": 121.0810784
+  },
+  {
+    "id": "center-binan-brgy-langkiwa",
+    "name": "Langkiwa Covered Court & Southville 5-A Facilities",
+    "location": "Brgy. Langkiwa, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.2989841,
+    "longitude": 121.0597082
+  },
+  {
+    "id": "center-binan-brgy-loma",
+    "name": "Loma Covered Court",
+    "location": "Brgy. Loma, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.2813004,
+    "longitude": 121.0644428
+  },
+  {
+    "id": "center-binan-brgy-malaban",
+    "name": "Malaban Covered Court & Health Center Compound",
+    "location": "Brgy. Malaban, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Lakeshore flood-response hub and health compound.",
+    "latitude": 14.3464239,
+    "longitude": 121.0889291
+  },
+  {
+    "id": "center-binan-brgy-malamig",
+    "name": "Malamig Covered Court",
+    "location": "Brgy. Malamig, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.2782112,
+    "longitude": 121.0536185
+  },
+  {
+    "id": "center-binan-brgy-mamplasan",
+    "name": "Mamplasan Covered Court",
+    "location": "Brgy. Mamplasan, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.2934823,
+    "longitude": 121.0802954
+  },
+  {
+    "id": "center-binan-brgy-platero",
+    "name": "Platero Covered Court",
+    "location": "Brgy. Platero, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3242551,
+    "longitude": 121.0947923
+  },
+  {
+    "id": "center-binan-brgy-san-antonio",
+    "name": "San Antonio Covered Court & Subdivision Pavilions",
+    "location": "Brgy. San Antonio, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter including subdivision facilities.",
+    "latitude": 14.3279721,
+    "longitude": 121.0913256
+  },
+  {
+    "id": "center-binan-brgy-san-francisco-halang",
+    "name": "San Francisco Covered Court",
+    "location": "Brgy. San Francisco (Halang), Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3326531,
+    "longitude": 121.0559673
+  },
+  {
+    "id": "center-binan-brgy-san-jose",
+    "name": "San Jose Covered Court",
+    "location": "Brgy. San Jose, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3440907,
+    "longitude": 121.0823836
+  },
+  {
+    "id": "center-binan-brgy-san-vicente",
+    "name": "San Vicente Covered Court",
+    "location": "Brgy. San Vicente, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3320735,
+    "longitude": 121.0810377
+  },
+  {
+    "id": "center-binan-brgy-santo-domingo",
+    "name": "Sto. Domingo Covered Court & School Grounds",
+    "location": "Brgy. Santo Domingo, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter and school integration hub.",
+    "latitude": 14.3358669,
+    "longitude": 121.0825576
+  },
+  {
+    "id": "center-binan-brgy-santo-nino",
+    "name": "Sto. Niño Covered Court",
+    "location": "Brgy. Santo Niño, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3303715,
+    "longitude": 121.0864846
+  },
+  {
+    "id": "center-binan-brgy-santo-tomas",
+    "name": "Santo Tomas Covered Court",
+    "location": "Brgy. Santo Tomas, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Bridge/lakeshore sector front-line shelter. Formerly known as Calaboso.",
+    "latitude": 14.3169068,
+    "longitude": 121.0707757
+  },
+  {
+    "id": "center-binan-brgy-soro-soro",
+    "name": "Soro-Soro Covered Court",
+    "location": "Brgy. Soro-Soro, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3294091,
+    "longitude": 121.0655163
+  },
+  {
+    "id": "center-binan-brgy-tubigan",
+    "name": "Tubigan Covered Court",
+    "location": "Brgy. Tubigan, Biñan, Laguna",
+    "contactNumber": "Biñan C3: 0917-120-8911",
+    "notes": "Barangay-Level Network. Front-line micro-shelter for local residents.",
+    "latitude": 14.3293175,
+    "longitude": 121.074403
+  }
+]

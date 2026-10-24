@@ -23,6 +23,8 @@ export interface IncidentRecord {
   responseOrganizations?: string;
   responseEtaMinutes?: number | null;
   responseNotes?: string;
+  reporterName?: string;
+  reporterContact?: string;
 }
 
 export interface EvacueeRecord {

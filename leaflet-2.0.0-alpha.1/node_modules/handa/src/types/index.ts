@@ -24,6 +24,9 @@ export interface AuthUser {
   mobileNumber?: string;
   currentAddress?: string;
   householdMembers?: ResidentHouseholdMember[];
+  responderType?: 'Official' | 'Volunteer' | null;
+  responderOrganization?: string | null;
+  responderBarangay?: string | null;
 }
 
 export interface AuthContextType {

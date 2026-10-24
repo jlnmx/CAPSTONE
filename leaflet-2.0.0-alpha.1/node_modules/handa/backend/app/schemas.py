@@ -1,7 +1,13 @@
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+BINAN_BARANGAYS = (
+    "Biñan (Poblacion)", "Bungahan", "Canlalay", "Casile", "De La Paz", "Ganado", "Langkiwa", "Loma",
+    "Malaban", "Malamig", "Mamplasan", "Platero", "San Antonio", "San Francisco (Halang)", "San Jose",
+    "San Vicente", "Santo Domingo", "Santo Niño", "Santo Tomas", "Soro-Soro", "Timbao", "Tubigan", "Zapote",
+)
 
 
 class IncidentCreate(BaseModel):
@@ -63,10 +69,25 @@ class UserRegistration(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     role: Literal["Resident", "Responder"] = "Resident"
     responderType: Literal["Official", "Volunteer"] | None = None
+    responderOrganization: Literal["PNP", "BFP", "POSO", "BCDRRMO", "Barangay Responder"] | None = None
+    responderBarangay: str | None = Field(default=None, max_length=120)
     verificationDocumentBase64: str | None = Field(default=None, max_length=5_600_000)
     verificationDocumentMimeType: Literal["image/jpeg", "image/png", "image/webp"] | None = None
     verificationDocumentName: str | None = Field(default=None, max_length=255)
     members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def validate_responder_organization(self):
+        if self.role != "Responder":
+            return self
+        if not self.responderOrganization:
+            raise ValueError("Choose your responder organization.")
+        if self.responderOrganization == "Barangay Responder":
+            if self.responderBarangay not in BINAN_BARANGAYS:
+                raise ValueError("Choose the barangay you serve as a Barangay Responder.")
+        else:
+            self.responderBarangay = None
+        return self
 
 
 class ResidentProfileUpdate(BaseModel):
@@ -169,11 +190,13 @@ class DisasterCreate(BaseModel):
 
 class IncidentStatusUpdate(BaseModel):
     status: Literal['reported', 'acknowledged', 'in_progress', 'resolved']
-    actionNotes: str = Field(default='', max_length=2000)
-    responsePeople: str = Field(default='', max_length=500)
-    responseOrganizations: str = Field(default='', max_length=500)
+    # None means the client did not send the field: the server keeps the stored value (or fills a default on acknowledgement).
+    actionNotes: str | None = Field(default=None, max_length=2000)
+    # None means the client did not send the field, so the server may fill a default on acknowledgement.
+    responsePeople: str | None = Field(default=None, max_length=500)
+    responseOrganizations: str | None = Field(default=None, max_length=500)
     responseEtaMinutes: int | None = Field(default=None, ge=0, le=10080)
-    responseNotes: str = Field(default='', max_length=2000)
+    responseNotes: str | None = Field(default=None, max_length=2000)
 
 
 class EvacueeStatusUpdate(BaseModel):

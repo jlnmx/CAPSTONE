@@ -3,6 +3,7 @@ import { ActivityIndicator, AppState, StyleSheet, View } from 'react-native';
 import * as Location from 'expo-location';
 import { WebView } from 'react-native-webview';
 import { Colors } from '@constants/colors';
+import { INCIDENT_STATUS_COLORS, INCIDENT_STATUS_LABELS } from '@constants/incidentStatus';
 import { useTheme } from '@hooks/useTheme';
 import { MapEvacuationCenter } from '@types/index';
 
@@ -326,6 +327,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             return String(value).replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
           }
           function showCenter(item, distance) {
+            shownIncidentId = null;
             selectedCenterId = item.id;
             const capacity = Math.max(0, Number(item.capacity) || 0);
             const occupancy = Math.max(0, Number(item.current_occupancy) || 0);
@@ -354,26 +356,41 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             if (isNavigating) stopNavigation();
             showCenter(item, hasLocatedUser ? distanceInKm(currentPosition, item.position) : null);
           }));
+          let shownIncidentId = null;
+          const incidentLayer = L.layerGroup().addTo(map);
           async function loadReportedIncidents() {
             try {
               const response = await fetch(${JSON.stringify(API_BASE_URL)} + '/api/v1/incidents');
               if (!response.ok) return;
               const incidents = await response.json();
-              incidents.filter((incident) => {
-                const status = String(incident.verificationStatus || incident.verification_status || 'confirmed').toLowerCase();
-                return incident.latitude != null && incident.longitude != null && ['reported', 'acknowledged', 'in_progress', 'resolved', 'confirmed', 'accepted'].includes(status);
-              }).forEach((incident) => {
-                const severity = String(incident.severity || 'medium').toLowerCase();
-                const color = severity === 'critical' || severity === 'high' ? '#B42318' : severity === 'medium' ? '#D98C18' : '#2873A8';
+              incidentLayer.clearLayers();
+              const activeIncidents = incidents.filter((incident) => {
+                const status = String(incident.status || incident.verificationStatus || incident.verification_status || 'reported').toLowerCase();
+                return incident.latitude != null && incident.longitude != null && ['reported', 'acknowledged', 'in_progress'].includes(status);
+              });
+              if (shownIncidentId && !activeIncidents.some((incident) => String(incident.id) === shownIncidentId)) {
+                infoPanel.style.display = 'none';
+                shownIncidentId = null;
+              }
+              activeIncidents.forEach((incident) => {
+                const status = String(incident.status || incident.verificationStatus || incident.verification_status || 'reported').toLowerCase();
+                const statusColors = ${JSON.stringify(INCIDENT_STATUS_COLORS)};
+                const statusLabels = ${JSON.stringify(INCIDENT_STATUS_LABELS)};
+                const color = statusColors[status] || statusColors.reported;
                 const position = [Number(incident.latitude), Number(incident.longitude)];
-                L.circleMarker(position, { radius: 10, color, fillColor: color, fillOpacity: 0.9, weight: 3 }).addTo(map).on('click', () => {
+                L.circleMarker(position, { radius: 10, color: '#fff', fillColor: color, fillOpacity: 0.95, weight: 3 }).addTo(incidentLayer).on('click', () => {
                   clearRoute();
-                  showInfo('Reported incident', position, String(incident.type || 'Incident') + '<br><span style="color:' + color + '">' + String(incident.severity || 'Medium') + ' severity</span><br>' + String(incident.description || 'Confirmed by incident reporting.'));
+                  const eta = incident.responseEtaMinutes != null ? incident.responseEtaMinutes : incident.response_eta_minutes;
+                  const organizations = String(incident.responseOrganizations || incident.response_organizations || '');
+                  const onTheWay = (status === 'acknowledged' || status === 'in_progress') ? '<br><strong style="color:' + color + '">Responders are on the way' + (eta != null ? ' · ETA ' + escapeHtml(String(eta)) + ' min' : '') + (organizations ? ' · ' + escapeHtml(organizations) : '') + '</strong>' : '';
+                  showInfo('Reported incident', position, escapeHtml(String(incident.type || 'Incident')) + '<br><strong style="color:' + color + '">' + escapeHtml(statusLabels[status] || status) + '</strong> · ' + escapeHtml(String(incident.severity || 'Medium')) + ' severity' + onTheWay + '<br>' + escapeHtml(String(incident.description || 'Confirmed by incident reporting.')));
+                  shownIncidentId = String(incident.id);
                 });
               });
             } catch (error) {}
           }
           void loadReportedIncidents();
+          setInterval(() => void loadReportedIncidents(), 15000);
         </script>
       </body>
     </html>

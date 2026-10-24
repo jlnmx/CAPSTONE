@@ -5,6 +5,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { authenticatedFetch } from '@services/apiClient';
+import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 
 type ResidentIncident = {
   id: string;
@@ -16,14 +17,18 @@ type ResidentIncident = {
   photoUris: string[];
   status: string;
   createdAt: string;
+  responseEtaMinutes?: number;
+  responseOrganizations: string;
 };
 
 const GREEN = '#218B25';
 
 function normalizeIncident(record: Record<string, unknown>): ResidentIncident {
   const rawPhotos = record.photoUris ?? record.photo_uris;
+  const rawEta = record.responseEtaMinutes ?? record.response_eta_minutes;
   return {
     id: String(record.id), type: String(record.type ?? 'Incident'), description: String(record.description ?? ''), location: String(record.location ?? record.location_text ?? 'Location not provided'), latitude: record.latitude == null ? undefined : Number(record.latitude), longitude: record.longitude == null ? undefined : Number(record.longitude), photoUris: Array.isArray(rawPhotos) ? rawPhotos.map(String) : [], status: String(record.status ?? 'reported'), createdAt: String(record.createdAt ?? record.created_at ?? ''),
+    responseEtaMinutes: rawEta == null ? undefined : Number(rawEta), responseOrganizations: String(record.responseOrganizations ?? record.response_organizations ?? ''),
   };
 }
 
@@ -62,7 +67,8 @@ export default function ResidentIncidentFeed() {
       {!!error && <Text style={styles.error}>{error}</Text>}
       {!isLoading && !error && incidents.length === 0 && <View style={styles.empty}><MaterialCommunityIcons name="shield-check-outline" size={34} color={GREEN} /><Text style={styles.emptyTitle}>No active incidents</Text><Text style={styles.emptyText}>New community reports will appear here as they are posted.</Text></View>}
       {incidents.map((incident) => <View style={styles.card} key={incident.id}>
-        <View style={styles.cardHeader}><View style={[styles.icon, { backgroundColor: `${GREEN}18` }]}><MaterialCommunityIcons name="alert-outline" size={21} color={GREEN} /></View><View style={styles.cardCopy}><Text style={styles.cardTitle}>{incident.type}</Text><Text style={styles.status}>{incident.status.replace('_', ' ').toUpperCase()}</Text></View><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></View>
+        <View style={styles.cardHeader}><View style={[styles.icon, { backgroundColor: `${incidentStatusColor(incident.status)}1F` }]}><MaterialCommunityIcons name="alert-outline" size={21} color={incidentStatusColor(incident.status)} /></View><View style={styles.cardCopy}><Text style={styles.cardTitle}>{incident.type}</Text><Text style={[styles.status, { color: incidentStatusColor(incident.status) }]}>{incidentStatusLabel(incident.status).toUpperCase()}</Text></View><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></View>
+        {(incident.status === 'acknowledged' || incident.status === 'in_progress') && <Text style={[styles.responding, { color: incidentStatusColor(incident.status) }]}>Responders are on the way{incident.responseEtaMinutes != null ? ` · ETA ${incident.responseEtaMinutes} min` : ''}{incident.responseOrganizations ? ` · ${incident.responseOrganizations}` : ''}</Text>}
         <View style={styles.location}><MaterialCommunityIcons name="map-marker-outline" size={15} color={GREEN} /><Text style={styles.locationText}>{incident.location}</Text></View>
         <Text style={styles.description}>{incident.description}</Text>
         {incident.photoUris.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photos}>{incident.photoUris.map((uri, index) => <Image key={`${incident.id}-photo-${index}`} source={{ uri }} style={styles.photo} />)}</ScrollView>}
@@ -78,5 +84,5 @@ function formatTime(value: string) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 14, paddingBottom: 22, backgroundColor: Colors.background }, heading: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }, eyebrow: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 1 }, title: { color: Colors.text, fontSize: 22, fontWeight: '800', marginTop: 3 }, subtitle: { maxWidth: 290, color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, loader: { marginVertical: 24 }, error: { color: '#B42318', fontSize: 12, lineHeight: 17, paddingVertical: 12 }, empty: { alignItems: 'center', paddingVertical: 45, paddingHorizontal: 30, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, emptyTitle: { color: Colors.text, fontSize: 15, fontWeight: '800', marginTop: 9 }, emptyText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 5 }, card: { padding: 12, marginBottom: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, cardHeader: { flexDirection: 'row', alignItems: 'center' }, icon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19 }, cardCopy: { flex: 1, marginLeft: 9 }, cardTitle: { color: Colors.text, fontSize: 13, fontWeight: '800' }, status: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 3, textTransform: 'uppercase' }, time: { color: Colors.textMuted, fontSize: 10 }, location: { flexDirection: 'row', alignItems: 'center', marginTop: 10 }, locationText: { flex: 1, color: Colors.textMuted, fontSize: 11, marginLeft: 4 }, description: { color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 7 }, photos: { marginTop: 10 }, photo: { width: 82, height: 82, marginRight: 7, borderRadius: 7, backgroundColor: Colors.surfaceMuted },
+  content: { padding: 14, paddingBottom: 22, backgroundColor: Colors.background }, heading: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }, eyebrow: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 1 }, title: { color: Colors.text, fontSize: 22, fontWeight: '800', marginTop: 3 }, subtitle: { maxWidth: 290, color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, loader: { marginVertical: 24 }, error: { color: '#B42318', fontSize: 12, lineHeight: 17, paddingVertical: 12 }, empty: { alignItems: 'center', paddingVertical: 45, paddingHorizontal: 30, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, emptyTitle: { color: Colors.text, fontSize: 15, fontWeight: '800', marginTop: 9 }, emptyText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 5 }, card: { padding: 12, marginBottom: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, cardHeader: { flexDirection: 'row', alignItems: 'center' }, icon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19 }, cardCopy: { flex: 1, marginLeft: 9 }, cardTitle: { color: Colors.text, fontSize: 13, fontWeight: '800' }, status: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 3, textTransform: 'uppercase' }, responding: { fontSize: 11, fontWeight: '700', lineHeight: 16, marginTop: 8 }, time: { color: Colors.textMuted, fontSize: 10 }, location: { flexDirection: 'row', alignItems: 'center', marginTop: 10 }, locationText: { flex: 1, color: Colors.textMuted, fontSize: 11, marginLeft: 4 }, description: { color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 7 }, photos: { marginTop: 10 }, photo: { width: 82, height: 82, marginRight: 7, borderRadius: 7, backgroundColor: Colors.surfaceMuted },
 });

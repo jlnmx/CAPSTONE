@@ -90,11 +90,27 @@ async function records<T>(path: string): Promise<T[]> {
 }
 
 export async function getCommandMapSnapshot() {
-  const [incidents, centers] = await Promise.all([
+  const [incidents, centers, reporters] = await Promise.all([
     records<Record<string, any>>('/api/v1/incidents'),
     records<Record<string, any>>('/api/v1/centers'),
+    getReporterContacts(),
   ]);
-  return { incidents: incidents.map(normalizeIncident), centers: centers.map(normalizeCenter) };
+  return { incidents: incidents.map((record) => withReporter(normalizeIncident(record), reporters)), centers: centers.map(normalizeCenter) };
+}
+
+// Contact details come from an admin/responder-only endpoint; a failure just hides them.
+async function getReporterContacts() {
+  try {
+    const rows = await records<{ incident_id: string; name: string; mobile_number: string }>('/api/v1/incidents/reporters');
+    return new Map(rows.map((row) => [row.incident_id, row]));
+  } catch {
+    return new Map<string, { incident_id: string; name: string; mobile_number: string }>();
+  }
+}
+
+function withReporter(incident: IncidentRecord, reporters: Map<string, { name: string; mobile_number: string }>): IncidentRecord {
+  const reporter = reporters.get(incident.id);
+  return reporter ? { ...incident, reporterName: reporter.name, reporterContact: reporter.mobile_number } : incident;
 }
 
 export async function getAdminSnapshot(): Promise<AdminSnapshot> {
@@ -105,6 +121,7 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
     records<Record<string, any>>('/api/v1/centers'),
     records<Record<string, any>>('/api/v1/users'),
   ]);
+  const reporters = await getReporterContacts();
   const value = <T,>(index: number): T[] => results[index].status === 'fulfilled' ? results[index].value as T[] : [];
   const registrations = value<Record<string, any>>(2);
   const registeredPeople = registrations.flatMap((registration) => {
@@ -131,7 +148,7 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
   });
   const users = value<Record<string, any>>(4);
   return {
-    incidents: value<Record<string, any>>(0).map(normalizeIncident),
+    incidents: value<Record<string, any>>(0).map((record) => withReporter(normalizeIncident(record), reporters)),
     evacuees: [...value<Record<string, any>>(1).map(normalizeEvacuee), ...registeredPeople],
     centers: value<Record<string, any>>(3).map(normalizeCenter),
     activePersonnel: users.filter((user) => user.role === 'Responder' && user.status === 'Active').length,

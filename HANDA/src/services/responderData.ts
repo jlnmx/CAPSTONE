@@ -133,6 +133,14 @@ function normalizeCenter(record: Record<string, any>): ResponderCenter {
   };
 }
 
+export type IncidentReporterContact = { name: string; mobileNumber: string };
+
+// Responder/admin-only; the public incident list never includes contact details.
+export async function getIncidentReporterContacts(): Promise<Record<string, IncidentReporterContact>> {
+  const records = await fetchRecords<{ incident_id: string; name: string; mobile_number: string }>('/api/v1/incidents/reporters');
+  return Object.fromEntries(records.filter((record) => record.mobile_number).map((record) => [record.incident_id, { name: record.name, mobileNumber: record.mobile_number }]));
+}
+
 export async function getResponderData(): Promise<ResponderDataSnapshot> {
   const [incidentResult, evacueeResult, disasterResult, centerResult, registrationResult] = await Promise.allSettled([
     fetchRecords<Record<string, any>>('/api/v1/incidents'),
@@ -162,7 +170,7 @@ export async function getResponderData(): Promise<ResponderDataSnapshot> {
   };
 }
 
-async function patch(path: string, body: Record<string, string>) {
+async function patch(path: string, body: Record<string, unknown>) {
   const response = await authenticatedFetch(path, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -171,14 +179,16 @@ async function patch(path: string, body: Record<string, string>) {
   if (!response.ok) throw new Error(`Update failed: ${response.status}`);
 }
 
-export function updateIncidentStatus(id: string, status: IncidentStatus, response: { people: string; organizations: string; etaMinutes?: number; notes: string }) {
+export type IncidentResponseInput = { people?: string; organizations?: string; etaMinutes?: number; notes?: string };
+
+// Omitted people/organizations let the server fill the acknowledging responder's details.
+export function updateIncidentStatus(id: string, status: IncidentStatus, response: IncidentResponseInput = {}) {
   return patch(`/api/v1/incidents/${encodeURIComponent(id)}/status`, {
     status,
-    actionNotes: response.notes,
-    responsePeople: response.people,
-    responseOrganizations: response.organizations,
-    responseEtaMinutes: response.etaMinutes == null ? '' : String(response.etaMinutes),
-    responseNotes: response.notes,
+    ...(response.notes !== undefined && { actionNotes: response.notes, responseNotes: response.notes }),
+    ...(response.people !== undefined && { responsePeople: response.people }),
+    ...(response.organizations !== undefined && { responseOrganizations: response.organizations }),
+    ...(response.etaMinutes !== undefined && { responseEtaMinutes: response.etaMinutes }),
   });
 }
 

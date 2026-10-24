@@ -7,6 +7,7 @@ import { API_BASE_URL } from '@services/apiClient';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthUser, ResidentHouseholdMember } from '@types/index';
+import { BINAN_BARANGAYS, RESPONDER_ORGANIZATIONS } from '@constants/responderOrganizations';
 import * as ImagePicker from 'expo-image-picker';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
@@ -35,6 +36,10 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [isBirthdayPickerOpen, setIsBirthdayPickerOpen] = useState(false);
   const [sex, setSex] = useState('');
   const [isSexPickerOpen, setIsSexPickerOpen] = useState(false);
+  const [responderOrganization, setResponderOrganization] = useState('');
+  const [responderBarangay, setResponderBarangay] = useState('');
+  const [responderPicker, setResponderPicker] = useState<'organization' | 'barangay' | null>(null);
+  const pickerOptions: readonly string[] = responderPicker === 'barangay' ? BINAN_BARANGAYS : RESPONDER_ORGANIZATIONS;
   const [mobileNumber, setMobileNumber] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
@@ -115,6 +120,8 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match.';
     if (!isResponder && householdMembers.some((member) => !member.name.trim() || !member.relationship.trim())) errors.householdMembers = 'Complete or remove each household member.';
     if (isResponder && (!responderType || !verificationDocument)) errors.verificationDocument = 'Upload your responder ID to submit this application.';
+    if (isResponder && !responderOrganization) errors.responderOrganization = 'Choose your organization.';
+    if (isResponder && responderOrganization === 'Barangay Responder' && !responderBarangay) errors.responderBarangay = 'Choose the barangay you serve.';
 
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -142,6 +149,8 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           ...(isResponder
             ? {
               responderType,
+              responderOrganization,
+              responderBarangay: responderOrganization === 'Barangay Responder' ? responderBarangay : null,
               verificationDocumentBase64: verificationDocument?.base64,
               verificationDocumentMimeType: verificationDocument?.mimeType,
               verificationDocumentName: verificationDocument?.name,
@@ -262,6 +271,20 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             <NativeTextInput style={styles.input} placeholder="Enter password" placeholderTextColor={PLACEHOLDER_COLOR} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoCapitalize="none" returnKeyType="done" selectionColor={GREEN} />
           </FormField>
           {isResponder && <View style={styles.verificationSection}>
+            <Text style={styles.householdLabel}>ORGANIZATION</Text>
+            <Text style={styles.householdEmpty}>Tell us which agency or group you respond with. It is shared with residents when you acknowledge an incident.</Text>
+            <FormField label="Organization" error={validationErrors.responderOrganization}>
+              <TouchableOpacity style={styles.selectInput} onPress={() => setResponderPicker('organization')} accessibilityRole="button" accessibilityLabel="Choose organization">
+                <Text style={responderOrganization ? styles.selectValue : styles.selectPlaceholder}>{responderOrganization || 'PNP, BFP, POSO, BCDRRMO, or Barangay Responder'}</Text>
+              </TouchableOpacity>
+            </FormField>
+            {responderOrganization === 'Barangay Responder' && <FormField label="Barangay" error={validationErrors.responderBarangay}>
+              <TouchableOpacity style={styles.selectInput} onPress={() => setResponderPicker('barangay')} accessibilityRole="button" accessibilityLabel="Choose barangay">
+                <Text style={responderBarangay ? styles.selectValue : styles.selectPlaceholder}>{responderBarangay || 'Choose your barangay'}</Text>
+              </TouchableOpacity>
+            </FormField>}
+          </View>}
+          {isResponder && <View style={styles.verificationSection}>
             <Text style={styles.householdLabel}>{responderType?.toUpperCase() ?? 'RESPONDER'} ID</Text>
             <Text style={styles.householdEmpty}>Upload a clear image of your responder ID for administrator review. JPEG, PNG, or WebP, up to 4 MB.</Text>
             <TouchableOpacity style={styles.addMemberButton} onPress={() => void selectResponderId()} accessibilityRole="button" accessibilityLabel={verificationDocument ? 'Replace responder ID image' : 'Upload responder ID image'}>
@@ -302,6 +325,28 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <Modal transparent visible={responderPicker !== null} animationType="fade" onRequestClose={() => setResponderPicker(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setResponderPicker(null)}>
+          <View style={styles.sexOptions}>
+            <Text style={styles.sexTitle}>{responderPicker === 'barangay' ? 'Select Barangay' : 'Select Organization'}</Text>
+            <ScrollView style={styles.pickerList}>
+              {pickerOptions.map((option) => (
+                <TouchableOpacity key={option} style={styles.sexOption} onPress={() => {
+                  if (responderPicker === 'barangay') {
+                    setResponderBarangay(option);
+                  } else {
+                    setResponderOrganization(option);
+                    if (option !== 'Barangay Responder') setResponderBarangay('');
+                  }
+                  setResponderPicker(null);
+                }} accessibilityRole="button">
+                  <Text style={styles.sexOptionText}>{option}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </Pressable>
+      </Modal>
       <Modal transparent visible={isSexPickerOpen} animationType="fade" onRequestClose={() => setIsSexPickerOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setIsSexPickerOpen(false)}>
           <View style={styles.sexOptions}>
@@ -426,6 +471,7 @@ const styles = StyleSheet.create({
   submitText: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '500' },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
   sexOptions: { width: '100%', maxWidth: 300, padding: 18, borderRadius: 10, backgroundColor: SURFACE },
+  pickerList: { maxHeight: 360 },
   sexTitle: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '600', marginBottom: 8 },
   sexOption: { minHeight: 44, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#E5E5E5' },
   sexOptionText: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 15 },
