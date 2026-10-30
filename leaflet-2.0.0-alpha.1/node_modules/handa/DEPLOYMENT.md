@@ -22,21 +22,21 @@ The frontend services use `https://handa-api.onrender.com` as their API origin. 
 
 ## Vercel
 
-Create two separate Vercel projects from the same Git repository. For both, set **Framework Preset** to **Other**, **Root Directory** to the `CAPSTONE` repository root, and the install command to `npm ci --prefix HANDA`. CAPSTONE has no root `package.json`, so use the explicit install and build commands below. The repository-root `vercel.json` provides history fallback for Expo's single-page export and the admin app's client-side routes. Keep the root directory here: HANDA references the sibling `leaflet-2.0.0-alpha.1` package, so setting `HANDA/` as Vercel's root would hide a required dependency.
+Create two separate Vercel projects from the same Git repository. For both, set **Framework Preset** to **Other**, **Root Directory** to `HANDA`, and the install command to `npm ci`. Enable **Include source files outside of the Root Directory in the Build Step** because HANDA references the sibling `leaflet-2.0.0-alpha.1` package. The `HANDA/vercel.json` file provides history fallback for Expo's single-page export and the admin app's client-side routes.
 
 **Resident/responder project**
 
 - Project name: `handa-mobile-web`
-- Build command: `npm --prefix HANDA run web:export`
-- Output directory: `HANDA/dist`
+- Build command: `npm run web:export`
+- Output directory: `dist`
 - Environment variable: `EXPO_PUBLIC_API_URL=https://handa-api.onrender.com`
 - Environment variable: `EXPO_PUBLIC_MAPBOX_TOKEN=<restricted-public-mapbox-token>`
 
 **Admin project**
 
 - Project name: `handa-admin-web`
-- Build command: `npm --prefix HANDA run admin:build`
-- Output directory: `HANDA/admin-web/dist`
+- Build command: `npm run admin:build`
+- Output directory: `admin-web/dist`
 - Environment variable: `VITE_API_URL=https://handa-api.onrender.com`
 
 Set these variables for both Preview and Production environments. Vite and Expo inline public values during the build, so redeploy after changing them. Restrict the Mapbox public token to the deployed site URLs in the Mapbox dashboard; never use a secret server token in a frontend build.
@@ -49,4 +49,4 @@ Use the existing database rather than creating a second database for these front
 - Both frontends can load and sign in against the same API.
 - Deep links such as `/account/profile` and admin routes still load after a browser refresh.
 
-Build locally from the CAPSTONE repository root with `npm --prefix HANDA run web:export` and `npm --prefix HANDA run admin:build` before connecting the Git repository to the hosts.
+Build locally from `HANDA/` with `npm run web:export` and `npm run admin:build` before connecting the Git repository to the hosts.

@@ -74,8 +74,5 @@
   "license": "BSD-2-Clause",
   "lint-staged": {
     "*.(js|mjs|md)": "eslint --cache --fix"
-  },
-  "dependencies": {
-    "handa": "file:../HANDA"
   }
 }

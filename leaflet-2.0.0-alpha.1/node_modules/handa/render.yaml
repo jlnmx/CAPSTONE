@@ -22,7 +22,7 @@ services:
   - type: web
     name: handa-mobile-web
     runtime: static
-    buildCommand: npm --prefix HANDA ci && npm --prefix HANDA run web:export
+    buildCommand: cd HANDA && npm ci && npm run web:export
     staticPublishPath: ./HANDA/dist
     envVars:
       - key: EXPO_PUBLIC_API_URL
@@ -37,7 +37,7 @@ services:
   - type: web
     name: handa-admin-web
     runtime: static
-    buildCommand: npm --prefix HANDA ci && npm --prefix HANDA run admin:build
+    buildCommand: cd HANDA && npm ci && npm run admin:build
     staticPublishPath: ./HANDA/admin-web/dist
     envVars:
       - key: VITE_API_URL
