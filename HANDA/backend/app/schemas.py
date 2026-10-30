@@ -112,6 +112,9 @@ class SelfProfileUpdate(BaseModel):
     firstName: str = Field(min_length=1, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)
     lastName: str = Field(min_length=1, max_length=120)
+    birthday: date | None = None
+    sex: Literal["Male", "Female"] | None = None
+    currentAddress: str | None = Field(default=None, max_length=500)
 
 
 class ResidentProfileUpdate(BaseModel):
@@ -228,6 +231,10 @@ class EvacuationRegistrationCreate(BaseModel):
 
 class EvacuationRegistrationStatusUpdate(BaseModel):
     status: Literal['checked_in', 'evacuated', 'released']
+
+
+class EvacuationRegistrationCenterUpdate(BaseModel):
+    centerId: str = Field(min_length=1, max_length=160)
 
 
 class CenterCreate(BaseModel):

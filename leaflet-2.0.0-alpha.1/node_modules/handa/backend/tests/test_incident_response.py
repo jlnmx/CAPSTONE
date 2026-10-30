@@ -97,6 +97,30 @@ class AcknowledgementDefaultsTests(unittest.TestCase):
         self.assertEqual(main.responder_organization_label(None, None), "")
 
 
+class IncidentStatusTransitionTests(unittest.TestCase):
+    def setUp(self):
+        self.responder = CurrentUser("responder-1", "r@example.com", "Juan Dela Cruz", "responder", 0)
+
+    def test_reported_incident_cannot_skip_acknowledgement(self):
+        for next_status in ("in_progress", "resolved"):
+            with self.subTest(next_status=next_status):
+                connection = MagicMock()
+                connection.execute.return_value.fetchone.return_value = {"status": "reported"}
+
+                with self.assertRaises(HTTPException) as error:
+                    main.update_incident_status(
+                        "incident-1",
+                        IncidentStatusUpdate(status=next_status),
+                        connection,
+                        self.responder,
+                    )
+
+                self.assertEqual(error.exception.status_code, 409)
+                self.assertIn("acknowledged", error.exception.detail)
+                self.assertEqual(connection.execute.call_count, 1)
+                connection.commit.assert_not_called()
+
+
 class ReporterContactTests(unittest.TestCase):
     def test_only_responders_and_admins_can_read_reporter_contacts(self):
         route = next(route for route in main.app.routes if getattr(route, "path", "") == "/api/v1/incidents/reporters")

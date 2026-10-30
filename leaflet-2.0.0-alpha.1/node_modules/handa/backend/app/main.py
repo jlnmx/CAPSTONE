@@ -22,7 +22,7 @@ from .auth import CurrentUser, create_access_token, get_current_user, normalize_
 from .config import settings
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import get_live_typhoon_report
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
 
@@ -572,7 +572,7 @@ app = FastAPI(title="HANDA API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?",
+    allow_origin_regex=settings.cors_origin_regex or r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -749,6 +749,24 @@ def incident_notification_message(status: str, update: IncidentStatusUpdate, inc
 
 @app.patch("/api/v1/incidents/{incident_id}/status")
 def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("responder", "admin"))):
+    current = connection.execute(
+        "SELECT status FROM incidents WHERE id = %s FOR UPDATE",
+        (incident_id,),
+    ).fetchone()
+    if not current:
+        raise HTTPException(status_code=404, detail="Incident not found.")
+    allowed_transitions = {
+        "reported": {"acknowledged"},
+        "acknowledged": {"in_progress", "resolved"},
+        "in_progress": {"resolved"},
+        "resolved": set(),
+    }
+    if update.status not in allowed_transitions.get(current["status"], set()):
+        raise HTTPException(
+            status_code=409,
+            detail=f"An incident must be acknowledged before it can move to {update.status.replace('_', ' ')}.",
+        )
+
     update = resolve_response_details(connection, user, update)
     clean = lambda value: None if value is None else value.strip()
     row = connection.execute(
@@ -991,7 +1009,7 @@ def resident_evacuation_status(connection: psycopg.Connection, resident: Current
         FROM evacuation_registrations AS registration
         JOIN evacuation_centers AS center ON center.id = registration.center_id
         LEFT JOIN users AS verifier ON verifier.id = registration.checked_in_by
-        WHERE registration.resident_user_id = %s
+        WHERE registration.resident_user_id = %s AND registration.status <> 'released'
         ORDER BY registration.registered_at DESC
         LIMIT 1
         """,
@@ -1100,6 +1118,59 @@ def register_resident_at_center(
         raise HTTPException(status_code=409, detail="Your household already has an active evacuation registration.") from error
 
     return resident_evacuation_status(connection, resident)
+
+
+@app.patch("/api/v1/resident/evacuation-registrations/{registration_id}")
+def update_resident_evacuation_registration(
+    registration_id: str,
+    update: EvacuationRegistrationCenterUpdate,
+    resident: CurrentUser = Depends(require_roles("resident")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    registration = connection.execute(
+        "SELECT id, status FROM evacuation_registrations WHERE id = %s AND resident_user_id = %s FOR UPDATE",
+        (registration_id, resident.id),
+    ).fetchone()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Pending evacuation registration not found.")
+    if registration["status"] != "registered":
+        raise HTTPException(status_code=409, detail="Only a pending registration can change its evacuation center.")
+
+    center = connection.execute(
+        "SELECT id, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
+        (update.centerId,),
+    ).fetchone()
+    if not center:
+        raise HTTPException(status_code=404, detail="Evacuation center not found.")
+    if evacuation_center_status(center["capacity"], center["current_occupancy"], center["status"]) in ("closed", "full"):
+        raise HTTPException(status_code=409, detail="This evacuation center is not accepting registrations.")
+
+    connection.execute(
+        "UPDATE evacuation_registrations SET center_id = %s, updated_at = NOW() WHERE id = %s",
+        (update.centerId, registration_id),
+    )
+    connection.commit()
+    return {"id": registration_id, "status": "registered", "centerId": update.centerId}
+
+
+@app.delete("/api/v1/resident/evacuation-registrations/{registration_id}")
+def cancel_resident_evacuation_registration(
+    registration_id: str,
+    resident: CurrentUser = Depends(require_roles("resident")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    registration = connection.execute(
+        "SELECT id, status FROM evacuation_registrations WHERE id = %s AND resident_user_id = %s FOR UPDATE",
+        (registration_id, resident.id),
+    ).fetchone()
+    if not registration:
+        raise HTTPException(status_code=404, detail="Pending evacuation registration not found.")
+    if registration["status"] != "registered":
+        raise HTTPException(status_code=409, detail="Only a pending registration can be canceled.")
+
+    connection.execute("DELETE FROM evacuation_registrations WHERE id = %s", (registration_id,))
+    connection.commit()
+    return {"id": registration_id, "status": "cancelled"}
 
 
 @app.get("/api/v1/evacuation-registrations")
@@ -1600,8 +1671,8 @@ def update_current_profile(
     last_name = profile.lastName.strip()
     full_name = " ".join(part for part in (first_name, middle_name, last_name) if part)
     row = connection.execute(
-        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, updated_at = NOW() WHERE id = %s RETURNING id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role",
-        (full_name, first_name, middle_name, last_name, user.id),
+        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, birthday = COALESCE(%s, birthday), sex = COALESCE(%s, sex), current_address = COALESCE(%s, current_address), updated_at = NOW() WHERE id = %s RETURNING id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role",
+        (full_name, first_name, middle_name, last_name, profile.birthday, profile.sex, profile.currentAddress, user.id),
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="User account not found.")

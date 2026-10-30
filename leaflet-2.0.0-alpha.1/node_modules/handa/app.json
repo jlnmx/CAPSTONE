@@ -5,6 +5,10 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -29,6 +33,13 @@
         {
           "locationWhenInUsePermission": "Allow HANDA to use your location for nearby evacuation areas and emergency coordination.",
           "locationAlwaysAndWhenInUsePermission": "Allow HANDA to access your location for evacuation coordination."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow HANDA to use your camera to attach incident photos.",
+          "photosPermission": "Allow HANDA to access photos you choose to attach to an incident report."
         }
       ],
       "@maplibre/maplibre-react-native",

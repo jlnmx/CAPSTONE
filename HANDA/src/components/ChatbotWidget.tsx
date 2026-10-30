@@ -5,6 +5,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@hooks/useAuth';
 import { answerQuestion, ChatbotTurn, getLiveQuestionContext, requestModelAnswer } from '@services/chatbotAnswers';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const GREEN = '#218B25';
 const QUICK_PROMPTS = ['Any typhoons right now?', 'Will it rain in Biñan today?', 'How do I report an incident?', 'How do evacuation status updates work?'];
@@ -14,7 +15,10 @@ type ChatMessage = { id: string; role: 'assistant' | 'user'; text: string };
 export default function ChatbotWidget() {
   const { isAuthenticated } = useAuth();
   const { width, height } = useWindowDimensions();
-  const rightGutter = Math.max(14, (width - 900) / 2 + 14);
+  const insets = useSafeAreaInsets();
+  const rightGutter = Math.max(-4, (width - 900) / 2 + 14);
+  const tabBarHeight = width < 360 ? 62 : width >= 1024 ? 78 : 72;
+  const floatingBottom = tabBarHeight + (Platform.OS === 'web' ? 8 : insets.bottom) + 12;
   const [isOpen, setIsOpen] = useState(false);
   const [showPanel, setShowPanel] = useState(false);
   const panelTransition = useRef(new Animated.Value(0)).current;
@@ -104,7 +108,7 @@ export default function ChatbotWidget() {
         <View style={styles.inputRow}><TextInput value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Ask about weather, typhoons, or HANDA" placeholderTextColor="#8A9B8C" style={styles.input} returnKeyType="send" blurOnSubmit={false} /><Pressable onPress={() => sendMessage()} style={styles.sendButton} accessibilityRole="button" accessibilityLabel="Send assistant question"><MaterialCommunityIcons name="send" size={18} color="#FFFFFF" /></Pressable></View>
       </Animated.View>
     </KeyboardAvoidingView>}
-    {!showPanel && <Pressable onPress={() => setIsOpen((current) => !current)} style={({ pressed }) => [styles.floatingButton, { right: rightGutter, opacity: pressed ? 0.25 : 0.5 }]} accessibilityRole="button" accessibilityLabel="Open Bantay HANDA"><MaterialCommunityIcons name="chat-processing-outline" size={25} color="#FFFFFF" /><View style={styles.statusDot} /></Pressable>}
+    {!showPanel && <Pressable onPress={() => setIsOpen((current) => !current)} hitSlop={5} style={({ pressed }) => [styles.floatingButton, { right: rightGutter, bottom: floatingBottom, backgroundColor: pressed ? GREEN : 'rgba(33,139,37,0.22)' }]} accessibilityRole="button" accessibilityLabel="Open Bantay HANDA"><MaterialCommunityIcons name="chat-processing-outline" size={20} color={GREEN} /><View style={styles.statusDot} /></Pressable>}
   </View>;
 }
 
@@ -160,7 +164,7 @@ const styles = StyleSheet.create({
   inputRow: { minHeight: 48, padding: 7, flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: 1, borderTopColor: '#E7EFE7' },
   input: { flex: 1, minHeight: 34, paddingHorizontal: 9, paddingVertical: 5, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, color: Colors.textMuted, fontSize: 11 },
   sendButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: GREEN },
-  floatingButton: { position: 'absolute', right: 16, bottom: 92, width: 54, height: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 27, backgroundColor: GREEN, shadowColor: '#163A25', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.24, shadowRadius: 8, elevation: 10 },
+  floatingButton: { position: 'absolute', right: 16, bottom: 92, width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: 'rgba(33,139,37,0.22)', shadowColor: '#163A25', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 4 },
   floatingButtonOpen: { backgroundColor: '#17591D' },
   statusDot: { position: 'absolute', top: 7, right: 7, width: 9, height: 9, borderWidth: 2, borderColor: GREEN, borderRadius: 5, backgroundColor: '#F1C75B' },
 });

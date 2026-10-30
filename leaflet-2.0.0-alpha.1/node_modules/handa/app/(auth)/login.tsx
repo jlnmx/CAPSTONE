@@ -3,14 +3,14 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, Platform, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
 import { useAuth } from '@hooks/useAuth';
 import { useRouter } from 'expo-router';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
 import { TextInput, PasswordInput } from '@components/TextInputs';
 import { PrimaryButton } from '@components/Buttons';
-import AppBackArrow from '@components/AppBackArrow';
 
 export default function LoginScreen() {
   const { login, loginAsDemo, error, isLoading } = useAuth();
@@ -45,56 +45,71 @@ export default function LoginScreen() {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.header}><AppBackArrow /><View style={styles.brandCopy}><Text style={styles.brandName}>HANDA</Text><Text style={styles.tagline}>Laging handa para sayo.</Text></View></View>
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.headerEyebrow}>HANDA ACCOUNT</Text>
+          <Text style={styles.headerTitle}>Welcome back</Text>
+          <Text style={styles.headerSubtitle}>Sign in to your HANDA account.</Text>
+        </View>
 
-      <View style={styles.formSection}>
-        <TextInput
-          placeholder="Email or mobile number"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="default"
-          containerStyle={styles.inputContainer}
-          inputStyle={styles.referenceInput}
-          error={validationError ? undefined : undefined}
-        />
+        <View style={styles.formArea}>
+          <View style={styles.formSection}>
+            <View style={styles.brandLockup}>
+              <View style={styles.brandIcon}>
+                <MaterialCommunityIcons name="shield-check" size={22} color="#218B25" />
+              </View>
+              <Text style={styles.brandTitle}>HANDA</Text>
+            </View>
+            <TextInput
+            label="Email or mobile number"
+            placeholder="Enter your email or mobile number"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="default"
+            containerStyle={styles.inputContainer}
+            inputStyle={styles.referenceInput}
+            />
 
-        <PasswordInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          containerStyle={styles.inputContainer}
-          inputStyle={styles.referenceInput}
-          error={validationError ? undefined : undefined}
-        />
+            <PasswordInput
+            label="Password"
+            placeholder="Enter your password"
+            value={password}
+            onChangeText={setPassword}
+            containerStyle={styles.passwordContainer}
+            inputStyle={styles.referenceInput}
+            />
 
-        {/* Error Message */}
-        {(validationError || error) && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorMessage}>{validationError || error}</Text>
+            <View style={styles.forgotRow}>
+              <Pressable
+                onPress={() => router.push('/(auth)/forgot-password')}
+                accessibilityRole="link"
+              >
+                <Text style={styles.forgotLink}>Forgot password?</Text>
+              </Pressable>
+            </View>
+
+            {(validationError || error) && (
+              <View style={styles.errorContainer} accessibilityRole="alert">
+                <Text style={styles.errorMessage}>{validationError || error}</Text>
+              </View>
+            )}
+
+            <PrimaryButton
+              label="Sign in"
+              onPress={handleLogin}
+              loading={isLoading}
+              disabled={isLoading}
+              style={styles.loginButton}
+              textStyle={styles.referenceButtonText}
+            />
+
+            <View style={styles.createPromptRow}>
+              <Text style={styles.createPrompt}>New to HANDA?</Text>
+              <Pressable onPress={() => router.push('/(auth)/register-role')} accessibilityRole="link">
+                <Text style={styles.createLink}>Create an account</Text>
+              </Pressable>
+            </View>
           </View>
-        )}
-
-        <PrimaryButton
-          label="Login"
-          onPress={handleLogin}
-          loading={isLoading}
-          disabled={isLoading}
-          style={styles.loginButton}
-          textStyle={styles.referenceButtonText}
-        />
-
-        <PrimaryButton
-          label="Forgot Password?"
-          onPress={() => router.push('/(auth)/forgot-password')}
-          style={styles.forgotButton}
-          textStyle={styles.forgotButtonText}
-        />
-
-        <View style={styles.createPromptRow}>
-          <Text style={styles.createPrompt}>Don&apos;t have an account yet?</Text>
-          <Pressable onPress={() => router.push('/(auth)/register-role')} accessibilityRole="link">
-            <Text style={styles.createLink}>Create an Account</Text>
-          </Pressable>
         </View>
       </View>
     </ScrollView>
@@ -102,90 +117,139 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { width: '100%', maxWidth: 620, minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, backgroundColor: '#218B25' },
-  brandCopy: { flex: 1 },
   container: {
     flex: 1,
-    backgroundColor: Colors.surface,
+    backgroundColor: '#F5F7FA',
   },
   contentContainer: {
     flexGrow: 1,
+    paddingBottom: 48,
+  },
+  content: {
+    width: '100%',
+    maxWidth: 760,
+    flexGrow: 1,
+    alignSelf: 'center',
+  },
+  header: {
+    minHeight: 142,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    backgroundColor: '#218B25',
+  },
+  headerEyebrow: {
+    color: '#DFF1DF',
+    fontFamily: 'InstrumentSans_700Bold',
+    fontSize: 10,
+  },
+  headerTitle: {
+    color: Colors.white,
+    fontFamily: 'Sora_700Bold',
+    fontSize: 27,
+    lineHeight: 36,
+    marginTop: 5,
+  },
+  headerSubtitle: {
+    color: '#E7F4E7',
+    fontFamily: 'InstrumentSans_400Regular',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 5,
+  },
+  formArea: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 32,
-  },
-  brandSection: {
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  brandName: {
-    color: '#FFFFFF',
-    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
-    fontSize: 42,
-    fontWeight: '800',
-    letterSpacing: 2,
-    lineHeight: 50,
-  },
-  tagline: {
-    color: '#DFF1DF',
-    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
   formSection: {
-    width: 360,
-    maxWidth: '92%',
-    padding: 22,
+    width: '100%',
+    maxWidth: 520,
+    alignSelf: 'center',
+    padding: 24,
     borderWidth: 1,
-    borderColor: '#8BC58B',
-    borderRadius: 16,
-    backgroundColor: Colors.surfaceMuted,
-    marginTop: 0,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.lg,
+    backgroundColor: Colors.surface,
+  },
+  brandLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 22,
+  },
+  brandIcon: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: '#E8F2E8',
+  },
+  brandTitle: {
+    color: '#218B25',
+    fontFamily: 'Sora_800ExtraBold',
+    fontSize: 20,
   },
   inputContainer: {
-    marginBottom: 18,
+    marginBottom: 17,
+  },
+  passwordContainer: {
+    marginBottom: 5,
   },
   referenceInput: {
-    height: 48,
-    paddingVertical: 10,
+    minHeight: 52,
+    paddingVertical: 12,
     paddingHorizontal: 14,
-    borderColor: Colors.border,
-    borderRadius: 9,
-    backgroundColor: Colors.surface,
-    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
+    borderRadius: BorderRadius.md,
+    fontFamily: 'InstrumentSans_400Regular',
+    fontSize: 15,
+  },
+  forgotRow: {
+    alignItems: 'flex-end',
+    marginBottom: 20,
+  },
+  forgotLink: {
+    color: '#218B25',
+    fontFamily: 'InstrumentSans_600SemiBold',
     fontSize: 14,
-    color: Colors.text,
   },
   errorContainer: {
-    backgroundColor: Colors.emergency,
+    backgroundColor: '#FFF1F0',
+    borderWidth: 1,
+    borderColor: '#F3C8C5',
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     borderRadius: BorderRadius.md,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   errorMessage: {
-    color: Colors.white,
+    color: Colors.emergency,
+    fontFamily: 'InstrumentSans_500Medium',
     fontSize: Typography.sizes.sm,
-    fontWeight: '500',
   },
   loginButton: {
-    height: 48,
-    minHeight: 48,
+    minHeight: 54,
     paddingVertical: 0,
-    borderRadius: 9,
-    backgroundColor: '#2D2D2D',
-    marginBottom: 20,
+    borderRadius: BorderRadius.md,
+    backgroundColor: '#218B25',
+    marginBottom: 22,
     shadowOpacity: 0,
     elevation: 0,
     shadowColor: 'transparent',
   },
+  referenceButtonText: {
+    fontFamily: 'InstrumentSans_700Bold',
+    fontSize: 16,
+    letterSpacing: 0,
+  },
   createPrompt: {
-    color: '#218B25',
-    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
-    fontSize: 13,
-    fontWeight: '500',
+    color: Colors.textMuted,
+    fontFamily: 'InstrumentSans_400Regular',
+    fontSize: 14,
     textAlign: 'center',
   },
   createPromptRow: {
@@ -193,33 +257,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    columnGap: 4,
-  },
-  forgotButton: {
-    height: 34,
-    minHeight: 34,
-    paddingVertical: 0,
-    backgroundColor: 'transparent',
-    shadowOpacity: 0,
-    elevation: 0,
-    shadowColor: 'transparent',
-    marginBottom: 4,
-  },
-  forgotButtonText: {
-    color: '#218B25',
-    fontSize: 13,
-    fontWeight: '600',
+    columnGap: 5,
+    rowGap: 3,
   },
   createLink: {
     color: '#218B25',
-    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  referenceButtonText: {
-    fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
+    fontFamily: 'InstrumentSans_700Bold',
     fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 0,
   },
 });

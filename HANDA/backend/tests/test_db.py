@@ -1,16 +1,108 @@
 import json
 import unittest
+from datetime import date
 from unittest.mock import MagicMock, call, patch
 
 import psycopg
 from fastapi import HTTPException
 
 from app.db import CONNECT_ATTEMPTS, get_connection
-from app.main import BINAN_CENTERS_FILE, create_center, create_incident, database_readiness, evacuation_center_status, health, lifespan, resident_evacuation_status, seed_binan_evacuation_centers, update_current_profile, update_evacuee_status, write_evacuee
-from app.schemas import CenterCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, SelfProfileUpdate
+from app.main import BINAN_CENTERS_FILE, cancel_resident_evacuation_registration, create_center, create_incident, database_readiness, evacuation_center_status, health, lifespan, register_resident_at_center, resident_evacuation_status, seed_binan_evacuation_centers, update_current_profile, update_evacuee_status, update_resident_evacuation_registration, write_evacuee
+from app.schemas import CenterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, SelfProfileUpdate
 
 
 class DatabaseDependencyTests(unittest.TestCase):
+    def test_released_registration_is_not_returned_as_resident_status(self):
+        connection = MagicMock()
+        registration_query = MagicMock()
+        member_count_query = MagicMock()
+        registration_query.fetchone.return_value = None
+        member_count_query.fetchone.return_value = {"member_count": 2}
+        connection.execute.side_effect = [registration_query, member_count_query]
+
+        result = resident_evacuation_status(connection, MagicMock(id="resident-1", name="Resident"))
+
+        self.assertIsNone(result["registrationId"])
+        self.assertEqual(result["status"], "not_registered")
+        self.assertIn("status <> 'released'", connection.execute.call_args_list[0].args[0])
+
+    def test_resident_can_change_center_for_pending_registration(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.side_effect = [
+            {"id": "registration-1", "status": "registered"},
+            {"id": "center-2", "capacity": 100, "current_occupancy": 20, "status": "available"},
+        ]
+
+        result = update_resident_evacuation_registration(
+            "registration-1",
+            EvacuationRegistrationCenterUpdate(centerId="center-2"),
+            MagicMock(id="resident-1"),
+            connection,
+        )
+
+        self.assertEqual(result, {"id": "registration-1", "status": "registered", "centerId": "center-2"})
+        self.assertEqual(connection.execute.call_args_list[2].args[1], ("center-2", "registration-1"))
+        connection.commit.assert_called_once()
+
+    def test_resident_cannot_change_center_after_check_in(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {"id": "registration-1", "status": "checked_in"}
+
+        with self.assertRaises(HTTPException) as error:
+            update_resident_evacuation_registration(
+                "registration-1",
+                EvacuationRegistrationCenterUpdate(centerId="center-2"),
+                MagicMock(id="resident-1"),
+                connection,
+            )
+
+        self.assertEqual(error.exception.status_code, 409)
+        connection.commit.assert_not_called()
+
+    def test_resident_cannot_create_duplicate_active_registration(self):
+        connection = MagicMock()
+        center_query = MagicMock()
+        registration_query = MagicMock()
+        center_query.fetchone.return_value = {"id": "center-1", "capacity": 100, "current_occupancy": 20, "status": "available"}
+        registration_query.fetchone.return_value = {"id": "registration-1"}
+        connection.execute.side_effect = [center_query, registration_query]
+        registration = EvacuationRegistrationCreate(
+            centerId="center-1",
+            firstName="Alex",
+            lastName="Rivera",
+            age=30,
+            sex="Female",
+            contactNumber="09171234567",
+            address="Poblacion",
+            householdSize=1,
+        )
+
+        with self.assertRaises(HTTPException) as error:
+            register_resident_at_center(registration, MagicMock(id="resident-1"), connection)
+
+        self.assertEqual(error.exception.status_code, 409)
+        connection.commit.assert_not_called()
+
+    def test_resident_can_cancel_pending_registration(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {"id": "registration-1", "status": "registered"}
+
+        result = cancel_resident_evacuation_registration("registration-1", MagicMock(id="resident-1"), connection)
+
+        self.assertEqual(result, {"id": "registration-1", "status": "cancelled"})
+        self.assertEqual(connection.execute.call_args_list[1].args[0], "DELETE FROM evacuation_registrations WHERE id = %s")
+        connection.commit.assert_called_once()
+
+    def test_resident_cannot_cancel_checked_in_registration(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {"id": "registration-1", "status": "checked_in"}
+
+        with self.assertRaises(HTTPException) as error:
+            cancel_resident_evacuation_registration("registration-1", MagicMock(id="resident-1"), connection)
+
+        self.assertEqual(error.exception.status_code, 409)
+        connection.commit.assert_not_called()
+
     @patch("app.db.time.sleep")
     @patch("app.db.random.uniform", return_value=0.5)
     @patch("app.db.psycopg.connect")
@@ -168,21 +260,24 @@ class DatabaseDependencyTests(unittest.TestCase):
 
     def test_create_incident_persists_resident_report_and_commits(self):
         connection = MagicMock()
+        photo_uris = ["data:image/jpeg;base64,Y2FwdHVyZWQtcGhvdG8="]
         incident = IncidentCreate(
             id="incident-1",
             type="Flooding",
             description="Flood water is rising.",
             location="Poblacion",
+            photoUris=photo_uris,
         )
 
         result = create_incident(incident, connection, MagicMock(id="resident-1", role="resident"))
 
         self.assertEqual(result["status"], "accepted")
         self.assertEqual(connection.execute.call_args.args[1][3], "medium")
+        self.assertEqual(json.loads(connection.execute.call_args.args[1][7]), photo_uris)
         self.assertEqual(connection.execute.call_args.args[1][-1], "resident-1")
         connection.commit.assert_called_once()
 
-    def test_update_current_profile_persists_structured_name_fields(self):
+    def test_update_current_profile_persists_structured_profile_fields(self):
         connection = MagicMock()
         connection.execute.return_value.fetchone.return_value = {
             "id": "user-1",
@@ -191,21 +286,28 @@ class DatabaseDependencyTests(unittest.TestCase):
             "middle_name": "Marie",
             "last_name": "Rivera",
             "email": "alex@example.org",
-            "birthday": None,
-            "sex": "",
+            "birthday": date(1990, 1, 2),
+            "sex": "Female",
             "mobile_number": "",
-            "current_address": "",
+            "current_address": "123 Main Street",
             "role": "Responder",
         }
 
         result = update_current_profile(
-            SelfProfileUpdate(firstName="Alex", middleName="Marie", lastName="Rivera"),
+            SelfProfileUpdate(
+                firstName="Alex",
+                middleName="Marie",
+                lastName="Rivera",
+                birthday=date(1990, 1, 2),
+                sex="Female",
+                currentAddress="123 Main Street",
+            ),
             MagicMock(id="user-1"),
             connection,
         )
 
         self.assertEqual(result["name"], "Alex Marie Rivera")
-        self.assertEqual(connection.execute.call_args_list[0].args[1], ("Alex Marie Rivera", "Alex", "Marie", "Rivera", "user-1"))
+        self.assertEqual(connection.execute.call_args_list[0].args[1], ("Alex Marie Rivera", "Alex", "Marie", "Rivera", date(1990, 1, 2), "Female", "123 Main Street", "user-1"))
         connection.commit.assert_called_once()
 
 

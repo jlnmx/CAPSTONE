@@ -13,6 +13,16 @@ import { getIncidentReporterContacts, getResponderData, IncidentReporterContact,
 const GREEN = '#218B25';
 const STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress', 'resolved'];
 const ACTIVE_STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress'];
+const NEXT_STATUSES: Record<IncidentStatus, IncidentStatus[]> = {
+  reported: ['acknowledged'],
+  acknowledged: ['in_progress', 'resolved'],
+  in_progress: ['resolved'],
+  resolved: [],
+};
+
+function canTransitionStatus(current: IncidentStatus, next: IncidentStatus): boolean {
+  return NEXT_STATUSES[current].includes(next);
+}
 
 function displayLocationLabel(location: string, latitude?: number, longitude?: number): string {
   const label = location.replace(/\s*[·,]\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$/, '').trim();
@@ -80,11 +90,12 @@ export default function ResponderIncidentQueue() {
   };
 
   const handleStatusPress = async (incident: ResponderIncident, status: IncidentStatus) => {
+    if (!canTransitionStatus(incident.status, status)) return;
     if (status === 'acknowledged') {
       openResponseEditor(incident, status);
       return;
     }
-    if (incident.status === status || updatingId) return;
+    if (updatingId) return;
     setUpdatingId(incident.id);
     try {
       // No response fields are sent, so the details saved at acknowledgement are kept.
@@ -179,7 +190,13 @@ export default function ResponderIncidentQueue() {
         <Text style={styles.contactText}>Reporter: {reporters[incident.id].name} · {reporters[incident.id].mobileNumber}</Text>
       </AnimatedPressable>}
       {incident.photoUris.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photos}>{incident.photoUris.map((uri, index) => <Image key={`${incident.id}-photo-${index}`} source={{ uri }} style={styles.photo} />)}</ScrollView>}
-      <View style={styles.actions}>{STATUSES.map((status) => <AnimatedPressable key={status} style={[styles.action, incident.status === status && { backgroundColor: incidentStatusColor(status) }]} onPress={() => void handleStatusPress(incident, status)} disabled={updatingId === incident.id}><Text style={[styles.actionText, incident.status === status && styles.activeActionText]}>{status.replace('_', ' ')}</Text></AnimatedPressable>)}</View>
+      <View style={styles.actions}>{STATUSES.map((status) => {
+        const canTransition = canTransitionStatus(incident.status, status);
+        const isCurrent = incident.status === status;
+        return <AnimatedPressable key={status} style={[styles.action, isCurrent && { backgroundColor: incidentStatusColor(status) }, !canTransition && styles.actionDisabled]} onPress={() => void handleStatusPress(incident, status)} disabled={updatingId === incident.id || !canTransition} accessibilityRole="button" accessibilityState={{ disabled: updatingId === incident.id || !canTransition, selected: isCurrent }}>
+          <Text style={[styles.actionText, isCurrent && styles.activeActionText]}>{status.replace('_', ' ')}</Text>
+        </AnimatedPressable>;
+      })}</View>
     </View>)}
     <Modal transparent visible={!!selectedIncident} animationType="fade" onRequestClose={closeEditor}>
       <View style={styles.modalBackdrop}><View style={styles.responseDialog}>
@@ -231,6 +248,7 @@ const styles = StyleSheet.create({
   photo: { width: 72, height: 72, marginRight: 6, borderRadius: 6, backgroundColor: Colors.surfaceMuted },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 9 },
   action: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 5, backgroundColor: Colors.surfaceMuted },
+  actionDisabled: { opacity: 0.4 },
   activeAction: { backgroundColor: GREEN },
   actionText: { color: GREEN, fontSize: 9, fontWeight: '700', textTransform: 'capitalize' },
   activeActionText: { color: '#FFFFFF' },

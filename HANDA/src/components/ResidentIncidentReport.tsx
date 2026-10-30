@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Colors } from '@constants/colors';
-import { ActivityIndicator, Alert, Image, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,6 +26,9 @@ export default function ResidentIncidentReport() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [picker, setPicker] = useState<'type' | null>(null);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
+  const [isSuccessVisible, setIsSuccessVisible] = useState(false);
+  const [successTitle, setSuccessTitle] = useState('Incident reported successfully');
+  const [successMessage, setSuccessMessage] = useState('Your incident report has been sent. Please stay safe and wait for responders to arrive.');
   const [isGettingLocation, setIsGettingLocation] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -60,15 +63,33 @@ export default function ResidentIncidentReport() {
 
   const addPhotos = async (source: 'camera' | 'library') => {
     if (photos.length >= 4) return;
-    const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.65, base64: true })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: 4 - photos.length, quality: 0.65, base64: true });
-    if (result.canceled) return;
-    const selected = result.assets.map((asset, index) => ({
-      uri: asset.base64 ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` : asset.uri,
-      name: asset.fileName || `incident-photo-${Date.now()}-${index}.jpg`,
-    }));
-    setPhotos((current) => [...current, ...selected].slice(0, 4));
+    setError('');
+    try {
+      if (source === 'camera' && Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          setError(permission.canAskAgain
+            ? 'Camera access is needed to take an incident photo. Allow camera access and try again.'
+            : 'Camera access is turned off for HANDA. Enable it in your device settings to take a photo.');
+          return;
+        }
+      }
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.55, base64: true })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: 4 - photos.length, quality: 0.55, base64: true });
+      if (result.canceled) return;
+      if (result.assets.some((asset) => !asset.base64)) {
+        setError('A photo could not be prepared for upload. Please try taking or selecting it again.');
+        return;
+      }
+      const selected = result.assets.map((asset, index) => ({
+        uri: `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`,
+        name: asset.fileName || `incident-photo-${Date.now()}-${index}.jpg`,
+      }));
+      setPhotos((current) => [...current, ...selected].slice(0, 4));
+    } catch (photoError) {
+      setError(photoError instanceof Error ? photoError.message : 'The camera or photo library could not be opened. Please try again.');
+    }
   };
 
   const requestSubmit = () => {
@@ -91,7 +112,7 @@ export default function ResidentIncidentReport() {
     const createdAt = new Date().toISOString();
     const payload = { id, type: incidentType, description: description.trim(), location: locationLabel || `Biñan City · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`, latitude: coordinate.latitude, longitude: coordinate.longitude, photoUris: photos.map((photo) => photo.uri), createdAt };
     const abortController = new AbortController();
-    const requestTimeout = setTimeout(() => abortController.abort(), 15000);
+    const requestTimeout = setTimeout(() => abortController.abort(), 30000);
     try {
       const response = await authenticatedFetch('/api/v1/incidents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: abortController.signal });
       if (!response.ok) {
@@ -103,7 +124,12 @@ export default function ResidentIncidentReport() {
         }
         throw new Error(detail || `The incident service returned ${response.status}.`);
       }
-      Alert.alert('Incident reported', 'Your report and location are now available to residents and responders.', [{ text: 'View incidents', onPress: () => router.replace('/(resident)/incidents') }]);
+      setSuccessTitle('Incident reported successfully');
+      setSuccessMessage('Your report has been sent to responders. Please stay safe and wait for responders to arrive.');
+      setIsSuccessVisible(true);
+      setIncidentType('');
+      setDescription('');
+      setPhotos([]);
     } catch (submitError) {
       let localId: string | null = null;
       try {
@@ -116,7 +142,12 @@ export default function ResidentIncidentReport() {
         const message = submitError instanceof Error && submitError.name === 'AbortError'
           ? 'The server took too long to respond. Your report was saved on this device and will sync when the connection returns.'
           : 'The report was saved on this device and will sync when the connection returns.';
-        setError(message);
+        setSuccessTitle('Report saved on this device');
+        setSuccessMessage(`${message} The report and attached photos will upload when a connection returns. Responders have not been notified yet.`);
+        setIsSuccessVisible(true);
+        setIncidentType('');
+        setDescription('');
+        setPhotos([]);
       } else {
         setError(submitError instanceof Error && submitError.name === 'AbortError' ? 'The incident service timed out. Check that your phone and API are on the same Wi-Fi network.' : 'The incident could not be saved. Check your connection and try again.');
       }
@@ -178,6 +209,21 @@ export default function ResidentIncidentReport() {
           </Pressable>
         </Pressable>
       </Modal>
+      <Modal transparent visible={isSuccessVisible} animationType="fade" onRequestClose={() => setIsSuccessVisible(false)}>
+        <Pressable style={successStyles.backdrop} onPress={() => setIsSuccessVisible(false)}>
+          <Pressable style={successStyles.card} onPress={(event) => event.stopPropagation()}>
+            <View style={successStyles.icon}><MaterialCommunityIcons name="check" size={27} color="#FFFFFF" /></View>
+            <Text style={successStyles.title}>{successTitle}</Text>
+            <Text style={successStyles.message}>{successMessage}</Text>
+            <AnimatedPressable style={successStyles.primaryButton} onPress={() => { setIsSuccessVisible(false); router.replace('/(resident)/incidents'); }} accessibilityRole="button">
+              <Text style={successStyles.primaryButtonText}>View incidents</Text>
+            </AnimatedPressable>
+            <AnimatedPressable style={successStyles.closeButton} onPress={() => setIsSuccessVisible(false)} accessibilityRole="button">
+              <Text style={successStyles.closeButtonText}>Done</Text>
+            </AnimatedPressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -199,4 +245,16 @@ const confirmationStyles = StyleSheet.create({
   cancelText: { color: Colors.text, fontSize: 13, fontWeight: '700' },
   confirmButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 8, backgroundColor: GREEN },
   confirmText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+});
+
+const successStyles = StyleSheet.create({
+  backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.52)' },
+  card: { width: '100%', maxWidth: 420, alignItems: 'center', padding: 22, borderRadius: 12, backgroundColor: Colors.surface },
+  icon: { width: 54, height: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 27, backgroundColor: GREEN },
+  title: { marginTop: 16, color: Colors.text, fontSize: 18, fontWeight: '800', textAlign: 'center' },
+  message: { marginTop: 8, color: Colors.textMuted, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  primaryButton: { alignSelf: 'stretch', minHeight: 46, marginTop: 20, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: GREEN },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  closeButton: { minHeight: 42, marginTop: 4, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  closeButtonText: { color: GREEN, fontSize: 13, fontWeight: '700' },
 });

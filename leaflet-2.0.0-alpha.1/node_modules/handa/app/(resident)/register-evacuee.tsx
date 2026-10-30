@@ -88,10 +88,25 @@ export default function RegisterEvacueeScreen() {
   const [reviewVisible, setReviewVisible] = useState(false);
   const [registrationSuccessVisible, setRegistrationSuccessVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingRegistration, setExistingRegistration] = useState<{ centerName: string } | null>(null);
+  const [isCheckingExistingRegistration, setIsCheckingExistingRegistration] = useState(true);
 
   useEffect(() => {
     if (requestedCenterId) setCenterId(requestedCenterId);
   }, [requestedCenterId]);
+
+  useEffect(() => {
+    let isCurrent = true;
+    void authenticatedFetch('/api/v1/resident/evacuation-status')
+      .then(async (response) => {
+        if (!response.ok) return;
+        const status = await response.json() as { registrationId?: string | null; center?: { name?: string } | null };
+        if (isCurrent && status.registrationId) setExistingRegistration({ centerName: status.center?.name || 'your selected center' });
+      })
+      .catch(() => undefined)
+      .finally(() => { if (isCurrent) setIsCheckingExistingRegistration(false); });
+    return () => { isCurrent = false; };
+  }, []);
 
   useEffect(() => {
     const nameParts = user?.name.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -279,7 +294,21 @@ export default function RegisterEvacueeScreen() {
           <View><Text style={styles.title}>REGISTER</Text><Text style={styles.title}>EVACUEE</Text></View>
         </View>
 
-        <View style={styles.form}>
+        {isCheckingExistingRegistration ? (
+          <View style={styles.registrationGuard}>
+            <ActivityIndicator color={GREEN} />
+            <Text style={styles.registrationGuardText}>Checking for an existing evacuation registration...</Text>
+          </View>
+        ) : existingRegistration ? (
+          <View style={styles.registrationGuard}>
+            <MaterialCommunityIcons name="clipboard-check-outline" size={36} color={GREEN} />
+            <Text style={styles.registrationGuardTitle}>Your household is already registered</Text>
+            <Text style={styles.registrationGuardText}>Pending at {existingRegistration.centerName}. View the current status to change the center or cancel this registration.</Text>
+            <AnimatedPressable style={styles.manageRegistrationButton} onPress={() => router.push('/(resident)/verify-status')} accessibilityRole="button">
+              <Text style={styles.manageRegistrationText}>Manage registration</Text>
+            </AnimatedPressable>
+          </View>
+        ) : <View style={styles.form}>
           <FieldLabel label="First Name" required />
           <TextInput style={styles.input} placeholder="Enter first name" placeholderTextColor="#A6C1A7" value={firstName} onChangeText={setFirstName} />
           <FieldLabel label="Middle Name" />
@@ -382,7 +411,7 @@ export default function RegisterEvacueeScreen() {
             ))}
           </View>
           {!!centerError && centers.length > 0 && <Text style={styles.centerError}>{centerError}</Text>}
-        </View>
+        </View>}
       </ScrollView>
 
       <Modal visible={reviewVisible} transparent animationType="fade" onRequestClose={() => setReviewVisible(false)}>
@@ -505,6 +534,11 @@ const styles = StyleSheet.create({
   selectedCenterDetail: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 1 },
   noCenterResults: { paddingVertical: 15, color: Colors.textMuted, fontSize: 10, lineHeight: 15, textAlign: 'center' },
   form: { paddingHorizontal: 14, paddingBottom: 12 },
+  registrationGuard: { minHeight: 260, margin: 16, alignItems: 'center', justifyContent: 'center', padding: 24, borderWidth: 1, borderColor: '#B5D4B5', borderRadius: 7, backgroundColor: Colors.surface, gap: 10 },
+  registrationGuardTitle: { color: '#1E5322', fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  registrationGuardText: { maxWidth: 360, color: Colors.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  manageRegistrationButton: { minHeight: 44, marginTop: 6, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 5, backgroundColor: GREEN },
+  manageRegistrationText: { color: Colors.white, fontSize: 12, fontWeight: '800' },
   sectionHeading: { color: Colors.text, fontSize: 18, marginTop: 12, marginBottom: 1 },
   label: { color: FIELD_GREEN, fontSize: 9, marginTop: 8, marginBottom: 4 },
   required: { color: '#D33D3D' },
