@@ -277,22 +277,24 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
                 <NativeTextInput
                   value={birthday}
                   onChangeText={setBirthday}
-                  placeholder="Pick Calendar"
+                  placeholder="Select birthdate"
+                  accessibilityLabel="Select birthdate from calendar"
                   placeholderTextColor={PLACEHOLDER_COLOR}
                   style={styles.input}
                   selectionColor={GREEN}
-                  {...({ type: 'date', max: new Date().toISOString().slice(0, 10) } as object)}
+                  {...({ type: 'date', max: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` } as object)}
                 />
               ) : (
-                <TouchableOpacity style={styles.selectInput} onPress={() => setIsBirthdayPickerOpen(true)} accessibilityRole="button">
-                  <Text style={birthday ? styles.selectValue : styles.selectPlaceholder}>{birthday || 'Pick Calendar'}</Text>
+                <TouchableOpacity style={styles.selectInput} onPress={() => setIsBirthdayPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Select birthdate from calendar">
+                  <Text style={birthday ? styles.selectValue : styles.selectPlaceholder}>{birthday || 'Select birthdate'}</Text>
+                  <MaterialCommunityIcons name="calendar-blank-outline" size={19} color={TEXT_MUTED} />
                 </TouchableOpacity>
               )}
               {NativeDateTimePicker && isBirthdayPickerOpen && (
                 <NativeDateTimePicker
                   value={birthdayDate}
                   mode="date"
-                  display="default"
+                  display={Platform.OS === 'android' ? 'calendar' : 'default'}
                   maximumDate={new Date()}
                   onChange={(_event: unknown, selectedDate?: Date) => {
                     setIsBirthdayPickerOpen(false);

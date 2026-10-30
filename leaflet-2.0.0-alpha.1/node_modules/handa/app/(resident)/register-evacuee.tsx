@@ -29,12 +29,17 @@ type CenterSort = 'name' | 'spaces' | 'occupancy';
 type HouseholdMemberDraft = { name: string; relationship: string };
 type ResidentProfileResponse = {
   birthday?: string;
+  sex?: string;
   mobileNumber?: string;
   mobile_number?: string;
   currentAddress?: string;
   current_address?: string;
   householdMembers?: HouseholdMemberDraft[];
 };
+
+function normalizeSex(value?: string): string {
+  return SEXES.find((item) => item.toLowerCase() === value?.trim().toLowerCase()) ?? '';
+}
 
 function calculateAge(birthday?: string): number | null {
   if (!birthday) return null;
@@ -65,7 +70,7 @@ export default function RegisterEvacueeScreen() {
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [age, setAge] = useState(() => String(calculateAge(user?.birthday) ?? ''));
-  const [sex, setSex] = useState('');
+  const [sex, setSex] = useState(() => normalizeSex(user?.sex));
   const [isSexOpen, setIsSexOpen] = useState(false);
   const [contactNumber, setContactNumber] = useState(() => user?.mobileNumber ?? '');
   const [address, setAddress] = useState('');
@@ -125,6 +130,7 @@ export default function RegisterEvacueeScreen() {
         if (isCurrent) {
           setMembers(profile.householdMembers?.map(({ name, relationship }) => ({ name, relationship })) ?? []);
           setAge((current) => current || String(calculateAge(profile.birthday) ?? ''));
+          setSex((current) => current || normalizeSex(profile.sex) || normalizeSex(user?.sex));
           setContactNumber((current) => current || profile.mobileNumber || profile.mobile_number || user?.mobileNumber || '');
           setAddress((current) => current || profile.currentAddress || profile.current_address || user?.currentAddress || '');
         }
@@ -132,6 +138,7 @@ export default function RegisterEvacueeScreen() {
         if (isCurrent) {
           setMembers(user?.householdMembers?.map(({ name, relationship }) => ({ name, relationship })) ?? []);
           setAge((current) => current || String(calculateAge(user?.birthday) ?? ''));
+          setSex((current) => current || normalizeSex(user?.sex));
           setContactNumber((current) => current || user?.mobileNumber || '');
           setAddress((current) => current || user?.currentAddress || '');
         }
@@ -141,7 +148,7 @@ export default function RegisterEvacueeScreen() {
     };
     void loadHouseholdMembers();
     return () => { isCurrent = false; };
-  }, [user?.id]);
+  }, [user?.id, user?.sex]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -321,7 +328,7 @@ export default function RegisterEvacueeScreen() {
               <FieldLabel label="Age" required />
               <TextInput style={styles.input} placeholder="Years" placeholderTextColor="#A6C1A7" keyboardType="number-pad" value={age} onChangeText={setAge} />
             </View>
-            <View style={[styles.halfField, isCompact && styles.halfFieldStacked]}>
+            <View style={[styles.halfField, isCompact && styles.halfFieldStacked, isSexOpen && styles.openPickerField]}>
               <FieldLabel label="Sex" required />
               <AnimatedPressable style={styles.selectField} onPress={() => setIsSexOpen((open) => !open)}>
                 <Text style={[styles.fieldText, !sex && styles.placeholder]}>{sex || 'Select'}</Text>
@@ -548,11 +555,12 @@ const styles = StyleSheet.create({
   halfField: { flex: 1, minWidth: 0 },
   halfFieldStacked: { flex: 0 },
   memberFields: { marginTop: 2, paddingLeft: 9, borderLeftWidth: 2, borderLeftColor: '#A6CFA7' },
-  selectField: { width: '100%', height: 31, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  selectField: { width: '100%', height: 31, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF' },
+  openPickerField: { zIndex: 10 },
   fieldText: { color: FIELD_GREEN, fontSize: 10 },
   placeholder: { color: '#A6C1A7' },
-  sexOptions: { position: 'absolute', top: 58, left: 0, right: 0, zIndex: 2, borderWidth: 1, borderColor: '#79B879', borderRadius: 6, backgroundColor: Colors.surface },
-  sexOption: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E3EDE3' },
+  sexOptions: { position: 'absolute', top: 58, left: 0, right: 0, zIndex: 20, borderWidth: 1, borderColor: '#79B879', borderRadius: 6, backgroundColor: '#FFFFFF', opacity: 1, elevation: 8, shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 6 },
+  sexOption: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E3EDE3', backgroundColor: '#FFFFFF' },
   centerList: { gap: 7, marginTop: 2 },
   centerOption: { minHeight: 46, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   centerOptionSelected: { borderColor: GREEN, backgroundColor: Colors.surfaceMuted },

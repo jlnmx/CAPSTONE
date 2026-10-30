@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, SafeAreaView, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, SafeAreaView, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
+import * as Location from 'expo-location';
+import { authenticatedFetch } from '@services/apiClient';
 
 const emergencyTypes = [
   { label: 'Flood / landslide', icon: 'waves' as const },
@@ -21,9 +23,11 @@ export default function ResidentSosScreen() {
   const [selectedType, setSelectedType] = useState('Other / unsure');
   const [isHolding, setIsHolding] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState('');
   const progress = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(1)).current;
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressWidth = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -33,31 +37,82 @@ export default function ResidentSosScreen() {
       ]),
     );
     animation.start();
-    return () => {
-      animation.stop();
-      if (holdTimer.current) clearTimeout(holdTimer.current);
-    };
+    return () => animation.stop();
   }, [pulse]);
 
-  const activateSos = () => {
-    setIsActivated(true);
+  const activateSos = async () => {
     setIsHolding(false);
-    progress.setValue(1);
-    Alert.alert('SOS activated', `Emergency responders have been notified. Situation: ${selectedType}.`);
+    setIsSubmitting(true);
+    setFeedback('');
+    let coordinate: Location.LocationObjectCoords | null = null;
+    try {
+      let permission = await Location.getForegroundPermissionsAsync();
+      if (permission.status !== 'granted') permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status === 'granted') {
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+        coordinate = position.coords;
+      }
+    } catch {
+      setFeedback('Location is unavailable. Sending the SOS without a map pin.');
+    }
+
+    const location = coordinate
+      ? `Biñan City · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`
+      : 'Location unavailable';
+    const payload = {
+      id: `sos-${Date.now()}`,
+      type: `SOS - ${selectedType}`,
+      description: `Resident activated SOS. Situation: ${selectedType}.`,
+      severity: 'critical',
+      location,
+      latitude: coordinate?.latitude ?? null,
+      longitude: coordinate?.longitude ?? null,
+      photoUris: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      const response = await authenticatedFetch('/api/v1/incidents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        let detail = '';
+        try {
+          const result = await response.json() as { detail?: unknown };
+          detail = typeof result.detail === 'string' ? result.detail : '';
+        } catch {
+        }
+        throw new Error(detail || `The emergency service returned ${response.status}.`);
+      }
+      setIsActivated(true);
+      progress.setValue(1);
+      setFeedback(coordinate
+        ? 'SOS sent. Responders have been notified and your location was shared.'
+        : 'SOS sent. Responders have been notified, but no location was available.');
+    } catch (sendError) {
+      progress.setValue(0);
+      setFeedback(sendError instanceof Error ? `SOS was not sent: ${sendError.message}` : 'SOS was not sent. Check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const startHolding = () => {
-    if (isActivated) return;
+    if (isActivated || isSubmitting) return;
+    setFeedback('');
     setIsHolding(true);
     progress.setValue(0);
-    Animated.timing(progress, { toValue: 1, duration: 2000, useNativeDriver: false }).start();
-    holdTimer.current = setTimeout(activateSos, 2000);
+    Animated.timing(progress, { toValue: 1, duration: 2000, useNativeDriver: false }).start(({ finished }) => {
+      if (finished) void activateSos();
+    });
   };
 
   const stopHolding = () => {
-    if (holdTimer.current) clearTimeout(holdTimer.current);
-    if (!isActivated) {
+    if (!isActivated && !isSubmitting) {
       setIsHolding(false);
+      progress.stopAnimation();
       Animated.timing(progress, { toValue: 0, duration: 180, useNativeDriver: false }).start();
     }
   };
@@ -69,7 +124,7 @@ export default function ResidentSosScreen() {
         <View style={styles.contentBody}>
         <Text style={styles.eyebrow}>HANDA EMERGENCY ASSISTANCE</Text>
         <Text style={styles.title}>Need immediate help?</Text>
-        <Text style={styles.description}>Hold the SOS button for 2 seconds to alert the response team.</Text>
+        <Text style={styles.description}>Touch and hold the SOS button for 2 seconds to alert the response team.</Text>
 
         <View style={styles.readiness}><View style={styles.readinessDot} /><Text style={styles.readinessText}>RESPONSE NETWORK READY</Text><Text style={styles.readinessDetail}>Location sharing available</Text></View>
 
@@ -79,15 +134,16 @@ export default function ResidentSosScreen() {
 
         <Animated.View style={[styles.sosShell, { transform: [{ scale: pulse }] }]}>
           <View style={[styles.sosRing, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2 }]}>
-            <Pressable style={({ pressed }) => [styles.sosButton, { width: sosButtonDiameter, height: sosButtonDiameter, borderRadius: sosButtonDiameter / 2 }, isHolding && styles.sosButtonHolding, isActivated && styles.sosButtonActivated, pressed && styles.sosButtonPressed]} onPressIn={startHolding} onPressOut={stopHolding} accessibilityLabel="Press and hold to activate emergency SOS">
-              <MaterialCommunityIcons name={isActivated ? 'check-circle-outline' : 'alarm-light-outline'} size={43} color={Colors.white} />
-              <Text style={styles.sosLabel}>{isActivated ? 'SENT' : 'SOS'}</Text>
-              <Text style={styles.sosState}>{isActivated ? 'HELP IS ON THE WAY' : isHolding ? 'KEEP HOLDING...' : 'PRESS & HOLD 2 SEC'}</Text>
+            <Pressable style={({ pressed }) => [styles.sosButton, { width: sosButtonDiameter, height: sosButtonDiameter, borderRadius: sosButtonDiameter / 2 }, isHolding && styles.sosButtonHolding, isActivated && styles.sosButtonActivated, pressed && styles.sosButtonPressed]} onPressIn={startHolding} onPressOut={stopHolding} disabled={isActivated || isSubmitting} accessibilityRole="button" accessibilityLabel="Touch and hold for two seconds to send an emergency SOS">
+              <MaterialCommunityIcons name={isActivated ? 'check-circle-outline' : isSubmitting ? 'upload' : 'alarm-light-outline'} size={43} color={Colors.white} />
+              <Text style={styles.sosLabel}>{isActivated ? 'SENT' : isSubmitting ? 'SENDING' : 'SOS'}</Text>
+              <Text style={styles.sosState}>{isActivated ? 'HELP IS ON THE WAY' : isSubmitting ? 'CONTACTING RESPONDERS...' : isHolding ? 'KEEP HOLDING...' : 'PRESS & HOLD 2 SEC'}</Text>
+              <View style={styles.progressTrack}><Animated.View style={[styles.progressFill, { width: progressWidth }]} /></View>
             </Pressable>
-            <Animated.View style={[styles.progressArc, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2, opacity: progress }]} />
           </View>
         </Animated.View>
 
+        {!!feedback && <Text style={[styles.feedback, isActivated && styles.feedbackSuccess]} accessibilityRole={isActivated ? 'text' : 'alert'}>{feedback}</Text>}
         <View style={styles.expectCard}><MaterialCommunityIcons name="shield-check-outline" size={22} color={Colors.primary} /><View style={styles.expectCopy}><Text style={styles.expectTitle}>WHAT TO EXPECT</Text><Text style={styles.expectText}>{isActivated ? 'Your request is being monitored by emergency responders.' : 'Your location and situation type will be shared with the response team after activation.'}</Text></View></View>
         </View>
       </ScrollView>
@@ -121,9 +177,12 @@ const styles = StyleSheet.create({
   sosButtonHolding: { backgroundColor: '#246E45' },
   sosButtonActivated: { backgroundColor: Colors.success, borderColor: '#8FC5A0' },
   sosButtonPressed: { transform: [{ scale: 0.97 }] },
-  progressArc: { position: 'absolute', borderWidth: 5, borderColor: Colors.white },
   sosLabel: { color: Colors.white, fontSize: 31, fontWeight: '900', marginTop: 2 },
   sosState: { color: Colors.white, fontSize: 9, fontWeight: '900', marginTop: 4, letterSpacing: 0.4 },
+  progressTrack: { width: 82, height: 7, marginTop: 9, overflow: 'hidden', borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)' },
+  progressFill: { height: '100%', borderRadius: 4, backgroundColor: Colors.white },
+  feedback: { maxWidth: 340, marginTop: 12, color: Colors.emergency, fontSize: 12, fontWeight: '700', textAlign: 'center' },
+  feedbackSuccess: { color: Colors.success },
   expectCard: { width: '100%', maxWidth: 430, marginTop: 20, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 8, backgroundColor: Colors.surface, flexDirection: 'row', alignItems: 'flex-start', shadowColor: Colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 2 },
   expectCopy: { flex: 1, marginLeft: 10 },
   expectTitle: { color: Colors.primary, fontSize: 11, fontWeight: '900', letterSpacing: 0.7 },

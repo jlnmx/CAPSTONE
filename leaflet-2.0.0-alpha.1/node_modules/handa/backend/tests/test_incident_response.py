@@ -145,6 +145,27 @@ class ReporterContactTests(unittest.TestCase):
 
 
 class ResidentNotificationTests(unittest.TestCase):
+    def test_critical_incident_notifies_active_responders(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchall.return_value = [{"id": "responder-1"}]
+        incident = main.IncidentCreate(
+            id="sos-1",
+            type="SOS - Medical",
+            description="Resident activated SOS.",
+            severity="critical",
+            location="Biñan City · 14.3, 121.1",
+        )
+
+        result = main.create_incident(incident, connection, MagicMock(id="resident-1", role="resident"))
+
+        self.assertEqual(result["status"], "accepted")
+        notification_call = next(
+            call for call in connection.execute.call_args_list
+            if "INSERT INTO notifications" in call.args[0]
+        )
+        self.assertEqual(notification_call.args[1][1:4], ("responder-1", "sos-1", "EMERGENCY SOS: SOS - Medical"))
+        connection.commit.assert_called_once()
+
     def test_acknowledged_message_mentions_type_status_and_reassurance(self):
         update = IncidentStatusUpdate(status="acknowledged", responsePeople="Juan", responseOrganizations="PNP", responseEtaMinutes=7)
 

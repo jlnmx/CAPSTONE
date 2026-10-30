@@ -179,12 +179,12 @@ export default function AccountSectionScreen() {
             <TextInput value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor={palette.textMuted} autoCapitalize="words" style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} />
             <TextInput value={middleName} onChangeText={setMiddleName} placeholder="Middle name (optional)" placeholderTextColor={palette.textMuted} autoCapitalize="words" style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} />
             <TextInput value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor={palette.textMuted} autoCapitalize="words" style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} />
-            {Platform.OS === 'web' ? <TextInput value={birthday} onChangeText={setBirthday} placeholder="Birthdate (YYYY-MM-DD)" accessibilityLabel="Birthdate" placeholderTextColor={palette.textMuted} style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} /> : <>
+            {Platform.OS === 'web' ? <TextInput value={birthday} onChangeText={setBirthday} placeholder="Select birthdate" accessibilityLabel="Select birthdate from calendar" placeholderTextColor={palette.textMuted} style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} {...({ type: 'date', max: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` } as object)} /> : <>
               <Pressable style={[styles.select, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} onPress={() => setIsBirthdayPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Choose birthdate">
                 <Text style={[styles.selectText, { color: birthday ? palette.text : palette.textMuted }]}>{birthday || 'Birthdate'}</Text>
                 <MaterialCommunityIcons name="calendar-blank-outline" size={19} color={palette.textMuted} />
               </Pressable>
-              {NativeDateTimePicker && isBirthdayPickerOpen && <NativeDateTimePicker value={birthdayDate} mode="date" display="default" maximumDate={new Date()} onChange={(_event: unknown, selectedDate?: Date) => {
+              {NativeDateTimePicker && isBirthdayPickerOpen && <NativeDateTimePicker value={birthdayDate} mode="date" display={Platform.OS === 'android' ? 'calendar' : 'default'} maximumDate={new Date()} onChange={(_event: unknown, selectedDate?: Date) => {
                 setIsBirthdayPickerOpen(false);
                 if (selectedDate) {
                   setBirthdayDate(selectedDate);

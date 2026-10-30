@@ -640,6 +640,21 @@ def chatbot_answer(request: ChatbotRequest, _: CurrentUser = Depends(get_current
 @app.post("/api/v1/incidents", status_code=201)
 def create_incident(incident: IncidentCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     result = write_incident(connection, incident, user.id if user.role == "resident" else None)
+    if incident.severity == "critical":
+        responders = connection.execute(
+            "SELECT id FROM users WHERE role = 'Responder' AND status = 'Active'"
+        ).fetchall()
+        for responder in responders:
+            connection.execute(
+                "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
+                (
+                    f"notification-{uuid4()}",
+                    responder["id"],
+                    result["id"],
+                    f"EMERGENCY SOS: {incident.type}",
+                    f"{incident.description} Location: {incident.location}",
+                ),
+            )
     connection.commit()
     return result
 
@@ -825,10 +840,10 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
 
 
 @app.get("/api/v1/notifications")
-def list_notifications(connection: psycopg.Connection = Depends(get_connection), resident: CurrentUser = Depends(require_roles("resident"))):
+def list_notifications(connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):
     return connection.execute(
         "SELECT id, incident_id, title, message, read_at, created_at FROM notifications WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
-        (resident.id,),
+        (user.id,),
     ).fetchall()
 
 
@@ -888,10 +903,10 @@ def update_notification_preferences(
 
 
 @app.patch("/api/v1/notifications/{notification_id}/read")
-def mark_notification_read(notification_id: str, connection: psycopg.Connection = Depends(get_connection), resident: CurrentUser = Depends(require_roles("resident"))):
+def mark_notification_read(notification_id: str, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):
     row = connection.execute(
         "UPDATE notifications SET read_at = NOW() WHERE id = %s AND user_id = %s RETURNING id, read_at",
-        (notification_id, resident.id),
+        (notification_id, user.id),
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Notification not found.")

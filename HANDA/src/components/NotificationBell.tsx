@@ -49,16 +49,18 @@ export function NotificationBell() {
   }, []);
 
   useEffect(() => {
-    if (user?.role !== 'resident') return undefined;
+    if (user?.role !== 'resident' && user?.role !== 'responder') return undefined;
     let mounted = true;
     const load = async () => {
-      const [notificationResult, disasterResult, statusResult] = await Promise.allSettled([
-        authenticatedFetch('/api/v1/notifications'),
+      const notificationResult = await authenticatedFetch('/api/v1/notifications').catch(() => null);
+      if (!mounted) return;
+      if (notificationResult?.ok) setServerNotifications(await notificationResult.json() as ServerNotification[]);
+      if (user?.role !== 'resident') return;
+      const [disasterResult, statusResult] = await Promise.allSettled([
         authenticatedFetch('/api/v1/disasters'),
         authenticatedFetch('/api/v1/resident/evacuation-status'),
       ]);
       if (!mounted) return;
-      if (notificationResult.status === 'fulfilled' && notificationResult.value.ok) setServerNotifications(await notificationResult.value.json() as ServerNotification[]);
       if (disasterResult.status === 'fulfilled' && disasterResult.value.ok) setDisasters(await disasterResult.value.json() as typeof disasters);
       if (statusResult.status === 'fulfilled' && statusResult.value.ok) setEvacuationStatus(await statusResult.value.json() as typeof evacuationStatus);
     };
@@ -68,7 +70,8 @@ export function NotificationBell() {
   }, [user?.role]);
 
   const notifications = useMemo<NotificationItem[]>(() => {
-    const items: NotificationItem[] = serverNotifications.map((notification) => ({ id: notification.id, icon: 'alert-circle-outline', color: Colors.emergency, title: notification.title, detail: notification.message, time: formatTime(notification.created_at), route: ROUTES.incidents, read: !!notification.read_at, source: 'server' }));
+    const incidentRoute = user?.role === 'responder' ? '/(responder)/incidents' : ROUTES.incidents;
+    const items: NotificationItem[] = serverNotifications.map((notification) => ({ id: notification.id, icon: 'alert-circle-outline', color: Colors.emergency, title: notification.title, detail: notification.message, time: formatTime(notification.created_at), route: incidentRoute, read: !!notification.read_at, source: 'server' }));
     const active = disasters.find((disaster) => disaster.status.toLowerCase() === 'active');
     const upcoming = disasters.find((disaster) => disaster.status.toLowerCase() === 'upcoming');
     if (active) items.push({ id: `active-disaster-${active.id}`, icon: 'alert-octagon-outline', color: Colors.emergency, title: 'Active disaster', detail: `${active.name}${active.description ? ` · ${active.description}` : ''}`, time: 'Now', route: ROUTES.alerts, read: readIds.includes(`active-disaster-${active.id}`), source: 'local' });
@@ -83,7 +86,7 @@ export function NotificationBell() {
       items.push({ id, icon: 'weather-partly-rainy', color: Colors.secondary, title: 'Weather advisory', detail: `${presentation.description} forecast for Biñan City. Review preparedness guidance before travelling.`, time: 'Live', route: ROUTES.preparedness, read: readIds.includes(id), source: 'local' });
     }
     return items.sort((left, right) => Number(left.read) - Number(right.read));
-  }, [serverNotifications, disasters, evacuationStatus, readIds, isWeatherLoading, isWeatherUnavailable, presentation.description]);
+  }, [serverNotifications, disasters, evacuationStatus, readIds, isWeatherLoading, isWeatherUnavailable, presentation.description, user?.role]);
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
 
