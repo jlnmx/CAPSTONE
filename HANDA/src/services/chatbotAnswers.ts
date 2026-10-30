@@ -254,3 +254,27 @@ export async function answerQuestion(question: string): Promise<string> {
   }
   return 'I can help with current Biñan weather, forecast conditions, live typhoon reports, HANDA disaster entries, and app features. Try “Is there any typhoon right now?” or “Will it rain in Biñan today?”';
 }
+
+export type ChatbotTurn = { role: 'user' | 'assistant'; content: string };
+
+export async function getLiveQuestionContext(question: string): Promise<string> {
+  const normalized = question.toLowerCase();
+  if (hasAny(normalized, ['typhoon', 'tropical cyclone', 'cyclone'])) return answerTyphoonQuestion(normalized);
+  if (hasAny(normalized, ['weather', 'rain', 'shower', 'drizzle', 'thunder', 'lightning', 'wind', 'gust', 'temperature', 'forecast', 'heat', 'sunny', 'sunshine', 'clear sky', 'cloud', 'overcast', 'humid', 'conditions'])) {
+    return answerWeatherQuestion(normalized);
+  }
+  if (hasAny(normalized, ['disaster', 'alert', 'active event'])) return answerDisasterQuestion();
+  return '';
+}
+
+export async function requestModelAnswer(messages: ChatbotTurn[], context: string): Promise<string> {
+  const response = await authenticatedFetch('/api/v1/chatbot/answer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, context }),
+  });
+  const result = await response.json() as { answer?: string; detail?: string };
+  if (!response.ok) throw new Error(result.detail || 'The AI assistant is unavailable right now.');
+  if (!result.answer?.trim()) throw new Error('The AI assistant returned an empty answer.');
+  return result.answer.trim();
+}

@@ -2,15 +2,15 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AdminLogRecord, getAdminLogs } from '@services/adminData';
 import { useTheme } from '@hooks/useTheme';
+import AppBackArrow from '@components/AppBackArrow';
 
 type LogTab = 'sync' | 'audit';
 
 export default function AdminLogs() {
-  const router = useRouter();
   const params = useLocalSearchParams<{ tab?: string }>();
   const { palette } = useTheme();
   const [tab, setTab] = useState<LogTab>(params.tab === 'audit' ? 'audit' : 'sync');
@@ -44,7 +44,7 @@ export default function AdminLogs() {
     <SafeAreaView style={[styles.safe, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back"><MaterialCommunityIcons name="arrow-left" size={23} color={Colors.white} /></Pressable>
+          <AppBackArrow style={styles.backButton} />
           <View><Text style={styles.eyebrow}>SYSTEM MONITORING</Text><Text style={styles.title}>Logs</Text></View>
         </View>
         <View style={styles.intro}><Text style={[styles.introTitle, { color: palette.text }]}>Application activity</Text><Text style={[styles.introText, { color: palette.textMuted }]}>Review data synchronization from user devices and changes made in the application.</Text></View>

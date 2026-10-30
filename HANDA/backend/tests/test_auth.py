@@ -1,10 +1,12 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.auth import CurrentUser, create_access_token, get_current_user, require_roles
-from app.main import app
+from app.main import app, login_user, mobile_login_candidates
+from app.schemas import UserLogin
 
 
 class FakeResult:
@@ -14,14 +16,21 @@ class FakeResult:
     def fetchone(self):
         return self.row
 
+    def fetchall(self):
+        if isinstance(self.row, list):
+            return self.row
+        return [self.row] if self.row is not None else []
+
 
 class FakeConnection:
     def __init__(self, row):
         self.row = row
         self.executed = False
+        self.parameters = None
 
     def execute(self, *_args):
         self.executed = True
+        self.parameters = _args[1] if len(_args) > 1 else None
         return FakeResult(self.row)
 
 
@@ -32,6 +41,48 @@ def dependency_calls(dependant):
 
 
 class AuthTests(unittest.TestCase):
+    def test_mobile_login_candidates_support_local_and_international_formats(self):
+        expected = ["09171234567", "639171234567"]
+
+        for identifier in ("09171234567", "+639171234567", "639171234567", "+63 (917) 123-4567"):
+            with self.subTest(identifier=identifier):
+                self.assertCountEqual(mobile_login_candidates(identifier), expected)
+
+    def test_mobile_login_candidates_reject_invalid_numbers(self):
+        for identifier in ("0917123456", "08171234567", "name@example.com", ""):
+            with self.subTest(identifier=identifier):
+                self.assertEqual(mobile_login_candidates(identifier), [])
+
+    @patch("app.main.household_members_for_user", return_value=[])
+    @patch("app.main.resident_profile_payload", return_value={"id": "resident-1", "email": "resident@example.com"})
+    @patch("app.main.create_access_token", return_value=("access-token", 3600))
+    @patch("app.main.verify_password", return_value=True)
+    def test_login_accepts_mobile_number_and_queries_both_storage_formats(self, _verify, _token, _profile, _members):
+        row = {
+            "id": "resident-1",
+            "failed_login_attempts": 0,
+            "locked_until": None,
+            "password_hash": "password-hash",
+            "status": "Active",
+            "role": "Resident",
+            "token_version": 0,
+        }
+        connection = FakeConnection(row)
+
+        result = login_user(UserLogin(email="+63 (917) 123-4567", password="password"), connection)
+
+        self.assertEqual(connection.parameters, (["639171234567", "09171234567"],))
+        self.assertEqual(result["accessToken"], "access-token")
+        self.assertEqual(result["user"]["role"], "resident")
+
+    def test_login_rejects_mobile_number_shared_by_multiple_accounts(self):
+        connection = FakeConnection([{"id": "resident-1"}, {"id": "resident-2"}])
+
+        with self.assertRaises(HTTPException) as error:
+            login_user(UserLogin(email="09171234567", password="password"), connection)
+
+        self.assertEqual(error.exception.status_code, 401)
+
     def test_missing_credentials_are_rejected_before_database_access(self):
         connection = FakeConnection(None)
 

@@ -4,6 +4,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
+import AppBackArrow from '@components/AppBackArrow';
 
 type Guide = {
   title: string;
@@ -82,7 +83,7 @@ export default function PreparednessGuideScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}><Text style={styles.headerTitle}>GUIDE</Text><Text style={styles.headerSubtitle}>PREPAREDNESS GUIDE</Text></View>
+        <View style={styles.header}><AppBackArrow /><View style={styles.headerCopy}><Text style={styles.headerTitle}>GUIDE</Text><Text style={styles.headerSubtitle}>PREPAREDNESS GUIDE</Text></View></View>
         {selectedGuide ? <GuideDetail guide={selectedGuide} openSection={openSection} setOpenSection={setOpenSection} onBack={() => setSelectedGuide(null)} /> : <>
           <View style={styles.search}><MaterialCommunityIcons name="menu" size={18} color={Colors.white} /><TextInput value={search} onChangeText={setSearch} placeholder="Search type of disaster" placeholderTextColor="#D8EAD8" style={styles.searchInput} /><MaterialCommunityIcons name="magnify" size={22} color={Colors.white} /></View>
           <View style={styles.list}>{visibleGuides.map((guide) => <GuideCard key={guide.title} guide={guide} onPress={() => openGuide(guide)} />)}</View>
@@ -127,7 +128,8 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.surface },
   container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 850, alignSelf: 'center', paddingBottom: 24 },
-  header: { height: 58, paddingHorizontal: 10, justifyContent: 'center', backgroundColor: '#218B25' },
+  header: { minHeight: 58, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#218B25' },
+  headerCopy: { flex: 1 },
   headerTitle: { color: Colors.white, fontSize: 24, fontWeight: '900', lineHeight: 25 },
   headerSubtitle: { color: Colors.white, fontSize: 15, fontWeight: '800', lineHeight: 17 },
   search: { height: 36, marginHorizontal: 5, marginVertical: 15, paddingHorizontal: 11, borderRadius: 18, backgroundColor: '#73AE6F', flexDirection: 'row', alignItems: 'center' },

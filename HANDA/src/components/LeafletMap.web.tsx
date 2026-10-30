@@ -77,6 +77,10 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     navigationPanel.className = 'handa-navigation-panel';
     navigationPanel.innerHTML = '<div class="handa-navigation-top"><div class="handa-navigation-copy"><span class="handa-navigation-eyebrow">NAVIGATING TO</span><strong class="handa-navigation-title"></strong><span class="handa-navigation-stats">Finding your location…</span></div><div class="handa-navigation-actions"><button class="handa-recenter" type="button">Recenter</button><button class="handa-navigation-toggle" type="button" aria-label="Minimize route options" aria-expanded="true"><span class="handa-navigation-chevron"></span></button></div></div><div class="handa-navigation-modes"><button type="button" data-profile="walking">On foot</button><button type="button" data-profile="cycling">Two wheels</button><button class="active" type="button" data-profile="driving">Four wheels</button></div><div class="handa-navigation-routes"></div><button class="handa-navigation-stop" type="button">End navigation</button>';
     mapElement.current.appendChild(navigationPanel);
+    const navigationToggleIcon = navigationPanel.querySelector<HTMLElement>('.handa-navigation-chevron');
+    if (navigationToggleIcon) navigationToggleIcon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+    const navigationToggle = navigationPanel.querySelector<HTMLButtonElement>('.handa-navigation-toggle');
+    if (navigationToggle) navigationToggle.title = 'Minimize route options';
     const navigationStyle = document.createElement('style');
     navigationStyle.textContent = '.handa-navigation-panel{position:absolute;z-index:1000;left:12px;right:12px;bottom:24px;max-width:460px;margin:0 auto;padding:14px;background:#fff;border:1px solid #D7E2EA;border-radius:12px;box-shadow:0 4px 18px rgba(23,33,43,.2);font:14px/1.4 InstrumentSans_400Regular,Arial,sans-serif;color:#17212B;display:none;box-sizing:border-box}.handa-navigation-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.handa-navigation-copy{min-width:0;display:flex;flex-direction:column}.handa-navigation-eyebrow{color:#667085;font-size:10px;font-weight:800;letter-spacing:.7px}.handa-navigation-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px}.handa-navigation-stats{color:#175B19;font-size:13px;font-weight:700;margin-top:2px}.handa-navigation-modes{display:flex;gap:4px;padding:4px;margin-top:12px;border-radius:8px;background:#F0F2F5}.handa-navigation-modes button,.handa-recenter,.handa-navigation-route,.handa-navigation-stop{min-height:40px;border:0;border-radius:6px;padding:8px 10px;font:600 12px InstrumentSans_400Regular,Arial,sans-serif;cursor:pointer}.handa-navigation-modes button{flex:1;background:transparent;color:#526052}.handa-navigation-modes button.active{background:#fff;color:#218B25;box-shadow:0 1px 4px rgba(23,33,43,.16)}.handa-recenter{flex-shrink:0;background:#E8F2E8;color:#175B19}.handa-navigation-routes{display:flex;gap:7px;margin-top:9px;overflow-x:auto}.handa-navigation-route{min-width:112px;flex:1;text-align:left;background:#F7F9FA;border:1px solid #D7E2EA;color:#17212B}.handa-navigation-route.active{border-color:#218B25;background:#EDF7EE}.handa-navigation-route strong,.handa-navigation-route span{display:block}.handa-navigation-route span{margin-top:2px;color:#667085;font-size:11px}.handa-navigation-message{margin:10px 2px 2px;color:#667085;font-size:12px}.handa-navigation-stop{width:100%;margin-top:9px;background:#FCEEEE;color:#A52D2D;font-weight:700}@media(max-width:480px){.handa-navigation-panel{left:8px;right:8px;bottom:12px;padding:11px}.handa-navigation-modes button{padding:8px 4px;font-size:11px}.handa-navigation-route{min-width:100px}}';
     document.head.appendChild(navigationStyle);
@@ -86,6 +90,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     const compactNavigationStyle = document.createElement('style');
     compactNavigationStyle.textContent = '.handa-navigation-actions{display:flex;gap:6px;flex-shrink:0}.handa-navigation-toggle{width:40px;min-height:40px;border:0;border-radius:6px;background:#F0F2F5;color:#344054;font-size:18px;cursor:pointer}.handa-navigation-panel.compact{padding:9px 12px}.handa-navigation-panel.compact .handa-navigation-modes,.handa-navigation-panel.compact .handa-navigation-routes{display:none}.handa-navigation-panel.compact .handa-navigation-toggle{background:#E8F2E8;color:#175B19}.handa-navigation-panel.compact .handa-navigation-stop{width:auto;min-height:32px;display:block;margin:7px auto 0;padding:5px 12px}@media(max-width:480px){.handa-navigation-panel.compact{padding:8px 10px}.handa-navigation-panel.compact .handa-navigation-top{gap:6px}.handa-navigation-panel.compact .handa-navigation-title{font-size:14px}.handa-navigation-panel.compact .handa-navigation-stats{font-size:11px}.handa-navigation-toggle,.handa-recenter{min-height:36px;padding:6px 8px}}';
     compactNavigationStyle.textContent += '.handa-navigation-chevron{display:block;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .16s ease}.handa-navigation-toggle[aria-expanded="false"] .handa-navigation-chevron{transform:rotate(225deg)}.handa-navigation-title{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}.handa-navigation-stats{line-height:1.35;overflow-wrap:anywhere}.handa-navigation-routes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,120px),1fr));gap:7px;margin-top:9px;overflow:visible}.handa-navigation-route{width:100%;min-width:0;min-height:54px;box-sizing:border-box}.handa-navigation-route span{overflow-wrap:anywhere}@media(max-width:350px){.handa-navigation-panel{left:5px;right:5px;bottom:8px;padding:9px}.handa-navigation-actions{gap:4px}.handa-navigation-recenter{min-height:34px;padding:6px 7px;font-size:11px}.handa-navigation-toggle{width:34px;min-height:34px}.handa-navigation-modes button{padding:7px 3px;font-size:10px}.handa-navigation-stop{min-height:34px;font-size:11px}.handa-navigation-panel.compact{padding:7px 9px}.handa-navigation-panel.compact .handa-navigation-stop{min-height:28px}}';
+    compactNavigationStyle.textContent += '.handa-navigation-toggle{display:grid;place-items:center;padding:0}.handa-navigation-chevron{display:grid;width:20px;height:20px;place-items:center;border:0;transform:none;transition:transform .18s ease}.handa-navigation-chevron svg{display:block;width:20px;height:20px}.handa-navigation-chevron path{fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}.handa-navigation-toggle[aria-expanded="false"] .handa-navigation-chevron{transform:rotate(180deg)}';
     document.head.appendChild(compactNavigationStyle);
     LeafletApi.DomEvent.disableClickPropagation(navigationPanel);
 
@@ -196,6 +201,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       const minutes = Math.max(1, Math.round(seconds / 60));
       return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
     };
+    const routeGeometryKey = (route: any) => route.geometry.coordinates.map(([longitude, latitude]: [number, number]) => `${longitude.toFixed(5)},${latitude.toFixed(5)}`).join(';');
     const navigationStats = navigationPanel.querySelector<HTMLElement>('.handa-navigation-stats');
     const navigationTitle = navigationPanel.querySelector<HTMLElement>('.handa-navigation-title');
     const navigationRoutesElement = navigationPanel.querySelector<HTMLElement>('.handa-navigation-routes');
@@ -244,6 +250,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       navigationPanel.classList.add('compact');
       const toggle = navigationPanel.querySelector<HTMLButtonElement>('.handa-navigation-toggle');
       if (toggle) {
+        toggle.title = 'Show route options';
         toggle.setAttribute('aria-label', 'Show route options');
         toggle.setAttribute('aria-expanded', 'false');
       }
@@ -267,10 +274,10 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         const result = await response.json();
         if (isDisposed || requestId !== routeRequestId) return;
         if (result.code !== 'Ok' || !Array.isArray(result.routes) || result.routes.length === 0) throw new Error('No routes found');
-        navigationRoutes = result.routes;
+        navigationRoutes = result.routes.filter((route: any, index: number, routes: any[]) => routes.findIndex((candidate) => routeGeometryKey(candidate) === routeGeometryKey(route)) === index);
         selectedRouteIndex = 0;
         if (navigationRoutesElement) {
-          navigationRoutesElement.innerHTML = navigationRoutes.map((route: any, index: number) => `<button class="handa-navigation-route${index === 0 ? ' active' : ''}" type="button" data-route-index="${index}" aria-label="Route ${index + 1}, ${formatDistance(route.distance)}, ${formatDuration(route.duration)}"><strong>Route ${index + 1}</strong><span>${formatDistance(route.distance)} · ${formatDuration(route.duration)}</span></button>`).join('');
+          navigationRoutesElement.innerHTML = navigationRoutes.map((route: any, index: number) => `<button class="handa-navigation-route${index === 0 ? ' active' : ''}" type="button" data-route-index="${index}" aria-label="Route ${index + 1}, ${formatDistance(route.distance)}, ${formatDuration(route.duration)}"><strong>Route ${index + 1}</strong><span>${formatDistance(route.distance)} · ${formatDuration(route.duration)}</span></button>`).join('') + (activeProfile !== 'driving' && navigationRoutes.length < 2 ? '<p class="handa-navigation-message">No alternate route available for this area.</p>' : '');
           navigationRoutesElement.querySelectorAll<HTMLButtonElement>('[data-route-index]').forEach((button) => {
             button.addEventListener('click', () => selectRoute(Number(button.dataset.routeIndex)));
           });
@@ -338,6 +345,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       const toggle = target.closest<HTMLButtonElement>('.handa-navigation-toggle');
       if (toggle) {
         const isExpanded = navigationPanel.classList.toggle('compact') === false;
+        toggle.title = isExpanded ? 'Minimize route options' : 'Show route options';
         toggle.setAttribute('aria-label', isExpanded ? 'Minimize route options' : 'Show route options');
         toggle.setAttribute('aria-expanded', String(isExpanded));
       } else if (target.closest('.handa-recenter')) {

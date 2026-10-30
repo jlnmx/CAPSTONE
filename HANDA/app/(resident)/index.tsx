@@ -10,6 +10,7 @@ import { WeatherWidget } from '@components/WeatherWidget';
 import { Colors, getReadableColor } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
 import { NotificationBell } from '@components/NotificationBell';
+import AppBackArrow from '@components/AppBackArrow';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { TyphoonCard } from '@components/TyphoonCard';
@@ -143,7 +144,7 @@ export default function ResidentDashboard() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: timePresentation.pageBackground }]}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.brandRow}><Text style={styles.brand}>HANDA</Text></View>
+          <View style={styles.brandRow}><AppBackArrow /><Text style={styles.brand}>HANDA</Text></View>
           <NotificationBell />
         </View>
 
@@ -242,7 +243,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 22 },
   header: { height: 86, paddingHorizontal: 18, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  brandRow: { flexDirection: 'row', alignItems: 'center' },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brand: { color: Colors.white, fontSize: 32, fontWeight: '800', letterSpacing: 1 },
   notificationButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
   notificationDot: { position: 'absolute', top: 6, right: 5, width: 6, height: 6, borderRadius: 3, backgroundColor: '#F5D14B' },

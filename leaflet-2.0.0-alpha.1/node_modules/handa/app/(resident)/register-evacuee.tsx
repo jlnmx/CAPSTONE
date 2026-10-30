@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { authenticatedFetch } from '@services/apiClient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
+import AppBackArrow from '@components/AppBackArrow';
 
 const GREEN = '#218B25';
 const FIELD_GREEN = '#548B56';
@@ -21,6 +22,9 @@ type EvacuationCenter = {
   current_occupancy: number;
   status: 'available' | 'limited' | 'full' | 'closed';
 };
+
+type CenterFilter = 'all' | 'available' | 'limited';
+type CenterSort = 'name' | 'spaces' | 'occupancy';
 
 type HouseholdMemberDraft = { name: string; relationship: string };
 type ResidentProfileResponse = {
@@ -42,6 +46,15 @@ function calculateAge(birthday?: string): number | null {
   return age >= 0 && age <= 150 ? age : null;
 }
 
+function availableSpaces(center: EvacuationCenter) {
+  return Math.max(0, Number(center.capacity) - Number(center.current_occupancy));
+}
+
+function occupancyRatio(center: EvacuationCenter) {
+  const capacity = Number(center.capacity);
+  return capacity > 0 ? Number(center.current_occupancy) / capacity : 1;
+}
+
 export default function RegisterEvacueeScreen() {
   const { centerId: routeCenterId } = useLocalSearchParams<{ centerId?: string }>();
   const requestedCenterId = Array.isArray(routeCenterId) ? routeCenterId[0] : routeCenterId;
@@ -58,6 +71,9 @@ export default function RegisterEvacueeScreen() {
   const [address, setAddress] = useState('');
   const [centerId, setCenterId] = useState(requestedCenterId ?? '');
   const [centers, setCenters] = useState<EvacuationCenter[]>([]);
+  const [centerSearch, setCenterSearch] = useState('');
+  const [centerFilter, setCenterFilter] = useState<CenterFilter>('all');
+  const [centerSort, setCenterSort] = useState<CenterSort>('name');
   const [isCentersLoading, setIsCentersLoading] = useState(true);
   const [centerError, setCenterError] = useState('');
   const [members, setMembers] = useState<HouseholdMemberDraft[]>(() => user?.householdMembers?.map(({ name, relationship }) => ({ name, relationship })) ?? []);
@@ -134,6 +150,17 @@ export default function RegisterEvacueeScreen() {
   }, []);
 
   const selectedCenter = centers.find((center) => center.id === centerId);
+  const visibleCenters = useMemo(() => {
+    const query = centerSearch.trim().toLocaleLowerCase();
+    return centers
+      .filter((center) => centerFilter === 'all' || center.status === centerFilter)
+      .filter((center) => !query || `${center.name} ${center.location}`.toLocaleLowerCase().includes(query))
+      .sort((left, right) => {
+        if (centerSort === 'spaces') return availableSpaces(right) - availableSpaces(left) || left.name.localeCompare(right.name);
+        if (centerSort === 'occupancy') return occupancyRatio(left) - occupancyRatio(right) || left.name.localeCompare(right.name);
+        return left.name.localeCompare(right.name);
+      });
+  }, [centers, centerFilter, centerSearch, centerSort]);
 
   const openMemberEditor = (index: number | null = null, returnToReviewAfterSave = false) => {
     setReturnToReview(returnToReviewAfterSave);
@@ -248,8 +275,8 @@ export default function RegisterEvacueeScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.titleBand}>
-          <Text style={styles.title}>REGISTER</Text>
-          <Text style={styles.title}>EVACUEE</Text>
+          <AppBackArrow />
+          <View><Text style={styles.title}>REGISTER</Text><Text style={styles.title}>EVACUEE</Text></View>
         </View>
 
         <View style={styles.form}>
@@ -302,8 +329,49 @@ export default function RegisterEvacueeScreen() {
           ))}
           {!!formError && <Text style={styles.formError}>{formError}</Text>}
           <FieldLabel label="Barangay Center" required />
+          <View style={styles.centerSearchBox}>
+            <MaterialCommunityIcons name="magnify" size={19} color={Colors.textMuted} />
+            <TextInput value={centerSearch} onChangeText={setCenterSearch} placeholder="Search center or barangay" placeholderTextColor={Colors.textMuted} style={styles.centerSearchInput} returnKeyType="search" accessibilityLabel="Search evacuation centers" />
+            {!!centerSearch && <Pressable onPress={() => setCenterSearch('')} style={styles.clearCenterSearch} accessibilityRole="button" accessibilityLabel="Clear center search"><MaterialCommunityIcons name="close-circle" size={18} color={Colors.textMuted} /></Pressable>}
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.centerFilterList}>
+            {([
+              ['all', 'All centers'],
+              ['available', 'Available'],
+              ['limited', 'Limited'],
+            ] as const).map(([filter, label]) => {
+              const isSelected = centerFilter === filter;
+              return <Pressable key={filter} style={[styles.centerFilterChip, isSelected && styles.centerFilterChipSelected]} onPress={() => setCenterFilter(filter)} accessibilityRole="button" accessibilityState={{ selected: isSelected }}>
+                <Text style={[styles.centerFilterText, isSelected && styles.centerFilterTextSelected]}>{label}</Text>
+              </Pressable>;
+            })}
+          </ScrollView>
+          <View style={styles.centerSortHeading}><Text style={styles.centerResults}>{visibleCenters.length} of {centers.length} accepting centers</Text><MaterialCommunityIcons name="sort" size={16} color={Colors.textMuted} /></View>
+          <View style={styles.centerSortControl} accessibilityRole="radiogroup" accessibilityLabel="Sort evacuation centers">
+            {([
+              ['name', 'A–Z'],
+              ['spaces', 'Most spaces'],
+              ['occupancy', 'Least full'],
+            ] as const).map(([sort, label]) => {
+              const isSelected = centerSort === sort;
+              return <Pressable key={sort} style={[styles.centerSortOption, isSelected && styles.centerSortOptionSelected]} onPress={() => setCenterSort(sort)} accessibilityRole="radio" accessibilityState={{ checked: isSelected }}>
+                <Text style={[styles.centerSortText, isSelected && styles.centerSortTextSelected]}>{label}</Text>
+              </Pressable>;
+            })}
+          </View>
+          <View style={styles.selectedCenterSummary}>
+            <MaterialCommunityIcons name={selectedCenter ? 'map-marker-check-outline' : 'map-marker-outline'} size={19} color={GREEN} />
+            <View style={styles.selectedCenterCopy}>
+              <Text style={styles.selectedCenterLabel}>{selectedCenter ? 'SELECTED CENTER' : 'NO CENTER SELECTED'}</Text>
+              <Text style={styles.selectedCenterName}>{selectedCenter?.name || 'Choose a center below'}</Text>
+              {selectedCenter && <Text style={styles.selectedCenterDetail}>{selectedCenter.location} · {availableSpaces(selectedCenter)} spaces available</Text>}
+            </View>
+          </View>
+          <AnimatedPressable style={[styles.submitButton, (!selectedCenter || isSubmitting || isCentersLoading || isHouseholdLoading) && styles.submitDisabled]} onPress={openReview} disabled={!selectedCenter || isSubmitting || isCentersLoading || isHouseholdLoading} accessibilityRole="button">
+            <Text style={styles.submitText}>Review registration</Text>
+          </AnimatedPressable>
           <View style={styles.centerList}>
-            {isCentersLoading ? <ActivityIndicator color={GREEN} /> : centers.length === 0 ? <Text style={styles.centerError}>{centerError}</Text> : centers.map((center) => (
+            {isCentersLoading ? <ActivityIndicator color={GREEN} /> : centers.length === 0 ? <Text style={styles.centerError}>{centerError}</Text> : visibleCenters.length === 0 ? <Text style={styles.noCenterResults}>No centers match. Try another search or availability filter.</Text> : visibleCenters.map((center) => (
               <AnimatedPressable key={center.id} style={[styles.centerOption, centerId === center.id && styles.centerOptionSelected]} onPress={() => setCenterId(center.id)} accessibilityRole="radio" accessibilityState={{ selected: centerId === center.id }}>
                 <View style={styles.centerCopy}>
                   <Text style={styles.centerName}>{center.name}</Text>
@@ -314,10 +382,6 @@ export default function RegisterEvacueeScreen() {
             ))}
           </View>
           {!!centerError && centers.length > 0 && <Text style={styles.centerError}>{centerError}</Text>}
-
-          <AnimatedPressable style={[styles.submitButton, (isSubmitting || isCentersLoading || isHouseholdLoading || centers.length === 0) && styles.submitDisabled]} onPress={openReview} disabled={isSubmitting || isCentersLoading || isHouseholdLoading || centers.length === 0}>
-            <Text style={styles.submitText}>Review registration</Text>
-          </AnimatedPressable>
         </View>
       </ScrollView>
 
@@ -417,8 +481,29 @@ function readApiError(detail: unknown): string {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingBottom: 12 },
-  titleBand: { backgroundColor: GREEN, paddingHorizontal: 14, paddingTop: 18, paddingBottom: 9 },
+  titleBand: { backgroundColor: GREEN, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 9, flexDirection: 'row', alignItems: 'center', gap: 9 },
   title: { color: Colors.white, fontSize: 20, fontWeight: '800', lineHeight: 22 },
+  centerSearchBox: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 6, backgroundColor: Colors.surface },
+  centerSearchInput: { minWidth: 0, flex: 1, height: 40, padding: 0, color: Colors.text, fontSize: 11 },
+  clearCenterSearch: { width: 30, height: 36, alignItems: 'center', justifyContent: 'center' },
+  centerFilterList: { gap: 6, paddingTop: 8, paddingBottom: 2 },
+  centerFilterChip: { minHeight: 30, justifyContent: 'center', paddingHorizontal: 10, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 15, backgroundColor: Colors.surface },
+  centerFilterChipSelected: { borderColor: GREEN, backgroundColor: GREEN },
+  centerFilterText: { color: Colors.textMuted, fontSize: 9, fontWeight: '700' },
+  centerFilterTextSelected: { color: Colors.white },
+  centerSortHeading: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 },
+  centerResults: { color: Colors.textMuted, fontSize: 9, fontWeight: '700' },
+  centerSortControl: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 5, backgroundColor: '#E8EEE8' },
+  centerSortOption: { minHeight: 30, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: 4 },
+  centerSortOptionSelected: { backgroundColor: Colors.surface },
+  centerSortText: { color: Colors.textMuted, fontSize: 9, fontWeight: '700', textAlign: 'center' },
+  centerSortTextSelected: { color: GREEN },
+  selectedCenterSummary: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: '#A8CFA8', borderRadius: 6, backgroundColor: '#F1F7F1' },
+  selectedCenterCopy: { flex: 1, minWidth: 0 },
+  selectedCenterLabel: { color: GREEN, fontSize: 8, fontWeight: '800' },
+  selectedCenterName: { color: Colors.text, fontSize: 10, fontWeight: '800', marginTop: 2 },
+  selectedCenterDetail: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 1 },
+  noCenterResults: { paddingVertical: 15, color: Colors.textMuted, fontSize: 10, lineHeight: 15, textAlign: 'center' },
   form: { paddingHorizontal: 14, paddingBottom: 12 },
   sectionHeading: { color: Colors.text, fontSize: 18, marginTop: 12, marginBottom: 1 },
   label: { color: FIELD_GREEN, fontSize: 9, marginTop: 8, marginBottom: 4 },

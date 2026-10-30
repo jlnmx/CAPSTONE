@@ -3,6 +3,7 @@ import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, V
 import { useRouter } from 'expo-router';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { AuthService } from '@services/authService';
+import AppBackArrow from '@components/AppBackArrow';
 
 const GREEN = '#218B25';
 const PAGE_BACKGROUND = '#F5F7FA';
@@ -109,7 +110,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Text style={[styles.brand, { color: accent }]}>HANDA</Text>
+      <View style={styles.header}><AppBackArrow /><View><Text style={styles.headerBrand}>HANDA</Text><Text style={styles.headerSubtitle}>ACCOUNT RECOVERY</Text></View></View>
       <Text style={styles.title}>Forgot password?</Text>
       <Text style={styles.subtitle}>
         {step === 'request' ? 'Choose where you want to receive your reset code.' : step === 'otp' ? `Enter the code sent to ${destination}.` : 'Create a new password for your account.'}
@@ -157,7 +158,6 @@ export default function ForgotPasswordScreen() {
 
         {!!message && <Text style={[styles.success, { color: successColor }]}>{message}</Text>}
         {!!error && <Text style={[styles.error, { color: errorColor }]}>{error}</Text>}
-        <TouchableOpacity style={styles.backButton} onPress={() => router.replace('/(auth)/login')}><Text style={styles.backText}>Back to login</Text></TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -173,8 +173,10 @@ function ActionButton({ label, onPress, loading }: { label: string; onPress: () 
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PAGE_BACKGROUND },
-  content: { flexGrow: 1, alignItems: 'center', paddingTop: 70, paddingBottom: 56 },
-  brand: { color: GREEN, fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }), fontSize: 42, fontWeight: '800', letterSpacing: 2 },
+  content: { flexGrow: 1, alignItems: 'center', paddingTop: 16, paddingBottom: 56 },
+  header: { width: '100%', minHeight: 74, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, backgroundColor: GREEN },
+  headerBrand: { color: '#FFFFFF', fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }), fontSize: 21, fontWeight: '800' },
+  headerSubtitle: { color: '#DFF1DF', fontSize: 9, fontWeight: '800', marginTop: 2 },
   title: { color: TEXT, fontSize: 25, fontWeight: '700', marginTop: 28 },
   subtitle: { color: TEXT_MUTED, fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 21, marginTop: 8, marginBottom: 24 },
   form: { width: 360, maxWidth: '92%', padding: 22, borderWidth: 1, borderColor: FIELD_BORDER, borderRadius: 12, backgroundColor: SURFACE_MUTED },
@@ -190,6 +192,4 @@ const styles = StyleSheet.create({
   linkText: { color: GREEN, fontSize: 13, fontWeight: '600' },
   success: { color: GREEN, fontSize: 13, lineHeight: 19, marginTop: 8 },
   error: { color: '#B42318', fontSize: 13, lineHeight: 19, marginTop: 8 },
-  backButton: { alignItems: 'center', padding: 8, marginTop: 12 },
-  backText: { color: TEXT_MUTED, fontSize: 13 },
 });

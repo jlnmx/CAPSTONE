@@ -5,6 +5,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing } from '@constants/colors';
+import AppBackArrow from '@components/AppBackArrow';
 
 export default function RegistrationRoleScreen() {
   const router = useRouter();
@@ -21,12 +22,12 @@ export default function RegistrationRoleScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <AnimatedPressable onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back">
-            <MaterialCommunityIcons name="arrow-left" size={22} color={Colors.white} />
-          </AnimatedPressable>
-          <Text style={styles.eyebrow}>HANDA ACCOUNT</Text>
-          <Text style={styles.title}>Choose your registration type</Text>
-          <Text style={styles.subtitle}>Select how you will use HANDA.</Text>
+          <AppBackArrow style={styles.backButton} />
+          <View style={styles.headerCopy}>
+            <Text style={styles.eyebrow}>HANDA ACCOUNT</Text>
+            <Text style={styles.title}>Choose your registration type</Text>
+            <Text style={styles.subtitle}>Select how you will use HANDA.</Text>
+          </View>
         </View>
 
         <View style={styles.options}>
@@ -66,8 +67,9 @@ export default function RegistrationRoleScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.surfaceMuted },
   content: { flexGrow: 1, width: '100%', maxWidth: 760, alignSelf: 'center', paddingBottom: Spacing['3xl'] },
-  header: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.xl, backgroundColor: '#218B25' },
-  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.lg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.xl, paddingTop: Spacing.lg, paddingBottom: Spacing.xl, backgroundColor: '#218B25' },
+  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  headerCopy: { flex: 1 },
   eyebrow: { color: '#DFF1DF', fontSize: 10, fontWeight: '800' },
   title: { color: Colors.white, fontSize: 27, fontWeight: '800', marginTop: 5 },
   subtitle: { color: '#E7F4E7', fontSize: 13, marginTop: 5 },

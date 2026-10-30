@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { createAdminCenter } from '@services/adminData';
+import AppBackArrow from '@components/AppBackArrow';
 
 export default function AddCenterScreen() {
   const [name, setName] = useState('');
@@ -36,11 +37,11 @@ export default function AddCenterScreen() {
         contactNumber: contactNumber.trim(),
         notes: notes.trim(),
       });
-      Alert.alert('Center saved', `${name.trim()} was added to the server database.`, [
+      Alert.alert('Center saved', `${name.trim()} was added.`, [
         { text: 'Back to centers', onPress: () => router.replace('/(admin)/centers') },
       ]);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'The center could not be saved to PostgreSQL.');
+      setError(caught instanceof Error ? caught.message : 'The center could not be saved.');
     } finally {
       setIsSaving(false);
     }
@@ -49,8 +50,7 @@ export default function AddCenterScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.backLink} onPress={() => router.back()}><MaterialCommunityIcons name="arrow-left" size={19} color={Colors.secondary} /><Text style={styles.backText}>Back to centers</Text></TouchableOpacity>
-        <View style={styles.heading}><Text style={styles.eyebrow}>FIELD RESOURCES</Text><Text style={styles.title}>Add evacuation center</Text><Text style={styles.subtitle}>Enter the details for a new place that can support evacuees.</Text></View>
+        <View style={styles.titleBand}><AppBackArrow /><View style={styles.titleCopy}><Text style={styles.eyebrow}>FIELD RESOURCES</Text><Text style={styles.title}>Add evacuation center</Text><Text style={styles.subtitle}>Enter the details for a new place that can support evacuees.</Text></View></View>
         <View style={styles.form}>
           <Field label="Center name" value={name} onChangeText={setName} placeholder="e.g. Barangay Covered Court" />
           <Field label="Complete address" value={address} onChangeText={setAddress} placeholder="House number, street, city" />
@@ -73,14 +73,13 @@ function Field({ label, value, onChangeText, placeholder, keyboardType = 'defaul
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.surfaceMuted },
-  content: { padding: Spacing.xl, paddingBottom: 48, maxWidth: 760, width: '100%', alignSelf: 'center' },
-  backLink: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginBottom: 18 },
-  backText: { color: Colors.secondary, fontSize: 12, fontWeight: '700' },
-  heading: { marginBottom: 22 },
-  eyebrow: { color: Colors.secondary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
-  title: { color: Colors.text, fontSize: 30, fontWeight: '800', marginTop: 5 },
-  subtitle: { color: Colors.textMuted, fontSize: 14, marginTop: 6 },
-  form: { backgroundColor: Colors.surface, padding: 20, borderRadius: BorderRadius.md, ...Shadows.sm },
+  content: { paddingBottom: 48, maxWidth: 760, width: '100%', alignSelf: 'center' },
+  titleBand: { minHeight: 90, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: '#218B25' },
+  titleCopy: { flex: 1 },
+  eyebrow: { color: '#DFF1DF', fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
+  title: { color: Colors.white, fontSize: 21, fontWeight: '800', marginTop: 3 },
+  subtitle: { color: '#E1F1E1', fontSize: 11, marginTop: 3 },
+  form: { margin: Spacing.xl, backgroundColor: Colors.surface, padding: 20, borderRadius: BorderRadius.md, ...Shadows.sm },
   field: { marginBottom: 15 },
   label: { color: Colors.text, fontSize: 12, fontWeight: '700', marginBottom: 6 },
   input: { height: 45, borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.sm, paddingHorizontal: 12, color: Colors.text, fontSize: 13, backgroundColor: Colors.surface },

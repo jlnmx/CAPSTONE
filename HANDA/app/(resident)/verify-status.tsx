@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { authenticatedFetch } from '@services/apiClient';
+import AppBackArrow from '@components/AppBackArrow';
 
 const GREEN = '#218B25';
 
@@ -68,7 +69,8 @@ export default function VerifyStatusScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>VERIFY STATUS</Text>
+          <AppBackArrow />
+          <Text style={[styles.headerTitle, styles.headerCopy]}>VERIFY STATUS</Text>
           <TouchableOpacity onPress={() => { setIsLoading(true); void loadStatus(); }} accessibilityRole="button" accessibilityLabel="Refresh evacuation status" style={styles.refreshButton}>
             <MaterialCommunityIcons name="refresh" size={22} color={Colors.white} />
           </TouchableOpacity>
@@ -102,7 +104,7 @@ export default function VerifyStatusScreen() {
             <View style={styles.statusCard}>
               <View style={styles.cardHeading}>
                 <View style={styles.headingTitle}><MaterialCommunityIcons name="check-decagram-outline" size={18} color={GREEN} /><Text style={styles.sectionTitle}>VERIFIED STATUS</Text></View>
-                <Text style={styles.liveTag}>LIVE DATABASE</Text>
+                <Text style={styles.liveTag}>LIVE STATUS</Text>
               </View>
               <View style={styles.statusContent}>
                 <View style={[styles.statusIcon, status.status === 'checked_in' ? styles.statusConfirmed : styles.statusPending]}>
@@ -166,7 +168,8 @@ function HouseholdRow({ name, relationship, status, primary = false }: { name: s
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.surfaceMuted },
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 20 },
-  header: { minHeight: 70, paddingHorizontal: 16, backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { minHeight: 70, paddingHorizontal: 12, backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerCopy: { flex: 1 },
   headerTitle: { color: Colors.white, fontSize: 24, fontWeight: '800' },
   refreshButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
   centerState: { flex: 1, minHeight: 240, alignItems: 'center', justifyContent: 'center', padding: 26, gap: 12 },

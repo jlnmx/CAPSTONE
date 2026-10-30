@@ -63,10 +63,10 @@ export class AuthService {
   }
 
   /**
-   * Authenticate user with email and password
+   * Authenticate user with an email or mobile number and password
    */
   static async login(
-    email: string,
+    identifier: string,
     password: string,
     allowedRoles?: readonly UserRole[],
   ): Promise<AuthUser | null> {
@@ -80,7 +80,7 @@ export class AuthService {
         response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim(), password }),
+          body: JSON.stringify({ email: identifier.trim(), password }),
           signal: controller.signal,
         });
       } finally {
@@ -101,7 +101,7 @@ export class AuthService {
       }
       if (response.status === 401 || response.status === 423) {
         const result = await response.json().catch(() => null) as { detail?: string } | null;
-        throw new Error(result?.detail || 'Invalid email or password.');
+        throw new Error(result?.detail || 'Invalid email/mobile number or password.');
       }
       throw new Error(`Login service returned ${response.status}.`);
     } catch (error) {

@@ -130,6 +130,16 @@ class UserLogin(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class ChatbotMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class ChatbotRequest(BaseModel):
+    messages: list[ChatbotMessage] = Field(min_length=1, max_length=12)
+    context: str = Field(default="", max_length=12000)
+
+
 class NotificationPreferencesUpdate(BaseModel):
     emailEnabled: bool | None = None
     smsEnabled: bool | None = None

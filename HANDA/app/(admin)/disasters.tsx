@@ -28,7 +28,7 @@ export default function AdminDisasters() {
       if (!response.ok) throw new Error();
       setEvents(await response.json() as Disaster[]);
     } catch {
-      setError('Unable to load disaster records from PostgreSQL.');
+      setError('Unable to load disaster reports right now.');
       setEvents([]);
     } finally {
       setIsLoading(false);
@@ -58,7 +58,7 @@ export default function AdminDisasters() {
       setIsCreateOpen(false);
       await loadDisasters();
     } catch {
-      Alert.alert('Unable to save', 'The disaster could not be saved to PostgreSQL.');
+      Alert.alert('Unable to save', 'The disaster report could not be saved.');
     } finally {
       setIsSaving(false);
     }

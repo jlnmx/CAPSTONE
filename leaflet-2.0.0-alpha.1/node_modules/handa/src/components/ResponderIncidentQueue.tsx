@@ -14,6 +14,12 @@ const GREEN = '#218B25';
 const STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress', 'resolved'];
 const ACTIVE_STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress'];
 
+function displayLocationLabel(location: string, latitude?: number, longitude?: number): string {
+  const label = location.replace(/\s*[·,]\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$/, '').trim();
+  if (label && !['location not provided', 'location unavailable'].includes(label.toLowerCase())) return label;
+  return latitude != null && longitude != null ? 'Pinned incident location' : 'Location unavailable';
+}
+
 export default function ResponderIncidentQueue() {
   const { user } = useAuth();
   const [incidents, setIncidents] = useState<ResponderIncident[]>([]);
@@ -41,7 +47,7 @@ export default function ResponderIncidentQueue() {
       if (user?.role !== 'responder') setReporters({});
       else if (contacts) setReporters(contacts);
     } catch {
-      Alert.alert('Live data unavailable', 'Incident reports could not be loaded from the server database.');
+      Alert.alert('Live data unavailable', 'Incident reports could not be loaded right now. Check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -158,7 +164,15 @@ export default function ResponderIncidentQueue() {
     {isLoading && <Text style={styles.empty}>Loading live incident reports...</Text>}
     {!isLoading && incidents.length === 0 && <Text style={styles.empty}>No active incidents on the server.</Text>}
     {incidents.map((incident) => <View style={styles.card} key={incident.id}>
-      <View style={styles.cardHeader}><View style={styles.icon}><MaterialCommunityIcons name="alert-outline" size={20} color={incidentStatusColor(incident.status)} /></View><View style={styles.copy}><Text style={styles.name}>{incident.type}</Text><Text style={styles.detail}>{incident.location}</Text></View><Text style={[styles.status, { color: incidentStatusColor(incident.status) }]}>{incidentStatusLabel(incident.status)}</Text></View>
+      <View style={styles.cardHeader}><View style={styles.icon}><MaterialCommunityIcons name="alert-outline" size={20} color={incidentStatusColor(incident.status)} /></View><View style={styles.copy}><Text style={styles.name}>{incident.type}</Text></View><Text style={[styles.status, { color: incidentStatusColor(incident.status) }]}>{incidentStatusLabel(incident.status)}</Text></View>
+      <View style={styles.location}>
+        <View style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></View>
+        <View style={styles.locationCopy}>
+          <Text style={styles.locationLabel}>INCIDENT LOCATION</Text>
+          <Text style={styles.locationText}>{displayLocationLabel(incident.location, incident.latitude, incident.longitude)}</Text>
+          {incident.latitude != null && incident.longitude != null && Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude) && <Text style={styles.coordinates}>GPS {incident.latitude.toFixed(6)}, {incident.longitude.toFixed(6)}</Text>}
+        </View>
+      </View>
       <Text style={styles.description}>{incident.description}</Text>
       {user?.role === 'responder' && reporters[incident.id] && <AnimatedPressable style={styles.contact} onPress={() => void Linking.openURL(`tel:${reporters[incident.id].mobileNumber.replace(/[\s()-]/g, '')}`)} accessibilityRole="link" accessibilityLabel={`Call ${reporters[incident.id].name}`}>
         <MaterialCommunityIcons name="phone-outline" size={16} color={GREEN} />
@@ -203,6 +217,12 @@ const styles = StyleSheet.create({
   copy: { flex: 1, marginLeft: 9 },
   name: { color: Colors.text, fontSize: 12, fontWeight: '800' },
   detail: { color: Colors.textMuted, fontSize: 10, marginTop: 3 },
+  location: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 9, padding: 9, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 6, backgroundColor: '#F2F7F1' },
+  locationIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#E1EFE0' },
+  locationCopy: { flex: 1, minWidth: 0 },
+  locationLabel: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
+  locationText: { color: Colors.text, fontSize: 12, fontWeight: '700', lineHeight: 17, marginTop: 2 },
+  coordinates: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 2 },
   status: { color: GREEN, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
   description: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
   photos: { marginTop: 9 },

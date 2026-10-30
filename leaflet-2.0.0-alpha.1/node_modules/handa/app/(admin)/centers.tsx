@@ -34,7 +34,7 @@ export default function AdminCenters() {
     setLoadError('');
     void getAdminCenters()
       .then((records) => { if (isActive) setCenters(records); })
-      .catch(() => { if (isActive) setLoadError('Unable to load evacuation centers from PostgreSQL.'); })
+      .catch(() => { if (isActive) setLoadError('Unable to load evacuation centers right now.'); })
       .finally(() => { if (isActive) setIsLoading(false); });
     return () => { isActive = false; };
   }, []));
@@ -61,7 +61,7 @@ export default function AdminCenters() {
       setCenters((current) => current.map((center) => center.id === updated.id ? updated : center));
       setSelectedCenter(null);
     } catch {
-      setSaveError('Capacity could not be saved to PostgreSQL.');
+      setSaveError('Capacity could not be saved. Try again.');
     } finally {
       setIsSaving(false);
     }

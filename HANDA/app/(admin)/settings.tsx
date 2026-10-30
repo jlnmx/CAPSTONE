@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors, BorderRadius, Spacing } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
+import AppBackArrow from '@components/AppBackArrow';
 import { ThemeMode, useTheme } from '@hooks/useTheme';
 import { authenticatedFetch } from '@services/apiClient';
 import { updateAdminUser } from '@services/adminData';
@@ -80,9 +81,7 @@ export default function AdminSettings() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back">
-            <MaterialCommunityIcons name="arrow-left" size={23} color={Colors.white} />
-          </Pressable>
+          <AppBackArrow style={styles.backButton} />
           <View><Text style={styles.eyebrow}>ADMIN CONSOLE</Text><Text style={styles.title}>Settings</Text></View>
         </View>
 

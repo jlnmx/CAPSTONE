@@ -64,7 +64,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (authUser) {
         await finishLogin(authUser);
       } else {
-        setError('Invalid email or password.');
+        setError('Invalid email/mobile number or password.');
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An error occurred during login. Please try again.');

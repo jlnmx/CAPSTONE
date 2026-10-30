@@ -2,12 +2,13 @@ import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { ResidentHouseholdMember } from '@types/index';
+import AppBackArrow from '@components/AppBackArrow';
 
 const GREEN = '#218B25';
 const MAX_MEMBERS = 20;
@@ -22,7 +23,6 @@ type EvacuationStatusResponse = {
 };
 
 export default function HouseholdScreen() {
-  const router = useRouter();
   const { user, setAuthenticatedUser } = useAuth();
   const [members, setMembers] = useState<ResidentHouseholdMember[]>([]);
   const [registeredMembers, setRegisteredMembers] = useState<EvacuationStatusResponse['members']>([]);
@@ -122,7 +122,7 @@ export default function HouseholdScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.backButton}><MaterialCommunityIcons name="arrow-left" size={22} color={Colors.white} /></Pressable>
+          <AppBackArrow style={styles.backButton} />
           <View style={styles.headerCopy}><Text style={styles.eyebrow}>RESIDENT PROFILE</Text><Text style={styles.title}>HOUSEHOLD</Text></View>
           <MaterialCommunityIcons name="account-group-outline" size={30} color="#DFF1DF" />
         </View>

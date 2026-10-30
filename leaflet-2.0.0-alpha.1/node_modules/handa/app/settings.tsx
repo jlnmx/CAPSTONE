@@ -8,6 +8,7 @@ import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { ThemeMode, useTheme } from '@hooks/useTheme';
 import { authenticatedFetch } from '@services/apiClient';
+import AppBackArrow from '@components/AppBackArrow';
 
 const themeOptions: Array<{ value: ThemeMode; label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; detail: string }> = [
   { value: 'light', label: 'Light', icon: 'white-balance-sunny', detail: 'Keep the interface bright' },
@@ -90,7 +91,7 @@ export default function SettingsScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton} accessibilityLabel="Go back"><MaterialCommunityIcons name="arrow-left" size={23} color={Colors.white} /></Pressable>
+          <AppBackArrow />
           <View><Text style={styles.eyebrow}>PREFERENCES</Text><Text style={styles.title}>Settings</Text></View>
         </View>
         <View style={styles.intro}><Text style={[styles.introTitle, { color: palette.text }]}>Make HANDA yours</Text><Text style={[styles.introText, { color: palette.textMuted }]}>Choose how HANDA should look. Your choice is saved on this device.</Text></View>

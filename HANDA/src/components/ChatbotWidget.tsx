@@ -4,7 +4,7 @@ import { Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@hooks/useAuth';
-import { answerQuestion } from '@services/chatbotAnswers';
+import { answerQuestion, ChatbotTurn, getLiveQuestionContext, requestModelAnswer } from '@services/chatbotAnswers';
 
 const GREEN = '#218B25';
 const QUICK_PROMPTS = ['Any typhoons right now?', 'Will it rain in Biñan today?', 'How do I report an incident?', 'How do evacuation status updates work?'];
@@ -59,10 +59,30 @@ export default function ChatbotWidget() {
     setInput('');
     setIsTyping(true);
     try {
-      const answer = await answerQuestion(question);
+      const recentTurns: ChatbotTurn[] = [
+        ...messages.slice(-9).map(({ role, text }) => ({ role, content: text })),
+        { role: 'user', content: question },
+      ];
+      let context = '';
+      try {
+        context = await getLiveQuestionContext(question);
+      } catch {
+        context = 'Live HANDA data could not be retrieved for this question. Do not invent current conditions or incident data.';
+      }
+      const answer = await requestModelAnswer(recentTurns, context);
       setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: answer }]);
-    } catch {
-      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: 'I could not retrieve the requested information right now. Please retry or check official PAGASA and local government updates.' }]);
+    } catch (error) {
+      let fallback: string;
+      try {
+        fallback = await answerQuestion(question);
+      } catch {
+        fallback = 'I could not retrieve the requested information right now. Please retry or check official PAGASA and local government updates.';
+      }
+      const hasSpecificFallback = !fallback.startsWith('I can help with current Biñan weather');
+      const status = hasSpecificFallback
+        ? `${fallback}\n\nThe AI assistant is unavailable; this is built-in HANDA guidance.`
+        : 'Custom AI answers are not available right now. Please retry later or ask about current weather, typhoons, disasters, or HANDA features.';
+      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: status }]);
     } finally {
       setIsTyping(false);
     }

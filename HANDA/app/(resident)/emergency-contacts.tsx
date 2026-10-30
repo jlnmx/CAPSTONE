@@ -4,6 +4,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
+import AppBackArrow from '@components/AppBackArrow';
 
 const contacts = [
   { name: 'BCDRRMO', number: '(049) 513-9111', detail: 'Smart 0908-891-9711  |  Globe 0917-120-8911', icon: 'shield-check-outline' as const, color: '#D07B19' },
@@ -19,7 +20,8 @@ export default function EmergencyContactsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View><Text style={styles.headerTitle}>EMERGENCY</Text><Text style={styles.headerSubtitle}>CONTACT LIST</Text></View>
+          <AppBackArrow />
+          <View style={styles.headerCopy}><Text style={styles.headerTitle}>EMERGENCY</Text><Text style={styles.headerSubtitle}>CONTACT LIST</Text></View>
           <MaterialCommunityIcons name="phone-in-talk-outline" size={40} color={Colors.white} />
         </View>
         <Text style={styles.intro}>Keep these numbers accessible during an emergency.</Text>
@@ -39,6 +41,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 850, alignSelf: 'center', paddingBottom: 24 },
   header: { minHeight: 87, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    headerCopy: { flex: 1 },
   headerTitle: { color: Colors.white, fontSize: 23, fontWeight: '900', lineHeight: 24 },
   headerSubtitle: { color: Colors.white, fontSize: 15, fontWeight: '800', lineHeight: 17 },
   intro: { color: Colors.textMuted, fontSize: 11, marginHorizontal: 16, marginVertical: 14 },

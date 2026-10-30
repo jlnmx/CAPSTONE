@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
 import { TextInput, PasswordInput } from '@components/TextInputs';
 import { PrimaryButton } from '@components/Buttons';
+import AppBackArrow from '@components/AppBackArrow';
 
 export default function LoginScreen() {
   const { login, loginAsDemo, error, isLoading } = useAuth();
@@ -20,19 +21,22 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setValidationError('');
+    const identifier = email.trim();
 
-    // Validation
-    if (!email || !password) {
-      setValidationError('Please enter both email and password.');
+    if (!identifier || !password) {
+      setValidationError('Please enter your email or mobile number and password.');
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setValidationError('Please enter a valid email address.');
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+    const normalizedMobile = identifier.replace(/[\s()-]/g, '');
+    const isPhilippineMobile = /^(09\d{9}|\+639\d{9}|639\d{9})$/.test(normalizedMobile);
+    if (!isEmail && !isPhilippineMobile) {
+      setValidationError('Enter a valid email or Philippine mobile number.');
       return;
     }
 
-    await login(email, password, ['resident', 'responder']);
+    await login(identifier, password, ['resident', 'responder']);
   };
 
   return (
@@ -41,17 +45,14 @@ export default function LoginScreen() {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.brandSection}>
-        <Text style={styles.brandName}>HANDA</Text>
-        <Text style={styles.tagline}>Laging handa para sayo.</Text>
-      </View>
+      <View style={styles.header}><AppBackArrow /><View style={styles.brandCopy}><Text style={styles.brandName}>HANDA</Text><Text style={styles.tagline}>Laging handa para sayo.</Text></View></View>
 
       <View style={styles.formSection}>
         <TextInput
-          placeholder="Email"
+          placeholder="Email or mobile number"
           value={email}
           onChangeText={setEmail}
-          keyboardType="email-address"
+          keyboardType="default"
           containerStyle={styles.inputContainer}
           inputStyle={styles.referenceInput}
           error={validationError ? undefined : undefined}
@@ -101,6 +102,8 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
+  header: { width: '100%', maxWidth: 620, minHeight: 78, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, backgroundColor: '#218B25' },
+  brandCopy: { flex: 1 },
   container: {
     flex: 1,
     backgroundColor: Colors.surface,
@@ -117,7 +120,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   brandName: {
-    color: '#218B25',
+    color: '#FFFFFF',
     fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
     fontSize: 42,
     fontWeight: '800',
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
     lineHeight: 50,
   },
   tagline: {
-    color: '#218B25',
+    color: '#DFF1DF',
     fontFamily: Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' }),
     fontSize: 13,
     fontWeight: '500',

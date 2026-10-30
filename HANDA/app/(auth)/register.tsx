@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthUser, ResidentHouseholdMember } from '@types/index';
 import { BINAN_BARANGAYS, RESPONDER_ORGANIZATIONS } from '@constants/responderOrganizations';
 import * as ImagePicker from 'expo-image-picker';
+import AppBackArrow from '@components/AppBackArrow';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
@@ -45,6 +46,9 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [householdMembers, setHouseholdMembers] = useState<ResidentHouseholdMember[]>([]);
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
   const [isPendingConfirmationOpen, setIsPendingConfirmationOpen] = useState(false);
@@ -55,6 +59,29 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [memberError, setMemberError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const stepLabels = isResponder ? ['Personal info', 'Account', 'Responder details'] : ['Personal info', 'Account', 'Household'];
+
+  const continueToNextStep = () => {
+    const errors: Record<string, string> = {};
+    if (currentStep === 0) {
+      if (!firstName.trim()) errors.firstName = 'First name is required.';
+      if (!lastName.trim()) errors.lastName = 'Last name is required.';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday.trim())) errors.birthday = 'Select a valid birthday.';
+      if (sex !== 'Male' && sex !== 'Female') errors.sex = 'Select Male or Female.';
+      if (!/^(09\d{9}|\+639\d{9}|639\d{9})$/.test(mobileNumber.replace(/[\s()-]/g, ''))) errors.mobileNumber = 'Use a valid Philippine number, e.g. 09171234567.';
+      if (!address.trim()) errors.address = 'Current address is required.';
+    } else if (currentStep === 1) {
+      if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email.trim())) errors.email = 'Enter a valid email address.';
+      if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+        errors.password = 'Use 8+ characters with uppercase, lowercase, number, and symbol.';
+      }
+      if (!confirmPassword) errors.confirmPassword = 'Confirm your password.';
+      else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match.';
+    }
+
+    setValidationErrors(errors);
+    if (Object.keys(errors).length === 0) setCurrentStep((step) => Math.min(step + 1, 2));
+  };
 
   const selectResponderId = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
@@ -202,11 +229,39 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{isResponder ? 'RESPONDER APPLICATION' : 'REGISTER'}</Text>
+          <AppBackArrow />
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerEyebrow}>HANDA ACCOUNT</Text>
+            <Text style={styles.headerTitle}>{isResponder ? 'Responder application' : 'Create your account'}</Text>
+            <Text style={styles.headerSubtitle}>{isResponder ? 'Apply to support your community.' : 'A few details will get you ready for emergencies.'}</Text>
+          </View>
         </View>
         <View style={styles.form}>
-          {isResponder && <Text style={styles.formIntro}>{responderType} responder applications require administrator approval before sign-in.</Text>}
-          <Text style={styles.sectionTitle}>PERSONAL INFORMATION</Text>
+          <View style={styles.stepper} accessibilityRole="progressbar" accessibilityLabel={`Step ${currentStep + 1} of ${stepLabels.length}`}>
+            {stepLabels.map((label, index) => (
+              <React.Fragment key={label}>
+                <TouchableOpacity style={styles.stepItem} onPress={() => setCurrentStep(index)} disabled={index >= currentStep} accessibilityRole="button" accessibilityLabel={`${label}${index < currentStep ? ', completed' : index === currentStep ? ', current step' : ', not started'}`}>
+                  <View style={[styles.stepNumber, index < currentStep && styles.stepNumberComplete, index === currentStep && styles.stepNumberCurrent]}>
+                    {index < currentStep ? <MaterialCommunityIcons name="check" size={14} color="#FFFFFF" /> : <Text style={[styles.stepNumberText, index === currentStep && styles.stepNumberTextCurrent]}>{index + 1}</Text>}
+                  </View>
+                  <Text style={[styles.stepLabel, index === currentStep && styles.stepLabelCurrent]} numberOfLines={1}>{label}</Text>
+                </TouchableOpacity>
+                {index < stepLabels.length - 1 && <View style={[styles.stepConnector, index < currentStep && styles.stepConnectorComplete]} />}
+              </React.Fragment>
+            ))}
+          </View>
+
+          <View style={styles.stepHeading}>
+            <Text style={styles.stepCount}>STEP {currentStep + 1} OF {stepLabels.length}</Text>
+            <Text style={styles.sectionTitle}>{['Personal information', 'Email and password', isResponder ? 'Responder details' : 'Household members'][currentStep]}</Text>
+            <Text style={styles.stepDescription}>{[
+              'Tell us how to identify and contact you.',
+              'Set up the email and password for your account.',
+              isResponder ? `${responderType ?? 'Responder'} applications require administrator approval.` : 'Add household members for emergency coordination. This step is optional.',
+            ][currentStep]}</Text>
+          </View>
+
+          {currentStep === 0 && <>
           <FormField label="First Name" error={validationErrors.firstName}>
             <NativeTextInput style={styles.input} placeholder="Enter Name" placeholderTextColor={PLACEHOLDER_COLOR} value={firstName} onChangeText={setFirstName} autoCapitalize="words" returnKeyType="next" selectionColor={GREEN} />
           </FormField>
@@ -261,16 +316,33 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           <FormField label="Current Address" error={validationErrors.address}>
             <NativeTextInput style={styles.input} placeholder="Enter current address" placeholderTextColor={PLACEHOLDER_COLOR} value={address} onChangeText={setAddress} autoCapitalize="words" returnKeyType="next" selectionColor={GREEN} />
           </FormField>
+          </>}
+
+          {currentStep === 1 && <>
           <FormField label="Enter email address" error={validationErrors.email}>
             <NativeTextInput style={styles.input} placeholder="Enter email address" placeholderTextColor={PLACEHOLDER_COLOR} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" returnKeyType="next" selectionColor={GREEN} />
           </FormField>
           <FormField label="Password" error={validationErrors.password}>
-            <NativeTextInput style={styles.input} placeholder="Enter password" placeholderTextColor={PLACEHOLDER_COLOR} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" returnKeyType="next" selectionColor={GREEN} />
+            <View style={styles.passwordInput}>
+              <NativeTextInput style={[styles.input, styles.passwordField]} placeholder="Create a password" placeholderTextColor={PLACEHOLDER_COLOR} value={password} onChangeText={setPassword} secureTextEntry={!isPasswordVisible} autoCapitalize="none" autoComplete="new-password" returnKeyType="next" selectionColor={GREEN} />
+              <TouchableOpacity style={styles.passwordToggle} onPress={() => setIsPasswordVisible((visible) => !visible)} accessibilityRole="button" accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'}>
+                <MaterialCommunityIcons name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} size={21} color={TEXT_MUTED} />
+              </TouchableOpacity>
+            </View>
           </FormField>
           <FormField label="Confirm Password" error={validationErrors.confirmPassword}>
-            <NativeTextInput style={styles.input} placeholder="Enter password" placeholderTextColor={PLACEHOLDER_COLOR} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry autoCapitalize="none" returnKeyType="done" selectionColor={GREEN} />
+            <View style={styles.passwordInput}>
+              <NativeTextInput style={[styles.input, styles.passwordField]} placeholder="Re-enter your password" placeholderTextColor={PLACEHOLDER_COLOR} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!isConfirmPasswordVisible} autoCapitalize="none" autoComplete="new-password" returnKeyType="done" selectionColor={GREEN} />
+              <TouchableOpacity style={styles.passwordToggle} onPress={() => setIsConfirmPasswordVisible((visible) => !visible)} accessibilityRole="button" accessibilityLabel={isConfirmPasswordVisible ? 'Hide confirm password' : 'Show confirm password'}>
+                <MaterialCommunityIcons name={isConfirmPasswordVisible ? 'eye-off-outline' : 'eye-outline'} size={21} color={TEXT_MUTED} />
+              </TouchableOpacity>
+            </View>
           </FormField>
-          {isResponder && <View style={styles.verificationSection}>
+          <Text style={styles.passwordHint}>At least 8 characters, including uppercase, lowercase, a number, and a symbol.</Text>
+          </>}
+
+          {currentStep === 2 && isResponder && <View style={styles.stepPanel}>
+          <View style={styles.verificationSection}>
             <Text style={styles.householdLabel}>ORGANIZATION</Text>
             <Text style={styles.householdEmpty}>Tell us which agency or group you respond with. It is shared with residents when you acknowledge an incident.</Text>
             <FormField label="Organization" error={validationErrors.responderOrganization}>
@@ -283,16 +355,17 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
                 <Text style={responderBarangay ? styles.selectValue : styles.selectPlaceholder}>{responderBarangay || 'Choose your barangay'}</Text>
               </TouchableOpacity>
             </FormField>}
-          </View>}
-          {isResponder && <View style={styles.verificationSection}>
+          </View>
+          <View style={styles.verificationSection}>
             <Text style={styles.householdLabel}>{responderType?.toUpperCase() ?? 'RESPONDER'} ID</Text>
             <Text style={styles.householdEmpty}>Upload a clear image of your responder ID for administrator review. JPEG, PNG, or WebP, up to 4 MB.</Text>
             <TouchableOpacity style={styles.addMemberButton} onPress={() => void selectResponderId()} accessibilityRole="button" accessibilityLabel={verificationDocument ? 'Replace responder ID image' : 'Upload responder ID image'}>
               <View style={styles.addMemberContent}><View style={styles.addMemberIcon}><MaterialCommunityIcons name={verificationDocument ? 'check' : 'cloud-upload-outline'} size={19} color={GREEN} /></View><Text style={styles.addMemberText}>{verificationDocument ? verificationDocument.name : 'Upload responder ID'}</Text><MaterialCommunityIcons name="chevron-right" size={20} color={GREEN} /></View>
             </TouchableOpacity>
             {!!validationErrors.verificationDocument && <Text style={styles.fieldError}>{validationErrors.verificationDocument}</Text>}
+          </View>
           </View>}
-          {!isResponder && <View style={styles.householdSection}>
+          {currentStep === 2 && !isResponder && <View style={styles.householdSection}>
             <View style={styles.householdHeader}>
               <View style={styles.householdHeaderCopy}>
                 <Text style={styles.householdLabel}>HOUSEHOLD MEMBERS</Text>
@@ -320,9 +393,16 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             {!!validationErrors.householdMembers && <Text style={styles.fieldError}>{validationErrors.householdMembers}</Text>}
           </View>}
           {validationErrors.form && <Text style={styles.formError}>{validationErrors.form}</Text>}
-          <TouchableOpacity style={styles.submitButton} onPress={handleRegister} disabled={isSubmitting} accessibilityRole="button">
-            {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>{isResponder ? 'Submit application' : 'Sign Up'}</Text>}
-          </TouchableOpacity>
+          <View style={styles.navigationActions}>
+            {currentStep > 0 ? <TouchableOpacity style={styles.backButton} onPress={() => { setValidationErrors({}); setCurrentStep((step) => step - 1); }} accessibilityRole="button">
+              <MaterialCommunityIcons name="arrow-left" size={18} color={GREEN} /><Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity> : <View />}
+            {currentStep < 2 ? <TouchableOpacity style={styles.nextButton} onPress={continueToNextStep} accessibilityRole="button">
+              <Text style={styles.submitText}>Continue</Text><MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
+            </TouchableOpacity> : <TouchableOpacity style={styles.submitButton} onPress={handleRegister} disabled={isSubmitting} accessibilityRole="button">
+              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>{isResponder ? 'Submit application' : 'Create account'}</Text>}
+            </TouchableOpacity>}
+          </View>
         </View>
       </ScrollView>
       <Modal transparent visible={responderPicker !== null} animationType="fade" onRequestClose={() => setResponderPicker(null)}>
@@ -448,27 +528,53 @@ const FONT_FAMILY = Platform.select({ ios: 'Avenir Next', android: 'sans-serif',
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PAGE_BACKGROUND },
-  contentContainer: { flexGrow: 1, width: '100%', maxWidth: 720, alignSelf: 'center', paddingBottom: 32 },
-  header: { minHeight: 66, justifyContent: 'center', paddingHorizontal: 14, backgroundColor: GREEN, borderTopLeftRadius: 10, borderTopRightRadius: 10 },
-  headerTitle: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 32, fontWeight: '800' },
-  form: { paddingHorizontal: 14, paddingTop: 13 },
+  contentContainer: { flexGrow: 1, width: '100%', maxWidth: 620, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 32 },
+  header: { minHeight: 124, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 16, borderRadius: 10, backgroundColor: GREEN },
+  headerCopy: { flex: 1 },
+  headerEyebrow: { color: '#DFF1DF', fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800' },
+  headerTitle: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 25, fontWeight: '800', marginTop: 5 },
+  headerSubtitle: { color: '#E7F4E7', fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  form: { marginTop: 12, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 18, borderWidth: 1, borderColor: BORDER, borderRadius: 10, backgroundColor: SURFACE },
   formIntro: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginBottom: 12 },
-  sectionTitle: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 20, fontWeight: '400', marginBottom: 6 },
-  field: { flex: 1, minWidth: 0, marginBottom: 9 },
+  stepper: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  stepItem: { flex: 1, minWidth: 0, alignItems: 'center', gap: 5 },
+  stepNumber: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: BORDER, borderRadius: 14, backgroundColor: SURFACE_MUTED },
+  stepNumberComplete: { borderColor: GREEN, backgroundColor: GREEN },
+  stepNumberCurrent: { borderColor: GREEN, backgroundColor: '#E8F2E8' },
+  stepNumberText: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '700' },
+  stepNumberTextCurrent: { color: GREEN },
+  stepLabel: { maxWidth: '100%', color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 10, textAlign: 'center' },
+  stepLabelCurrent: { color: GREEN, fontWeight: '800' },
+  stepConnector: { height: 2, flex: 0.6, marginHorizontal: 5, marginBottom: 15, backgroundColor: BORDER },
+  stepConnectorComplete: { backgroundColor: GREEN },
+  stepHeading: { marginBottom: 17 },
+  stepCount: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800' },
+  sectionTitle: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 21, fontWeight: '800', marginTop: 3 },
+  stepDescription: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  stepPanel: { gap: 2 },
+  field: { flex: 1, minWidth: 0, marginBottom: 12 },
   fieldStacked: { flex: 0, width: '100%' },
-  label: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 13, marginBottom: 5 },
+  label: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700', marginBottom: 6 },
   optional: { fontStyle: 'italic' },
   required: { color: '#D33A3A' },
-  input: { height: 44, paddingHorizontal: 15, paddingVertical: 0, borderWidth: 1, borderColor: BORDER, borderRadius: 8, backgroundColor: SURFACE, color: TEXT, fontFamily: FONT_FAMILY, fontSize: 16 },
+  input: { height: 48, paddingHorizontal: 14, paddingVertical: 0, borderWidth: 1, borderColor: BORDER, borderRadius: 6, backgroundColor: SURFACE, color: TEXT, fontFamily: FONT_FAMILY, fontSize: 15 },
+  passwordInput: { position: 'relative', justifyContent: 'center' },
+  passwordField: { paddingRight: 52 },
+  passwordToggle: { position: 'absolute', right: 3, width: 44, height: 42, alignItems: 'center', justifyContent: 'center' },
+  passwordHint: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, lineHeight: 16, marginTop: -4, marginBottom: 8 },
   row: { flexDirection: 'row', columnGap: 18 },
   rowStacked: { flexDirection: 'column', columnGap: 0 },
-  selectInput: { height: 44, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: BORDER, borderRadius: 8, backgroundColor: SURFACE },
+  selectInput: { height: 48, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1, borderColor: BORDER, borderRadius: 6, backgroundColor: SURFACE },
   selectPlaceholder: { color: PLACEHOLDER_COLOR, fontFamily: FONT_FAMILY, fontSize: 12 },
   selectValue: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 14 },
   fieldError: { color: '#D62828', fontFamily: FONT_FAMILY, fontSize: 11, marginTop: 3 },
   formError: { color: '#D62828', fontFamily: FONT_FAMILY, fontSize: 12, marginBottom: 8 },
-  submitButton: { height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 1, borderRadius: 8, backgroundColor: GREEN },
-  submitText: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '500' },
+  navigationActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 13 },
+  backButton: { minWidth: 88, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 12, borderWidth: 1, borderColor: BORDER, borderRadius: 6, backgroundColor: SURFACE },
+  backButtonText: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
+  nextButton: { minHeight: 48, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14, borderRadius: 6, backgroundColor: GREEN },
+  submitButton: { minHeight: 48, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, borderRadius: 6, backgroundColor: GREEN },
+  submitText: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800' },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
   sexOptions: { width: '100%', maxWidth: 300, padding: 18, borderRadius: 10, backgroundColor: SURFACE },
   pickerList: { maxHeight: 360 },

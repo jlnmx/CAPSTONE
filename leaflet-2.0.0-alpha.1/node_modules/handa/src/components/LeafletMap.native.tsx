@@ -121,9 +121,11 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           .navigation-panel.compact .navigation-toggle { background: ${palette.surfaceMuted}; color: ${palette.text}; }
           .navigation-panel.compact .navigation-stop { width: auto; min-height: 30px; display: block; margin: 6px auto 0; padding: 4px 12px; }
           .navigation-actions { display: flex; gap: 6px; flex-shrink: 0; }
-          .navigation-toggle { width: 38px; font-size: 0; }
-          .navigation-chevron { display: block; width: 8px; height: 8px; margin: 0 auto; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .16s ease; }
-          .navigation-toggle[aria-expanded="false"] .navigation-chevron { transform: rotate(225deg); }
+          .navigation-toggle { display: grid; width: 44px; min-height: 44px; padding: 0; place-items: center; font-size: 0; }
+          .navigation-chevron { display: grid; width: 20px; height: 20px; place-items: center; transition: transform .18s ease; }
+          .navigation-chevron svg { display: block; width: 20px; height: 20px; }
+          .navigation-chevron path { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+          .navigation-toggle[aria-expanded="false"] .navigation-chevron { transform: rotate(180deg); }
           .navigation-title { display: -webkit-box; overflow: hidden; white-space: normal; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
           .navigation-stats { line-height: 1.35; overflow-wrap: anywhere; }
           .navigation-routes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr)); gap: 7px; overflow: visible; }
@@ -190,6 +192,9 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             const minutes = Math.max(1, Math.round(seconds / 60));
             return minutes < 60 ? minutes + ' min' : Math.floor(minutes / 60) + ' hr ' + (minutes % 60) + ' min';
           }
+          function routeGeometryKey(route) {
+            return route.geometry.coordinates.map(([longitude, latitude]) => longitude.toFixed(5) + ',' + latitude.toFixed(5)).join(';');
+          }
           function updateNavigationStats() {
             const route = navigationRoutes[selectedRouteIndex];
             const stats = navigationStats();
@@ -251,6 +256,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             navigationPanel.classList.add('compact');
             const toggle = navigationPanel.querySelector('.navigation-toggle');
             if (toggle) {
+              toggle.title = 'Show route options';
               toggle.setAttribute('aria-label', 'Show route options');
               toggle.setAttribute('aria-expanded', 'false');
             }
@@ -269,10 +275,11 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
               const result = await response.json();
               if (!isNavigating || requestId !== routeRequestId) return;
               if (result.code !== 'Ok' || !Array.isArray(result.routes) || !result.routes.length) throw new Error('No routes found');
-              navigationRoutes = result.routes;
+              navigationRoutes = result.routes.filter((route, index, routes) => routes.findIndex((candidate) => routeGeometryKey(candidate) === routeGeometryKey(route)) === index);
               selectedRouteIndex = 0;
               const routeContainer = navigationPanel.querySelector('.navigation-routes');
               routeContainer.innerHTML = navigationRoutes.map((route, index) => '<button class="navigation-route' + (index === 0 ? ' active' : '') + '" type="button" data-route-index="' + index + '"><strong>Route ' + (index + 1) + '</strong><span>' + formatDistance(route.distance) + ' · ' + formatDuration(route.duration) + '</span></button>').join('');
+              if (activeProfile !== 'driving' && navigationRoutes.length < 2) routeContainer.insertAdjacentHTML('beforeend', '<p class="navigation-message">No alternate route available for this area.</p>');
               routeContainer.querySelectorAll('[data-route-index]').forEach((button) => button.addEventListener('click', () => selectRoute(Number(button.dataset.routeIndex), false)));
               selectRoute(0, true);
             } catch (error) {
@@ -295,7 +302,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             activeProfile = 'driving';
             activeDestination = item.position;
             navigationPanel.classList.remove('compact');
-            navigationPanel.innerHTML = '<div class="navigation-top"><div class="navigation-copy"><span class="navigation-eyebrow">NAVIGATING TO</span><strong class="navigation-title">' + escapeHtml(item.name) + '</strong><span class="navigation-stats">' + (hasLocatedUser ? 'Finding routes…' : locationUnavailableMessage || 'Waiting for a GPS signal…') + '</span></div><div class="navigation-actions"><button class="navigation-recenter" type="button">Recenter</button><button class="navigation-toggle" type="button" aria-label="Minimize route options" aria-expanded="true"><span class="navigation-chevron"></span></button></div></div><div class="navigation-modes"><button type="button" data-profile="walking">On foot</button><button type="button" data-profile="cycling">Two wheels</button><button class="active" type="button" data-profile="driving">Four wheels</button></div><div class="navigation-routes"></div><button class="navigation-stop" type="button">End navigation</button>';
+            navigationPanel.innerHTML = '<div class="navigation-top"><div class="navigation-copy"><span class="navigation-eyebrow">NAVIGATING TO</span><strong class="navigation-title">' + escapeHtml(item.name) + '</strong><span class="navigation-stats">' + (hasLocatedUser ? 'Finding routes…' : locationUnavailableMessage || 'Waiting for a GPS signal…') + '</span></div><div class="navigation-actions"><button class="navigation-recenter" type="button">Recenter</button><button class="navigation-toggle" type="button" title="Minimize route options" aria-label="Minimize route options" aria-expanded="true"><span class="navigation-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span></button></div></div><div class="navigation-modes"><button type="button" data-profile="walking">On foot</button><button type="button" data-profile="cycling">Two wheels</button><button class="active" type="button" data-profile="driving">Four wheels</button></div><div class="navigation-routes"></div><button class="navigation-stop" type="button">End navigation</button>';
             infoPanel.style.display = 'none';
             navigationPanel.style.display = 'block';
             if (hasLocatedUser) void loadRoutes();
@@ -306,6 +313,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             const toggle = target.closest('.navigation-toggle');
             if (toggle) {
               const isExpanded = navigationPanel.classList.toggle('compact') === false;
+              toggle.title = isExpanded ? 'Minimize route options' : 'Show route options';
               toggle.setAttribute('aria-label', isExpanded ? 'Minimize route options' : 'Show route options');
               toggle.setAttribute('aria-expanded', String(isExpanded));
             }

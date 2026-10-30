@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { Colors, BorderRadius, Spacing } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
+import AppBackArrow from '@components/AppBackArrow';
 
 interface MoreMenuProps {
   roleLabel: string;
@@ -50,6 +51,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView style={[styles.container, { backgroundColor: palette.background }]} contentContainerStyle={styles.content}>
         <View style={styles.header}>
+          <AppBackArrow />
           <Text style={styles.headerTitle}>MORE</Text>
         </View>
 
@@ -132,7 +134,9 @@ const styles = StyleSheet.create({
   },
   header: {
     height: 87,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 20,
     backgroundColor: '#218B25',
   },

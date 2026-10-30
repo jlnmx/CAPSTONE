@@ -51,10 +51,10 @@ export default function AdminOverview() {
         </View>
 
         <View style={styles.statGrid}>
-          <Metric icon="account-group-outline" label="Registered evacuees" value={String(data.evacuees.length)} delta={data.source === 'remote' ? 'From PostgreSQL' : 'Database unavailable'} color="#167A5B" />
+          <Metric icon="account-group-outline" label="Registered evacuees" value={String(data.evacuees.length)} delta={data.source === 'remote' ? 'Live records' : 'Data unavailable'} color="#167A5B" />
           <Metric icon="alert-circle-outline" label="Reported incidents" value={String(data.incidents.length)} delta={`${activeIncidents} active`} color={Colors.emergency} />
-          <Metric icon="home-city-outline" label="Evacuation centers" value={String(data.centers.length)} delta={data.source === 'remote' ? 'From PostgreSQL' : 'Database unavailable'} color={Colors.secondary} />
-          <Metric icon="account-multiple-outline" label="Active personnel" value={String(data.activePersonnel)} delta={data.source === 'remote' ? 'Active responders' : 'Database unavailable'} color="#8B5E00" />
+          <Metric icon="home-city-outline" label="Evacuation centers" value={String(data.centers.length)} delta={data.source === 'remote' ? 'Live records' : 'Data unavailable'} color={Colors.secondary} />
+          <Metric icon="account-multiple-outline" label="Active personnel" value={String(data.activePersonnel)} delta={data.source === 'remote' ? 'Active responders' : 'Data unavailable'} color="#8B5E00" />
         </View>
 
         <View style={styles.mainGrid}>
@@ -74,7 +74,7 @@ export default function AdminOverview() {
         <View style={styles.sectionHeading}><Text style={styles.panelTitle}>Needs attention</Text><TouchableOpacity onPress={() => router.push('/(admin)/operations')}><Text style={styles.link}>View operations</Text></TouchableOpacity></View>
         <View style={styles.alertList}>
           <Attention icon="alert-octagon-outline" title="Active incidents" detail={`${activeIncidents} reports need response`} color={Colors.emergency} />
-          <Attention icon="database-check-outline" title="Data source" detail={data.source === 'remote' ? 'Connected to PostgreSQL' : 'PostgreSQL unavailable'} color={data.source === 'remote' ? '#167A5B' : '#8B5E00'} />
+          <Attention icon={data.source === 'remote' ? 'cloud-check-outline' : 'cloud-alert-outline'} title="Live records" detail={data.source === 'remote' ? 'Current data available' : 'Current data unavailable'} color={data.source === 'remote' ? '#167A5B' : '#8B5E00'} />
         </View>
       </ScrollView>
     </SafeAreaView>

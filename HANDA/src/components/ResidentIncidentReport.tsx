@@ -11,6 +11,7 @@ import CurrentLocationMap, { LocationCoordinate } from '@components/CurrentLocat
 import { authenticatedFetch } from '@services/apiClient';
 import { saveLocalIncident } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
+import AppBackArrow from '@components/AppBackArrow';
 
 const GREEN = '#218B25';
 const INCIDENT_TYPES = ['Fire', 'Flooding', 'Earthquake', 'Landslide', 'Typhoon', 'Severe storm', 'Strong winds', 'Road accident', 'Road obstruction', 'Building collapse', 'Power outage', 'Gas leak', 'Water emergency', 'Medical emergency', 'Missing person', 'Crime or security threat', 'Hazardous spill', 'Other emergency'];
@@ -41,7 +42,10 @@ export default function ResidentIncidentReport() {
       try {
         const address = await Location.reverseGeocodeAsync(nextCoordinate);
         const place = address[0];
-        setLocationLabel([place?.street, place?.district || place?.city, place?.region].filter(Boolean).join(', ') || `Biñan City · ${nextCoordinate.latitude.toFixed(6)}, ${nextCoordinate.longitude.toFixed(6)}`);
+        const streetAddress = [place?.streetNumber, place?.street].filter(Boolean).join(' ');
+        const barangay = place?.district ? `Brgy. ${place.district}` : place?.subregion;
+        const locationParts = [streetAddress, barangay, place?.city, place?.region].filter((part): part is string => !!part);
+        setLocationLabel([...new Set(locationParts)].join(', ') || `Biñan City · ${nextCoordinate.latitude.toFixed(6)}, ${nextCoordinate.longitude.toFixed(6)}`);
       } catch {
         setLocationLabel(`Biñan City · ${nextCoordinate.latitude.toFixed(6)}, ${nextCoordinate.longitude.toFixed(6)}`);
       }
@@ -125,7 +129,7 @@ export default function ResidentIncidentReport() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={styles.header}><View><Text style={styles.eyebrow}>COMMUNITY SAFETY</Text><Text style={styles.title}>REPORT INCIDENT</Text></View><MaterialCommunityIcons name="alert-decagram-outline" size={32} color="#DFF1DF" /></View>
+        <View style={styles.header}><AppBackArrow /><View style={styles.headerCopy}><Text style={styles.eyebrow}>COMMUNITY SAFETY</Text><Text style={styles.title}>REPORT INCIDENT</Text></View><MaterialCommunityIcons name="alert-decagram-outline" size={32} color="#DFF1DF" /></View>
         <View style={styles.form}>
           <Text style={styles.sectionTitle}>What is happening?</Text>
           <FieldLabel label="Incident type" required />
@@ -181,6 +185,7 @@ export default function ResidentIncidentReport() {
 function FieldLabel({ label, required = false }: { label: string; required?: boolean }) { return <Text style={styles.label}>{label}{required && <Text style={styles.required}> *</Text>}</Text>; }
 
 const styles = StyleSheet.create({
+  headerCopy: { flex: 1 },
   container: { flex: 1, backgroundColor: Colors.background }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingBottom: 30 }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 19, paddingBottom: 15, backgroundColor: GREEN }, eyebrow: { color: '#DFF1DF', fontSize: 9, fontWeight: '800', letterSpacing: 1.1 }, title: { color: '#FFFFFF', fontSize: 25, fontWeight: '800', marginTop: 3 }, form: { paddingHorizontal: 16, paddingTop: 18 }, sectionTitle: { color: Colors.text, fontSize: 16, fontWeight: '800' }, label: { color: Colors.text, fontSize: 12, fontWeight: '700', marginTop: 15, marginBottom: 6 }, required: { color: '#D33A3A' }, select: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 13, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 9, backgroundColor: Colors.surface }, selectValue: { color: Colors.textMuted, fontSize: 13, fontWeight: '700' }, selectPlaceholder: { color: '#8EAF8E', fontSize: 13 }, severity_low: { color: '#2873A8' }, severity_medium: { color: '#B36E00' }, severity_high: { color: '#B42318' }, severity_critical: { color: '#8B1020' }, descriptionInput: { minHeight: 112, paddingHorizontal: 13, paddingTop: 12, paddingBottom: 10, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 9, backgroundColor: Colors.surface, color: Colors.textMuted, fontSize: 13, lineHeight: 19 }, characterCount: { color: Colors.textMuted, fontSize: 10, textAlign: 'right', marginTop: 3 }, locationHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22 }, helper: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 }, refreshButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 19, backgroundColor: Colors.surface }, mapFrame: { height: 230, overflow: 'hidden', marginTop: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, backgroundColor: Colors.surfaceMuted }, locationReadout: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }, locationText: { flex: 1, color: Colors.textMuted, fontSize: 11, lineHeight: 16 }, photoHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 17, marginBottom: 9 }, photoCount: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' }, photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, photoItem: { width: 86, height: 86, position: 'relative', borderRadius: 8, overflow: 'hidden', backgroundColor: Colors.surfaceMuted }, photo: { width: '100%', height: '100%' }, removePhoto: { position: 'absolute', top: 4, right: 4, width: 23, height: 23, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: 'rgba(23,33,43,0.72)' }, photoActions: { flexDirection: 'row', gap: 8 }, photoButton: { width: 104, height: 86, alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, backgroundColor: Colors.surface }, photoButtonText: { color: GREEN, fontSize: 11, fontWeight: '700' }, error: { color: '#B42318', fontSize: 12, lineHeight: 17, marginTop: 14 }, submitButton: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 18, borderRadius: 9, backgroundColor: GREEN }, submitButtonDisabled: { opacity: 0.65 }, submitText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' }, modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.35)' }, optionsCard: { width: '100%', maxWidth: 430, maxHeight: '78%', padding: 17, borderRadius: 12, backgroundColor: Colors.surface }, optionsTitle: { color: Colors.text, fontSize: 17, fontWeight: '800', marginBottom: 8 }, optionsScroll: { maxHeight: 410 }, option: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#E7EFE7' }, optionText: { color: Colors.textMuted, fontSize: 13 },
 });
 

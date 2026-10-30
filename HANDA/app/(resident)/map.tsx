@@ -9,6 +9,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { MapEvacuationCenter, ResidentHouseholdMember } from '@types/index';
+import AppBackArrow from '@components/AppBackArrow';
 
 const GREEN = '#218B25';
 
@@ -246,8 +247,8 @@ export default function ResidentMapScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>MAP</Text>
-          <Text style={styles.headerSubtitle}>Biñan City, Laguna</Text>
+          <AppBackArrow />
+          <View style={styles.headerCopy}><Text style={styles.headerTitle}>MAP</Text><Text style={styles.headerSubtitle}>Biñan City, Laguna</Text></View>
         </View>
 
         {isLoading && <View style={styles.status}><ActivityIndicator color={GREEN} /><Text style={styles.statusText}>Loading evacuation centers...</Text></View>}
@@ -335,6 +336,8 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   content: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center' },
   header: { backgroundColor: '#218B25', paddingHorizontal: 18, paddingTop: 18, paddingBottom: 12 },
+    header: { backgroundColor: '#218B25', paddingHorizontal: 18, paddingTop: 12, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 9 },
+    headerCopy: { flex: 1 },
   headerTitle: { color: Colors.white, fontSize: 28, fontWeight: '800' },
   headerSubtitle: { color: '#DFF1DF', fontSize: 12, marginTop: 2 },
   status: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },

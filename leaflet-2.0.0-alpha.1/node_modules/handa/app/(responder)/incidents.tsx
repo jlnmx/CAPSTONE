@@ -3,6 +3,7 @@ import { Colors } from '@constants/colors';
 import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import ResponderIncidentQueue from '@components/ResponderIncidentQueue';
+import AppBackArrow from '@components/AppBackArrow';
 
 const GREEN = '#218B25';
 
@@ -10,7 +11,8 @@ export default function IncidentsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.titleBand}>
+        <View style={[styles.titleBand, styles.titleBandWithBack]}>
+          <AppBackArrow />
           <Text style={styles.title}>ACTIVE</Text>
           <Text style={styles.title}>INCIDENTS</Text>
         </View>
@@ -21,6 +23,7 @@ export default function IncidentsScreen() {
 }
 
 const styles = StyleSheet.create({
+  titleBandWithBack: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingTop: 10 },
   container: { flex: 1, backgroundColor: Colors.background },
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 10 },
   titleBand: { backgroundColor: GREEN, paddingHorizontal: 14, paddingTop: 18, paddingBottom: 9 },

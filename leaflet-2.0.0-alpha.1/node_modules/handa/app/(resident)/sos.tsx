@@ -4,6 +4,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
+import AppBackArrow from '@components/AppBackArrow';
 
 const emergencyTypes = [
   { label: 'Flood / landslide', icon: 'waves' as const },
@@ -64,6 +65,8 @@ export default function ResidentSosScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}><AppBackArrow /><Text style={styles.headerTitle}>EMERGENCY SOS</Text></View>
+        <View style={styles.contentBody}>
         <Text style={styles.eyebrow}>HANDA EMERGENCY ASSISTANCE</Text>
         <Text style={styles.title}>Need immediate help?</Text>
         <Text style={styles.description}>Hold the SOS button for 2 seconds to alert the response team.</Text>
@@ -86,6 +89,7 @@ export default function ResidentSosScreen() {
         </Animated.View>
 
         <View style={styles.expectCard}><MaterialCommunityIcons name="shield-check-outline" size={22} color={Colors.primary} /><View style={styles.expectCopy}><Text style={styles.expectTitle}>WHAT TO EXPECT</Text><Text style={styles.expectText}>{isActivated ? 'Your request is being monitored by emergency responders.' : 'Your location and situation type will be shared with the response team after activation.'}</Text></View></View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -93,7 +97,10 @@ export default function ResidentSosScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
-  content: { flexGrow: 1, alignItems: 'center', paddingTop: 30, paddingHorizontal: 20, paddingBottom: 28 },
+  content: { flexGrow: 1, paddingBottom: 28 },
+  header: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, backgroundColor: '#218B25' },
+  headerTitle: { color: Colors.white, fontSize: 14, fontWeight: '800' },
+  contentBody: { alignItems: 'center', paddingTop: 24, paddingHorizontal: 20 },
   eyebrow: { color: Colors.success, fontSize: 10, fontWeight: '900', letterSpacing: 1.6 },
   title: { color: Colors.primary, fontSize: 25, fontWeight: '900', textAlign: 'center', marginTop: 8 },
   description: { maxWidth: 330, color: Colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 7 },

@@ -12,6 +12,12 @@ docker compose up --build
 
 The API is available at `http://localhost:8000`. OpenAPI documentation is at `http://localhost:8000/docs`.
 
+## Model-backed chatbot
+
+The authenticated `/api/v1/chatbot/answer` endpoint supports free-form questions through Groq's OpenAI-compatible chat-completions API. For direct local runs, keep `GROQ_API_KEY` and `GROQ_MODEL` in the ignored `backend/.env.groq` file; `GROQ_API_BASE_URL` defaults to `https://api.groq.com/openai/v1`. When using Docker Compose, export those variables in the shell or place them in the project-root `.env` file so Compose can pass them to the API container. The generic `CHATBOT_API_*` and `CHATBOT_MODEL` aliases are also supported. Keep the key server-side; never put it in an `EXPO_PUBLIC_*` variable or commit it.
+
+The chatbot includes recent conversation turns and retrieves live HANDA weather, typhoon, or disaster context when relevant. If the model is not configured or is unavailable, the UI labels built-in responses as fallback guidance; custom questions require a configured model provider.
+
 ## Tests
 
 Run the backend authorization tests from `backend/`:

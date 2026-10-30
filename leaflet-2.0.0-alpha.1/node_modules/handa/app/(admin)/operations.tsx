@@ -26,7 +26,7 @@ export default function AdminOperations() {
           <View>
             <Text style={styles.eyebrow}>DATA MANAGEMENT</Text>
             <Text style={styles.title}>Operations records</Text>
-            <Text style={styles.subtitle}>Live incident and evacuee records from {data.source === 'remote' ? 'PostgreSQL' : 'PostgreSQL unavailable'}.</Text>
+            <Text style={styles.subtitle}>{data.source === 'remote' ? 'Live incident and evacuee records.' : 'Live records are temporarily unavailable.'}</Text>
           </View>
           <TouchableOpacity style={styles.exportButton} onPress={() => Alert.alert('Export', 'Export is available after the synchronized reporting API is enabled.')}>
             <MaterialCommunityIcons name="download-outline" size={18} color={Colors.text} />
