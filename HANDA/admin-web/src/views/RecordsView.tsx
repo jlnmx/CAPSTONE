@@ -7,7 +7,7 @@ import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../componen
 const emptySnapshot: AdminSnapshot = { incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' };
 
 function downloadCsv(filename: string, rows: string[][]) {
-  const csv = rows.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n');
+  const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n');
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -66,7 +66,7 @@ function EvacueeTable({ rows }: { rows: EvacueeRecord[] }) {
 }
 
 function StatusPill({ value }: { value: string }) {
-  const normalized = value.toLowerCase().replaceAll('_', ' ');
+  const normalized = value.toLowerCase().replace(/_/g, ' ');
   const tone = /resolved|active|registered|success|synced|available/.test(normalized) ? 'good' : /new|pending|acknowledged|limited/.test(normalized) ? 'pending' : /closed|failed|critical|full|inactive/.test(normalized) ? 'danger' : 'neutral';
   return <span className={`status-pill status-${tone}`}><i />{normalized}</span>;
 }

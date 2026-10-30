@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: handa-api
+    runtime: docker
+    region: oregon
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health/ready
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: DATABASE_URL
+        sync: false
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: http://localhost:8081,http://localhost:19006
+      - key: CORS_ORIGIN_REGEX
+        value: "^(?:https?://(?:localhost|127\\.0\\.0\\.1|192\\.168\\.\\d+\\.\\d+)(?::\\d+)?|https://handa-(?:mobile-web|admin-web)(?:-[a-z0-9-]+)?\\.vercel\\.app|https://handa-(?:mobile-web|admin-web)\\.onrender\\.com)$"
+
+  - type: web
+    name: handa-mobile-web
+    runtime: static
+    buildCommand: npm ci && npm run web:export
+    staticPublishPath: ./dist
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        value: https://handa-api.onrender.com
+      - key: EXPO_PUBLIC_MAPBOX_TOKEN
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  - type: web
+    name: handa-admin-web
+    runtime: static
+    buildCommand: npm ci && npm run admin:build
+    staticPublishPath: ./admin-web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://handa-api.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

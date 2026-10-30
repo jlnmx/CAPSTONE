@@ -13,6 +13,18 @@
 			],
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "Build HANDA Mobile Web",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"--prefix",
+				"HANDA",
+				"run",
+				"web:export"
+			],
+			"isBackground": false
 		}
 	]
 }

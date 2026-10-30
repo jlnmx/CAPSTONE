@@ -153,6 +153,8 @@ npm run admin:build
 
 The mobile app and Admin Command Center use the same backend accounts and role verification. Administrators sign in at the Command Center; residents and responders sign in through the mobile app. Set `VITE_API_URL` for the Admin web app when the API is not available at `http://localhost:8000`.
 
+For separate Render and Vercel deployments of the resident/responder web export, admin console, and shared API, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## 🔐 Testing Authentication
 
 ### Responder Account
