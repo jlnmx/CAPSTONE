@@ -4,8 +4,8 @@ services:
     runtime: docker
     region: oregon
     plan: free
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    dockerfilePath: ./HANDA/backend/Dockerfile
+    dockerContext: ./HANDA/backend
     healthCheckPath: /health/ready
     envVars:
       - key: PORT
@@ -22,8 +22,8 @@ services:
   - type: web
     name: handa-mobile-web
     runtime: static
-    buildCommand: npm ci && npm run web:export
-    staticPublishPath: ./dist
+    buildCommand: npm --prefix HANDA ci && npm --prefix HANDA run web:export
+    staticPublishPath: ./HANDA/dist
     envVars:
       - key: EXPO_PUBLIC_API_URL
         value: https://handa-api.onrender.com
@@ -37,8 +37,8 @@ services:
   - type: web
     name: handa-admin-web
     runtime: static
-    buildCommand: npm ci && npm run admin:build
-    staticPublishPath: ./admin-web/dist
+    buildCommand: npm --prefix HANDA ci && npm --prefix HANDA run admin:build
+    staticPublishPath: ./HANDA/admin-web/dist
     envVars:
       - key: VITE_API_URL
         value: https://handa-api.onrender.com
