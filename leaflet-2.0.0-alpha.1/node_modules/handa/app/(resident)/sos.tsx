@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, SafeAreaView, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Platform, SafeAreaView, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -117,6 +117,60 @@ export default function ResidentSosScreen() {
     }
   };
 
+  const sosButtonContents = (
+    <>
+      <MaterialCommunityIcons name={isActivated ? 'check-circle-outline' : isSubmitting ? 'upload' : 'alarm-light-outline'} size={43} color={Colors.white} />
+      <Text style={styles.sosLabel}>{isActivated ? 'SENT' : isSubmitting ? 'SENDING' : 'SOS'}</Text>
+      <Text style={styles.sosState}>{isActivated ? 'HELP IS ON THE WAY' : isSubmitting ? 'CONTACTING RESPONDERS...' : isHolding ? 'KEEP HOLDING...' : 'PRESS & HOLD 2 SEC'}</Text>
+      <View style={styles.progressTrack}><Animated.View style={[styles.progressFill, { width: progressWidth }]} /></View>
+    </>
+  );
+
+  const renderSosButton = () => Platform.OS === 'web'
+    ? React.createElement('button', {
+      type: 'button',
+      disabled: isActivated || isSubmitting,
+      'aria-label': 'Touch and hold for two seconds to send an emergency SOS',
+      onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        startHolding();
+      },
+      onPointerUp: (event: React.PointerEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        stopHolding();
+      },
+      onPointerCancel: stopHolding,
+      onLostPointerCapture: stopHolding,
+      style: {
+        width: sosButtonDiameter,
+        height: sosButtonDiameter,
+        borderRadius: sosButtonDiameter / 2,
+        backgroundColor: isHolding ? '#246E45' : Colors.success,
+        border: `4px solid ${isHolding ? '#246E45' : '#8FC5A0'}`,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        touchAction: 'none',
+        userSelect: 'none',
+        cursor: isActivated || isSubmitting ? 'default' : 'pointer',
+      },
+    }, sosButtonContents)
+    : (
+      <Pressable
+        style={({ pressed }) => [styles.sosButton, { width: sosButtonDiameter, height: sosButtonDiameter, borderRadius: sosButtonDiameter / 2 }, isHolding && styles.sosButtonHolding, isActivated && styles.sosButtonActivated, pressed && styles.sosButtonPressed]}
+        onPressIn={startHolding}
+        onPressOut={stopHolding}
+        disabled={isActivated || isSubmitting}
+        accessibilityRole="button"
+        accessibilityLabel="Touch and hold for two seconds to send an emergency SOS"
+      >
+        {sosButtonContents}
+      </Pressable>
+    );
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -134,12 +188,7 @@ export default function ResidentSosScreen() {
 
         <Animated.View style={[styles.sosShell, { transform: [{ scale: pulse }] }]}>
           <View style={[styles.sosRing, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2 }]}>
-            <Pressable style={({ pressed }) => [styles.sosButton, { width: sosButtonDiameter, height: sosButtonDiameter, borderRadius: sosButtonDiameter / 2 }, isHolding && styles.sosButtonHolding, isActivated && styles.sosButtonActivated, pressed && styles.sosButtonPressed]} onPressIn={startHolding} onPressOut={stopHolding} disabled={isActivated || isSubmitting} accessibilityRole="button" accessibilityLabel="Touch and hold for two seconds to send an emergency SOS">
-              <MaterialCommunityIcons name={isActivated ? 'check-circle-outline' : isSubmitting ? 'upload' : 'alarm-light-outline'} size={43} color={Colors.white} />
-              <Text style={styles.sosLabel}>{isActivated ? 'SENT' : isSubmitting ? 'SENDING' : 'SOS'}</Text>
-              <Text style={styles.sosState}>{isActivated ? 'HELP IS ON THE WAY' : isSubmitting ? 'CONTACTING RESPONDERS...' : isHolding ? 'KEEP HOLDING...' : 'PRESS & HOLD 2 SEC'}</Text>
-              <View style={styles.progressTrack}><Animated.View style={[styles.progressFill, { width: progressWidth }]} /></View>
-            </Pressable>
+            {renderSosButton()}
           </View>
         </Animated.View>
 

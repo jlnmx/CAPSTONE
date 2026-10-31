@@ -66,6 +66,8 @@ export interface UserRecord {
   email: string;
   role: 'Responder' | 'Resident' | 'Administrator';
   status: 'Active' | 'Inactive' | 'Pending';
+  responderType?: 'Official' | 'Volunteer' | null;
+  hasVerificationDocument?: boolean;
   birthday?: string;
   mobileNumber?: string;
   currentAddress?: string;

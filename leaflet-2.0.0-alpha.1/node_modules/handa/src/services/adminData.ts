@@ -42,11 +42,20 @@ export type AdminUserRecord = {
   email: string;
   role: 'Responder' | 'Resident' | 'Administrator';
   status: 'Active' | 'Inactive' | 'Pending';
+  responderType?: 'Official' | 'Volunteer' | null;
+  hasVerificationDocument: boolean;
   birthday?: string;
   mobileNumber?: string;
   currentAddress?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ResponderVerificationDocument = {
+  fileName: string;
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  base64: string;
+  responderType: 'Official' | 'Volunteer' | null;
 };
 
 export type AdminUserInput = {
@@ -220,12 +229,35 @@ export async function getAdminUsers(): Promise<AdminUserRecord[]> {
     email: record.email,
     role: record.role,
     status: record.status,
+    responderType: record.responder_type ?? record.responderType ?? null,
+    hasVerificationDocument: Boolean(record.has_verification_document ?? record.hasVerificationDocument),
     birthday: record.birthday,
     mobileNumber: record.mobile_number ?? record.mobileNumber,
     currentAddress: record.current_address ?? record.currentAddress,
     createdAt: record.createdAt ?? record.created_at,
     updatedAt: record.updatedAt ?? record.updated_at,
   }));
+}
+
+export async function getResponderVerificationDocument(userId: string): Promise<ResponderVerificationDocument> {
+  const response = await authenticatedFetch(`/api/v1/users/${encodeURIComponent(userId)}/verification-document`);
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({})) as { detail?: string };
+    throw new Error(result.detail || `The responder ID could not be loaded (${response.status}).`);
+  }
+  return response.json() as Promise<ResponderVerificationDocument>;
+}
+
+export async function reviewResponderApplication(userId: string, decision: 'approved' | 'rejected'): Promise<void> {
+  const response = await authenticatedFetch(`/api/v1/users/${encodeURIComponent(userId)}/responder-application`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decision }),
+  });
+  if (!response.ok) {
+    const result = await response.json().catch(() => ({})) as { detail?: string };
+    throw new Error(result.detail || `The responder application could not be reviewed (${response.status}).`);
+  }
 }
 
 async function submitUserRequest(path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: Record<string, string>) {

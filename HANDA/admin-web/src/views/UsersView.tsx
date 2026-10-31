@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Pencil, Plus, Search, Trash2, UserRoundPlus, Users } from 'lucide-react';
-import { createUser, deleteUser, getUsers, updateUser } from '../api';
+import { createUser, deleteUser, getResponderVerificationDocument, getUsers, reviewResponderApplication, updateUser } from '../api';
 import type { UserInput, UserRecord } from '../types';
+import type { ResponderVerificationDocument } from '../api';
 import { EmptyState, InlineNotice, LoadingState, MetricCard, PageHeading } from '../components/UI';
 
 const blankUser: UserInput = { name: '', email: '', role: 'Responder', status: 'Active', birthday: '', mobileNumber: '', currentAddress: '', password: '' };
@@ -29,6 +30,12 @@ export default function UsersView() {
   const [statusFilter, setStatusFilter] = useState('All statuses');
   const [editing, setEditing] = useState<UserRecord | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<UserRecord | null>(null);
+  const [reviewDocument, setReviewDocument] = useState<ResponderVerificationDocument | null>(null);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewImageLoaded, setReviewImageLoaded] = useState(false);
+  const [reviewSaving, setReviewSaving] = useState(false);
   const [form, setForm] = useState<UserInput>(blankUser);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -97,6 +104,30 @@ export default function UsersView() {
     finally { setSaving(false); }
   }
 
+  async function openResponderReview(user: UserRecord) {
+    setReviewTarget(user);
+    setReviewDocument(null);
+    setReviewImageLoaded(false);
+    setReviewError('');
+    setReviewLoading(true);
+    try { setReviewDocument(await getResponderVerificationDocument(user.id)); }
+    catch (cause) { setReviewError(cause instanceof Error ? cause.message : 'The responder ID could not be loaded.'); }
+    finally { setReviewLoading(false); }
+  }
+
+  async function decideResponderApplication(decision: 'approved' | 'rejected') {
+    if (!reviewTarget || !reviewDocument || !reviewImageLoaded) return;
+    setReviewSaving(true);
+    setReviewError('');
+    try {
+      await reviewResponderApplication(reviewTarget.id, decision);
+      setReviewTarget(null);
+      setReviewDocument(null);
+      await refresh();
+    } catch (cause) { setReviewError(cause instanceof Error ? cause.message : 'The responder application could not be reviewed.'); }
+    finally { setReviewSaving(false); }
+  }
+
   return <div className="page-content users-page">
     <PageHeading eyebrow="ACCESS CONTROL" title="User accounts" description="Manage resident and responder access across the HANDA network." action={<button className="button-primary" onClick={openCreate}><Plus size={17} /> Add account</button>} />
     <div className="metric-grid metric-grid-compact"><MetricCard label="All accounts" value={users.length} detail="Registered profiles" icon={Users} /><MetricCard label="Responders" value={responders} detail="Field personnel" icon={UserRoundPlus} tone="blue" /><MetricCard label="Pending approval" value={pending} detail="Requires review" icon={Users} tone="amber" /></div>
@@ -108,7 +139,7 @@ export default function UsersView() {
         <select className="select-control" aria-label="Filter status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>
         <span className="results-count">{visible.length} of {users.length}</span>
       </div>
-      {loading ? <LoadingState label="Loading user accounts" /> : visible.length === 0 ? <EmptyState title="No accounts found" detail="Adjust your filters or create a new account." /> : <div className="table-scroll"><table className="data-table user-table"><thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Created</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{visible.map((user) => <tr key={user.id}><td><div className="person-cell"><span className="avatar avatar-table">{user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{user.name}{user.id === users.find((candidate) => candidate.role === 'Administrator')?.id ? ' · You' : ''}</strong><small className="cell-subtitle">{user.email}</small></span></div></td><td>{user.role}</td><td><span className={`status-pill status-${user.status === 'Active' ? 'good' : user.status === 'Pending' ? 'pending' : 'neutral'}`}><i />{user.status}</span></td><td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</td><td><div className="row-actions"><button className="icon-button action-edit" aria-label={`Edit ${user.name}`} onClick={() => openEdit(user)}><Pencil size={16} /></button>{user.role !== 'Administrator' && <button className="icon-button action-delete" aria-label={`Delete ${user.name}`} onClick={() => setDeleteTarget(user)}><Trash2 size={16} /></button>}</div></td></tr>)}</tbody></table></div>}
+      {loading ? <LoadingState label="Loading user accounts" /> : visible.length === 0 ? <EmptyState title="No accounts found" detail="Adjust your filters or create a new account." /> : <div className="table-scroll"><table className="data-table user-table"><thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Created</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{visible.map((user) => <tr key={user.id}><td><div className="person-cell"><span className="avatar avatar-table">{user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{user.name}{user.id === users.find((candidate) => candidate.role === 'Administrator')?.id ? ' · You' : ''}</strong><small className="cell-subtitle">{user.email}</small></span></div></td><td>{user.role}</td><td><span className={`status-pill status-${user.status === 'Active' ? 'good' : user.status === 'Pending' ? 'pending' : 'neutral'}`}><i />{user.status}</span></td><td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</td><td><div className="row-actions">{user.role === 'Responder' && user.status === 'Pending' && user.hasVerificationDocument && <button className="button-secondary" onClick={() => void openResponderReview(user)}>Review ID</button>}<button className="icon-button action-edit" aria-label={`Edit ${user.name}`} onClick={() => openEdit(user)}><Pencil size={16} /></button>{user.role !== 'Administrator' && <button className="icon-button action-delete" aria-label={`Delete ${user.name}`} onClick={() => setDeleteTarget(user)}><Trash2 size={16} /></button>}</div></td></tr>)}</tbody></table></div>}
     </section>
 
     {editing !== null && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(null); }}><section className="modal-card modal-wide" role="dialog" aria-modal="true"><div className="modal-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h2>{editing ? 'Edit account' : 'Create account'}</h2></div><button className="icon-button" onClick={() => setEditing(null)} aria-label="Close">×</button></div><form className="form-grid" onSubmit={(event) => void submit(event)}>
@@ -123,6 +154,22 @@ export default function UsersView() {
       {formError && <InlineNotice tone="error">{formError}</InlineNotice>}
       <div className="modal-actions form-field-wide"><button type="button" className="button-secondary" onClick={() => setEditing(null)}>Cancel</button><button type="submit" className="button-primary" disabled={saving}>{saving && <span className="button-spinner" />}{editing ? 'Save changes' : 'Create account'}</button></div>
     </form></section></div>}
+
+    {reviewTarget && <div className="modal-backdrop"><section className="modal-card responder-review-modal" role="dialog" aria-modal="true" aria-labelledby="responder-review-title">
+      <div className="modal-heading"><div><p className="eyebrow">RESPONDER APPLICATION</p><h2 id="responder-review-title">Review {reviewTarget.responderType || 'responder'} ID</h2><p className="modal-copy">{reviewTarget.name} · {reviewTarget.email}</p></div><button className="icon-button" onClick={() => setReviewTarget(null)} aria-label="Close review">×</button></div>
+      {reviewLoading ? <LoadingState label="Loading submitted ID" /> : reviewDocument ? <div className="responder-review-content">
+        <img
+          src={`data:${reviewDocument.mimeType};base64,${reviewDocument.base64}`}
+          alt={`Identification document submitted by ${reviewTarget.name}`}
+          onLoad={() => setReviewImageLoaded(true)}
+          onError={() => { setReviewImageLoaded(false); setReviewError('The responder ID image could not be displayed.'); }}
+        />
+        <p className="cell-subtitle">{reviewDocument.fileName}</p>
+        <p className="modal-copy">Check that the identification is legible and matches the applicant before deciding.</p>
+      </div> : !reviewError && <p className="modal-copy">The applicant has not submitted an ID document.</p>}
+      {reviewError && <InlineNotice tone="error">{reviewError}</InlineNotice>}
+      <div className="modal-actions"><button className="button-secondary" onClick={() => setReviewTarget(null)} disabled={reviewSaving}>Close</button><button className="button-danger" onClick={() => void decideResponderApplication('rejected')} disabled={!reviewImageLoaded || reviewSaving}>{reviewSaving ? 'Saving…' : 'Reject'}</button><button className="button-primary" onClick={() => void decideResponderApplication('approved')} disabled={!reviewImageLoaded || reviewSaving}>{reviewSaving ? 'Saving…' : 'Approve'}</button></div>
+    </section></div>}
 
     {deleteTarget && <div className="modal-backdrop"><section className="modal-card confirm-modal" role="alertdialog" aria-modal="true"><p className="eyebrow">REMOVE ACCESS</p><h2>Delete this account?</h2><p className="modal-copy"><strong>{deleteTarget.name}</strong> will immediately lose access to HANDA. This action cannot be undone.</p>{error && <InlineNotice tone="error">{error}</InlineNotice>}<div className="modal-actions"><button className="button-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button><button className="button-danger" onClick={() => void confirmDelete()} disabled={saving}>{saving ? 'Deleting…' : 'Delete account'}</button></div></section></div>}
   </div>;

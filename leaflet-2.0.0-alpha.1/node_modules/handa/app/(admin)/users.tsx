@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,7 +7,7 @@ import { useFocusEffect } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
-import { AdminUserInput, AdminUserRecord, createAdminUser, deleteAdminUser, getAdminUsers, updateAdminUser } from '@services/adminData';
+import { AdminUserInput, AdminUserRecord, createAdminUser, deleteAdminUser, getAdminUsers, getResponderVerificationDocument, ResponderVerificationDocument, reviewResponderApplication, updateAdminUser } from '@services/adminData';
 
 type AccountForm = AdminUserInput;
 
@@ -58,6 +58,12 @@ export default function AdminUsers() {
   const [accounts, setAccounts] = useState<AdminUserRecord[]>([]);
   const [query, setQuery] = useState('');
   const [editingAccount, setEditingAccount] = useState<AdminUserRecord | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<AdminUserRecord | null>(null);
+  const [reviewDocument, setReviewDocument] = useState<ResponderVerificationDocument | null>(null);
+  const [isReviewLoading, setIsReviewLoading] = useState(false);
+  const [isReviewImageLoaded, setIsReviewImageLoaded] = useState(false);
+  const [isReviewSubmitting, setIsReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState('');
   const [form, setForm] = useState<AccountForm>(EMPTY_FORM);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminUserRecord | null>(null);
@@ -173,6 +179,37 @@ export default function AdminUsers() {
     }
   };
 
+  const openResponderReview = async (account: AdminUserRecord) => {
+    setReviewTarget(account);
+    setReviewDocument(null);
+    setIsReviewImageLoaded(false);
+    setReviewError('');
+    setIsReviewLoading(true);
+    try {
+      setReviewDocument(await getResponderVerificationDocument(account.id));
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : 'The responder ID could not be loaded.');
+    } finally {
+      setIsReviewLoading(false);
+    }
+  };
+
+  const decideResponderApplication = async (decision: 'approved' | 'rejected') => {
+    if (!reviewTarget || !reviewDocument || !isReviewImageLoaded) return;
+    setIsReviewSubmitting(true);
+    setReviewError('');
+    try {
+      await reviewResponderApplication(reviewTarget.id, decision);
+      setReviewTarget(null);
+      setReviewDocument(null);
+      await loadAccounts();
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : 'The responder application could not be reviewed.');
+    } finally {
+      setIsReviewSubmitting(false);
+    }
+  };
+
   const visibleAccounts = useMemo(() => accounts.filter((account) => `${account.name} ${account.email} ${account.role}`.toLowerCase().includes(query.toLowerCase())), [accounts, query]);
   const responders = accounts.filter((account) => account.role === 'Responder').length;
   const pending = accounts.filter((account) => account.status === 'Pending').length;
@@ -185,7 +222,7 @@ export default function AdminUsers() {
         <View style={styles.panel}>
           <View style={[styles.toolbar, isMobile && styles.toolbarMobile]}><View style={styles.search}><MaterialCommunityIcons name="magnify" size={19} color={Colors.textMuted} /><TextInput value={query} onChangeText={setQuery} placeholder="Search users" placeholderTextColor={Colors.textMuted} style={styles.searchInput} /></View><Text style={styles.resultCount}>{visibleAccounts.length} accounts</Text></View>
           {pageError ? <Text style={styles.errorText}>{pageError}</Text> : null}
-          {visibleAccounts.map((account) => <UserRow key={account.id} account={account} isCurrentUser={account.id === user?.id} onEdit={() => openEdit(account)} onDelete={() => setDeleteTarget(account)} />)}
+          {visibleAccounts.map((account) => <UserRow key={account.id} account={account} isCurrentUser={account.id === user?.id} onEdit={() => openEdit(account)} onDelete={() => setDeleteTarget(account)} onReview={() => void openResponderReview(account)} />)}
           {visibleAccounts.length === 0 && <View style={styles.empty}><MaterialCommunityIcons name="account-search-outline" size={30} color={Colors.textMuted} /><Text style={styles.emptyTitle}>No user accounts found</Text><Text style={styles.emptyDetail}>Try another search or create an account.</Text></View>}
         </View>
       </ScrollView>
@@ -215,12 +252,43 @@ export default function AdminUsers() {
       <Modal visible={!!deleteTarget} transparent animationType="fade" onRequestClose={() => setDeleteTarget(null)}>
         <View style={styles.modalBackdrop}><View style={styles.confirmDialog}><Text style={styles.modalTitle}>Delete account?</Text><Text style={styles.confirmText}>Delete {deleteTarget?.name}? They will immediately lose access. This cannot be undone.</Text>{pageError ? <Text style={styles.errorText}>{pageError}</Text> : null}<View style={styles.modalActions}><Pressable style={styles.cancelButton} onPress={() => setDeleteTarget(null)}><Text style={styles.cancelText}>Cancel</Text></Pressable><Pressable style={[styles.deleteButton, isDeleting && styles.disabledButton]} onPress={() => void confirmDelete()} disabled={isDeleting}>{isDeleting ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.saveText}>Delete account</Text>}</Pressable></View></View></View>
       </Modal>
+      <Modal visible={!!reviewTarget} transparent animationType="fade" onRequestClose={() => setReviewTarget(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.reviewDialog}>
+            <View style={styles.modalHeader}>
+              <View><Text style={styles.modalTitle}>Review responder application</Text><Text style={styles.modalSubtitle}>{reviewTarget?.name} · {reviewTarget?.responderType || 'Responder'}</Text></View>
+              <Pressable onPress={() => setReviewTarget(null)} accessibilityLabel="Close review"><MaterialCommunityIcons name="close" size={23} color={Colors.textMuted} /></Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.reviewContent}>
+              <Text style={styles.fieldLabel}>Submitted responder ID</Text>
+              {isReviewLoading ? <ActivityIndicator color={Colors.primary} /> : reviewDocument ? <>
+                <Image
+                  source={{ uri: `data:${reviewDocument.mimeType};base64,${reviewDocument.base64}` }}
+                  style={styles.reviewImage}
+                  resizeMode="contain"
+                  accessibilityLabel="Submitted responder identification document"
+                  onLoad={() => setIsReviewImageLoaded(true)}
+                  onError={() => { setIsReviewImageLoaded(false); setReviewError('The responder ID image could not be displayed.'); }}
+                />
+                <Text style={styles.reviewFileName}>{reviewDocument.fileName}</Text>
+                <Text style={styles.reviewHint}>Check that the identification is legible and matches the applicant before deciding.</Text>
+              </> : !reviewError && <Text style={styles.reviewHint}>The applicant has not submitted an ID document.</Text>}
+              {!!reviewError && <Text style={styles.errorText}>{reviewError}</Text>}
+              <View style={styles.modalActions}>
+                <Pressable style={styles.cancelButton} onPress={() => setReviewTarget(null)} disabled={isReviewSubmitting}><Text style={styles.cancelText}>Close</Text></Pressable>
+                <Pressable style={[styles.deleteButton, (!isReviewImageLoaded || isReviewSubmitting) && styles.disabledButton]} onPress={() => void decideResponderApplication('rejected')} disabled={!isReviewImageLoaded || isReviewSubmitting}>{isReviewSubmitting ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.saveText}>Reject</Text>}</Pressable>
+                <Pressable style={[styles.saveButton, (!isReviewImageLoaded || isReviewSubmitting) && styles.disabledButton]} onPress={() => void decideResponderApplication('approved')} disabled={!isReviewImageLoaded || isReviewSubmitting}>{isReviewSubmitting ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.saveText}>Approve</Text>}</Pressable>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 function Summary({ label, value }: { label: string; value: number }) { return <View style={styles.summaryItem}><Text style={styles.summaryValue}>{value}</Text><Text style={styles.summaryLabel}>{label}</Text></View>; }
-function UserRow({ account, isCurrentUser, onEdit, onDelete }: { account: AdminUserRecord; isCurrentUser: boolean; onEdit: () => void; onDelete: () => void }) { return <View style={styles.row}><View style={styles.userAvatar}><Text style={styles.avatarText}>{account.name.split(' ').map((word) => word[0]).join('').slice(0, 2)}</Text></View><View style={styles.userInfo}><Text style={styles.userName}>{account.name}{isCurrentUser ? ' (You)' : ''}</Text><Text style={styles.userEmail}>{account.email}</Text></View><View style={styles.roleWrap}><Text style={styles.role}>{account.role}</Text><Text style={[styles.status, { color: account.status === 'Active' ? '#167A5B' : account.status === 'Inactive' ? Colors.emergency : '#8B5E00' }]}>{account.status}</Text></View><View style={styles.rowActions}><Pressable onPress={onEdit} accessibilityLabel={`Edit ${account.name}`} style={styles.iconButton}><MaterialCommunityIcons name="pencil-outline" size={19} color={Colors.secondary} /></Pressable>{!isCurrentUser && <Pressable onPress={onDelete} accessibilityLabel={`Delete ${account.name}`} style={styles.iconButton}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></Pressable>}</View></View>; }
+function UserRow({ account, isCurrentUser, onEdit, onDelete, onReview }: { account: AdminUserRecord; isCurrentUser: boolean; onEdit: () => void; onDelete: () => void; onReview: () => void }) { return <View style={styles.row}><View style={styles.userAvatar}><Text style={styles.avatarText}>{account.name.split(' ').map((word) => word[0]).join('').slice(0, 2)}</Text></View><View style={styles.userInfo}><Text style={styles.userName}>{account.name}{isCurrentUser ? ' (You)' : ''}</Text><Text style={styles.userEmail}>{account.email}</Text></View><View style={styles.roleWrap}><Text style={styles.role}>{account.role}</Text><Text style={[styles.status, { color: account.status === 'Active' ? '#167A5B' : account.status === 'Inactive' ? Colors.emergency : '#8B5E00' }]}>{account.status}</Text></View><View style={styles.rowActions}>{account.role === 'Responder' && account.status === 'Pending' && account.hasVerificationDocument && <Pressable onPress={onReview} accessibilityLabel={`Review ${account.name}'s responder ID`} style={styles.reviewButton}><Text style={styles.reviewButtonText}>Review ID</Text></Pressable>}<Pressable onPress={onEdit} accessibilityLabel={`Edit ${account.name}`} style={styles.iconButton}><MaterialCommunityIcons name="pencil-outline" size={19} color={Colors.secondary} /></Pressable>{!isCurrentUser && <Pressable onPress={onDelete} accessibilityLabel={`Delete ${account.name}`} style={styles.iconButton}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></Pressable>}</View></View>; }
 
 function FormField({ label, value, onChangeText, placeholder, keyboardType, autoCapitalize, inputType }: { label: string; value: string; onChangeText: (value: string) => void; placeholder?: string; keyboardType?: 'default' | 'email-address' | 'phone-pad'; autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'; inputType?: 'date' }) { return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={Colors.textMuted} keyboardType={keyboardType} autoCapitalize={autoCapitalize} style={styles.fieldInput} {...(inputType ? { type: inputType } as object : {})} /></View>; }
 
@@ -263,6 +331,8 @@ const styles = StyleSheet.create({
   createButton: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: Colors.primary, paddingHorizontal: 14, paddingVertical: 11, borderRadius: BorderRadius.sm },
   createButtonText: { color: Colors.white, fontSize: 12, fontWeight: '700' },
   rowActions: { flexDirection: 'row', gap: 2 },
+  reviewButton: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 10, borderWidth: 1, borderColor: Colors.primary, borderRadius: BorderRadius.sm },
+  reviewButtonText: { color: Colors.primary, fontSize: 11, fontWeight: '700' },
   iconButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   modalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 18, backgroundColor: 'rgba(17, 31, 43, 0.48)' },
   editor: { width: '100%', maxWidth: 560, maxHeight: '92%', backgroundColor: Colors.surface, borderRadius: BorderRadius.md, overflow: 'hidden' },
@@ -296,4 +366,9 @@ const styles = StyleSheet.create({
   saveText: { color: Colors.white, fontSize: 12, fontWeight: '700' },
   confirmDialog: { width: '100%', maxWidth: 420, padding: 22, backgroundColor: Colors.surface, borderRadius: BorderRadius.md },
   confirmText: { color: Colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 10 },
+  reviewDialog: { width: '100%', maxWidth: 560, maxHeight: '92%', backgroundColor: Colors.surface, borderRadius: BorderRadius.md, overflow: 'hidden' },
+  reviewContent: { padding: 20 },
+  reviewImage: { width: '100%', height: 300, marginTop: 8, backgroundColor: Colors.surfaceMuted },
+  reviewFileName: { color: Colors.textMuted, fontSize: 11, marginTop: 8 },
+  reviewHint: { color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 8 },
 });

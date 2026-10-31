@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput as NativeTextInput, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { ActivityIndicator, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput as NativeTextInput, View } from 'react-native';
+import { Camera, CameraView } from 'expo-camera';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
@@ -19,6 +21,7 @@ type VerificationDocument = {
   base64: string;
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
   name: string;
+  previewUri: string;
 };
 
 type RegistrationFormProps = { role?: RegistrationRole; responderType?: ResponderType };
@@ -51,6 +54,11 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [householdMembers, setHouseholdMembers] = useState<ResidentHouseholdMember[]>([]);
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isCapturingId, setIsCapturingId] = useState(false);
+  const [cameraBounds, setCameraBounds] = useState({ width: 0, height: 0 });
+  const cameraRef = useRef<CameraView>(null);
   const [isPendingConfirmationOpen, setIsPendingConfirmationOpen] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null);
@@ -88,7 +96,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     if (result.canceled) return;
     const asset = result.assets[0];
     const mimeType = asset.mimeType;
-    if (!asset.base64 || !['image/jpeg', 'image/png', 'image/webp'].includes(mimeType ?? '')) {
+    if (!asset.base64 || !isVerificationDocumentMimeType(mimeType)) {
       setValidationErrors((current) => ({ ...current, verificationDocument: 'Choose a JPEG, PNG, or WebP image.' }));
       return;
     }
@@ -98,10 +106,84 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     }
     setVerificationDocument({
       base64: asset.base64,
-      mimeType: mimeType as VerificationDocument['mimeType'],
+      mimeType,
       name: asset.fileName || `${responderType?.toLowerCase() || 'responder'}-id.${mimeType.split('/')[1]}`,
+      previewUri: `data:${mimeType};base64,${asset.base64}`,
     });
     setValidationErrors((current) => ({ ...current, verificationDocument: '' }));
+  };
+
+  const openIdCamera = async () => {
+    setValidationErrors((current) => ({ ...current, verificationDocument: '' }));
+    try {
+      if (!await CameraView.isAvailableAsync()) {
+        setValidationErrors((current) => ({ ...current, verificationDocument: 'A camera is not available on this device. Choose an ID photo instead.' }));
+        return;
+      }
+      const permission = await Camera.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setValidationErrors((current) => ({
+          ...current,
+          verificationDocument: permission.canAskAgain
+            ? 'Allow camera access to take a responder ID photo.'
+            : 'Camera access is disabled. Enable it in device settings or choose an ID photo instead.',
+        }));
+        return;
+      }
+      setIsCameraReady(false);
+      setCameraBounds({ width: 0, height: 0 });
+      setIsCameraOpen(true);
+    } catch (error) {
+      setValidationErrors((current) => ({
+        ...current,
+        verificationDocument: error instanceof Error ? error.message : 'The camera could not be opened. Choose an ID photo instead.',
+      }));
+    }
+  };
+
+  const captureResponderId = async () => {
+    if (!cameraRef.current || !isCameraReady || isCapturingId || !cameraBounds.width || !cameraBounds.height) return;
+    setIsCapturingId(true);
+    try {
+      const picture = await cameraRef.current.takePictureAsync({ quality: 0.9 });
+      if (!picture?.uri || !picture.width || !picture.height) throw new Error('The camera did not return a usable photo.');
+
+      const cardRatio = 85.6 / 53.98;
+      const frameWidth = Math.min(cameraBounds.width - 40, (cameraBounds.height - 208) * cardRatio);
+      const frameHeight = frameWidth / cardRatio;
+      const scale = Math.max(cameraBounds.width / picture.width, cameraBounds.height / picture.height);
+      const renderedWidth = picture.width * scale;
+      const renderedHeight = picture.height * scale;
+      const frameTop = 66 + (cameraBounds.height - 66 - 142 - frameHeight) / 2;
+      const originX = Math.max(0, Math.round((renderedWidth - frameWidth) / (2 * scale)));
+      const originY = Math.max(0, Math.round((frameTop + (renderedHeight - cameraBounds.height) / 2) / scale));
+      const cropWidth = Math.min(picture.width - originX, Math.round(frameWidth / scale));
+      const cropHeight = Math.min(picture.height - originY, Math.round(frameHeight / scale));
+      if (cropWidth < 1 || cropHeight < 1) throw new Error('Could not crop the ID photo. Please try again.');
+
+      const cropped = await manipulateAsync(picture.uri, [
+        { crop: { originX, originY, width: cropWidth, height: cropHeight } },
+        { resize: { width: Math.min(1600, cropWidth) } },
+      ], { compress: 0.85, format: SaveFormat.JPEG, base64: true });
+      if (!cropped.base64) throw new Error('The cropped ID photo could not be prepared for upload.');
+      if (Math.ceil(cropped.base64.length * 3 / 4) > 4 * 1024 * 1024) throw new Error('The cropped ID photo is too large. Retake it in better lighting.');
+
+      setVerificationDocument({
+        base64: cropped.base64,
+        mimeType: 'image/jpeg',
+        name: `${responderType?.toLowerCase() || 'responder'}-id.jpg`,
+        previewUri: cropped.uri,
+      });
+      setValidationErrors((current) => ({ ...current, verificationDocument: '' }));
+      setIsCameraOpen(false);
+    } catch (error) {
+      setValidationErrors((current) => ({
+        ...current,
+        verificationDocument: error instanceof Error ? error.message : 'The ID photo could not be cropped. Please try again.',
+      }));
+    } finally {
+      setIsCapturingId(false);
+    }
   };
 
   const openMemberDialog = (index: number | null = null) => {
@@ -274,16 +356,26 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           <View style={[styles.row, isCompact && styles.rowStacked]}>
             <FormField compact={isCompact} label="Birthdate" error={validationErrors.birthday}>
               {Platform.OS === 'web' ? (
-                <NativeTextInput
-                  value={birthday}
-                  onChangeText={setBirthday}
-                  placeholder="Select birthdate"
-                  accessibilityLabel="Select birthdate from calendar"
-                  placeholderTextColor={PLACEHOLDER_COLOR}
-                  style={styles.input}
-                  selectionColor={GREEN}
-                  {...({ type: 'date', max: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` } as object)}
-                />
+                React.createElement('input', {
+                  type: 'date',
+                  value: birthday,
+                  max: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`,
+                  onChange: (event: { target: { value: string } }) => setBirthday(event.target.value),
+                  'aria-label': 'Select birthdate from calendar',
+                  style: {
+                    width: '100%',
+                    height: 48,
+                    boxSizing: 'border-box',
+                    padding: '0 14px',
+                    border: `1px solid ${BORDER}`,
+                    borderRadius: 6,
+                    backgroundColor: SURFACE,
+                    color: TEXT,
+                    fontFamily: FONT_FAMILY,
+                    fontSize: 15,
+                    accentColor: GREEN,
+                  },
+                })
               ) : (
                 <TouchableOpacity style={styles.selectInput} onPress={() => setIsBirthdayPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Select birthdate from calendar">
                   <Text style={birthday ? styles.selectValue : styles.selectPlaceholder}>{birthday || 'Select birthdate'}</Text>
@@ -360,10 +452,23 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </View>
           <View style={styles.verificationSection}>
             <Text style={styles.householdLabel}>{responderType?.toUpperCase() ?? 'RESPONDER'} ID</Text>
-            <Text style={styles.householdEmpty}>Upload a clear image of your responder ID for administrator review. JPEG, PNG, or WebP, up to 4 MB.</Text>
-            <TouchableOpacity style={styles.addMemberButton} onPress={() => void selectResponderId()} accessibilityRole="button" accessibilityLabel={verificationDocument ? 'Replace responder ID image' : 'Upload responder ID image'}>
-              <View style={styles.addMemberContent}><View style={styles.addMemberIcon}><MaterialCommunityIcons name={verificationDocument ? 'check' : 'cloud-upload-outline'} size={19} color={GREEN} /></View><Text style={styles.addMemberText}>{verificationDocument ? verificationDocument.name : 'Upload responder ID'}</Text><MaterialCommunityIcons name="chevron-right" size={20} color={GREEN} /></View>
-            </TouchableOpacity>
+            <Text style={styles.householdEmpty}>Take a photo and align your ID inside the guide for automatic card-size cropping, or choose an existing JPEG, PNG, or WebP image. Admins will review it with your application.</Text>
+            <View style={styles.idPhotoActions}>
+              <TouchableOpacity style={styles.idPhotoButton} onPress={() => void openIdCamera()} accessibilityRole="button" accessibilityLabel="Take and automatically crop a responder ID photo">
+                <MaterialCommunityIcons name="camera-outline" size={19} color={GREEN} /><Text style={styles.idPhotoButtonText}>Take ID photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.idPhotoButton} onPress={() => void selectResponderId()} accessibilityRole="button" accessibilityLabel="Choose responder ID photo from library">
+                <MaterialCommunityIcons name="image-outline" size={19} color={GREEN} /><Text style={styles.idPhotoButtonText}>Choose photo</Text>
+              </TouchableOpacity>
+            </View>
+            {verificationDocument && <View style={styles.idPhotoPreview}>
+              <Image source={{ uri: verificationDocument.previewUri }} style={styles.idPhotoThumbnail} resizeMode="contain" accessibilityLabel="Responder ID photo preview" />
+              <View style={styles.idPhotoPreviewCopy}>
+                <Text style={styles.idPhotoPreviewTitle}>ID ready for administrator review</Text>
+                <Text style={styles.householdEmpty}>{verificationDocument.name}</Text>
+              </View>
+              <MaterialCommunityIcons name="check-circle" size={21} color={GREEN} />
+            </View>}
             {!!validationErrors.verificationDocument && <Text style={styles.fieldError}>{validationErrors.verificationDocument}</Text>}
           </View>
           </View>}
@@ -455,6 +560,53 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </Pressable>
         </Pressable>
       </Modal>
+      <Modal visible={isCameraOpen} animationType="slide" onRequestClose={() => setIsCameraOpen(false)}>
+        <View style={styles.cameraModal} onLayout={(event) => setCameraBounds({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
+          <CameraView
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            onCameraReady={() => setIsCameraReady(true)}
+            onMountError={(event) => {
+              setIsCameraOpen(false);
+              setValidationErrors((current) => ({ ...current, verificationDocument: `The camera could not start: ${event.message}` }));
+            }}
+          />
+          <View style={styles.cameraTopBar}>
+            <TouchableOpacity style={styles.cameraCloseButton} onPress={() => setIsCameraOpen(false)} accessibilityRole="button" accessibilityLabel="Close camera">
+              <MaterialCommunityIcons name="close" size={23} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.cameraTitle}>Capture responder ID</Text>
+            <View style={styles.cameraCloseButton} />
+          </View>
+          <View style={styles.cameraGuideArea} pointerEvents="none">
+            <View style={[
+              styles.cameraIdFrame,
+              {
+                width: cameraBounds.width
+                  ? Math.max(0, Math.min(cameraBounds.width - 40, (cameraBounds.height - 190) * (85.6 / 53.98)))
+                  : '82%',
+                aspectRatio: 85.6 / 53.98,
+              },
+            ]}>
+              <Text style={styles.cameraGuideLabel}>ALIGN ID INSIDE FRAME</Text>
+            </View>
+          </View>
+          <View style={styles.cameraBottomBar}>
+            <Text style={styles.cameraInstruction}>Keep the full ID inside the frame. It will be cropped automatically.</Text>
+            <TouchableOpacity
+              style={[styles.captureButton, (!isCameraReady || isCapturingId) && styles.addMemberButtonDisabled]}
+              onPress={() => void captureResponderId()}
+              disabled={!isCameraReady || isCapturingId}
+              accessibilityRole="button"
+              accessibilityLabel="Take and crop ID photo"
+            >
+              {isCapturingId ? <ActivityIndicator color={GREEN} /> : <View style={styles.captureButtonInner} />}
+            </TouchableOpacity>
+          </View>
+          {!isCameraReady && <View style={styles.cameraLoading}><ActivityIndicator color="#FFFFFF" /><Text style={styles.cameraInstruction}>Starting camera…</Text></View>}
+        </View>
+      </Modal>
       <Modal transparent visible={isPendingConfirmationOpen} animationType="fade" onRequestClose={() => { setIsPendingConfirmationOpen(false); router.replace('/(auth)/login'); }}>
         <View style={styles.modalBackdrop}>
           <View style={styles.pendingDialog}>
@@ -516,6 +668,10 @@ function getRegistrationErrorMessage(detail: unknown): string {
   }
 
   return 'Registration could not be completed. Check your information and try again.';
+}
+
+function isVerificationDocumentMimeType(value: string | null | undefined): value is VerificationDocument['mimeType'] {
+  return value === 'image/jpeg' || value === 'image/png' || value === 'image/webp';
 }
 
 const PAGE_BACKGROUND = '#F5F7FA';
@@ -592,6 +748,25 @@ const styles = StyleSheet.create({
   householdLimit: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, marginTop: 1 },
   addMemberButton: { width: '100%', minHeight: 52, justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 9, backgroundColor: SURFACE_MUTED },
   addMemberButtonDisabled: { opacity: 0.55 },
+  idPhotoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  idPhotoButton: { minHeight: 46, flexGrow: 1, flexBasis: 140, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 8, backgroundColor: SURFACE_MUTED },
+  idPhotoButtonText: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700' },
+  idPhotoPreview: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 9, borderWidth: 1, borderColor: '#CDE5CD', borderRadius: 8, backgroundColor: '#F6FBF6' },
+  idPhotoThumbnail: { width: 96, height: 62, borderRadius: 4, backgroundColor: '#E8ECEF' },
+  idPhotoPreviewCopy: { flex: 1 },
+  idPhotoPreviewTitle: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '700' },
+  cameraModal: { flex: 1, backgroundColor: '#101418' },
+  cameraTopBar: { minHeight: 66, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8 },
+  cameraCloseButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  cameraTitle: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 16, fontWeight: '700' },
+  cameraGuideArea: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  cameraIdFrame: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderStyle: 'dashed', borderColor: '#FFFFFF', borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.06)' },
+  cameraGuideLabel: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800', letterSpacing: 1.1, textShadowColor: '#000000', textShadowRadius: 4 },
+  cameraBottomBar: { minHeight: 142, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 18, backgroundColor: 'rgba(16,20,24,0.72)' },
+  cameraInstruction: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  captureButton: { width: 68, height: 68, alignItems: 'center', justifyContent: 'center', marginTop: 12, borderWidth: 3, borderColor: '#FFFFFF', borderRadius: 34 },
+  captureButtonInner: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#FFFFFF' },
+  cameraLoading: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'rgba(16,20,24,0.72)' },
   addMemberContent: { flexDirection: 'row', alignItems: 'center' },
   addMemberIcon: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center', marginRight: 9, borderRadius: 15, backgroundColor: SURFACE_MUTED },
   addMemberText: { flex: 1, color: GREEN, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },

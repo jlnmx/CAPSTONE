@@ -38,8 +38,14 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Allow HANDA to use your camera to attach incident photos.",
-          "photosPermission": "Allow HANDA to access photos you choose to attach to an incident report."
+          "cameraPermission": "Allow HANDA to use your camera to attach incident photos and responder IDs.",
+          "photosPermission": "Allow HANDA to access photos you choose for incident reports and responder ID verification."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow HANDA to photograph responder IDs for administrator verification."
         }
       ],
       "@maplibre/maplibre-react-native",

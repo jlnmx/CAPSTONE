@@ -338,6 +338,7 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .modal-wide { width: min(100%, 650px); }.confirm-modal { width: min(100%, 400px); }.confirm-modal h2 { margin: 0 0 9px; color: var(--ink); font-size: 19px; }.modal-copy { color: var(--muted); font-size: 11px; line-height: 1.7; }.modal-copy strong { color: var(--ink); }
 .modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 17px; }.modal-heading h2 { margin: 0; color: var(--ink); font-size: 19px; font-weight: 850; }
 .modal-heading .icon-button { border-color: var(--line); font-size: 20px; }
+.responder-review-modal { width: min(100%, 620px); }.responder-review-content img { display: block; width: 100%; max-height: 52vh; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: #f3f5f3; }.responder-review-content .modal-copy { margin-top: 6px; }
 .modal-card .form-grid { gap: 12px; }
 
 .login-screen { display: grid; min-height: 100vh; grid-template-columns: minmax(380px, .9fr) minmax(450px, 1.1fr); background: var(--surface); }

@@ -176,10 +176,31 @@ export async function getUsers() {
   const users = await records<Record<string, any>>('/api/v1/users');
   return users.map((user): UserRecord => ({
     id: String(user.id), name: user.name, email: user.email, role: user.role, status: user.status,
+    responderType: user.responder_type ?? user.responderType ?? null,
+    hasVerificationDocument: Boolean(user.has_verification_document ?? user.hasVerificationDocument),
     birthday: user.birthday, mobileNumber: user.mobile_number ?? user.mobileNumber,
     currentAddress: user.current_address ?? user.currentAddress,
     createdAt: user.createdAt ?? user.created_at ?? '', updatedAt: user.updatedAt ?? user.updated_at ?? '',
   }));
+}
+
+export type ResponderVerificationDocument = {
+  fileName: string;
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  base64: string;
+  responderType: 'Official' | 'Volunteer' | null;
+};
+
+export function getResponderVerificationDocument(userId: string) {
+  return apiRequest<ResponderVerificationDocument>(`/api/v1/users/${encodeURIComponent(userId)}/verification-document`);
+}
+
+export function reviewResponderApplication(userId: string, decision: 'approved' | 'rejected') {
+  return apiRequest<void>(`/api/v1/users/${encodeURIComponent(userId)}/responder-application`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ decision }),
+  });
 }
 
 export function createUser(input: UserInput) {
