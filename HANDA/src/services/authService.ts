@@ -99,7 +99,7 @@ export class AuthService {
           return result.user;
         }
       }
-      if (response.status === 401 || response.status === 423) {
+      if (response.status === 401 || response.status === 403 || response.status === 423) {
         const result = await response.json().catch(() => null) as { detail?: string } | null;
         throw new Error(result?.detail || 'Invalid email/mobile number or password.');
       }

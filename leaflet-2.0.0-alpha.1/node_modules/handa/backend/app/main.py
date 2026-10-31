@@ -1655,6 +1655,8 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
     if row["status"] != "Active":
         if row["status"] == "Pending" and row["role"] == "Responder":
             raise HTTPException(status_code=403, detail="Your responder application is awaiting administrator approval.")
+        if row["status"] == "Inactive" and row["role"] == "Responder":
+            raise HTTPException(status_code=403, detail="Your responder account is inactive. Please contact an administrator for assistance.")
         raise HTTPException(status_code=403, detail="This account is not active. Contact your administrator.")
     if row["failed_login_attempts"] or row["locked_until"]:
         connection.execute("UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = %s", (row["id"],))

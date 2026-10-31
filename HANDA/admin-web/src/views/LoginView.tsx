@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { ArrowRight, Check, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Check, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 
@@ -8,6 +8,7 @@ export default function LoginView() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
@@ -48,7 +49,12 @@ export default function LoginView() {
           <label className="field-label" htmlFor="admin-email">Email address</label>
           <input id="admin-email" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@organization.gov.ph" required />
           <label className="field-label" htmlFor="admin-password">Password</label>
-          <input id="admin-password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required />
+          <div className="login-password-wrap">
+            <input id="admin-password" className="login-password-input" type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required />
+            <button className="login-password-toggle" type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword}>
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
 
           {error && <div className="form-error" role="alert">{error}</div>}
           <button className="button-primary login-submit" disabled={pending} type="submit">{pending ? <><span className="button-spinner" /> Verifying access</> : <>Continue to Command Center <ArrowRight size={17} /></>}</button>

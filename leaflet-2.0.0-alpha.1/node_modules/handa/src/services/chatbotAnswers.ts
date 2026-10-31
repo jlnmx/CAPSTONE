@@ -202,7 +202,7 @@ async function answerWeatherQuestion(question: string): Promise<string> {
       ? `Clear or cloudy conditions are modeled around ${skyHours.map((hour) => hour.time).join(', ')}.`
       : 'The hourly model does not show clear or cloudy sky codes in the next 24 hours.');
   }
-  statements.push('Source: Open-Meteo model forecast, not an official warning. Check PAGASA for advisories.');
+  statements.push('This is a model outlook, not an official warning. Check PAGASA for advisories.');
   return statements.join(' ');
 }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Colors } from '@constants/colors';
-import { Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@hooks/useAuth';
@@ -10,7 +10,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const GREEN = '#218B25';
 const QUICK_PROMPTS = ['Any typhoons right now?', 'Will it rain in Biñan today?', 'How do I report an incident?', 'How do evacuation status updates work?'];
 
-type ChatMessage = { id: string; role: 'assistant' | 'user'; text: string };
+type ChatMessage = { id: string; role: 'assistant' | 'user'; text: string; weatherAttribution?: boolean };
+
+function isWeatherQuestion(question: string) {
+  return /weather|rain|shower|drizzle|thunder|lightning|wind|gust|temperature|forecast|heat|sunny|sunshine|clear sky|cloud|overcast|humid|conditions/i.test(question);
+}
 
 export default function ChatbotWidget() {
   const { isAuthenticated } = useAuth();
@@ -74,7 +78,7 @@ export default function ChatbotWidget() {
         context = 'Live HANDA data could not be retrieved for this question. Do not invent current conditions or incident data.';
       }
       const answer = await requestModelAnswer(recentTurns, context);
-      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: answer }]);
+      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: answer, weatherAttribution: isWeatherQuestion(question) }]);
     } catch (error) {
       let fallback: string;
       try {
@@ -86,7 +90,7 @@ export default function ChatbotWidget() {
       const status = hasSpecificFallback
         ? `${fallback}\n\nThe AI assistant is unavailable; this is built-in HANDA guidance.`
         : 'Custom AI answers are not available right now. Please retry later or ask about current weather, typhoons, disasters, or HANDA features.';
-      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: status }]);
+      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: status, weatherAttribution: isWeatherQuestion(question) }]);
     } finally {
       setIsTyping(false);
     }
@@ -101,7 +105,7 @@ export default function ChatbotWidget() {
           <Pressable onPress={() => setIsOpen(false)} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close HANDA Assistant"><MaterialCommunityIcons name="close" size={20} color="#526652" /></Pressable>
         </View>
         <ScrollView style={styles.messages} contentContainerStyle={styles.messageContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {visibleMessages.map((message) => <View key={message.id} style={[styles.messageBubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}><Text style={[styles.messageText, message.role === 'user' && styles.userMessageText]}>{message.text}</Text></View>)}
+          {visibleMessages.map((message) => <View key={message.id} style={[styles.messageBubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}><Text style={[styles.messageText, message.role === 'user' && styles.userMessageText]}>{message.text}</Text>{message.weatherAttribution && <View style={styles.weatherAttribution}><Text style={styles.weatherAttributionText}>Weather data: </Text><Pressable onPress={() => void Linking.openURL('https://open-meteo.com/')} accessibilityRole="link"><Text style={styles.weatherAttributionLink}>Open-Meteo.com</Text></Pressable><Text style={styles.weatherAttributionText}> · </Text><Pressable onPress={() => void Linking.openURL('https://open-meteo.com/en/licence')} accessibilityRole="link"><Text style={styles.weatherAttributionLink}>CC BY 4.0</Text></Pressable></View>}</View>)}
           {isTyping && <TypingIndicator />}
         </ScrollView>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickPrompts} keyboardShouldPersistTaps="handled">{QUICK_PROMPTS.map((prompt) => <Pressable key={prompt} onPress={() => sendMessage(prompt)} style={styles.quickPrompt} accessibilityRole="button"><Text style={styles.quickPromptText}>{prompt}</Text></Pressable>)}</ScrollView>
@@ -154,6 +158,9 @@ const styles = StyleSheet.create({
   userBubble: { alignSelf: 'flex-end', backgroundColor: GREEN, borderBottomRightRadius: 2 },
   messageText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16 },
   userMessageText: { color: '#FFFFFF' },
+  weatherAttribution: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', marginTop: 6 },
+  weatherAttributionText: { color: Colors.textMuted, fontSize: 9, lineHeight: 13 },
+  weatherAttributionLink: { color: GREEN, fontSize: 9, lineHeight: 13, textDecorationLine: 'underline' },
   typingBubble: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   typingLabel: { color: Colors.textMuted, fontSize: 10, fontStyle: 'italic' },
   typingDots: { flexDirection: 'row', alignItems: 'center', gap: 3 },
