@@ -59,6 +59,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [isCapturingId, setIsCapturingId] = useState(false);
   const [cameraBounds, setCameraBounds] = useState({ width: 0, height: 0 });
   const cameraRef = useRef<CameraView>(null);
+  const webIdInputRef = useRef<HTMLInputElement>(null);
   const [isPendingConfirmationOpen, setIsPendingConfirmationOpen] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null);
@@ -115,6 +116,10 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
 
   const openIdCamera = async () => {
     setValidationErrors((current) => ({ ...current, verificationDocument: '' }));
+    if (Platform.OS === 'web') {
+      webIdInputRef.current?.click();
+      return;
+    }
     try {
       if (!await CameraView.isAvailableAsync()) {
         setValidationErrors((current) => ({ ...current, verificationDocument: 'A camera is not available on this device. Choose an ID photo instead.' }));
@@ -138,6 +143,53 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
         ...current,
         verificationDocument: error instanceof Error ? error.message : 'The camera could not be opened. Choose an ID photo instead.',
       }));
+    }
+  };
+
+  const captureBrowserId = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    if (!isVerificationDocumentMimeType(file.type)) {
+      setValidationErrors((current) => ({ ...current, verificationDocument: 'Choose a JPEG, PNG, or WebP ID photo.' }));
+      return;
+    }
+
+    setIsCapturingId(true);
+    setValidationErrors((current) => ({ ...current, verificationDocument: '' }));
+    try {
+      const sourceUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('The captured ID photo could not be read.'));
+        reader.onerror = () => reject(new Error('The captured ID photo could not be read.'));
+        reader.readAsDataURL(file);
+      });
+      const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+        Image.getSize(sourceUri, (width, height) => resolve({ width, height }), () => reject(new Error('The captured ID photo could not be opened.')));
+      });
+      const cardRatio = 85.6 / 53.98;
+      const crop = dimensions.width / dimensions.height > cardRatio
+        ? { originX: Math.round((dimensions.width - dimensions.height * cardRatio) / 2), originY: 0, width: Math.round(dimensions.height * cardRatio), height: dimensions.height }
+        : { originX: 0, originY: Math.round((dimensions.height - dimensions.width / cardRatio) / 2), width: dimensions.width, height: Math.round(dimensions.width / cardRatio) };
+      const cropped = await manipulateAsync(sourceUri, [
+        { crop },
+        { resize: { width: Math.min(1600, crop.width) } },
+      ], { compress: 0.85, format: SaveFormat.JPEG, base64: true });
+      if (!cropped.base64) throw new Error('The cropped ID photo could not be prepared for upload.');
+      if (Math.ceil(cropped.base64.length * 3 / 4) > 4 * 1024 * 1024) throw new Error('The cropped ID photo is too large. Retake it in better lighting.');
+      setVerificationDocument({
+        base64: cropped.base64,
+        mimeType: 'image/jpeg',
+        name: file.name || `${responderType?.toLowerCase() || 'responder'}-id.jpg`,
+        previewUri: cropped.uri,
+      });
+    } catch (error) {
+      setValidationErrors((current) => ({
+        ...current,
+        verificationDocument: error instanceof Error ? error.message : 'The ID photo could not be cropped. Please try again.',
+      }));
+    } finally {
+      setIsCapturingId(false);
     }
   };
 
@@ -452,10 +504,10 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </View>
           <View style={styles.verificationSection}>
             <Text style={styles.householdLabel}>{responderType?.toUpperCase() ?? 'RESPONDER'} ID</Text>
-            <Text style={styles.householdEmpty}>Take a photo and align your ID inside the guide for automatic card-size cropping, or choose an existing JPEG, PNG, or WebP image. Admins will review it with your application.</Text>
+            <Text style={styles.householdEmpty}>{Platform.OS === 'web' ? 'Take a photo with your device camera or choose an image. The browser camera/photo chooser is used on web, and the image is automatically cropped to ID-card proportions.' : 'Take a photo and align your ID inside the guide for automatic card-size cropping, or choose an existing JPEG, PNG, or WebP image.'} Admins will review it with your application.</Text>
             <View style={styles.idPhotoActions}>
-              <TouchableOpacity style={styles.idPhotoButton} onPress={() => void openIdCamera()} accessibilityRole="button" accessibilityLabel="Take and automatically crop a responder ID photo">
-                <MaterialCommunityIcons name="camera-outline" size={19} color={GREEN} /><Text style={styles.idPhotoButtonText}>Take ID photo</Text>
+              <TouchableOpacity style={styles.idPhotoButton} onPress={() => void openIdCamera()} disabled={isCapturingId} accessibilityRole="button" accessibilityLabel="Take and automatically crop a responder ID photo">
+                {isCapturingId ? <ActivityIndicator size="small" color={GREEN} /> : <MaterialCommunityIcons name="camera-outline" size={19} color={GREEN} />}<Text style={styles.idPhotoButtonText}>{isCapturingId ? 'Cropping ID…' : 'Take ID photo'}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.idPhotoButton} onPress={() => void selectResponderId()} accessibilityRole="button" accessibilityLabel="Choose responder ID photo from library">
                 <MaterialCommunityIcons name="image-outline" size={19} color={GREEN} /><Text style={styles.idPhotoButtonText}>Choose photo</Text>
@@ -607,6 +659,15 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           {!isCameraReady && <View style={styles.cameraLoading}><ActivityIndicator color="#FFFFFF" /><Text style={styles.cameraInstruction}>Starting camera…</Text></View>}
         </View>
       </Modal>
+      {Platform.OS === 'web' && React.createElement('input', {
+        ref: webIdInputRef,
+        type: 'file',
+        accept: 'image/*',
+        capture: 'environment',
+        'aria-label': 'Capture or choose responder ID photo',
+        onChange: captureBrowserId,
+        style: { display: 'none' },
+      })}
       <Modal transparent visible={isPendingConfirmationOpen} animationType="fade" onRequestClose={() => { setIsPendingConfirmationOpen(false); router.replace('/(auth)/login'); }}>
         <View style={styles.modalBackdrop}>
           <View style={styles.pendingDialog}>
