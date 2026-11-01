@@ -23,7 +23,8 @@ export async function pickProfilePicture(): Promise<string | null> {
     { compress: 0.7, format: SaveFormat.JPEG, base64: true },
   );
   if (!resized.base64) throw new Error('The photo could not be processed. Try a different image.');
-  return `data:image/jpeg;base64,${resized.base64}`;
+  const encoded = resized.base64.replace(/^data:[^,]*,/, '').replace(/\s+/g, '');
+  return `data:image/jpeg;base64,${encoded}`;
 }
 
 export async function saveProfilePicture(dataUri: string): Promise<string | null> {

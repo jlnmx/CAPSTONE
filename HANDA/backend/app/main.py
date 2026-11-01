@@ -1480,20 +1480,22 @@ def validated_profile_picture(value: str | None) -> str | None:
     if not value:
         return None
     header, separator, encoded = value.partition(",")
-    if not separator or header not in ("data:image/jpeg;base64", "data:image/png;base64", "data:image/webp;base64"):
+    if not separator or not header.lower().startswith("data:image/"):
         raise HTTPException(status_code=422, detail="Profile picture must be a JPEG, PNG, or WebP image.")
+    encoded = "".join(encoded.split())
     try:
-        image_bytes = base64.b64decode(encoded, validate=True)
+        image_bytes = base64.b64decode(encoded + "=" * (-len(encoded) % 4), validate=True)
     except ValueError as error:
         raise HTTPException(status_code=422, detail="The profile picture is invalid.") from error
-    signatures = {
-        "data:image/jpeg;base64": image_bytes.startswith(b"\xff\xd8\xff"),
-        "data:image/png;base64": image_bytes.startswith(b"\x89PNG\r\n\x1a\n"),
-        "data:image/webp;base64": image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP",
-    }
-    if not signatures[header]:
+    if image_bytes.startswith(b"\xff\xd8\xff"):
+        mime = "image/jpeg"
+    elif image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        mime = "image/png"
+    elif image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
+        mime = "image/webp"
+    else:
         raise HTTPException(status_code=422, detail="Upload a valid JPEG, PNG, or WebP profile picture.")
-    return value
+    return f"data:{mime};base64,{encoded}"
 
 
 @app.put("/api/v1/auth/profile-picture")
