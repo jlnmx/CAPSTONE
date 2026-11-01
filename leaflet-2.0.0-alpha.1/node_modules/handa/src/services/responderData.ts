@@ -133,12 +133,12 @@ function normalizeCenter(record: Record<string, any>): ResponderCenter {
   };
 }
 
-export type IncidentReporterContact = { name: string; mobileNumber: string };
+export type IncidentReporterContact = { name: string; mobileNumber: string; profilePicture?: string | null };
 
 // Responder/admin-only; the public incident list never includes contact details.
 export async function getIncidentReporterContacts(): Promise<Record<string, IncidentReporterContact>> {
-  const records = await fetchRecords<{ incident_id: string; name: string; mobile_number: string }>('/api/v1/incidents/reporters');
-  return Object.fromEntries(records.filter((record) => record.mobile_number).map((record) => [record.incident_id, { name: record.name, mobileNumber: record.mobile_number }]));
+  const records = await fetchRecords<{ incident_id: string; name: string; mobile_number: string; profile_picture?: string | null }>('/api/v1/incidents/reporters');
+  return Object.fromEntries(records.filter((record) => record.mobile_number).map((record) => [record.incident_id, { name: record.name, mobileNumber: record.mobile_number, profilePicture: record.profile_picture ?? null }]));
 }
 
 export async function getResponderData(): Promise<ResponderDataSnapshot> {

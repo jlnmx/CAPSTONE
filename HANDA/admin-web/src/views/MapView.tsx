@@ -137,7 +137,31 @@ export default function MapView() {
       popup.append(name, state, location, detail);
       if (incident.reporterContact) {
         const reporter = document.createElement('div');
-        reporter.textContent = `Reporter: ${incident.reporterName || 'Resident'} · ${incident.reporterContact}`;
+        reporter.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #E3EAEE';
+        const picture = incident.reporterPicture ?? '';
+        const reporterName = incident.reporterName || 'Resident';
+        if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(picture)) {
+          const img = document.createElement('img');
+          img.src = picture;
+          img.alt = `${reporterName} profile picture`;
+          img.style.cssText = 'width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none';
+          reporter.append(img);
+        } else {
+          const initials = document.createElement('div');
+          initials.textContent = reporterName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
+          initials.style.cssText = 'width:40px;height:40px;border-radius:50%;background:#DCEBDD;color:#1B6B2A;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none';
+          reporter.append(initials);
+        }
+        const info = document.createElement('div');
+        const label = document.createElement('div');
+        label.textContent = 'Reported by';
+        label.style.cssText = 'font-size:10px;color:#768491';
+        const strong = document.createElement('strong');
+        strong.textContent = reporterName;
+        const contact = document.createElement('div');
+        contact.textContent = incident.reporterContact;
+        info.append(label, strong, contact);
+        reporter.append(info);
         popup.append(reporter);
       }
       marker.bindPopup(popup);

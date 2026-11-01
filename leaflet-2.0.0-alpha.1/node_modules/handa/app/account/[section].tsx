@@ -10,6 +10,8 @@ import { useTheme } from '@hooks/useTheme';
 import { authenticatedFetch } from '@services/apiClient';
 import { AuthUser } from '@types/index';
 import AppBackArrow from '@components/AppBackArrow';
+import Avatar from '@components/Avatar';
+import { pickProfilePicture, removeProfilePicture, saveProfilePicture } from '@services/profilePicture';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
@@ -47,6 +49,7 @@ export default function AccountSectionScreen() {
   const [address, setAddress] = useState(user?.currentAddress || '');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isPhotoBusy, setIsPhotoBusy] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace('/(auth)/login');
@@ -83,6 +86,35 @@ export default function AccountSectionScreen() {
       setError(saveError instanceof Error ? saveError.message : 'Your account could not be updated.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const changePhoto = async () => {
+    setError('');
+    setIsPhotoBusy(true);
+    try {
+      const picture = await pickProfilePicture();
+      if (picture && user) {
+        const saved = await saveProfilePicture(picture);
+        await setAuthenticatedUser({ ...user, profilePicture: saved });
+      }
+    } catch (photoError) {
+      setError(photoError instanceof Error ? photoError.message : 'The profile picture could not be updated.');
+    } finally {
+      setIsPhotoBusy(false);
+    }
+  };
+
+  const deletePhoto = async () => {
+    setError('');
+    setIsPhotoBusy(true);
+    try {
+      await removeProfilePicture();
+      if (user) await setAuthenticatedUser({ ...user, profilePicture: null });
+    } catch (photoError) {
+      setError(photoError instanceof Error ? photoError.message : 'The profile picture could not be removed.');
+    } finally {
+      setIsPhotoBusy(false);
     }
   };
 
@@ -176,6 +208,15 @@ export default function AccountSectionScreen() {
             <PasswordField label="Confirm new password" value={confirmPassword} onChangeText={setConfirmPassword} palette={palette} />
           </>}
           {sectionKey === 'profile' && <>
+            <View style={styles.photoRow}>
+              <Avatar uri={user?.profilePicture} name={user?.name} size={76} />
+              <View style={styles.photoActions}>
+                <Pressable onPress={() => void changePhoto()} disabled={isPhotoBusy} style={[styles.photoButton, { backgroundColor: palette.surfaceMuted, borderColor: palette.border }]} accessibilityRole="button" accessibilityLabel={user?.profilePicture ? 'Change profile picture' : 'Add profile picture'}>
+                  {isPhotoBusy ? <ActivityIndicator color={Colors.secondary} /> : <Text style={[styles.photoButtonText, { color: palette.text }]}>{user?.profilePicture ? 'Change photo' : 'Add photo'}</Text>}
+                </Pressable>
+                {!!user?.profilePicture && <Pressable onPress={() => void deletePhoto()} disabled={isPhotoBusy} accessibilityRole="button" accessibilityLabel="Delete profile picture"><Text style={styles.photoDeleteText}>Delete photo</Text></Pressable>}
+              </View>
+            </View>
             <TextInput value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor={palette.textMuted} autoCapitalize="words" style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} />
             <TextInput value={middleName} onChangeText={setMiddleName} placeholder="Middle name (optional)" placeholderTextColor={palette.textMuted} autoCapitalize="words" style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} />
             <TextInput value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor={palette.textMuted} autoCapitalize="words" style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} />
@@ -239,6 +280,11 @@ const styles = StyleSheet.create({
   sexOptions: { marginTop: 4, borderWidth: 1, borderRadius: BorderRadius.md, overflow: 'hidden' },
   sexOption: { minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.md, borderBottomWidth: 1, borderBottomColor: '#E8EDF1' },
   addressInput: { height: 88, minHeight: 88, paddingTop: Spacing.md, textAlignVertical: 'top' },
+  photoRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  photoActions: { flex: 1, alignItems: 'flex-start', gap: 10 },
+  photoButton: { minWidth: 120, minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, borderRadius: 8, borderWidth: 1 },
+  photoButtonText: { fontSize: 13, fontWeight: '800' },
+  photoDeleteText: { color: Colors.emergency, fontSize: 13, fontWeight: '700' },
   error: { marginTop: Spacing.md, padding: Spacing.md, borderWidth: 1, borderColor: '#E8B4B0', borderRadius: BorderRadius.md, backgroundColor: '#FFF4F2', flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
   errorText: { flex: 1, color: Colors.emergency, fontSize: 12, lineHeight: 17 },
   saveButton: { minHeight: 48, marginTop: Spacing.lg, borderRadius: BorderRadius.md, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },

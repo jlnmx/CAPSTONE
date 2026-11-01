@@ -8,6 +8,7 @@ import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { useTheme } from '@hooks/useTheme';
 import AppBackArrow from '@components/AppBackArrow';
+import Avatar from '@components/Avatar';
 
 const accountSections = [
   { path: 'contact-number', title: 'Contact number', detail: 'Keep your phone number current', icon: 'phone-outline' as const },
@@ -37,7 +38,7 @@ export default function AccountHub() {
         </View>
 
         <View style={[styles.profileCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-          <View style={styles.avatar}><MaterialCommunityIcons name="account-outline" size={34} color={Colors.success} /></View>
+          <Avatar uri={user?.profilePicture} name={user?.name} size={58} />
           <View style={styles.profileCopy}>
             <Text style={[styles.name, { color: palette.text }]}>{user?.name || 'HANDA User'}</Text>
             <Text style={[styles.email, { color: palette.textMuted }]}>{user?.email || 'No email available'}</Text>

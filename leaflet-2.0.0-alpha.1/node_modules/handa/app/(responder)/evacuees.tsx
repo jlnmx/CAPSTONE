@@ -7,6 +7,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { EvacuationStatus } from '@services/responderData';
 import { authenticatedFetch } from '@services/apiClient';
 import AppBackArrow from '@components/AppBackArrow';
+import Avatar from '@components/Avatar';
 
 const GREEN = '#218B25';
 const FILTERS: Array<'ALL' | EvacuationStatus> = ['ALL', 'registered', 'checked_in', 'evacuated', 'released'];
@@ -18,6 +19,7 @@ type CenterRegistration = {
   status: EvacuationStatus;
   registered_at: string;
   resident_name: string;
+  resident_profile_picture?: string | null;
   first_name: string;
   middle_name?: string | null;
   last_name: string;
@@ -136,10 +138,9 @@ function nextStatusFor(status: EvacuationStatus): EvacuationStatus | null {
 function RegistrationRow({ registration, expanded, onPress, onStatusChange }: { registration: CenterRegistration; expanded: boolean; onPress: () => void; onStatusChange: (status: EvacuationStatus) => void }) {
   const name = getRegistrationName(registration);
   const nextStatus = nextStatusFor(registration.status);
-  const initials = name.split(/\s+/).map((part) => part[0] ?? '').join('').slice(0, 2).toUpperCase();
   return <View style={styles.registrationCard}>
     <Pressable onPress={onPress} style={styles.registrationRow} accessibilityRole="button" accessibilityLabel={`View ${name}`}>
-      <View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>
+      <Avatar uri={registration.resident_profile_picture} name={name} size={42} />
       <View style={styles.rowCopy}><Text style={styles.name}>{name}</Text><Text style={styles.details}>{registration.household_size} people · {registration.center_name}</Text><Text style={styles.details}>{registration.status.replace('_', ' ').toUpperCase()}</Text></View>
       {nextStatus && <AnimatedPressable style={styles.verifyButton} onPress={() => onStatusChange(nextStatus)}><Text style={styles.verifyText}>{registration.status === 'registered' ? 'Verify check-in' : `Mark ${nextStatus.replace('_', ' ')}`}</Text></AnimatedPressable>}
       <MaterialCommunityIcons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={Colors.textMuted} />

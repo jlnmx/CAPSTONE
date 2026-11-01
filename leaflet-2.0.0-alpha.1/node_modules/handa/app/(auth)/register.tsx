@@ -12,6 +12,8 @@ import { AuthUser, ResidentHouseholdMember } from '@types/index';
 import { BINAN_BARANGAYS, RESPONDER_ORGANIZATIONS } from '@constants/responderOrganizations';
 import * as ImagePicker from 'expo-image-picker';
 import AppBackArrow from '@components/AppBackArrow';
+import Avatar from '@components/Avatar';
+import { pickProfilePicture } from '@services/profilePicture';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
@@ -54,6 +56,16 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [householdMembers, setHouseholdMembers] = useState<ResidentHouseholdMember[]>([]);
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const chooseProfilePicture = async () => {
+    try {
+      const picture = await pickProfilePicture();
+      if (picture) setProfilePicture(picture);
+      setValidationErrors((current) => ({ ...current, profilePicture: '' }));
+    } catch (pickError) {
+      setValidationErrors((current) => ({ ...current, profilePicture: pickError instanceof Error ? pickError.message : 'The photo could not be selected.' }));
+    }
+  };
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturingId, setIsCapturingId] = useState(false);
@@ -307,6 +319,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           email: normalizedEmail,
           password,
           role,
+          profilePicture,
           ...(isResponder
             ? {
               responderType,
@@ -344,6 +357,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
         mobileNumber: result.user?.mobileNumber || normalizedMobile,
         currentAddress: result.user?.currentAddress || address.trim(),
         householdMembers: result.user?.householdMembers ?? householdMembers,
+        profilePicture: result.user?.profilePicture ?? profilePicture,
       }, result.accessToken);
       router.replace('/(resident)');
     } catch (error) {
@@ -396,7 +410,17 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </View>
 
           {currentStep === 0 && <>
-          <FormField label="First Name" error={validationErrors.firstName}>
+          <View style={styles.avatarPicker}>
+            <Avatar uri={profilePicture} name={`${firstName} ${lastName}`} size={84} />
+            <View style={styles.avatarActions}>
+              <TouchableOpacity style={styles.avatarButton} onPress={() => void chooseProfilePicture()} accessibilityLabel="Choose a profile picture">
+                <Text style={styles.avatarButtonText}>{profilePicture ? 'Change photo' : 'Add profile photo'}</Text>
+              </TouchableOpacity>
+              {!!profilePicture && <TouchableOpacity onPress={() => setProfilePicture(null)} accessibilityLabel="Remove profile picture"><Text style={styles.avatarRemoveText}>Remove</Text></TouchableOpacity>}
+              <Text style={styles.avatarHint}>Optional. Helps responders recognize you.</Text>
+            </View>
+          </View>
+          {!!validationErrors.profilePicture && <Text style={styles.fieldError}>{validationErrors.profilePicture}</Text>}          <FormField label="First Name" error={validationErrors.firstName}>
             <NativeTextInput style={styles.input} placeholder="Enter Name" placeholderTextColor={PLACEHOLDER_COLOR} value={firstName} onChangeText={setFirstName} autoCapitalize="words" returnKeyType="next" selectionColor={GREEN} />
           </FormField>
           <FormField label="Middle Name" required={false} optional error={validationErrors.middleName}>
@@ -769,6 +793,12 @@ const styles = StyleSheet.create({
   stepHeading: { marginBottom: 17 },
   stepCount: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800' },
   sectionTitle: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 21, fontWeight: '800', marginTop: 3 },
+  avatarPicker: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
+  avatarActions: { flex: 1, alignItems: 'flex-start', gap: 6 },
+  avatarButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, backgroundColor: '#E8F5E9' },
+  avatarButtonText: { color: '#1B6B2A', fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800' },
+  avatarRemoveText: { color: '#B42318', fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700' },
+  avatarHint: { color: '#6B7A72', fontFamily: FONT_FAMILY, fontSize: 11 },
   stepDescription: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginTop: 4 },
   stepPanel: { gap: 2 },
   field: { flex: 1, minWidth: 0, marginBottom: 12 },

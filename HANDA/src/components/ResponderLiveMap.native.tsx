@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
 import { INCIDENT_STATUS_COLORS, INCIDENT_STATUS_LABELS } from '@constants/incidentStatus';
 import { estimateResponseEta } from '@services/responderEta';
-import { getResponderData, ResponderDataSnapshot, updateIncidentStatus } from '@services/responderData';
+import { getIncidentReporterContacts, getResponderData, IncidentReporterContact, ResponderDataSnapshot, updateIncidentStatus } from '@services/responderData';
 
 const CENTER = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -30,11 +30,13 @@ export default function ResponderLiveMap() {
   const [loadError, setLoadError] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [reporters, setReporters] = useState<Record<string, IncidentReporterContact>>({});
 
   const loadData = async () => {
     try {
-      const snapshot = await getResponderData();
+      const [snapshot, contacts] = await Promise.all([getResponderData(), getIncidentReporterContacts().catch(() => null)]);
       setData(snapshot);
+      if (contacts) setReporters(contacts);
       setLastUpdated(new Date());
       setLoadError(snapshot.unavailableSources.length > 0);
     } catch {
@@ -58,9 +60,9 @@ export default function ResponderLiveMap() {
 
   useEffect(() => {
     if (mapReady) {
-      webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify(data)}); true;`);
+      webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters })}); true;`);
     }
-  }, [data, mapReady]);
+  }, [data, reporters, mapReady]);
 
   const mapHtml = useMemo(() => `
     <!DOCTYPE html>
@@ -476,6 +478,37 @@ export default function ResponderLiveMap() {
                 line.textContent = text;
                 popup.appendChild(line);
               }
+              const reporter = (data.reporters || {})[incident.id];
+              if (reporter) {
+                const reporterRow = document.createElement('div');
+                reporterRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #E3EAEE';
+                const picture = String(reporter.profilePicture || '');
+                if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(picture)) {
+                  const avatar = document.createElement('img');
+                  avatar.src = picture;
+                  avatar.alt = 'Reporter profile picture';
+                  avatar.style.cssText = 'width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none';
+                  reporterRow.appendChild(avatar);
+                } else {
+                  const initials = document.createElement('div');
+                  initials.textContent = String(reporter.name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
+                  initials.style.cssText = 'width:40px;height:40px;border-radius:50%;background:#DCEBDD;color:#1B6B2A;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none';
+                  reporterRow.appendChild(initials);
+                }
+                const reporterText = document.createElement('div');
+                const reporterLabel = document.createElement('div');
+                reporterLabel.textContent = 'Reported by';
+                reporterLabel.style.cssText = 'font-size:10px;color:#768491';
+                const reporterName = document.createElement('strong');
+                reporterName.textContent = String(reporter.name || 'Resident');
+                const reporterNumber = document.createElement('div');
+                reporterNumber.textContent = String(reporter.mobileNumber || '');
+                reporterText.appendChild(reporterLabel);
+                reporterText.appendChild(reporterName);
+                reporterText.appendChild(reporterNumber);
+                reporterRow.appendChild(reporterText);
+                popup.appendChild(reporterRow);
+              }
               const navigateButton = document.createElement('button');
               navigateButton.type = 'button';
               navigateButton.className = 'map-action';
@@ -515,7 +548,7 @@ export default function ResponderLiveMap() {
       const message = JSON.parse(event.nativeEvent.data) as { type: string; id?: string; status?: 'acknowledged' | 'in_progress' | 'resolved'; label?: string; name?: string; latitude?: number; longitude?: number; started?: boolean; mode?: string; profile?: string };
       if (message.type === 'map-ready') {
         setMapReady(true);
-        webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify(data)}); true;`);
+        webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters })}); true;`);
         const session = navigationSession.current;
         if (session) {
           webView.current?.injectJavaScript(`window.resumeResponderNavigation(${JSON.stringify(session.name)}, ${session.latitude}, ${session.longitude}, ${session.started}, ${JSON.stringify(session.mode)}, ${JSON.stringify(session.profile)}); true;`);

@@ -47,6 +47,7 @@ export type AdminUserRecord = {
   birthday?: string;
   mobileNumber?: string;
   currentAddress?: string;
+  profilePicture?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -234,6 +235,7 @@ export async function getAdminUsers(): Promise<AdminUserRecord[]> {
     birthday: record.birthday,
     mobileNumber: record.mobile_number ?? record.mobileNumber,
     currentAddress: record.current_address ?? record.currentAddress,
+    profilePicture: record.profile_picture ?? null,
     createdAt: record.createdAt ?? record.created_at,
     updatedAt: record.updatedAt ?? record.updated_at,
   }));

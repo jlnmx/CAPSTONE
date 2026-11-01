@@ -66,6 +66,7 @@ function normalizeEvacuee(record: Record<string, any>): EvacueeRecord {
     centerName: record.centerName ?? record.center_name ?? '',
     status: record.status ?? record.syncStatus ?? record.sync_status ?? 'registered',
     createdAt: record.createdAt ?? record.created_at ?? record.registered_at ?? '',
+    profilePicture: record.profilePicture ?? null,
   };
 }
 
@@ -101,16 +102,16 @@ export async function getCommandMapSnapshot() {
 // Contact details come from an admin/responder-only endpoint; a failure just hides them.
 async function getReporterContacts() {
   try {
-    const rows = await records<{ incident_id: string; name: string; mobile_number: string }>('/api/v1/incidents/reporters');
+    const rows = await records<{ incident_id: string; name: string; mobile_number: string; profile_picture?: string | null }>('/api/v1/incidents/reporters');
     return new Map(rows.map((row) => [row.incident_id, row]));
   } catch {
-    return new Map<string, { incident_id: string; name: string; mobile_number: string }>();
+    return new Map<string, { incident_id: string; name: string; mobile_number: string; profile_picture?: string | null }>();
   }
 }
 
-function withReporter(incident: IncidentRecord, reporters: Map<string, { name: string; mobile_number: string }>): IncidentRecord {
+function withReporter(incident: IncidentRecord, reporters: Map<string, { name: string; mobile_number: string; profile_picture?: string | null }>): IncidentRecord {
   const reporter = reporters.get(incident.id);
-  return reporter ? { ...incident, reporterName: reporter.name, reporterContact: reporter.mobile_number } : incident;
+  return reporter ? { ...incident, reporterName: reporter.name, reporterContact: reporter.mobile_number, reporterPicture: reporter.profile_picture ?? null } : incident;
 }
 
 export async function getAdminSnapshot(): Promise<AdminSnapshot> {
@@ -137,6 +138,7 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
       displayName: [registration.first_name, registration.middle_name, registration.last_name].filter(Boolean).join(' '),
       age: registration.age,
       contact_number: registration.contact_number,
+      profilePicture: registration.resident_profile_picture ?? null,
     });
     const members = Array.isArray(registration.members) ? registration.members.map((member: Record<string, any>) => normalizeEvacuee({
       ...shared,
@@ -180,6 +182,7 @@ export async function getUsers() {
     hasVerificationDocument: Boolean(user.has_verification_document ?? user.hasVerificationDocument),
     birthday: user.birthday, mobileNumber: user.mobile_number ?? user.mobileNumber,
     currentAddress: user.current_address ?? user.currentAddress,
+    profilePicture: user.profile_picture ?? null,
     createdAt: user.createdAt ?? user.created_at ?? '', updatedAt: user.updatedAt ?? user.updated_at ?? '',
   }));
 }

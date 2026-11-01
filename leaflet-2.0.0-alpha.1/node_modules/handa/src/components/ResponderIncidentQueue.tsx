@@ -4,6 +4,7 @@ import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, TextInput, View }
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
+import Avatar from '@components/Avatar';
 import { useAuth } from '@hooks/useAuth';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import { formatResponderOrganization, parseOrganizations, RESPONDER_ORGANIZATIONS, ResponderOrganization } from '@constants/responderOrganizations';
@@ -186,7 +187,7 @@ export default function ResponderIncidentQueue() {
       </View>
       <Text style={styles.description}>{incident.description}</Text>
       {user?.role === 'responder' && reporters[incident.id] && <AnimatedPressable style={styles.contact} onPress={() => void Linking.openURL(`tel:${reporters[incident.id].mobileNumber.replace(/[\s()-]/g, '')}`)} accessibilityRole="link" accessibilityLabel={`Call ${reporters[incident.id].name}`}>
-        <MaterialCommunityIcons name="phone-outline" size={16} color={GREEN} />
+        <Avatar uri={reporters[incident.id].profilePicture} name={reporters[incident.id].name} size={28} />
         <Text style={styles.contactText}>Reporter: {reporters[incident.id].name} · {reporters[incident.id].mobileNumber}</Text>
       </AnimatedPressable>}
       {incident.photoUris.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photos}>{incident.photoUris.map((uri, index) => <Image key={`${incident.id}-photo-${index}`} source={{ uri }} style={styles.photo} />)}</ScrollView>}

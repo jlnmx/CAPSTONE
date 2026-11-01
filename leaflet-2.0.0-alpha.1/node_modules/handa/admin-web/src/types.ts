@@ -25,6 +25,7 @@ export interface IncidentRecord {
   responseNotes?: string;
   reporterName?: string;
   reporterContact?: string;
+  reporterPicture?: string | null;
 }
 
 export interface EvacueeRecord {
@@ -36,6 +37,7 @@ export interface EvacueeRecord {
   centerName: string;
   status: string;
   createdAt: string;
+  profilePicture?: string | null;
 }
 
 export interface CenterRecord {
@@ -71,6 +73,7 @@ export interface UserRecord {
   birthday?: string;
   mobileNumber?: string;
   currentAddress?: string;
+  profilePicture?: string | null;
   createdAt: string;
   updatedAt: string;
 }

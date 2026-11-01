@@ -22,7 +22,7 @@ from .auth import CurrentUser, create_access_token, get_current_user, normalize_
 from .config import settings
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import get_live_typhoon_report
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
 
@@ -372,6 +372,7 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_by TEXT")
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name TEXT")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ALTER COLUMN current_address SET DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0")
@@ -713,7 +714,7 @@ def list_incident_reporters(connection: psycopg.Connection = Depends(get_connect
     # Contact details are personal data, so they stay out of the public incident list.
     return connection.execute(
         """
-        SELECT incidents.id AS incident_id, users.name, users.mobile_number
+        SELECT incidents.id AS incident_id, users.name, users.mobile_number, users.profile_picture
         FROM incidents
         JOIN users ON users.id = incidents.reporter_user_id
         WHERE incidents.status <> 'resolved'
@@ -1218,7 +1219,7 @@ def list_evacuation_registrations(
              registration.checked_in_at, registration.first_name,
              registration.middle_name, registration.last_name, registration.age,
              registration.sex, registration.contact_number, registration.address,
-             registration.household_size, resident.name AS resident_name,
+             registration.household_size, resident.name AS resident_name, resident.profile_picture AS resident_profile_picture,
                center.name AS center_name, center.location_text AS center_location
         FROM evacuation_registrations AS registration
         JOIN users AS resident ON resident.id = registration.resident_user_id
@@ -1298,7 +1299,7 @@ def update_evacuation_registration_status(
 @app.get("/api/v1/users")
 def list_users(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
     rows = connection.execute(
-        "SELECT users.id, users.name, users.email, users.birthday, users.mobile_number, users.current_address, users.role, users.status, users.responder_type, users.responder_organization, users.responder_barangay, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
+        "SELECT users.id, users.name, users.email, users.birthday, users.mobile_number, users.current_address, users.role, users.status, users.responder_type, users.responder_organization, users.responder_barangay, users.profile_picture, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
     ).fetchall()
     return rows
 
@@ -1471,7 +1472,50 @@ def resident_profile_payload(row: dict, members: list[dict] | None = None) -> di
         "responderType": row.get("responder_type"),
         "responderOrganization": row.get("responder_organization"),
         "responderBarangay": row.get("responder_barangay"),
+        "profilePicture": row.get("profile_picture"),
     }
+
+
+def validated_profile_picture(value: str | None) -> str | None:
+    if not value:
+        return None
+    header, separator, encoded = value.partition(",")
+    if not separator or header not in ("data:image/jpeg;base64", "data:image/png;base64", "data:image/webp;base64"):
+        raise HTTPException(status_code=422, detail="Profile picture must be a JPEG, PNG, or WebP image.")
+    try:
+        image_bytes = base64.b64decode(encoded, validate=True)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="The profile picture is invalid.") from error
+    signatures = {
+        "data:image/jpeg;base64": image_bytes.startswith(b"\xff\xd8\xff"),
+        "data:image/png;base64": image_bytes.startswith(b"\x89PNG\r\n\x1a\n"),
+        "data:image/webp;base64": image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP",
+    }
+    if not signatures[header]:
+        raise HTTPException(status_code=422, detail="Upload a valid JPEG, PNG, or WebP profile picture.")
+    return value
+
+
+@app.put("/api/v1/auth/profile-picture")
+def set_profile_picture(
+    update: ProfilePictureUpdate,
+    user: CurrentUser = Depends(get_current_user),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    picture = validated_profile_picture(update.profilePicture)
+    connection.execute("UPDATE users SET profile_picture = %s, updated_at = NOW() WHERE id = %s", (picture, user.id))
+    connection.commit()
+    return {"profilePicture": picture}
+
+
+@app.delete("/api/v1/auth/profile-picture")
+def delete_profile_picture(
+    user: CurrentUser = Depends(get_current_user),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    connection.execute("UPDATE users SET profile_picture = NULL, updated_at = NOW() WHERE id = %s", (user.id,))
+    connection.commit()
+    return {"profilePicture": None}
 
 
 @app.post("/api/v1/users/register", status_code=201)
@@ -1498,6 +1542,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
             raise HTTPException(status_code=422, detail="Upload a valid JPEG, PNG, or WebP responder ID image.")
 
     user_id = f"user-{uuid4()}"
+    profile_picture = validated_profile_picture(registration.profilePicture)
     is_responder = registration.role == "Responder"
     account_status = "Pending" if is_responder else "Active"
     try:
@@ -1506,8 +1551,8 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
             INSERT INTO users
               (id, name, first_name, middle_name, last_name, email, birthday, mobile_number,
                current_address, sex, password_hash, role, status, responder_type,
-               responder_organization, responder_barangay)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+               responder_organization, responder_barangay, profile_picture)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 user_id,
@@ -1526,6 +1571,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
                 registration.responderType if is_responder else None,
                 registration.responderOrganization if is_responder else None,
                 registration.responderBarangay if is_responder else None,
+                profile_picture,
             ),
         )
         if is_responder:
@@ -1545,7 +1591,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
 
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number,         current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture FROM users WHERE id = %s",
         (user_id,),
     ).fetchone()
     if is_responder:
@@ -1644,12 +1690,12 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
     mobile_candidates = mobile_login_candidates(credentials.email.strip())
     if mobile_candidates:
         rows = connection.execute(
-            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE regexp_replace(mobile_number, '[^0-9]', '', 'g') = ANY(%s) LIMIT 2",
+            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE regexp_replace(mobile_number, '[^0-9]', '', 'g') = ANY(%s) LIMIT 2",
             (mobile_candidates,),
         ).fetchall()
     else:
         rows = connection.execute(
-            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s) LIMIT 2",
+            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s) LIMIT 2",
             (credentials.email.strip(),),
         ).fetchall()
     if len(rows) != 1:
@@ -1688,7 +1734,7 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
 @app.get("/api/v1/auth/me")
 def current_user(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, responder_type, responder_organization, responder_barangay FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, responder_type,         responder_organization, responder_barangay, profile_picture FROM users WHERE id = %s",
         (user.id,),
     ).fetchone()
     return resident_profile_payload(row, household_members_for_user(connection, user.id))
@@ -1705,7 +1751,7 @@ def update_current_profile(
     last_name = profile.lastName.strip()
     full_name = " ".join(part for part in (first_name, middle_name, last_name) if part)
     row = connection.execute(
-        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, birthday = COALESCE(%s, birthday), sex = COALESCE(%s, sex), current_address = COALESCE(%s, current_address), updated_at = NOW() WHERE id = %s RETURNING id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role",
+        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, birthday = COALESCE(%s, birthday), sex = COALESCE(%s, sex), current_address = COALESCE(%s, current_address), updated_at = NOW() WHERE id = %s         RETURNING id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, responder_type, responder_organization, responder_barangay, profile_picture",
         (full_name, first_name, middle_name, last_name, profile.birthday, profile.sex, profile.currentAddress, user.id),
     ).fetchone()
     if not row:
@@ -1753,7 +1799,7 @@ def update_resident_profile(
         )
     connection.commit()
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number,         current_address, role, profile_picture FROM users WHERE id = %s",
         (resident.id,),
     ).fetchone()
     return resident_profile_payload(row, household_members_for_user(connection, resident.id))
@@ -1806,7 +1852,7 @@ def update_resident_account(
         connection.rollback()
         raise HTTPException(status_code=409, detail="That email address is already in use.") from error
     updated = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number,         current_address, role, profile_picture FROM users WHERE id = %s",
         (user.id,),
     ).fetchone()
     response = resident_profile_payload(updated, household_members_for_user(connection, user.id))

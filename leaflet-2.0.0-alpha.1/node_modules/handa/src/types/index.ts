@@ -27,6 +27,7 @@ export interface AuthUser {
   responderType?: 'Official' | 'Volunteer' | null;
   responderOrganization?: string | null;
   responderBarangay?: string | null;
+  profilePicture?: string | null;
 }
 
 export interface AuthContextType {

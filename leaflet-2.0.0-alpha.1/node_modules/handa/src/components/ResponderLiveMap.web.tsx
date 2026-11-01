@@ -3,7 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import * as Leaflet from '../vendor/leaflet/LeafletWithGlobals.js';
 import '../vendor/leaflet/leaflet.css';
-import { getResponderData, ResponderDataSnapshot, ResponderIncident, updateIncidentStatus } from '@services/responderData';
+import { getIncidentReporterContacts, getResponderData, IncidentReporterContact, ResponderDataSnapshot, ResponderIncident, updateIncidentStatus } from '@services/responderData';
 import { estimateResponseEta } from '@services/responderEta';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import { Colors } from '@constants/colors';
@@ -29,13 +29,15 @@ export default function ResponderLiveMap() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [reporters, setReporters] = useState<Record<string, IncidentReporterContact>>({});
 
   useEffect(() => {
     let mounted = true;
     const loadData = async () => {
       try {
-        const snapshot = await getResponderData();
+        const [snapshot, contacts] = await Promise.all([getResponderData(), getIncidentReporterContacts().catch(() => null)]);
         if (!mounted) return;
+        if (contacts) setReporters(contacts);
         setData(snapshot);
         setLastUpdated(new Date());
         setLoadError(snapshot.unavailableSources.length > 0);
@@ -434,6 +436,27 @@ export default function ResponderLiveMap() {
         popup.appendChild(makeText('div', incident.location || 'Location not provided', { marginTop: '4px' }));
         popup.appendChild(makeText('div', incident.description, { marginTop: '4px', maxWidth: '260px', whiteSpace: 'normal' }));
         if (incident.actionNotes) popup.appendChild(makeText('div', `Response: ${incident.actionNotes}`, { marginTop: '5px', color: '#167A5B' }));
+        const reporter = reporters[incident.id];
+        if (reporter) {
+          const row = makeText('div', '', { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #E3EAEE' });
+          const picture = reporter.profilePicture ?? '';
+          if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(picture)) {
+            const img = document.createElement('img');
+            img.src = picture;
+            img.alt = 'Reporter profile picture';
+            img.style.cssText = 'width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none';
+            row.appendChild(img);
+          } else {
+            const initials = reporter.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
+            row.appendChild(makeText('div', initials, { width: '40px', height: '40px', borderRadius: '50%', background: '#DCEBDD', color: '#1B6B2A', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }));
+          }
+          const info = document.createElement('div');
+          info.appendChild(makeText('div', 'Reported by', { fontSize: '10px', color: '#768491' }));
+          info.appendChild(makeText('strong', reporter.name, {}));
+          info.appendChild(makeText('div', reporter.mobileNumber, {}));
+          row.appendChild(info);
+          popup.appendChild(row);
+        }
         const navigateButton = makeText('button', 'Navigate here', { display: 'inline-block', marginTop: '9px', border: '0', borderRadius: '4px', padding: '8px 10px', background: '#1769AA', color: '#FFFFFF', fontWeight: '700', cursor: 'pointer' }) as HTMLButtonElement;
         navigateButton.type = 'button';
         navigateButton.addEventListener('click', () => startIncidentNavigation.current(incident.type || 'Incident', [incident.latitude!, incident.longitude!]));
@@ -465,7 +488,7 @@ export default function ResponderLiveMap() {
     };
 
     renderMarkers();
-  }, [data]);
+  }, [data, reporters]);
 
   return (
     <View style={styles.container}>

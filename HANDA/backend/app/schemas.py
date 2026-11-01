@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+PROFILE_PICTURE_MAX_CHARS = 400_000
+
 BINAN_BARANGAYS = (
     "Biñan (Poblacion)", "Bungahan", "Canlalay", "Casile", "De La Paz", "Ganado", "Langkiwa", "Loma",
     "Malaban", "Malamig", "Mamplasan", "Platero", "San Antonio", "San Francisco (Halang)", "San Jose",
@@ -74,6 +76,7 @@ class UserRegistration(BaseModel):
     verificationDocumentBase64: str | None = Field(default=None, max_length=5_600_000)
     verificationDocumentMimeType: Literal["image/jpeg", "image/png", "image/webp"] | None = None
     verificationDocumentName: str | None = Field(default=None, max_length=255)
+    profilePicture: str | None = Field(default=None, max_length=PROFILE_PICTURE_MAX_CHARS)
     members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
@@ -126,6 +129,10 @@ class ResidentProfileUpdate(BaseModel):
     mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
     currentAddress: str = Field(min_length=1, max_length=500)
     members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
+
+
+class ProfilePictureUpdate(BaseModel):
+    profilePicture: str = Field(max_length=PROFILE_PICTURE_MAX_CHARS)
 
 
 class UserLogin(BaseModel):
