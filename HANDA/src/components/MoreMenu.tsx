@@ -8,6 +8,7 @@ import { useAuth } from '@hooks/useAuth';
 import { Colors, BorderRadius, Spacing } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
 import AppBackArrow from '@components/AppBackArrow';
+import Avatar from '@components/Avatar';
 
 interface MoreMenuProps {
   roleLabel: string;
@@ -56,9 +57,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
         </View>
 
         <View style={styles.profile}>
-          <View style={styles.avatar}>
-            <MaterialCommunityIcons name="account-outline" size={42} color="#218B25" />
-          </View>
+          <Avatar uri={user?.profilePicture} name={displayName} size={68} />
           <View style={styles.profileCopy}>
             <Text style={[styles.name, { color: palette.text }]}>{displayName}</Text>
             <Text style={styles.role}>{roleLabel}</Text>
