@@ -163,7 +163,8 @@ class ResidentNotificationTests(unittest.TestCase):
             call for call in connection.execute.call_args_list
             if "INSERT INTO notifications" in call.args[0]
         )
-        self.assertEqual(notification_call.args[1][1:4], ("responder-1", "sos-1", "EMERGENCY SOS: SOS - Medical"))
+        self.assertEqual(notification_call.args[1], ("sos-1", "EMERGENCY SOS: SOS - Medical", "Resident activated SOS. Location: Biñan City · 14.3, 121.1", "resident-1"))
+        self.assertIn("role = 'Responder'", notification_call.args[0])
         connection.commit.assert_called_once()
 
     def test_acknowledged_message_mentions_type_status_and_reassurance(self):

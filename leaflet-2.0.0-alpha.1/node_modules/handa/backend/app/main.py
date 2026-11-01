@@ -229,6 +229,24 @@ def write_incident(connection: psycopg.Connection, incident: IncidentCreate, rep
     return {"id": incident_id, "entityType": "incident", "status": "accepted"}
 
 
+def notify_responders(connection: psycopg.Connection, incident_id: str, title: str, message: str, exclude_user_id: str | None = None) -> None:
+    # Responder locations are not stored, so every active responder is notified.
+    connection.execute(
+        """
+        INSERT INTO notifications (id, user_id, incident_id, title, message)
+        SELECT 'notification-' || gen_random_uuid()::text, id, %s, %s, %s
+        FROM users
+        WHERE role = 'Responder' AND status = 'Active' AND id <> COALESCE(%s, '')
+        """,
+        (incident_id, title, message, exclude_user_id),
+    )
+
+
+def notify_responders_of_new_incident(connection: psycopg.Connection, incident: IncidentCreate, incident_id: str, exclude_user_id: str | None = None) -> None:
+    if incident.severity == "critical":
+        notify_responders(connection, incident_id, f"EMERGENCY SOS: {incident.type}", f"{incident.description} Location: {incident.location}", exclude_user_id)
+
+
 def write_evacuee(connection: psycopg.Connection, evacuee: EvacueeCreate) -> dict:
     evacuee_id = normalize_id(evacuee.id, "evacuee")
     created_at = timestamp(evacuee.createdAt)
@@ -640,21 +658,7 @@ def chatbot_answer(request: ChatbotRequest, _: CurrentUser = Depends(get_current
 @app.post("/api/v1/incidents", status_code=201)
 def create_incident(incident: IncidentCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     result = write_incident(connection, incident, user.id if user.role == "resident" else None)
-    if incident.severity == "critical":
-        responders = connection.execute(
-            "SELECT id FROM users WHERE role = 'Responder' AND status = 'Active'"
-        ).fetchall()
-        for responder in responders:
-            connection.execute(
-                "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
-                (
-                    f"notification-{uuid4()}",
-                    responder["id"],
-                    result["id"],
-                    f"EMERGENCY SOS: {incident.type}",
-                    f"{incident.description} Location: {incident.location}",
-                ),
-            )
+    notify_responders_of_new_incident(connection, incident, result["id"], user.id)
     connection.commit()
     return result
 
@@ -671,7 +675,11 @@ def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_co
         try:
             with connection.transaction():
                 if event.entityType == "incident":
-                    result = write_incident(connection, IncidentCreate.model_validate(event.payload), user.id if user.role == "resident" else None)
+                    incident_payload = IncidentCreate.model_validate(event.payload)
+                    is_new = not incident_payload.id or connection.execute("SELECT 1 FROM incidents WHERE id = %s", (incident_payload.id,)).fetchone() is None
+                    result = write_incident(connection, incident_payload, user.id if user.role == "resident" else None)
+                    if is_new:
+                        notify_responders_of_new_incident(connection, incident_payload, result["id"], user.id)
                 else:
                     result = write_evacuee(connection, EvacueeCreate.model_validate(event.payload))
                 write_log(connection, "sync", "upload", user.id, event.entityType, result["id"], f"Synchronized {event.entityType} from the user device.")
@@ -820,12 +828,21 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
         """,
         (incident_id,),
     ).fetchone()
+    incident_info = connection.execute("SELECT type, location_text FROM incidents WHERE id = %s", (incident_id,)).fetchone()
     if reporter:
         title, message = incident_notification_message(update.status, saved, reporter["incident_type"])
         connection.execute(
             "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
             (f"notification-{uuid4()}", reporter["id"], incident_id, title, message),
         )
+    incident_type = incident_info["type"] if incident_info else "Incident"
+    notify_responders(
+        connection,
+        incident_id,
+        f"Incident {update.status.replace('_', ' ')}: {incident_type}",
+        f"{incident_type} at {incident_info['location_text'] if incident_info else 'the reported location'} is now {update.status.replace('_', ' ').upper()}.",
+        user.id,
+    )
     connection.commit()
     if reporter:
         deliver_incident_alert(
