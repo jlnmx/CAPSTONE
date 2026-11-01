@@ -31,6 +31,8 @@ class FakeConnection:
     def execute(self, query, values=()):
         if query.startswith("SELECT password_hash"):
             return FakeResult(self.credential_row)
+        if query.startswith("SELECT 1 FROM users"):
+            return FakeResult(None)
         if query.startswith("UPDATE users"):
             self.update_query = query
             self.update_values = values
@@ -125,6 +127,32 @@ class AccountCredentialTests(unittest.TestCase):
         _token.assert_called_once_with("resident-1", "resident", 5)
         self.assertEqual(result["email"], "new@example.com")
         self.assertEqual(result["accessToken"], "fresh-access-token")
+
+    def test_duplicate_email_or_mobile_is_rejected(self):
+        for field, expected in (("email", "email address"), ("mobile", "mobile number")):
+            with self.subTest(field=field):
+                class Connection:
+                    def execute(self, query, values=()):
+                        is_email_query = "LOWER(email)" in query
+                        return FakeResult({"?column?": 1} if is_email_query == (field == "email") else None)
+
+                with self.assertRaises(HTTPException) as error:
+                    main.assert_unique_contact(Connection(), "a@example.com", "09171234567", "user-1")
+
+                self.assertEqual(error.exception.status_code, 409)
+                self.assertIn(expected, error.exception.detail)
+
+    def test_unique_contact_passes_and_compares_last_ten_mobile_digits(self):
+        seen = []
+
+        class Connection:
+            def execute(self, query, values=()):
+                seen.append(values)
+                return FakeResult(None)
+
+        main.assert_unique_contact(Connection(), "A@Example.com", "+639171234567")
+        self.assertEqual(seen[0][0], "a@example.com")
+        self.assertEqual(seen[1][0], "9171234567")
 
 
 if __name__ == "__main__":

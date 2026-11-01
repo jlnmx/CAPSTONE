@@ -1358,9 +1358,24 @@ def validate_account_password(password: str) -> None:
         raise HTTPException(status_code=422, detail="Password must include uppercase, lowercase, number, and symbol.")
 
 
+def assert_unique_contact(connection: psycopg.Connection, email: str | None, mobile_number: str | None, exclude_user_id: str | None = None) -> None:
+    """Reject an email or mobile number that already belongs to another account (mobile formats 09/+639/639 are compared by their last 10 digits)."""
+    if email:
+        if connection.execute("SELECT 1 FROM users WHERE LOWER(email) = %s AND id IS DISTINCT FROM %s LIMIT 1", (email.strip().lower(), exclude_user_id)).fetchone():
+            raise HTTPException(status_code=409, detail="This email address is already registered to another account.")
+    if mobile_number:
+        digits = "".join(char for char in mobile_number if char.isdigit())[-10:]
+        if connection.execute(
+            "SELECT 1 FROM users WHERE RIGHT(REGEXP_REPLACE(COALESCE(mobile_number, ''), '\\D', '', 'g'), 10) = %s AND id IS DISTINCT FROM %s LIMIT 1",
+            (digits, exclude_user_id),
+        ).fetchone():
+            raise HTTPException(status_code=409, detail="This mobile number is already registered to another account.")
+
+
 @app.post("/api/v1/users", status_code=201)
 def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("admin"))):
     validate_account_password(account.password)
+    assert_unique_contact(connection, account.email, account.mobileNumber)
     user_id = f"user-{uuid4()}"
     try:
         row = connection.execute(
@@ -1399,6 +1414,7 @@ def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depen
         raise HTTPException(status_code=400, detail="You cannot change your own password, role, or status here.")
 
     password = changes.pop("password", None)
+    assert_unique_contact(connection, changes.get("email"), changes.get("mobileNumber"), user_id)
     if password:
         validate_account_password(password)
         changes["password_hash"] = hash_password(password)
@@ -1546,6 +1562,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
             raise HTTPException(status_code=422, detail="Upload a valid JPEG, PNG, or WebP responder ID image.")
 
     user_id = f"user-{uuid4()}"
+    assert_unique_contact(connection, registration.email, registration.mobileNumber)
     profile_picture = validated_profile_picture(registration.profilePicture)
     is_responder = registration.role == "Responder"
     account_status = "Pending" if is_responder else "Active"
@@ -1791,6 +1808,7 @@ def update_resident_profile(
     connection: psycopg.Connection = Depends(get_connection),
 ):
     full_name = " ".join(part for part in (profile.firstName.strip(), (profile.middleName or "").strip(), profile.lastName.strip()) if part)
+    assert_unique_contact(connection, None, profile.mobileNumber, resident.id)
     connection.execute(
         "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, birthday = %s, sex = %s, mobile_number = %s, current_address = %s, updated_at = NOW() WHERE id = %s",
         (full_name, profile.firstName.strip(), (profile.middleName or "").strip() or None, profile.lastName.strip(), profile.birthday, profile.sex, profile.mobileNumber, profile.currentAddress.strip(), resident.id),
@@ -1832,6 +1850,7 @@ def update_resident_account(
     assignments: list[str] = []
     values: list[object] = []
     normalized_email = account.email.strip().lower() if account.email is not None else None
+    assert_unique_contact(connection, normalized_email, account.mobileNumber, user.id)
     credentials_changed = bool(
         (normalized_email is not None and normalized_email != row["email"].lower())
         or account.newPassword is not None
