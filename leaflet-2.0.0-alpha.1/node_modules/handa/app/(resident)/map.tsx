@@ -7,6 +7,8 @@ import { Colors } from '@constants/colors';
 import LeafletMap from '@components/LeafletMap';
 import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
+import { saveLocalEvacuationRegistration } from '@services/localDatabase';
+import { syncPendingLocalData } from '@services/syncService';
 import { useAuth } from '@hooks/useAuth';
 import { MapEvacuationCenter, ResidentHouseholdMember } from '@types/index';
 import AppBackArrow from '@components/AppBackArrow';
@@ -216,22 +218,33 @@ export default function ResidentMapScreen() {
       setProfile(savedProfile);
       await setAuthenticatedUser({ ...savedProfile, role: 'resident' });
 
-      const registrationResponse = await authenticatedFetch('/api/v1/resident/evacuation-registrations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          centerId: selectedCenter.id,
-          firstName: savedProfile.firstName,
-          middleName: savedProfile.middleName || null,
-          lastName: savedProfile.lastName,
-          age,
-          sex: savedProfile.sex,
-          contactNumber: savedProfile.mobileNumber.replace(/[\s()-]/g, ''),
-          address: savedProfile.currentAddress,
-          householdSize: householdMembers.length + 1,
-          members: householdMembers,
-        }),
-      });
+      const registrationBody = {
+        id: `evac-registration-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        centerId: selectedCenter.id,
+        firstName: savedProfile.firstName,
+        middleName: savedProfile.middleName || null,
+        lastName: savedProfile.lastName,
+        age,
+        sex: savedProfile.sex,
+        contactNumber: savedProfile.mobileNumber.replace(/[\s()-]/g, ''),
+        address: savedProfile.currentAddress,
+        householdSize: householdMembers.length + 1,
+        members: householdMembers,
+      };
+      let registrationResponse: Response;
+      try {
+        registrationResponse = await authenticatedFetch('/api/v1/resident/evacuation-registrations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(registrationBody),
+        });
+      } catch {
+        if (!saveLocalEvacuationRegistration({ ...registrationBody, centerName: selectedCenter.name })) throw new Error('No connection. Please try again when you are online.');
+        void syncPendingLocalData().catch(() => undefined);
+        setSelectedCenter(null);
+        Alert.alert('Saved offline', 'Your registration is saved on this device and will be sent automatically once you are back online.');
+        return;
+      }
       const result = await registrationResponse.json() as { detail?: unknown };
       if (!registrationResponse.ok) throw new Error(readRequestError(result.detail));
       setSelectedCenter(null);

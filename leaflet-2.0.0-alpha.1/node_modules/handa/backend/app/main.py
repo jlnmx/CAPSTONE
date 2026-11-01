@@ -681,13 +681,21 @@ def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_co
                     result = write_incident(connection, incident_payload, user.id if user.role == "resident" else None)
                     if is_new:
                         notify_responders_of_new_incident(connection, incident_payload, result["id"], user.id)
+                elif event.entityType == "evacuation_registration":
+                    if user.role != "resident":
+                        raise HTTPException(status_code=403, detail="Only residents can register for evacuation.")
+                    registration_payload = EvacuationRegistrationCreate.model_validate(event.payload)
+                    if not registration_payload.id:
+                        raise ValueError("Offline registrations need a client id.")
+                    result = {"id": write_resident_registration(connection, user, registration_payload), "entityType": "evacuation_registration", "status": "accepted"}
                 else:
                     result = write_evacuee(connection, EvacueeCreate.model_validate(event.payload))
                 write_log(connection, "sync", "upload", user.id, event.entityType, result["id"], f"Synchronized {event.entityType} from the user device.")
             results.append(result)
-        except (ValueError, psycopg.Error) as error:
-            write_log(connection, "sync", "rejected", user.id, event.entityType, event.payload.get("id"), str(error), "failed")
-            results.append({"status": "rejected", "entityType": event.entityType, "error": str(error)})
+        except (ValueError, psycopg.Error, HTTPException) as error:
+            detail = error.detail if isinstance(error, HTTPException) else str(error)
+            write_log(connection, "sync", "rejected", user.id, event.entityType, event.payload.get("id"), str(detail), "failed")
+            results.append({"status": "rejected", "entityType": event.entityType, "error": str(detail), "permanent": not isinstance(error, psycopg.Error)})
     return {"processed": len(results), "results": results}
 
 
@@ -1105,14 +1113,18 @@ def get_resident_evacuation_status(
     return resident_evacuation_status(connection, resident)
 
 
-@app.post("/api/v1/resident/evacuation-registrations", status_code=201)
-def register_resident_at_center(
-    registration: EvacuationRegistrationCreate,
-    resident: CurrentUser = Depends(require_roles("resident")),
-    connection: psycopg.Connection = Depends(get_connection),
-):
+def write_resident_registration(connection: psycopg.Connection, resident: CurrentUser, registration: EvacuationRegistrationCreate) -> str:
+    """Insert a household registration without committing. A repeated client id is treated as already saved."""
     if len(registration.members) != registration.householdSize - 1:
         raise HTTPException(status_code=422, detail="Add a name and relationship for every household member besides the evacuee.")
+
+    registration_id = registration.id or f"evac-registration-{uuid4()}"
+    if registration.id:
+        saved = connection.execute("SELECT resident_user_id FROM evacuation_registrations WHERE id = %s", (registration.id,)).fetchone()
+        if saved:
+            if saved["resident_user_id"] != resident.id:
+                raise HTTPException(status_code=409, detail="This registration id is already in use.")
+            return registration_id
 
     center = connection.execute(
         "SELECT id, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s",
@@ -1130,23 +1142,32 @@ def register_resident_at_center(
     if existing:
         raise HTTPException(status_code=409, detail="Your household already has an active evacuation registration.")
 
-    registration_id = f"evac-registration-{uuid4()}"
-    try:
+    connection.execute(
+        "INSERT INTO evacuation_registrations (id, resident_user_id, center_id, first_name, middle_name, last_name, age, sex, contact_number, address, household_size) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (registration_id, resident.id, registration.centerId, registration.firstName.strip(), (registration.middleName or "").strip() or None, registration.lastName.strip(), registration.age, registration.sex, registration.contactNumber, registration.address.strip(), registration.householdSize),
+    )
+    for member in registration.members:
         connection.execute(
-            "INSERT INTO evacuation_registrations (id, resident_user_id, center_id, first_name, middle_name, last_name, age, sex, contact_number, address, household_size) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (registration_id, resident.id, registration.centerId, registration.firstName.strip(), (registration.middleName or "").strip() or None, registration.lastName.strip(), registration.age, registration.sex, registration.contactNumber, registration.address.strip(), registration.householdSize),
+            "INSERT INTO evacuation_household_members (id, registration_id, name, relationship) VALUES (%s, %s, %s, %s)",
+            (f"household-member-{uuid4()}", registration_id, member.name.strip(), member.relationship.strip()),
         )
-        for member in registration.members:
-            connection.execute(
-                "INSERT INTO evacuation_household_members (id, registration_id, name, relationship) VALUES (%s, %s, %s, %s)",
-                (f"household-member-{uuid4()}", registration_id, member.name.strip(), member.relationship.strip()),
-            )
-        connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
-        for member in registration.members:
-            connection.execute(
-                "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
-                (f"resident-household-{uuid4()}", resident.id, member.name.strip(), member.relationship.strip()),
-            )
+    connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
+    for member in registration.members:
+        connection.execute(
+            "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
+            (f"resident-household-{uuid4()}", resident.id, member.name.strip(), member.relationship.strip()),
+        )
+    return registration_id
+
+
+@app.post("/api/v1/resident/evacuation-registrations", status_code=201)
+def register_resident_at_center(
+    registration: EvacuationRegistrationCreate,
+    resident: CurrentUser = Depends(require_roles("resident")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    try:
+        write_resident_registration(connection, resident, registration)
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()

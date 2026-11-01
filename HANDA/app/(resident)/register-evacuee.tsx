@@ -9,6 +9,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import AppBackArrow from '@components/AppBackArrow';
+import { saveLocalEvacuationRegistration } from '@services/localDatabase';
+import { syncPendingLocalData } from '@services/syncService';
 
 const GREEN = '#218B25';
 const FIELD_GREEN = '#548B56';
@@ -260,23 +262,39 @@ export default function RegisterEvacueeScreen() {
     const householdSize = members.length + 1;
 
     setIsSubmitting(true);
+    const payload = {
+      id: `evac-registration-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      centerId,
+      firstName: firstName.trim(),
+      middleName: middleName.trim() || null,
+      lastName: lastName.trim(),
+      age: parsedAge,
+      sex,
+      contactNumber: normalizedContact,
+      address: address.trim(),
+      householdSize,
+      members: members.map((member) => ({ name: member.name.trim(), relationship: member.relationship.trim() })),
+    };
+    let response: Response;
     try {
-      const response = await authenticatedFetch('/api/v1/resident/evacuation-registrations', {
+      response = await authenticatedFetch('/api/v1/resident/evacuation-registrations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          centerId,
-          firstName: firstName.trim(),
-          middleName: middleName.trim() || null,
-          lastName: lastName.trim(),
-          age: parsedAge,
-          sex,
-          contactNumber: normalizedContact,
-          address: address.trim(),
-          householdSize,
-          members: members.map((member) => ({ name: member.name.trim(), relationship: member.relationship.trim() })),
-        }),
+        body: JSON.stringify(payload),
       });
+    } catch {
+      const queued = saveLocalEvacuationRegistration({ ...payload, centerName: selectedCenter?.name });
+      setIsSubmitting(false);
+      if (queued) {
+        void syncPendingLocalData().catch(() => undefined);
+        Alert.alert('Saved offline', 'No connection. Your registration is saved on this device and will be sent automatically once you are back online.');
+        router.push('/(resident)/verify-status');
+      } else {
+        Alert.alert('Registration failed', 'No connection. Please try again when you are online.');
+      }
+      return;
+    }
+    try {
       const result = await response.json() as { detail?: unknown };
       if (!response.ok) throw new Error(readApiError(result.detail));
       try {

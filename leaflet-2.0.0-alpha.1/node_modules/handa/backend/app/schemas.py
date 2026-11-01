@@ -41,7 +41,7 @@ class EvacueeCreate(BaseModel):
 
 
 class SyncEvent(BaseModel):
-    entityType: Literal["incident", "evacuee"]
+    entityType: Literal["incident", "evacuee", "evacuation_registration"]
     operation: Literal["create"]
     payload: dict[str, Any]
 
@@ -224,6 +224,7 @@ class EvacueeStatusUpdate(BaseModel):
 
 
 class EvacuationRegistrationCreate(BaseModel):
+    id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{1,100}$")
     centerId: str = Field(min_length=1, max_length=160)
     firstName: str = Field(min_length=1, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)

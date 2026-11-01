@@ -111,6 +111,7 @@ export function initializeLocalDatabase() {
   `);
   try { db.execSync('ALTER TABLE incidents ADD COLUMN latitude REAL;'); } catch { }
   try { db.execSync('ALTER TABLE incidents ADD COLUMN longitude REAL;'); } catch { }
+  try { db.execSync('ALTER TABLE outbox ADD COLUMN last_error TEXT;'); } catch { }
 }
 
 export function saveLocalIncident(input: LocalIncidentInput) {
@@ -288,6 +289,89 @@ export function markOutboxEventSynced(outboxId: number, entityType: string, enti
   initializeLocalDatabase();
   db.withTransactionSync(() => {
     db.runSync("UPDATE outbox SET status = 'synced' WHERE id = ?", outboxId);
-    db.runSync(`UPDATE ${entityType === 'incident' ? 'incidents' : 'evacuees'} SET sync_status = 'synced' WHERE id = ?`, entityId);
+    if (entityType === 'incident') db.runSync("UPDATE incidents SET sync_status = 'synced' WHERE id = ?", entityId);
+    else if (entityType === 'evacuee') db.runSync("UPDATE evacuees SET sync_status = 'synced' WHERE id = ?", entityId);
   });
+}
+
+export function markOutboxEventFailed(outboxId: number, reason: string) {
+  const db = getDatabase();
+  if (!db) {
+    return;
+  }
+
+  initializeLocalDatabase();
+  db.runSync("UPDATE outbox SET status = 'failed', last_error = ?, attempts = attempts + 1 WHERE id = ?", reason, outboxId);
+}
+
+export interface LocalRegistrationInput {
+  id?: string;
+  centerId: string;
+  centerName?: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  age: number;
+  sex: string;
+  contactNumber: string;
+  address: string;
+  householdSize: number;
+  members: Array<{ name: string; relationship: string }>;
+}
+
+export interface QueuedRegistration {
+  outboxId: number;
+  status: 'pending' | 'failed';
+  error: string | null;
+  createdAt: string;
+  registration: LocalRegistrationInput & { id: string };
+}
+
+/** Queues an evacuation registration for upload; the client id keeps retries from creating duplicates. */
+export function saveLocalEvacuationRegistration(input: LocalRegistrationInput) {
+  const db = getDatabase();
+  if (!db) {
+    return null;
+  }
+
+  initializeLocalDatabase();
+  const id = input.id ?? `evac-registration-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const createdAt = new Date().toISOString();
+  db.runSync(
+    `INSERT INTO outbox (entity_type, entity_id, operation, payload, created_at) VALUES (?, ?, ?, ?, ?)`,
+    'evacuation_registration',
+    id,
+    'create',
+    JSON.stringify({ ...input, id }),
+    createdAt,
+  );
+  return id;
+}
+
+export function getQueuedRegistration(): QueuedRegistration | null {
+  const db = getDatabase();
+  if (!db) {
+    return null;
+  }
+
+  initializeLocalDatabase();
+  const row = db.getFirstSync<{ id: number; status: 'pending' | 'failed'; lastError: string | null; createdAt: string; payload: string }>(
+    `SELECT id, status, last_error AS lastError, created_at AS createdAt, payload
+     FROM outbox
+     WHERE entity_type = 'evacuation_registration' AND status IN ('pending', 'failed')
+     ORDER BY id DESC
+     LIMIT 1`,
+  );
+  if (!row) return null;
+  return { outboxId: row.id, status: row.status, error: row.lastError, createdAt: row.createdAt, registration: JSON.parse(row.payload) };
+}
+
+export function discardQueuedRegistration(outboxId: number) {
+  const db = getDatabase();
+  if (!db) {
+    return;
+  }
+
+  initializeLocalDatabase();
+  db.runSync("DELETE FROM outbox WHERE id = ? AND entity_type = 'evacuation_registration'", outboxId);
 }
