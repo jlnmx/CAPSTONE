@@ -193,7 +193,7 @@ export default function AccountSectionScreen() {
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <AppBackArrow />
-          <View><Text style={styles.eyebrow}>ACCOUNT SETTINGS</Text><Text style={styles.title}>{section.title}</Text></View>
+          <View style={styles.headerCopy}><Text style={styles.eyebrow}>ACCOUNT SETTINGS</Text><Text style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{section.title}</Text></View>
         </View>
         <View style={[styles.form, { backgroundColor: palette.surface, borderColor: palette.border }]}>
           <Text style={[styles.description, { color: palette.textMuted }]}>{section.detail}</Text>
@@ -268,7 +268,8 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: Spacing['3xl'] },
   header: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   eyebrow: { color: '#D8F0D8', fontSize: 10, fontWeight: '800' },
-  title: { marginTop: 2, color: Colors.white, fontSize: 25, fontWeight: '800' },
+  title: { marginTop: 2, color: Colors.white, fontSize: 25, fontWeight: '800', flexShrink: 1 },
+  headerCopy: { flex: 1, minWidth: 0 },
   form: { width: '100%', maxWidth: 600, alignSelf: 'center', marginTop: Spacing.xl, padding: Spacing.lg, borderWidth: 1, borderRadius: BorderRadius.md },
   description: { marginBottom: Spacing.sm, fontSize: 13, lineHeight: 19 },
   input: { height: 48, marginTop: Spacing.md, paddingHorizontal: Spacing.md, borderWidth: 1, borderRadius: BorderRadius.md, fontSize: 14 },
