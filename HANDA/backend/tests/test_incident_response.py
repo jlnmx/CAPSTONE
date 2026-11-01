@@ -120,6 +120,17 @@ class IncidentStatusTransitionTests(unittest.TestCase):
                 self.assertEqual(connection.execute.call_count, 1)
                 connection.commit.assert_not_called()
 
+    def test_only_the_responder_who_started_the_response_can_resolve_it(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {"status": "in_progress", "verified_by": "responder-2"}
+
+        with self.assertRaises(HTTPException) as error:
+            main.update_incident_status("incident-1", IncidentStatusUpdate(status="resolved"), connection, self.responder)
+
+        self.assertEqual(error.exception.status_code, 403)
+        self.assertEqual(connection.execute.call_count, 1)
+        connection.commit.assert_not_called()
+
 
 class ReporterContactTests(unittest.TestCase):
     def test_only_responders_and_admins_can_read_reporter_contacts(self):

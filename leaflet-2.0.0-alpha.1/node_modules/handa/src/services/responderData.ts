@@ -17,6 +17,7 @@ export type ResponderIncident = {
   responseEtaMinutes?: number;
   responseNotes: string;
   createdAt: string;
+  verifiedBy?: string;
 };
 
 export type ResponderEvacuee = {
@@ -88,6 +89,7 @@ function normalizeIncident(record: Record<string, any>): ResponderIncident {
     responseEtaMinutes: record.responseEtaMinutes ?? record.response_eta_minutes ?? undefined,
     responseNotes: record.responseNotes ?? record.response_notes ?? '',
     createdAt: record.createdAt ?? record.created_at,
+    verifiedBy: record.verifiedBy ?? record.verified_by ?? undefined,
   };
 }
 

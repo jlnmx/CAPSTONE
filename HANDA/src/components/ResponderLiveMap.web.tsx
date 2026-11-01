@@ -7,6 +7,7 @@ import { getIncidentReporterContacts, getResponderData, IncidentReporterContact,
 import { estimateResponseEta } from '@services/responderEta';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import { Colors } from '@constants/colors';
+import { useAuth } from '@hooks/useAuth';
 
 const CENTER: [number, number] = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -21,6 +22,7 @@ function nextIncidentAction(status: ResponderIncident['status']) {
 }
 
 export default function ResponderLiveMap() {
+  const { user } = useAuth();
   const mapElement = useRef<HTMLDivElement | null>(null);
   const centerLayer = useRef<any>(null);
   const incidentLayer = useRef<any>(null);
@@ -462,7 +464,9 @@ export default function ResponderLiveMap() {
         navigateButton.addEventListener('click', () => startIncidentNavigation.current(incident.type || 'Incident', [incident.latitude!, incident.longitude!]));
         popup.appendChild(navigateButton);
         const action = nextIncidentAction(incident.status);
-        if (action) {
+        if (incident.status === 'in_progress' && user?.role === 'responder' && incident.verifiedBy !== user.id) {
+          popup.appendChild(makeText('div', 'Only the responder who started this response can resolve it.', { marginTop: '8px', fontSize: '11px', color: '#768491' }));
+        } else if (action) {
           const button = document.createElement('button');
           button.type = 'button';
           button.textContent = action.label;
@@ -488,7 +492,7 @@ export default function ResponderLiveMap() {
     };
 
     renderMarkers();
-  }, [data, reporters]);
+  }, [data, reporters, user?.id, user?.role]);
 
   return (
     <View style={styles.container}>

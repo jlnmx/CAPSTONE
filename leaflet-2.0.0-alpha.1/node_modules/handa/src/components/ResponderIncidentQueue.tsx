@@ -21,8 +21,9 @@ const NEXT_STATUSES: Record<IncidentStatus, IncidentStatus[]> = {
   resolved: [],
 };
 
-function canTransitionStatus(current: IncidentStatus, next: IncidentStatus): boolean {
-  return NEXT_STATUSES[current].includes(next);
+function canTransitionStatus(current: IncidentStatus, next: IncidentStatus, incident?: ResponderIncident, userId?: string, role?: string): boolean {
+  if (!NEXT_STATUSES[current].includes(next)) return false;
+  return !(incident && current === 'in_progress' && role === 'responder' && incident.verifiedBy !== userId);
 }
 
 function displayLocationLabel(location: string, latitude?: number, longitude?: number): string {
@@ -91,7 +92,7 @@ export default function ResponderIncidentQueue() {
   };
 
   const handleStatusPress = async (incident: ResponderIncident, status: IncidentStatus) => {
-    if (!canTransitionStatus(incident.status, status)) return;
+    if (!canTransitionStatus(incident.status, status, incident, user?.id, user?.role)) return;
     if (status === 'acknowledged') {
       openResponseEditor(incident, status);
       return;
@@ -192,7 +193,7 @@ export default function ResponderIncidentQueue() {
       </AnimatedPressable>}
       {incident.photoUris.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photos}>{incident.photoUris.map((uri, index) => <Image key={`${incident.id}-photo-${index}`} source={{ uri }} style={styles.photo} />)}</ScrollView>}
       <View style={styles.actions}>{STATUSES.map((status) => {
-        const canTransition = canTransitionStatus(incident.status, status);
+        const canTransition = canTransitionStatus(incident.status, status, incident, user?.id, user?.role);
         const isCurrent = incident.status === status;
         return <AnimatedPressable key={status} style={[styles.action, isCurrent && { backgroundColor: incidentStatusColor(status) }, !canTransition && styles.actionDisabled]} onPress={() => void handleStatusPress(incident, status)} disabled={updatingId === incident.id || !canTransition} accessibilityRole="button" accessibilityState={{ disabled: updatingId === incident.id || !canTransition, selected: isCurrent }}>
           <Text style={[styles.actionText, isCurrent && styles.activeActionText]}>{status.replace('_', ' ')}</Text>

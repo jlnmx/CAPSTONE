@@ -5,6 +5,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
+import { useAuth } from '@hooks/useAuth';
 import { INCIDENT_STATUS_COLORS, INCIDENT_STATUS_LABELS } from '@constants/incidentStatus';
 import { estimateResponseEta } from '@services/responderEta';
 import { getIncidentReporterContacts, getResponderData, IncidentReporterContact, ResponderDataSnapshot, updateIncidentStatus } from '@services/responderData';
@@ -21,6 +22,7 @@ function nextIncidentAction(status: string) {
 }
 
 export default function ResponderLiveMap() {
+  const { user } = useAuth();
   const webView = useRef<WebView>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const locationFixTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,9 +62,9 @@ export default function ResponderLiveMap() {
 
   useEffect(() => {
     if (mapReady) {
-      webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters })}); true;`);
+      webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters, viewer: { id: user?.id, role: user?.role } })}); true;`);
     }
-  }, [data, reporters, mapReady]);
+  }, [data, reporters, mapReady, user?.id, user?.role]);
 
   const mapHtml = useMemo(() => `
     <!DOCTYPE html>
@@ -523,7 +525,14 @@ export default function ResponderLiveMap() {
                 notes.textContent = 'Response: ' + incident.actionNotes;
                 popup.appendChild(notes);
               }
-              if (action) {
+              const viewer = data.viewer || {};
+              const lockedToOtherResponder = status === 'in_progress' && viewer.role === 'responder' && incident.verifiedBy !== viewer.id;
+              if (lockedToOtherResponder) {
+                const lockNote = document.createElement('div');
+                lockNote.textContent = 'Only the responder who started this response can resolve it.';
+                lockNote.style.cssText = 'margin-top:8px;font-size:11px;color:#768491';
+                popup.appendChild(lockNote);
+              } else if (action) {
                 const actionButton = document.createElement('button');
                 actionButton.type = 'button';
                 actionButton.className = 'map-action';
@@ -548,7 +557,7 @@ export default function ResponderLiveMap() {
       const message = JSON.parse(event.nativeEvent.data) as { type: string; id?: string; status?: 'acknowledged' | 'in_progress' | 'resolved'; label?: string; name?: string; latitude?: number; longitude?: number; started?: boolean; mode?: string; profile?: string };
       if (message.type === 'map-ready') {
         setMapReady(true);
-        webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters })}); true;`);
+        webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters, viewer: { id: user?.id, role: user?.role } })}); true;`);
         const session = navigationSession.current;
         if (session) {
           webView.current?.injectJavaScript(`window.resumeResponderNavigation(${JSON.stringify(session.name)}, ${session.latitude}, ${session.longitude}, ${session.started}, ${JSON.stringify(session.mode)}, ${JSON.stringify(session.profile)}); true;`);

@@ -774,7 +774,7 @@ def incident_notification_message(status: str, update: IncidentStatusUpdate, inc
 @app.patch("/api/v1/incidents/{incident_id}/status")
 def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("responder", "admin"))):
     current = connection.execute(
-        "SELECT status FROM incidents WHERE id = %s FOR UPDATE",
+        "SELECT status, verified_by FROM incidents WHERE id = %s FOR UPDATE",
         (incident_id,),
     ).fetchone()
     if not current:
@@ -790,6 +790,8 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
             status_code=409,
             detail=f"An incident must be acknowledged before it can move to {update.status.replace('_', ' ')}.",
         )
+    if current["status"] == "in_progress" and user.role == "responder" and current["verified_by"] != user.id:
+        raise HTTPException(status_code=403, detail="Only the responder who marked this incident in progress can resolve it.")
 
     update = resolve_response_details(connection, user, update)
     clean = lambda value: None if value is None else value.strip()
