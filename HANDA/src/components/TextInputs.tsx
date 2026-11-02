@@ -47,6 +47,7 @@ export function TextInput({
           inputStyle,
           { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale, color: palette.text, backgroundColor: palette.surface },
           { borderColor: error ? Colors.emergency : focused ? Colors.secondary : palette.border },
+          focused && !error && styles.inputFocused,
           error && styles.inputError,
           !editable && styles.inputDisabled,
         ]}
@@ -103,6 +104,7 @@ export function PasswordInput({
             inputStyle,
             { minHeight: buttonHeight, fontSize: Typography.sizes.base * scale, color: palette.text, backgroundColor: palette.surface },
             { borderColor: error ? Colors.emergency : focused ? Colors.secondary : palette.border },
+            focused && !error && styles.inputFocused,
             error && styles.inputError,
           ]}
           placeholder={placeholder}
@@ -139,22 +141,30 @@ export function PasswordInput({
 const styles = StyleSheet.create({
   label: {
     fontSize: Typography.sizes.sm,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
     color: Colors.text,
-    marginBottom: Spacing.sm,
+    marginBottom: 6,
   },
   input: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     fontSize: Typography.sizes.base,
     color: Colors.text,
     backgroundColor: Colors.surface,
   },
   inputError: {
     borderColor: Colors.emergency,
+  },
+  inputFocused: {
+    shadowColor: '#218B25',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.28,
+    shadowRadius: 6,
+    elevation: 2,
   },
   inputDisabled: {
     backgroundColor: Colors.background,
@@ -172,7 +182,7 @@ const styles = StyleSheet.create({
   },
   passwordInput: {
     flex: 1,
-    paddingRight: Spacing.xl,
+    paddingRight: 48,
   },
   visibilityToggle: {
     position: 'absolute',

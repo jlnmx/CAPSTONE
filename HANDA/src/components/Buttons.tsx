@@ -2,8 +2,8 @@
  * Button Components
  */
 
-import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, PressableProps, StyleSheet, TextStyle, ViewStyle } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Pressable, PressableProps, StyleSheet, TextStyle, ViewStyle } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@constants/colors';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
@@ -24,6 +24,8 @@ interface AnimatedPressableProps extends PressableProps {
   activeOpacity?: number;
 }
 
+const SpringPressable = Animated.createAnimatedComponent(Pressable);
+
 export function AnimatedPressable({
   children,
   style,
@@ -36,6 +38,11 @@ export function AnimatedPressable({
   ...props
 }: AnimatedPressableProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const springTo = (toValue: number) =>
+    Animated.spring(scale, { toValue, useNativeDriver: true, speed: 40, bounciness: toValue === 1 ? 8 : 0 }).start();
 
   const handleHoverIn: NonNullable<PressableProps['onHoverIn']> = (event) => {
     if (!disabled) setIsHovered(true);
@@ -48,37 +55,41 @@ export function AnimatedPressable({
   };
 
   const handlePressIn: NonNullable<PressableProps['onPressIn']> = (event) => {
+    if (!disabled) {
+      setIsPressed(true);
+      springTo(0.96);
+    }
     onPressIn?.(event);
   };
 
   const handlePressOut: NonNullable<PressableProps['onPressOut']> = (event) => {
+    setIsPressed(false);
+    springTo(1);
     onPressOut?.(event);
   };
 
+  const baseStyle = typeof style === 'function' ? style({ pressed: isPressed }) : style;
+  const transform = StyleSheet.flatten(baseStyle)?.transform ?? [];
+
   return (
-    <Pressable
+    <SpringPressable
       {...props}
       disabled={disabled}
-      style={(state) => {
-        const baseStyle = typeof style === 'function' ? style(state) : style;
-        const transform = StyleSheet.flatten(baseStyle)?.transform ?? [];
-        return [
-          baseStyle,
-          isHovered && !disabled && { opacity: Math.max(activeOpacity, 0.92) },
-          { transform: [...transform, { scale: state.pressed && !disabled ? 0.985 : 1 }] },
-          state.pressed && !disabled && styles.pressed,
-        ];
-      }}
+      style={[
+        baseStyle,
+        isHovered && !disabled && { opacity: Math.max(activeOpacity, 0.92) },
+        isPressed && !disabled && styles.pressed,
+        { transform: [...(Array.isArray(transform) ? transform : []), { scale }] },
+      ]}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onHoverIn={handleHoverIn}
       onHoverOut={handleHoverOut}
     >
       {children}
-    </Pressable>
+    </SpringPressable>
   );
 }
-
 export function PrimaryButton({
   label,
   onPress,
@@ -185,15 +196,15 @@ export function IconButton({
 }
 
 const styles = StyleSheet.create({
-  pressed: { opacity: 0.9 },
+  pressed: { opacity: 0.92 },
   primaryButton: {
     backgroundColor: Colors.primary,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 50,
     ...Shadows.md,
   },
   primaryButtonDisabled: {
@@ -204,7 +215,7 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: Typography.sizes.base,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   secondaryButton: {
     backgroundColor: Colors.surface,
@@ -213,7 +224,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: Colors.primary,
     minHeight: 48,
     ...Shadows.sm,
@@ -226,8 +237,8 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: Colors.primary,
     fontSize: Typography.sizes.base,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   linkButtonText: {
     color: Colors.primary,

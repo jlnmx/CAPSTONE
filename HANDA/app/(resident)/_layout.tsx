@@ -71,6 +71,7 @@ export default function ResidentLayout() {
       screenOptions={{
         ...responsiveTabBar,
         headerShown: false,
+        animation: 'fade',
         tabBarButton: (props) => (
           <AnimatedPressable
             onPress={(event) => props.onPress?.(event)}

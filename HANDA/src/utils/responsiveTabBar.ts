@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import type { ThemePalette } from '@hooks/useTheme';
 
 export function getResponsiveTabBarOptions(width: number, bottomInset: number, palette: ThemePalette) {
@@ -19,9 +19,9 @@ export function getResponsiveTabBarOptions(width: number, bottomInset: number, p
       flexShrink: 1,
       includeFontPadding: false,
       ...(Platform.OS === 'web' ? { position: 'absolute' as const, bottom: 5 } : { marginTop: 2 }),
-      fontSize: isCompact ? 8 : isDesktop ? 11 : 9,
+      fontSize: isCompact ? 9 : isDesktop ? 12 : 10.5,
       fontWeight: '700' as const,
-      lineHeight: isCompact ? 10 : 12,
+      lineHeight: isCompact ? 11 : 13,
       textAlign: 'center' as const,
     },
     tabBarStyle: {
@@ -29,18 +29,18 @@ export function getResponsiveTabBarOptions(width: number, bottomInset: number, p
       alignSelf: 'center' as const,
       backgroundColor: palette.surface,
       borderTopColor: palette.border,
-      borderTopWidth: 1,
+      borderTopWidth: StyleSheet.hairlineWidth,
       height: baseHeight + safeBottom,
       marginHorizontal: 0,
       marginBottom: Platform.OS === 'web' ? 8 : 0,
-      borderRadius: 12,
+      borderRadius: 22,
       paddingBottom: Math.max(4, safeBottom),
       paddingTop: 4,
       shadowColor: '#163A25',
       shadowOffset: { width: 0, height: 3 },
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
-      elevation: 5,
+      shadowOpacity: 0.16,
+      shadowRadius: 14,
+      elevation: 10,
     },
   };
 }
