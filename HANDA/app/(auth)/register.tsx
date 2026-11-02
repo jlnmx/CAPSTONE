@@ -12,6 +12,7 @@ import { AuthUser, ResidentHouseholdMember } from '@types/index';
 import { BINAN_BARANGAYS, RESPONDER_ORGANIZATIONS } from '@constants/responderOrganizations';
 import * as ImagePicker from 'expo-image-picker';
 import AppBackArrow from '@components/AppBackArrow';
+import { HouseholdMemberFields, EMPTY_MEMBER_DRAFT, HouseholdMemberDraft, draftToMember, memberToDraft, memberSummary, validateMemberDraft, isMemberComplete } from '@components/HouseholdMemberFields';
 import Avatar from '@components/Avatar';
 import { pickProfilePicture } from '@services/profilePicture';
 
@@ -75,8 +76,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [isPendingConfirmationOpen, setIsPendingConfirmationOpen] = useState(false);
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null);
-  const [memberName, setMemberName] = useState('');
-  const [memberRelationship, setMemberRelationship] = useState('');
+  const [memberDraft, setMemberDraft] = useState<HouseholdMemberDraft>(EMPTY_MEMBER_DRAFT);
   const [memberError, setMemberError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -252,18 +252,18 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
 
   const openMemberDialog = (index: number | null = null) => {
     setEditingMemberIndex(index);
-    setMemberName(index == null ? '' : householdMembers[index].name);
-    setMemberRelationship(index == null ? '' : householdMembers[index].relationship);
+    setMemberDraft(memberToDraft(index == null ? undefined : householdMembers[index]));
     setMemberError('');
     setIsMemberDialogOpen(true);
   };
 
   const saveMember = () => {
-    const member = { name: memberName.trim(), relationship: memberRelationship.trim() };
-    if (!member.name || !member.relationship) {
-      setMemberError('Enter the member name and relationship.');
+    const validationMessage = validateMemberDraft(memberDraft);
+    if (validationMessage) {
+      setMemberError(validationMessage);
       return;
     }
+    const member = draftToMember(memberDraft);
     if (editingMemberIndex == null && householdMembers.length >= 20) {
       setMemberError('A household can include up to 21 people, including you.');
       return;
@@ -291,7 +291,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     }
     if (!confirmPassword) errors.confirmPassword = 'Confirm your password.';
     else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match.';
-    if (!isResponder && householdMembers.some((member) => !member.name.trim() || !member.relationship.trim())) errors.householdMembers = 'Complete or remove each household member.';
+    if (!isResponder && householdMembers.some((member) => !isMemberComplete(member))) errors.householdMembers = 'Complete or remove each household member.';
     if (isResponder && (!responderType || !verificationDocument)) errors.verificationDocument = 'Upload your responder ID to submit this application.';
     if (isResponder && !responderOrganization) errors.responderOrganization = 'Choose your organization.';
     if (isResponder && responderOrganization === 'Barangay Responder' && !responderBarangay) errors.responderBarangay = 'Choose the barangay you serve.';
@@ -329,7 +329,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
               verificationDocumentMimeType: verificationDocument?.mimeType,
               verificationDocumentName: verificationDocument?.name,
             }
-            : { members: householdMembers }),
+            : { members: householdMembers.map((member) => draftToMember(memberToDraft(member))) }),
         }),
         signal: abortController.signal,
       });
@@ -568,7 +568,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             {householdMembers.length === 0 && <Text style={styles.householdEmpty}>Add the people who belong to your household for emergency coordination.</Text>}
             {householdMembers.map((member, index) => (
               <View key={`${index}-${member.name}`} style={styles.memberRow}>
-                <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{member.relationship}</Text></View>
+                <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{memberSummary(member)}</Text></View>
                 <TouchableOpacity style={styles.memberAction} onPress={() => openMemberDialog(index)} accessibilityRole="button" accessibilityLabel={`Edit ${member.name}`}><MaterialCommunityIcons name="pencil-outline" size={18} color="#1769AA" /></TouchableOpacity>
                 <TouchableOpacity style={styles.memberAction} onPress={() => setHouseholdMembers((current) => current.filter((_item, itemIndex) => itemIndex !== index))} accessibilityRole="button" accessibilityLabel={`Delete ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={18} color="#D62828" /></TouchableOpacity>
               </View>
@@ -626,8 +626,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
         <Pressable style={styles.modalBackdrop} onPress={() => setIsMemberDialogOpen(false)}>
           <Pressable style={styles.memberDialog} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.sexTitle}>{editingMemberIndex == null ? 'Add household member' : 'Edit household member'}</Text>
-                <NativeTextInput style={styles.input} placeholder="Full name" placeholderTextColor={PLACEHOLDER_COLOR} value={memberName} onChangeText={setMemberName} autoCapitalize="words" selectionColor={GREEN} />
-                <NativeTextInput style={[styles.input, styles.memberRelationshipInput]} placeholder="Relationship to you" placeholderTextColor={PLACEHOLDER_COLOR} value={memberRelationship} onChangeText={setMemberRelationship} autoCapitalize="words" selectionColor={GREEN} />
+                <ScrollView style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled"><HouseholdMemberFields draft={memberDraft} onChange={setMemberDraft} /></ScrollView>
             {!!memberError && <Text style={styles.fieldError}>{memberError}</Text>}
             <View style={styles.memberDialogActions}>
               <TouchableOpacity style={styles.memberCancel} onPress={() => setIsMemberDialogOpen(false)}><Text style={styles.memberCancelText}>Cancel</Text></TouchableOpacity>

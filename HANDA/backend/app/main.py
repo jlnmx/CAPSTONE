@@ -298,6 +298,36 @@ def evacuation_center_status(capacity: int, occupancy: int, current_status: str)
     return "available"
 
 
+HOUSEHOLD_MEMBER_EXTRA_COLUMNS = (
+    ("first_name", "TEXT NOT NULL DEFAULT ''"),
+    ("middle_name", "TEXT NOT NULL DEFAULT ''"),
+    ("last_name", "TEXT NOT NULL DEFAULT ''"),
+    ("age", "INTEGER"),
+    ("sex", "TEXT NOT NULL DEFAULT ''"),
+    ("contact_number", "TEXT NOT NULL DEFAULT ''"),
+)
+
+HOUSEHOLD_MEMBER_SELECT = (
+    'name, relationship, first_name AS "firstName", middle_name AS "middleName", '
+    'last_name AS "lastName", age, sex, contact_number AS "contactNumber"'
+)
+
+
+def household_member_values(member) -> tuple:
+    return (
+        member.name.strip(), member.relationship.strip(), (member.firstName or "").strip(),
+        (member.middleName or "").strip(), (member.lastName or "").strip(), member.age,
+        member.sex or "", (member.contactNumber or "").strip(),
+    )
+
+
+def insert_household_member(connection: psycopg.Connection, table: str, owner_column: str, member_id: str, owner_id: str, member) -> None:
+    connection.execute(
+        f"INSERT INTO {table} (id, {owner_column}, name, relationship, first_name, middle_name, last_name, age, sex, contact_number) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        (member_id, owner_id, *household_member_values(member)),
+    )
+
+
 def ensure_disaster_schema(connection: psycopg.Connection) -> None:
         connection.execute(
                 """
@@ -443,6 +473,8 @@ def ensure_operational_schema() -> None:
             """,
         )
         connection.execute("CREATE INDEX IF NOT EXISTS resident_household_members_user_idx ON resident_household_members (resident_user_id)")
+        for column, definition in HOUSEHOLD_MEMBER_EXTRA_COLUMNS:
+            connection.execute(f"ALTER TABLE resident_household_members ADD COLUMN IF NOT EXISTS {column} {definition}")
         connection.execute(
                         """
                         CREATE TABLE IF NOT EXISTS password_reset_requests (
@@ -538,6 +570,8 @@ def ensure_operational_schema() -> None:
             ON evacuation_household_members (registration_id)
             """,
         )
+        for column, definition in HOUSEHOLD_MEMBER_EXTRA_COLUMNS:
+            connection.execute(f"ALTER TABLE evacuation_household_members ADD COLUMN IF NOT EXISTS {column} {definition}")
         seed_binan_evacuation_centers(connection)
         connection.commit()
 
@@ -1077,7 +1111,7 @@ def resident_evacuation_status(connection: psycopg.Connection, resident: Current
         }
 
     members = connection.execute(
-        "SELECT id, name, relationship, status, updated_at FROM evacuation_household_members WHERE registration_id = %s ORDER BY name",
+        f"SELECT id, {HOUSEHOLD_MEMBER_SELECT}, status, updated_at FROM evacuation_household_members WHERE registration_id = %s ORDER BY name",
         (registration["id"],),
     ).fetchall()
     household_count = max(int(registration["household_size"] or 0), len(members) + 1, 1)
@@ -1147,16 +1181,10 @@ def write_resident_registration(connection: psycopg.Connection, resident: Curren
         (registration_id, resident.id, registration.centerId, registration.firstName.strip(), (registration.middleName or "").strip() or None, registration.lastName.strip(), registration.age, registration.sex, registration.contactNumber, registration.address.strip(), registration.householdSize),
     )
     for member in registration.members:
-        connection.execute(
-            "INSERT INTO evacuation_household_members (id, registration_id, name, relationship) VALUES (%s, %s, %s, %s)",
-            (f"household-member-{uuid4()}", registration_id, member.name.strip(), member.relationship.strip()),
-        )
+        insert_household_member(connection, "evacuation_household_members", "registration_id", f"household-member-{uuid4()}", registration_id, member)
     connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
     for member in registration.members:
-        connection.execute(
-            "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
-            (f"resident-household-{uuid4()}", resident.id, member.name.strip(), member.relationship.strip()),
-        )
+        insert_household_member(connection, "resident_household_members", "resident_user_id", f"resident-household-{uuid4()}", resident.id, member)
     return registration_id
 
 
@@ -1256,7 +1284,7 @@ def list_evacuation_registrations(
     for registration in registrations:
         item = dict(registration)
         item["members"] = connection.execute(
-            "SELECT id, name, relationship, status, updated_at FROM evacuation_household_members WHERE registration_id = %s ORDER BY name",
+            f"SELECT id, {HOUSEHOLD_MEMBER_SELECT}, status, updated_at FROM evacuation_household_members WHERE registration_id = %s ORDER BY name",
             (registration["id"],),
         ).fetchall()
         result.append(item)
@@ -1484,7 +1512,7 @@ def delete_user(user_id: str, user: CurrentUser = Depends(require_roles("admin")
 
 def household_members_for_user(connection: psycopg.Connection, user_id: str) -> list[dict]:
     return connection.execute(
-        "SELECT id, name, relationship FROM resident_household_members WHERE resident_user_id = %s ORDER BY created_at, id",
+        f"SELECT id, {HOUSEHOLD_MEMBER_SELECT} FROM resident_household_members WHERE resident_user_id = %s ORDER BY created_at, id",
         (user_id,),
     ).fetchall()
 
@@ -1623,10 +1651,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
             )
         else:
             for member in registration.members:
-                connection.execute(
-                    "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
-                    (f"resident-household-{uuid4()}", user_id, member.name.strip(), member.relationship.strip()),
-                )
+                insert_household_member(connection, "resident_household_members", "resident_user_id", f"resident-household-{uuid4()}", user_id, member)
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()
@@ -1811,10 +1836,7 @@ def update_resident_household_members(
     try:
         connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
         for member in update.members:
-            connection.execute(
-                "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
-                (f"resident-household-{uuid4()}", resident.id, member.name.strip(), member.relationship.strip()),
-            )
+            insert_household_member(connection, "resident_household_members", "resident_user_id", f"resident-household-{uuid4()}", resident.id, member)
         connection.commit()
     except psycopg.Error:
         connection.rollback()
@@ -1836,10 +1858,7 @@ def update_resident_profile(
     )
     connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
     for member in profile.members:
-        connection.execute(
-            "INSERT INTO resident_household_members (id, resident_user_id, name, relationship) VALUES (%s, %s, %s, %s)",
-            (f"resident-household-{uuid4()}", resident.id, member.name.strip(), member.relationship.strip()),
-        )
+        insert_household_member(connection, "resident_household_members", "resident_user_id", f"resident-household-{uuid4()}", resident.id, member)
     connection.commit()
     row = connection.execute(
         "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number,         current_address, role, profile_picture FROM users WHERE id = %s",

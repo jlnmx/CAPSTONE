@@ -9,11 +9,12 @@ import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { ResidentHouseholdMember } from '@types/index';
 import AppBackArrow from '@components/AppBackArrow';
+import { HouseholdMemberFields, EMPTY_MEMBER_DRAFT, HouseholdMemberDraft, draftToMember, memberToDraft, memberSummary, validateMemberDraft } from '@components/HouseholdMemberFields';
 
 const GREEN = '#218B25';
 const MAX_MEMBERS = 20;
 
-type MemberDraft = { name: string; relationship: string };
+type MemberDraft = ResidentHouseholdMember;
 
 type ProfileResponse = { householdMembers?: ResidentHouseholdMember[] };
 type MembersResponse = { members?: ResidentHouseholdMember[] };
@@ -31,8 +32,7 @@ export default function HouseholdScreen() {
   const [error, setError] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [memberName, setMemberName] = useState('');
-  const [memberRelationship, setMemberRelationship] = useState('');
+  const [memberDraft, setMemberDraft] = useState<HouseholdMemberDraft>(EMPTY_MEMBER_DRAFT);
   const [memberError, setMemberError] = useState('');
 
   const loadMembers = useCallback(async () => {
@@ -85,18 +85,18 @@ export default function HouseholdScreen() {
 
   const openEditor = (index: number | null = null) => {
     setEditingIndex(index);
-    setMemberName(index == null ? '' : members[index].name);
-    setMemberRelationship(index == null ? '' : members[index].relationship);
+    setMemberDraft(memberToDraft(index == null ? undefined : members[index]));
     setMemberError('');
     setEditorOpen(true);
   };
 
   const saveMember = async () => {
-    const draft = { name: memberName.trim(), relationship: memberRelationship.trim() };
-    if (!draft.name || !draft.relationship) {
-      setMemberError('Enter the member name and relationship.');
+    const validationMessage = validateMemberDraft(memberDraft);
+    if (validationMessage) {
+      setMemberError(validationMessage);
       return;
     }
+    const draft = draftToMember(memberDraft);
     if (editingIndex == null && members.length >= MAX_MEMBERS) {
       setMemberError(`A household can include up to ${MAX_MEMBERS} additional members.`);
       return;
@@ -132,10 +132,10 @@ export default function HouseholdScreen() {
         {!!error && <View style={styles.errorBox}><Text style={styles.error}>{error}</Text><AnimatedPressable onPress={() => { setIsLoading(true); void loadMembers(); }}><Text style={styles.retry}>Try again</Text></AnimatedPressable></View>}
         <View style={styles.memberCard}><View style={styles.avatar}><MaterialCommunityIcons name="account-check-outline" size={21} color={GREEN} /></View><View style={styles.memberCopy}><Text style={styles.memberName}>{user?.name || 'You'}</Text><Text style={styles.relationship}>You · HANDA account holder</Text></View><View style={styles.accountBadge}><Text style={styles.accountBadgeText}>YOU</Text></View></View>
         {!isLoading && !error && householdCount === 1 && <View style={styles.empty}><MaterialCommunityIcons name="account-multiple-outline" size={34} color={GREEN} /><Text style={styles.emptyTitle}>No other household members</Text><Text style={styles.emptyText}>Add household members here and they will be available during evacuation registration.</Text><AnimatedPressable style={styles.emptyButton} onPress={() => openEditor()}><Text style={styles.emptyButtonText}>Add first member</Text></AnimatedPressable></View>}
-        {!isLoading && members.map((member, index) => <View key={member.id ?? `${index}-${member.name}`} style={styles.memberCard}><View style={styles.avatar}><Text style={styles.avatarText}>{member.name.trim().charAt(0).toUpperCase()}</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.relationship}>{member.relationship}</Text></View><AnimatedPressable style={styles.iconButton} onPress={() => openEditor(index)} disabled={isSaving} accessibilityRole="button" accessibilityLabel={`Edit ${member.name}`}><MaterialCommunityIcons name="pencil-outline" size={19} color="#1769AA" /></AnimatedPressable><AnimatedPressable style={styles.iconButton} onPress={() => removeMember(index)} disabled={isSaving} accessibilityRole="button" accessibilityLabel={`Delete ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></AnimatedPressable></View>)}
+        {!isLoading && members.map((member, index) => <View key={member.id ?? `${index}-${member.name}`} style={styles.memberCard}><View style={styles.avatar}><Text style={styles.avatarText}>{member.name.trim().charAt(0).toUpperCase()}</Text></View><View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.relationship}>{memberSummary(member)}</Text></View><AnimatedPressable style={styles.iconButton} onPress={() => openEditor(index)} disabled={isSaving} accessibilityRole="button" accessibilityLabel={`Edit ${member.name}`}><MaterialCommunityIcons name="pencil-outline" size={19} color="#1769AA" /></AnimatedPressable><AnimatedPressable style={styles.iconButton} onPress={() => removeMember(index)} disabled={isSaving} accessibilityRole="button" accessibilityLabel={`Delete ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></AnimatedPressable></View>)}
         {!isLoading && registrationOnlyMembers.map((member, index) => <View key={member.id ?? `registered-${index}-${member.name}`} style={styles.memberCard}><View style={styles.avatar}><MaterialCommunityIcons name="account-check-outline" size={21} color={GREEN} /></View><View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.relationship}>{member.relationship} · In evacuation registration</Text></View></View>)}
       </ScrollView>
-      <Modal transparent visible={editorOpen} animationType="fade" onRequestClose={() => setEditorOpen(false)}><Pressable style={styles.backdrop} onPress={() => setEditorOpen(false)}><Pressable style={styles.dialog} onPress={(event) => event.stopPropagation()}><Text style={styles.dialogTitle}>{editingIndex == null ? 'Add household member' : 'Edit household member'}</Text><TextInput style={styles.input} value={memberName} onChangeText={setMemberName} placeholder="Full name" placeholderTextColor="#79967A" autoCapitalize="words" /><TextInput style={styles.input} value={memberRelationship} onChangeText={setMemberRelationship} placeholder="Relationship to registrant" placeholderTextColor="#79967A" autoCapitalize="words" />{!!memberError && <Text style={styles.error}>{memberError}</Text>}<View style={styles.dialogActions}><AnimatedPressable style={styles.cancelButton} onPress={() => setEditorOpen(false)} disabled={isSaving}><Text style={styles.cancelText}>Cancel</Text></AnimatedPressable><AnimatedPressable style={[styles.saveButton, isSaving && styles.disabled]} onPress={() => void saveMember()} disabled={isSaving}>{isSaving ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.saveText}>Save member</Text>}</AnimatedPressable></View></Pressable></Pressable></Modal>
+      <Modal transparent visible={editorOpen} animationType="fade" onRequestClose={() => setEditorOpen(false)}><Pressable style={styles.backdrop} onPress={() => setEditorOpen(false)}><Pressable style={styles.dialog} onPress={(event) => event.stopPropagation()}><Text style={styles.dialogTitle}>{editingIndex == null ? 'Add household member' : 'Edit household member'}</Text><ScrollView style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled"><HouseholdMemberFields draft={memberDraft} onChange={setMemberDraft} relationshipPlaceholder="Relationship to registrant" /></ScrollView>{!!memberError && <Text style={styles.error}>{memberError}</Text>}<View style={styles.dialogActions}><AnimatedPressable style={styles.cancelButton} onPress={() => setEditorOpen(false)} disabled={isSaving}><Text style={styles.cancelText}>Cancel</Text></AnimatedPressable><AnimatedPressable style={[styles.saveButton, isSaving && styles.disabled]} onPress={() => void saveMember()} disabled={isSaving}>{isSaving ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.saveText}>Save member</Text>}</AnimatedPressable></View></Pressable></Pressable></Modal>
     </SafeAreaView>
   );
 }

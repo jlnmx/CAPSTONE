@@ -7,6 +7,12 @@ export type UserRole = 'responder' | 'resident' | 'admin';
 export interface ResidentHouseholdMember {
   id?: string;
   name: string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  age?: number | null;
+  sex?: string;
+  contactNumber?: string;
   relationship: string;
 }
 

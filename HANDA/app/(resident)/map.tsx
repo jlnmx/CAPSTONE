@@ -12,6 +12,7 @@ import { syncPendingLocalData } from '@services/syncService';
 import { useAuth } from '@hooks/useAuth';
 import { MapEvacuationCenter, ResidentHouseholdMember } from '@types/index';
 import AppBackArrow from '@components/AppBackArrow';
+import { HouseholdMemberFields, EMPTY_MEMBER_DRAFT, HouseholdMemberDraft, draftToMember, memberToDraft, memberSummary, validateMemberDraft, isMemberComplete } from '@components/HouseholdMemberFields';
 
 const GREEN = '#218B25';
 
@@ -79,8 +80,7 @@ export default function ResidentMapScreen() {
   const [householdMembers, setHouseholdMembers] = useState<ResidentHouseholdMember[]>([]);
   const [memberEditorOpen, setMemberEditorOpen] = useState(false);
   const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null);
-  const [memberName, setMemberName] = useState('');
-  const [memberRelationship, setMemberRelationship] = useState('');
+  const [memberDraft, setMemberDraft] = useState<HouseholdMemberDraft>(EMPTY_MEMBER_DRAFT);
   const [profileError, setProfileError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -166,18 +166,18 @@ export default function ResidentMapScreen() {
 
   const openMemberEditor = (index: number | null = null) => {
     setEditingMemberIndex(index);
-    setMemberName(index == null ? '' : householdMembers[index].name);
-    setMemberRelationship(index == null ? '' : householdMembers[index].relationship);
+    setMemberDraft(memberToDraft(index == null ? undefined : householdMembers[index]));
     setMemberEditorOpen(true);
     setProfileError('');
   };
 
   const saveMember = () => {
-    const member = { name: memberName.trim(), relationship: memberRelationship.trim() };
-    if (!member.name || !member.relationship) {
-      setProfileError('Enter a name and relationship for this household member.');
+    const validationMessage = validateMemberDraft(memberDraft);
+    if (validationMessage) {
+      setProfileError(validationMessage);
       return;
     }
+    const member = draftToMember(memberDraft, editingMemberIndex == null ? undefined : householdMembers[editingMemberIndex]?.id);
     if (editingMemberIndex == null && householdMembers.length >= 20) {
       setProfileError('A household can include up to 21 people, including the registrant.');
       return;
@@ -191,7 +191,7 @@ export default function ResidentMapScreen() {
   const confirmCenterRegistration = async () => {
     if (!profile || !selectedCenter) return;
     const age = calculateAge(profile.birthday);
-    if (!profile.firstName.trim() || !profile.lastName.trim() || age == null || !['Male', 'Female'].includes(profile.sex) || !profile.mobileNumber || !profile.currentAddress.trim() || householdMembers.some((member) => !member.name.trim() || !member.relationship.trim())) {
+    if (!profile.firstName.trim() || !profile.lastName.trim() || age == null || !['Male', 'Female'].includes(profile.sex) || !profile.mobileNumber || !profile.currentAddress.trim() || householdMembers.some((member) => !isMemberComplete(member))) {
       setProfileError('Complete your profile and household member details before confirming.');
       return;
     }
@@ -210,7 +210,7 @@ export default function ResidentMapScreen() {
           sex: profile.sex,
           mobileNumber: profile.mobileNumber.replace(/[\s()-]/g, ''),
           currentAddress: profile.currentAddress.trim(),
-          members: householdMembers.map((member) => ({ name: member.name.trim(), relationship: member.relationship.trim() })),
+          members: householdMembers.map((member) => draftToMember(memberToDraft(member))),
         }),
       });
       const savedProfile = await profileResponse.json() as ResidentProfile & { detail?: unknown };
@@ -229,7 +229,7 @@ export default function ResidentMapScreen() {
         contactNumber: savedProfile.mobileNumber.replace(/[\s()-]/g, ''),
         address: savedProfile.currentAddress,
         householdSize: householdMembers.length + 1,
-        members: householdMembers,
+        members: householdMembers.map((member) => draftToMember(memberToDraft(member))),
       };
       let registrationResponse: Response;
       try {
@@ -310,7 +310,7 @@ export default function ResidentMapScreen() {
                 </View>
                 {householdMembers.length === 0 ? <Text style={styles.emptyMembers}>No additional household members.</Text> : householdMembers.map((member, index) => (
                   <View key={`${index}-${member.name}`} style={styles.memberRow}>
-                    <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{member.relationship}</Text></View>
+                    <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{memberSummary(member)}</Text></View>
                     <AnimatedPressable style={styles.memberAction} onPress={() => openMemberEditor(index)} accessibilityRole="button" accessibilityLabel={`Edit ${member.name}`}><MaterialCommunityIcons name="pencil-outline" size={19} color="#1769AA" /></AnimatedPressable>
                     <AnimatedPressable style={styles.memberAction} onPress={() => setHouseholdMembers((current) => current.filter((_item, itemIndex) => itemIndex !== index))} accessibilityRole="button" accessibilityLabel={`Delete ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></AnimatedPressable>
                   </View>
@@ -332,8 +332,8 @@ export default function ResidentMapScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setMemberEditorOpen(false)}>
           <Pressable style={styles.memberDialog} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.dialogTitle}>{editingMemberIndex == null ? 'Add household member' : 'Edit household member'}</Text>
-            <TextInput style={styles.memberInput} value={memberName} onChangeText={setMemberName} placeholder="Full name" placeholderTextColor="#79967A" />
-            <TextInput style={styles.memberInput} value={memberRelationship} onChangeText={setMemberRelationship} placeholder="Relationship to you" placeholderTextColor="#79967A" />
+            <ScrollView style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled"><HouseholdMemberFields draft={memberDraft} onChange={setMemberDraft} /></ScrollView>
+            {!!profileError && <Text style={styles.profileError}>{profileError}</Text>}
             <View style={styles.memberDialogActions}>
               <AnimatedPressable style={styles.cancelButton} onPress={() => setMemberEditorOpen(false)}><Text style={styles.cancelText}>Cancel</Text></AnimatedPressable>
               <AnimatedPressable style={styles.confirmButton} onPress={saveMember}><Text style={styles.confirmText}>Save member</Text></AnimatedPressable>

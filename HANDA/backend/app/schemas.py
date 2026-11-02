@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 PROFILE_PICTURE_MAX_CHARS = 400_000
 
@@ -51,8 +51,28 @@ class SyncBatch(BaseModel):
 
 
 class HouseholdMemberInput(BaseModel):
-    name: str = Field(min_length=1, max_length=160)
+    name: str = Field(default="", max_length=160)
+    firstName: str | None = Field(default=None, max_length=120)
+    middleName: str | None = Field(default=None, max_length=120)
+    lastName: str | None = Field(default=None, max_length=120)
+    age: int | None = Field(default=None, ge=0, le=150)
+    sex: Literal["Male", "Female"] | None = None
+    contactNumber: str | None = Field(default=None, max_length=40)
     relationship: str = Field(min_length=1, max_length=80)
+
+    @field_validator("sex", mode="before")
+    @classmethod
+    def blank_sex_is_none(cls, value):
+        return value or None
+
+    @model_validator(mode="after")
+    def compose_name(self):
+        parts = (self.firstName, self.middleName, self.lastName)
+        composed = " ".join(part.strip() for part in parts if part and part.strip())
+        self.name = composed or self.name.strip()
+        if not self.name:
+            raise ValueError("A household member needs a name.")
+        return self
 
 
 class HouseholdMembersUpdate(BaseModel):

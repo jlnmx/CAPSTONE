@@ -1,17 +1,6 @@
-import React from 'react';
-import { Pressable, StyleSheet, ViewStyle } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAppBack } from '@hooks/useAppBack';
+import { ViewStyle } from 'react-native';
 
-export default function AppBackArrow({ style }: { style?: ViewStyle }) {
-  const goBack = useAppBack();
-  return (
-    <Pressable onPress={goBack} style={[styles.button, style]} accessibilityRole="button" accessibilityLabel="Go back to previous page">
-      <MaterialCommunityIcons name="arrow-left" size={22} color="#FFFFFF" />
-    </Pressable>
-  );
+// Hidden by design: the mobile app relies on the system back gesture and the tab bar.
+export default function AppBackArrow(_props: { style?: ViewStyle }) {
+  return null;
 }
-
-const styles = StyleSheet.create({
-  button: { width: 40, height: 40, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.16)' },
-});

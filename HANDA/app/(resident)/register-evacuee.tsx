@@ -9,6 +9,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import AppBackArrow from '@components/AppBackArrow';
+import { HouseholdMemberFields, EMPTY_MEMBER_DRAFT, HouseholdMemberDraft as MemberFormDraft, draftToMember, memberToDraft, memberSummary, validateMemberDraft, isMemberComplete } from '@components/HouseholdMemberFields';
+import type { ResidentHouseholdMember } from '@types/index';
 import { saveLocalEvacuationRegistration } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
 
@@ -28,8 +30,11 @@ type EvacuationCenter = {
 type CenterFilter = 'all' | 'available' | 'limited';
 type CenterSort = 'name' | 'spaces' | 'occupancy';
 
-type HouseholdMemberDraft = { name: string; relationship: string };
+type HouseholdMemberDraft = ResidentHouseholdMember;
 type ResidentProfileResponse = {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
   birthday?: string;
   sex?: string;
   mobileNumber?: string;
@@ -83,12 +88,11 @@ export default function RegisterEvacueeScreen() {
   const [centerSort, setCenterSort] = useState<CenterSort>('name');
   const [isCentersLoading, setIsCentersLoading] = useState(true);
   const [centerError, setCenterError] = useState('');
-  const [members, setMembers] = useState<HouseholdMemberDraft[]>(() => user?.householdMembers?.map(({ name, relationship }) => ({ name, relationship })) ?? []);
+  const [members, setMembers] = useState<HouseholdMemberDraft[]>(() => user?.householdMembers?.map((member) => ({ ...member })) ?? []);
   const [isHouseholdLoading, setIsHouseholdLoading] = useState(true);
   const [memberEditorOpen, setMemberEditorOpen] = useState(false);
   const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null);
-  const [memberName, setMemberName] = useState('');
-  const [memberRelationship, setMemberRelationship] = useState('');
+  const [memberDraft, setMemberDraft] = useState<MemberFormDraft>(EMPTY_MEMBER_DRAFT);
   const [memberError, setMemberError] = useState('');
   const [returnToReview, setReturnToReview] = useState(false);
   const [formError, setFormError] = useState('');
@@ -116,10 +120,17 @@ export default function RegisterEvacueeScreen() {
   }, []);
 
   useEffect(() => {
-    const nameParts = user?.name.trim().split(/\s+/).filter(Boolean) ?? [];
+    if (!user) return;
+    if (user.firstName || user.lastName) {
+      setFirstName((current) => current || user.firstName || '');
+      setMiddleName((current) => current || user.middleName || '');
+      setLastName((current) => current || user.lastName || '');
+      return;
+    }
+    const nameParts = user.name.trim().split(/\s+/).filter(Boolean);
     if (!nameParts.length) return;
-    setFirstName((current) => current || nameParts[0]);
-    setLastName((current) => current || nameParts.slice(1).join(' '));
+    setFirstName((current) => current || (nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0]));
+    setLastName((current) => current || (nameParts.length > 1 ? nameParts[nameParts.length - 1] : ''));
   }, [user]);
 
   useEffect(() => {
@@ -130,7 +141,10 @@ export default function RegisterEvacueeScreen() {
         if (!response.ok) throw new Error('Household members could not be loaded.');
         const profile = await response.json() as ResidentProfileResponse;
         if (isCurrent) {
-          setMembers(profile.householdMembers?.map(({ name, relationship }) => ({ name, relationship })) ?? []);
+          setMembers(profile.householdMembers?.map((member) => ({ ...member })) ?? []);
+          setFirstName((current) => current || profile.firstName || '');
+          setMiddleName((current) => current || profile.middleName || '');
+          setLastName((current) => current || profile.lastName || '');
           setAge((current) => current || String(calculateAge(profile.birthday) ?? ''));
           setSex((current) => current || normalizeSex(profile.sex) || normalizeSex(user?.sex));
           setContactNumber((current) => current || profile.mobileNumber || profile.mobile_number || user?.mobileNumber || '');
@@ -138,7 +152,7 @@ export default function RegisterEvacueeScreen() {
         }
       } catch {
         if (isCurrent) {
-          setMembers(user?.householdMembers?.map(({ name, relationship }) => ({ name, relationship })) ?? []);
+          setMembers(user?.householdMembers?.map((member) => ({ ...member })) ?? []);
           setAge((current) => current || String(calculateAge(user?.birthday) ?? ''));
           setSex((current) => current || normalizeSex(user?.sex));
           setContactNumber((current) => current || user?.mobileNumber || '');
@@ -190,8 +204,7 @@ export default function RegisterEvacueeScreen() {
     setReturnToReview(returnToReviewAfterSave);
     if (returnToReviewAfterSave) setReviewVisible(false);
     setEditingMemberIndex(index);
-    setMemberName(index == null ? '' : members[index].name);
-    setMemberRelationship(index == null ? '' : members[index].relationship);
+    setMemberDraft(memberToDraft(index == null ? undefined : members[index]));
     setMemberError('');
     setMemberEditorOpen(true);
   };
@@ -209,11 +222,12 @@ export default function RegisterEvacueeScreen() {
   };
 
   const saveMember = () => {
-    const nextMember = { name: memberName.trim(), relationship: memberRelationship.trim() };
-    if (!nextMember.name || !nextMember.relationship) {
-      setMemberError('Enter the member name and relationship.');
+    const validationMessage = validateMemberDraft(memberDraft);
+    if (validationMessage) {
+      setMemberError(validationMessage);
       return;
     }
+    const nextMember = draftToMember(memberDraft, editingMemberIndex == null ? undefined : members[editingMemberIndex]?.id);
     if (editingMemberIndex == null && members.length >= 20) {
       setMemberError('A household can include up to 21 people, including the registrant.');
       return;
@@ -241,7 +255,7 @@ export default function RegisterEvacueeScreen() {
       selectedCenter.status === 'closed' ||
       selectedCenter.status === 'full' ||
       selectedCenter.current_occupancy >= selectedCenter.capacity ||
-      members.some((member) => !member.name.trim() || !member.relationship.trim())
+      members.some((member) => !isMemberComplete(member))
     ) {
       setFormError('Complete the required details and each household member, and choose a center that is accepting registrations.');
       return false;
@@ -273,7 +287,7 @@ export default function RegisterEvacueeScreen() {
       contactNumber: normalizedContact,
       address: address.trim(),
       householdSize,
-      members: members.map((member) => ({ name: member.name.trim(), relationship: member.relationship.trim() })),
+      members: members.map((member) => draftToMember(memberToDraft(member))),
     };
     let response: Response;
     try {
@@ -376,7 +390,7 @@ export default function RegisterEvacueeScreen() {
           {members.length === 0 && <Text style={styles.noMembers}>No additional household members yet. Use Add member to include them in this registration.</Text>}
           {members.map((member, index) => (
             <View key={`${index}-${member.name}`} style={styles.memberCard}>
-              <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{member.relationship}</Text></View>
+              <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{memberSummary(member)}</Text></View>
               <AnimatedPressable style={styles.memberAction} onPress={() => openMemberEditor(index)} accessibilityRole="button" accessibilityLabel={`Edit ${member.name}`}><MaterialCommunityIcons name="pencil-outline" size={19} color="#1769AA" /></AnimatedPressable>
               <AnimatedPressable style={styles.memberAction} onPress={() => removeMember(index)} accessibilityRole="button" accessibilityLabel={`Remove household member ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={19} color={Colors.emergency} /></AnimatedPressable>
             </View>
@@ -461,7 +475,7 @@ export default function RegisterEvacueeScreen() {
               <View style={styles.reviewHouseholdHeading}><Text style={styles.reviewSection}>HOUSEHOLD ({members.length + 1})</Text><AnimatedPressable onPress={() => openMemberEditor(null, true)} accessibilityRole="button"><Text style={styles.reviewEditText}>Add member</Text></AnimatedPressable></View>
               {members.length === 0 ? <Text style={styles.householdCount}>No additional members</Text> : members.map((member, index) => (
                 <View key={`review-${index}-${member.name}`} style={styles.reviewMemberRow}>
-                  <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{member.relationship}</Text></View>
+                  <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelationship}>{memberSummary(member)}</Text></View>
                   <AnimatedPressable style={styles.memberAction} onPress={() => openMemberEditor(index, true)} accessibilityRole="button" accessibilityLabel={`Edit ${member.name}`}><MaterialCommunityIcons name="pencil-outline" size={18} color="#1769AA" /></AnimatedPressable>
                   <AnimatedPressable style={styles.memberAction} onPress={() => removeMember(index)} accessibilityRole="button" accessibilityLabel={`Remove ${member.name}`}><MaterialCommunityIcons name="trash-can-outline" size={18} color={Colors.emergency} /></AnimatedPressable>
                 </View>
@@ -501,8 +515,9 @@ export default function RegisterEvacueeScreen() {
         <Pressable style={styles.modalBackdrop} onPress={closeMemberEditor}>
           <Pressable style={styles.memberDialog} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.reviewTitle}>{editingMemberIndex == null ? 'Add household member' : 'Edit household member'}</Text>
-            <TextInput style={styles.memberInput} value={memberName} onChangeText={setMemberName} placeholder="Full name" placeholderTextColor="#79967A" />
-            <TextInput style={styles.memberInput} value={memberRelationship} onChangeText={setMemberRelationship} placeholder="Relationship to registrant" placeholderTextColor="#79967A" />
+            <ScrollView style={styles.memberFormScroll} keyboardShouldPersistTaps="handled">
+              <HouseholdMemberFields draft={memberDraft} onChange={setMemberDraft} relationshipPlaceholder="Relationship to registrant" />
+            </ScrollView>
             {!!memberError && <Text style={styles.formError}>{memberError}</Text>}
             <View style={styles.reviewActions}>
               <AnimatedPressable style={styles.cancelButton} onPress={closeMemberEditor}><Text style={styles.cancelText}>Cancel</Text></AnimatedPressable>
@@ -597,6 +612,7 @@ const styles = StyleSheet.create({
   addMemberText: { color: Colors.white, fontSize: 11, fontWeight: '700' },
   memberCard: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, paddingLeft: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, backgroundColor: Colors.background },
   memberCopy: { flex: 1, minWidth: 0 },
+  memberFormScroll: { maxHeight: 420 },
   memberName: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
   memberRelationship: { color: Colors.textMuted, fontSize: 10, marginTop: 2 },
   memberAction: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
