@@ -74,7 +74,7 @@ export default function ResponderLiveMap() {
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         <style>
           html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #e5efe8; font-family: sans-serif; }
-          #stage { position: absolute; inset: 0; overflow: hidden; perspective: 900px; perspective-origin: 50% 60%; }
+          #stage { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; overflow: hidden; perspective: 900px; perspective-origin: 50% 60%; }
           #map { position: absolute; left: -50%; top: -50%; width: 200%; height: 200%; background: #e5efe8; transform-origin: 50% 50%; transition: transform 450ms ease-out; }
           .navigation-modes { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-top:11px; }
           .navigation-mode { border:1px solid #E0E7EA !important; border-radius:8px !important; background:#fff; color:#415665; font-size:10px; }
@@ -145,6 +145,7 @@ export default function ResponderLiveMap() {
           L.tileLayer(${JSON.stringify(mapboxToken ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}&tileSize=512` : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')}, {
             attribution: ${JSON.stringify(mapboxToken ? '&copy; Mapbox &copy; OpenStreetMap contributors' : '&copy; OpenStreetMap contributors')}, maxZoom: 19
           }).addTo(map);
+          (function () { let fell = false; map.eachLayer((l) => { if (l.on && l._url) l.on('tileerror', () => { if (fell) return; fell = true; map.removeLayer(l); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }).addTo(map); }); }); })();
           const routeRenderer = L.svg({ padding: .35 }).addTo(map);
           const centersLayer = L.layerGroup().addTo(map);
           const incidentsLayer = L.layerGroup().addTo(map);
@@ -550,7 +551,7 @@ export default function ResponderLiveMap() {
     </html>
   `, []);
 
-  const webViewSource = useMemo(() => ({ html: mapHtml }), [mapHtml]);
+  const webViewSource = useMemo(() => ({ html: mapHtml, baseUrl: 'https://handa-api.onrender.com' }), [mapHtml]);
 
   const handleMessage = async (event: WebViewMessageEvent) => {
     try {
@@ -632,7 +633,7 @@ export default function ResponderLiveMap() {
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: INCIDENT_STATUS_COLORS.in_progress }]} /><Text style={styles.legendText}>In progress</Text></View>
         <View style={styles.statusCopy}>{isLoading ? <ActivityIndicator size="small" color={Colors.secondary} /> : <Text style={[styles.syncStatus, loadError && styles.errorStatus]}>{loadError ? data.unavailableSources.length ? `Partial data · ${data.unavailableSources.join(', ')}` : 'Live data unavailable' : `Live · ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</Text>}</View>
       </View>
-      <WebView ref={webView} source={webViewSource} style={styles.webView} javaScriptEnabled domStorageEnabled geolocationEnabled originWhitelist={['*']} onMessage={handleMessage} onContentProcessDidTerminate={() => webView.current?.reload()} onRenderProcessGone={() => webView.current?.reload()} />
+      <WebView ref={webView} source={webViewSource} style={styles.webView} javaScriptEnabled domStorageEnabled geolocationEnabled mixedContentMode="always" originWhitelist={['*']} onMessage={handleMessage} onContentProcessDidTerminate={() => webView.current?.reload()} onRenderProcessGone={() => webView.current?.reload()} />
     </View>
   );
 }
