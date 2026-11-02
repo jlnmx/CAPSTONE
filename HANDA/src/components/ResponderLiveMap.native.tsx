@@ -486,7 +486,7 @@ export default function ResponderLiveMap() {
                 const reporterRow = document.createElement('div');
                 reporterRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #E3EAEE';
                 const picture = String(reporter.profilePicture || '');
-                if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(picture)) {
+                if (/^data:image\\/(jpeg|png|webp);base64,[A-Za-z0-9+\\/=]+$/.test(picture)) {
                   const avatar = document.createElement('img');
                   avatar.src = picture;
                   avatar.alt = 'Reporter profile picture';

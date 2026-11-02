@@ -18,8 +18,7 @@ export function getResponsiveTabBarOptions(width: number, bottomInset: number, p
     tabBarLabelStyle: {
       flexShrink: 1,
       includeFontPadding: false,
-      position: 'absolute' as const,
-      bottom: 5,
+      ...(Platform.OS === 'web' ? { position: 'absolute' as const, bottom: 5 } : { marginTop: 2 }),
       fontSize: isCompact ? 8 : isDesktop ? 11 : 9,
       fontWeight: '700' as const,
       lineHeight: isCompact ? 10 : 12,
