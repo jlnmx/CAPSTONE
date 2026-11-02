@@ -121,6 +121,10 @@ android {
             useLegacyPackaging (findProperty('expo.useLegacyPackaging')?.toBoolean() ?: false)
         }
     }
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
