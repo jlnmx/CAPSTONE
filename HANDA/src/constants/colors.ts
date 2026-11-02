@@ -3,7 +3,7 @@
  * Professional emergency-response application design
  */
 
-import { Platform, PlatformColor } from 'react-native';
+import { Platform } from 'react-native';
 
 export function getReadableColor(color: string, theme: 'light' | 'dark'): string {
   if (theme !== 'dark' || !/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) return color;
@@ -19,31 +19,27 @@ export function getReadableColor(color: string, theme: 'light' | 'dark'): string
   return `#${lightened.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
 }
 
-function nativeColor(name: string, fallback: string) {
-  return Platform.OS !== 'web' && typeof PlatformColor === 'function' ? PlatformColor(name) : fallback;
-}
-
 const platformSurface = Platform.select({
-  ios: nativeColor('systemBackground', '#FFFFFF'),
-  android: nativeColor('?android:attr/colorBackground', '#FFFFFF'),
+  ios: '#FFFFFF',
+  android: '#FFFFFF',
   web: 'var(--handa-surface, #FFFFFF)',
   default: '#FFFFFF',
 });
 const platformText = Platform.select({
-  ios: nativeColor('label', '#17212B'),
-  android: nativeColor('?android:attr/textColorPrimary', '#17212B'),
+  ios: '#17212B',
+  android: '#17212B',
   web: 'var(--handa-text, #17212B)',
   default: '#17212B',
 });
 const platformTextMuted = Platform.select({
-  ios: nativeColor('secondaryLabel', '#667085'),
-  android: nativeColor('?android:attr/textColorSecondary', '#667085'),
+  ios: '#667085',
+  android: '#667085',
   web: 'var(--handa-text-muted, #667085)',
   default: '#667085',
 });
 const platformBorder = Platform.select({
-  ios: nativeColor('separator', '#D7E2EA'),
-  android: nativeColor('?android:attr/colorControlHighlight', '#D7E2EA'),
+  ios: '#D7E2EA',
+  android: '#D7E2EA',
   web: 'var(--handa-border, #D7E2EA)',
   default: '#D7E2EA',
 });
@@ -61,7 +57,9 @@ export const Colors = {
   // Backgrounds
   background: platformSurface, // Device-aware app background
   surface: platformSurface,
-  surfaceMuted: Platform.select({ ios: nativeColor('secondarySystemBackground', '#F0F2F5'), android: nativeColor('?android:attr/colorBackground', '#F0F2F5'), web: 'var(--handa-surface-muted, #F0F2F5)', default: '#F0F2F5' }),
+  surfaceMuted: Platform.select({ ios: '#F0F2F5',
+  android: '#F0F2F5',
+  web: 'var(--handa-surface-muted, #F0F2F5)', default: '#F0F2F5' }),
   white: '#FFFFFF', // High-contrast text and light surfaces
   
   // Text Colors
