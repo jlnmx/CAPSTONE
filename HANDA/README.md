@@ -32,7 +32,7 @@ The HANDA system includes:
 
 - **Node.js** 16+ and npm
 - **Android Studio** with the Android SDK (for Android) or **Xcode** (for iOS simulator)
-- A Java JDK for Android builds (Android Studio's bundled JDK is suitable)
+- JDK 17 for Android builds
 - An Android device or simulator for testing
 
 ### Installation
@@ -65,6 +65,78 @@ The HANDA system includes:
 5. **Run on iOS (macOS only):**
 
    - Press `i` in the terminal
+
+### Build an Installable APK with Expo EAS
+
+[eas.json](eas.json) defines three Android profiles:
+
+| Profile | Output | Use |
+|---|---|---|
+| `development` | Dev-client APK | Debugging with Metro |
+| `preview` | Standalone APK | Install on phones for demos and testing |
+| `production` | Android App Bundle (`.aab`) | Play Store |
+
+`preview` and `production` set `EXPO_PUBLIC_API_URL=https://handa-api.onrender.com`
+(the Render API in [DEPLOYMENT.md](DEPLOYMENT.md)), so the APK never falls back
+to `localhost`. `.env.local` is Git-ignored and is **not** uploaded to EAS, so
+add the public Mapbox token as an EAS environment variable (never put a
+secret or service-role key in `EXPO_PUBLIC_*` variables):
+
+```powershell
+Set-Location HANDA
+npx eas-cli@latest login
+npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_MAPBOX_TOKEN --visibility plaintext
+npx eas-cli@latest build --platform android --profile preview
+```
+
+Use the `production` environment and `--profile production` for the `.aab`.
+When EAS asks about the Android keystore, choose to let EAS generate and manage
+it; keep that keystore for all future updates. When the build finishes, open the
+build page link, download the `.apk`, copy it to the phone, and open it (allow
+installs from that source). Free Render instances sleep, so open
+`https://handa-api.onrender.com/health/ready` once before a demo to wake the API.
+
+Because the committed `android/` folder exists, EAS builds that native project
+as-is; `app.json` fields such as `plugins`, `android` and `scheme` are not
+re-applied, so change permissions and native settings under `android/`.
+Increase `versionCode` in both `app.json` and `android/app/build.gradle` for
+each release uploaded to a store.
+
+### Build and Install a Standalone Android APK Locally
+
+This release APK bundles the JavaScript app and runs without Expo Go or a
+computer running Metro. It is suitable for direct testing and sideloading; the
+current Android release build uses the debug signing key and is not suitable
+for Play Store publication.
+
+From a PowerShell terminal in `HANDA/`, set the API origin to the deployed
+backend URL (the default below is the Render URL in `DEPLOYMENT.md`) and build:
+
+```powershell
+$env:JAVA_HOME = "C:\path\to\jdk-17"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+$env:NODE_ENV = "production"
+$env:EXPO_PUBLIC_API_URL = "https://handa-api.onrender.com"
+Set-Location ".\android"
+.\gradlew.bat assembleRelease
+```
+
+Use JDK 17; this project's Gradle wrapper does not run with JDK 25. Replace the
+example `JAVA_HOME` with your JDK 17 installation path. If your backend has a
+different URL, set that value before building. The APK is created at:
+
+```text
+HANDA\android\app\build\outputs\apk\release\app-release.apk
+```
+
+Transfer the APK to an Android phone and open it to install, allowing installs
+from that source when Android prompts. To install over USB instead, enable USB
+debugging and run this from `HANDA/`:
+
+```powershell
+$adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+& $adb install -r ".\android\app\build\outputs\apk\release\app-release.apk"
+```
 
 ### Install a Development APK on an Android Phone
 

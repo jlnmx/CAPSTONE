@@ -13,11 +13,12 @@
       "**/*"
     ],
     "ios": {
-      "supportsTabletMode": false,
+      "supportsTablet": false,
       "bundleIdentifier": "com.handa.evacuation"
     },
     "android": {
-      "package": "com.handa.evacuation"
+      "package": "com.handa.evacuation",
+      "versionCode": 1
     },
     "scheme": "handa",
     "newArchEnabled": true,

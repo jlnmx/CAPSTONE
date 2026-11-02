@@ -1,6 +1,6 @@
 # HANDA Deployment
 
-This repository deploys three services on Render and two separate frontend projects on Vercel. The resident/responder interface is an Expo web export for browser testing; it does not create Android or iOS binaries.
+This repository deploys three services on Render and two separate frontend projects on Vercel. The resident/responder interface is an Expo web export for browser testing; these web deployments do not create Android or iOS binaries. To build a standalone Android APK for direct installation, see [Build an Installable APK with Expo EAS](README.md#build-an-installable-apk-with-expo-eas). iOS builds require macOS and Xcode.
 
 ## Render
 
