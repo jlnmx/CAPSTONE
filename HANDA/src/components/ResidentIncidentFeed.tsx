@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { PhotoGallery } from '@components/PhotoGallery';
 import { Colors } from '@constants/colors';
 import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -84,7 +85,7 @@ export default function ResidentIncidentFeed() {
           </View>
         </View>
         <Text style={styles.description}>{incident.description}</Text>
-        {incident.photoUris.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photos}>{incident.photoUris.map((uri, index) => <Image key={`${incident.id}-photo-${index}`} source={{ uri }} style={styles.photo} />)}</ScrollView>}
+        {incident.photoUris.length > 0 && <PhotoGallery uris={incident.photoUris} style={styles.photos} thumbnailStyle={styles.photo} />}
       </View>)}
     </ScrollView>
   );

@@ -12,6 +12,7 @@ import { authenticatedFetch } from '@services/apiClient';
 import { saveLocalIncident } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
 import AppBackArrow from '@components/AppBackArrow';
+import { PhotoViewer } from '@components/PhotoGallery';
 
 const GREEN = '#218B25';
 const INCIDENT_TYPES = ['Fire', 'Flooding', 'Earthquake', 'Landslide', 'Typhoon', 'Severe storm', 'Strong winds', 'Road accident', 'Road obstruction', 'Building collapse', 'Power outage', 'Gas leak', 'Water emergency', 'Medical emergency', 'Missing person', 'Crime or security threat', 'Hazardous spill', 'Other emergency'];
@@ -24,6 +25,7 @@ export default function ResidentIncidentReport() {
   const [coordinate, setCoordinate] = useState<LocationCoordinate | undefined>();
   const [locationLabel, setLocationLabel] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [picker, setPicker] = useState<'type' | null>(null);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [isSuccessVisible, setIsSuccessVisible] = useState(false);
@@ -173,7 +175,7 @@ export default function ResidentIncidentReport() {
           <View style={styles.locationReadout}><MaterialCommunityIcons name="map-marker" size={18} color={GREEN} /><Text style={styles.locationText}>{isGettingLocation ? 'Getting your current location...' : locationLabel || 'Location unavailable'}</Text></View>
           <View style={styles.photoHeading}><View><Text style={styles.sectionTitle}>Photos</Text><Text style={styles.helper}>Add up to 4 photos to help others understand the situation.</Text></View><Text style={styles.photoCount}>{photos.length}/4</Text></View>
           <View style={styles.photoGrid}>
-            {photos.map((photo, index) => <View key={`${photo.name}-${index}`} style={styles.photoItem}><Image source={{ uri: photo.uri }} style={styles.photo} /><AnimatedPressable style={styles.removePhoto} onPress={() => setPhotos((current) => current.filter((_item, photoIndex) => photoIndex !== index))} accessibilityRole="button" accessibilityLabel="Remove photo"><MaterialCommunityIcons name="close" size={15} color="#FFFFFF" /></AnimatedPressable></View>)}
+            {photos.map((photo, index) => <View key={`${photo.name}-${index}`} style={styles.photoItem}><AnimatedPressable onPress={() => setViewerIndex(index)} accessibilityRole="imagebutton" accessibilityLabel={`View photo ${index + 1}`}><Image source={{ uri: photo.uri }} style={styles.photo} /></AnimatedPressable><AnimatedPressable style={styles.removePhoto} onPress={() => setPhotos((current) => current.filter((_item, photoIndex) => photoIndex !== index))} accessibilityRole="button" accessibilityLabel="Remove photo"><MaterialCommunityIcons name="close" size={15} color="#FFFFFF" /></AnimatedPressable></View>)}
             {photos.length < 4 && <View style={styles.photoActions}><AnimatedPressable style={styles.photoButton} onPress={() => void addPhotos('camera')} accessibilityRole="button"><MaterialCommunityIcons name="camera-outline" size={22} color={GREEN} /><Text style={styles.photoButtonText}>Take photo</Text></AnimatedPressable><AnimatedPressable style={styles.photoButton} onPress={() => void addPhotos('library')} accessibilityRole="button"><MaterialCommunityIcons name="image-multiple-outline" size={22} color={GREEN} /><Text style={styles.photoButtonText}>Upload</Text></AnimatedPressable></View>}
           </View>
           {!!error && <Text style={styles.error}>{error}</Text>}
@@ -224,6 +226,7 @@ export default function ResidentIncidentReport() {
           </Pressable>
         </Pressable>
       </Modal>
+      <PhotoViewer uris={photos.map((photo) => photo.uri)} startIndex={viewerIndex} onClose={() => setViewerIndex(null)} />
     </SafeAreaView>
   );
 }

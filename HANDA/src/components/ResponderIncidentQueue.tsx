@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { PhotoGallery } from '@components/PhotoGallery';
 import { Colors } from '@constants/colors';
 import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -191,7 +192,7 @@ export default function ResponderIncidentQueue() {
         <Avatar uri={reporters[incident.id].profilePicture} name={reporters[incident.id].name} size={28} />
         <Text style={styles.contactText}>Reporter: {reporters[incident.id].name} · {reporters[incident.id].mobileNumber}</Text>
       </AnimatedPressable>}
-      {incident.photoUris.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photos}>{incident.photoUris.map((uri, index) => <Image key={`${incident.id}-photo-${index}`} source={{ uri }} style={styles.photo} />)}</ScrollView>}
+      {incident.photoUris.length > 0 && <PhotoGallery uris={incident.photoUris} style={styles.photos} thumbnailStyle={styles.photo} />}
       <View style={styles.actions}>{STATUSES.map((status) => {
         const canTransition = canTransitionStatus(incident.status, status, incident, user?.id, user?.role);
         const isCurrent = incident.status === status;
