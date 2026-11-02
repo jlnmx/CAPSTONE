@@ -4,7 +4,7 @@
     "slug": "handa-evacuation",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "web": {
       "bundler": "metro",
       "output": "single"
