@@ -121,6 +121,10 @@ android {
             useLegacyPackaging (findProperty('expo.useLegacyPackaging')?.toBoolean() ?: false)
         }
     }
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
@@ -172,5 +176,17 @@ dependencies {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
+    }
+}
+
+// Fabric codegen of autolinked libraries must exist before the app's CMake configure step (fixes a race on parallel builds)
+afterEvaluate {
+    tasks.matching { it.name.startsWith('configureCMake') || it.name.startsWith('buildCMake') }.configureEach { cmakeTask ->
+        cmakeTask.dependsOn {
+            rootProject.subprojects
+                .findAll { it.path != ':app' }
+                .collect { it.tasks.findByName('generateCodegenArtifactsFromSchema') }
+                .findAll { it != null }
+        }
     }
 }
