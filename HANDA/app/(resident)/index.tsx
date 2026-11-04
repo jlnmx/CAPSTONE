@@ -20,11 +20,11 @@ import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weat
 import type { LiveTyphoon } from '@types/weather';
 import type { ResidentHouseholdMember } from '@types/index';
 
-const actions = [
-  { icon: 'account-plus-outline' as const, label: 'Register Evacuee', route: '/(resident)/register-evacuee' },
-  { icon: 'checkbox-marked-outline' as const, label: 'Verify Check-in', route: '/(resident)/verify-status' },
-  { icon: 'alert-circle-outline' as const, label: 'Report incident', route: '/(resident)/report' },
-  { icon: 'home-city-outline' as const, label: 'Center status', route: '/(resident)/center-status' },
+const actions: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; mark: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; route: string; tone: 'forest' | 'teal' | 'sand' | 'clay' }[] = [
+  { icon: 'account-plus-outline', mark: 'account-group-outline', label: 'Register Evacuee', route: '/(resident)/register-evacuee', tone: 'forest' },
+  { icon: 'checkbox-marked-outline', mark: 'map-marker-check-outline', label: 'Verify Check-in', route: '/(resident)/verify-status', tone: 'teal' },
+  { icon: 'alert-circle-outline', mark: 'alert-octagon-outline', label: 'Report incident', route: '/(resident)/report', tone: 'clay' },
+  { icon: 'home-city-outline', mark: 'home-city-outline', label: 'Center status', route: '/(resident)/center-status', tone: 'sand' },
 ];
 
 type ActiveDisaster = {
@@ -169,13 +169,16 @@ export default function ResidentDashboard() {
 
         <View style={styles.statusRow}>
           <StatusTile
-            icon="account-outline"
+            tone="forest"
+            icon="shield-check-outline"
+            mark="shield-outline"
             title="MY STATUS"
             detail={getResidentStatusLabel(evacuationStatusUnavailable, evacuationStatus)}
-            status={getResidentStatusStyle(evacuationStatusUnavailable, evacuationStatus, resolvedTheme)}
           />
           <StatusTile
+            tone="sand"
             icon="account-multiple-outline"
+            mark="home-group"
             title="HOUSEHOLD"
             detail={evacuationStatusUnavailable ? 'Unavailable' : !evacuationStatus ? 'Loading...' : `${evacuationStatus.householdCount} ${evacuationStatus.householdCount === 1 ? 'member' : 'members'}`}
             onPress={() => router.push('/(resident)/household')}
@@ -183,16 +186,20 @@ export default function ResidentDashboard() {
         </View>
 
         <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-        <View style={styles.actionGrid}>{actions.map((action) => <GreenButton key={action.label} style={styles.actionButton} label={action.label} onPress={() => router.push(action.route)}><Text style={styles.actionLabel}>{action.label}</Text><MaterialCommunityIcons name={action.icon} size={32} color="#FFFFFF" style={styles.actionIcon} /></GreenButton>)}</View>
+        <View style={styles.actionGrid}>{actions.map((action) => <DashTile key={action.label} tone={action.tone} icon={action.icon} mark={action.mark} title={action.label} onPress={() => router.push(action.route)} style={styles.actionButton} />)}</View>
         <View style={styles.resourceRow}>
           <ResourceButton
+            tone="clay"
             icon="phone-in-talk-outline"
+            mark="bullhorn-outline"
             title="Emergency Hotline"
             detail="Contact list"
             onPress={() => router.push('/(resident)/emergency-contacts')}
           />
           <ResourceButton
+            tone="sand"
             icon="book-open-page-variant-outline"
+            mark="book-open-page-variant-outline"
             title="Preparation Guide"
             detail="Disaster readiness"
             onPress={() => router.push('/(resident)/preparedness-guide')}
@@ -226,24 +233,47 @@ function getResidentStatusStyle(unavailable: boolean, status: ResidentEvacuation
   };
 }
 
+type TileTone = { bg: string; fg: string; badgeBg: string; badgeFg: string; mark: string };
+const TONES: Record<'forest' | 'teal' | 'sand' | 'clay', TileTone> = {
+  forest: { bg: '#1F6B2B', fg: '#FFFFFF', badgeBg: '#F4F8D8', badgeFg: '#1F6B2B', mark: 'rgba(255,255,255,0.14)' },
+  teal: { bg: '#1E4D5C', fg: '#FFFFFF', badgeBg: '#E6F0F3', badgeFg: '#1E4D5C', mark: 'rgba(255,255,255,0.14)' },
+  sand: { bg: '#ECE6D6', fg: '#1B3D20', badgeBg: '#1F6B2B', badgeFg: '#FFFFFF', mark: 'rgba(31,107,43,0.12)' },
+  clay: { bg: '#C9573F', fg: '#FFFFFF', badgeBg: '#FFF1E8', badgeFg: '#C9573F', mark: 'rgba(255,255,255,0.16)' },
+};
+type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+
 function useHoverLift() {
   const lift = React.useRef(new Animated.Value(0)).current;
   const to = (value: number) => Animated.spring(lift, { toValue: value, useNativeDriver: true, speed: 30, bounciness: 6 }).start();
   return { onHoverIn: () => to(1), onHoverOut: () => to(0), transform: [{ translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }, { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }] };
 }
 
-function GreenButton({ style, onPress, children, label }: { style: object; onPress: () => void; children: React.ReactNode; label?: string }) {
+function DashTile({ tone, icon, mark, title, detail, onPress, compact, style }: { tone: keyof typeof TONES; icon: IconName; mark: IconName; title: string; detail?: string; onPress?: () => void; compact?: boolean; style?: object }) {
   const hover = useHoverLift();
-  return <AnimatedPressable style={[style, styles.greenTile, { transform: hover.transform }]} onPress={onPress} onHoverIn={hover.onHoverIn} onHoverOut={hover.onHoverOut} accessibilityRole="button" accessibilityLabel={label}>{children}</AnimatedPressable>;
+  const t = TONES[tone];
+  const body = <>
+    <MaterialCommunityIcons name={mark} size={compact ? 84 : 104} color={t.mark} style={styles.tileMark} />
+    <View style={[styles.tileBadge, { backgroundColor: t.badgeBg }]}><MaterialCommunityIcons name={icon} size={compact ? 20 : 22} color={t.badgeFg} /></View>
+    <View style={styles.tileFooter}>
+      <View style={styles.tileCopy}>
+        <Text style={[styles.tileTitle, { color: t.fg }]} numberOfLines={2}>{title}</Text>
+        {detail ? <Text style={[styles.tileDetail, { color: t.fg }]} numberOfLines={1}>{detail}</Text> : null}
+      </View>
+      {onPress ? <MaterialCommunityIcons name="chevron-right" size={18} color={t.fg} /> : null}
+    </View>
+  </>;
+  const base = [styles.tile, compact && styles.tileCompact, { backgroundColor: t.bg }, style];
+  return onPress
+    ? <AnimatedPressable style={[...base, { transform: hover.transform }]} onPress={onPress} onHoverIn={hover.onHoverIn} onHoverOut={hover.onHoverOut} accessibilityRole="button" accessibilityLabel={detail ? `${title}: ${detail}` : title}>{body}</AnimatedPressable>
+    : <View style={base} accessibilityRole="text">{body}</View>;
 }
 
-function StatusTile({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress?: () => void; status?: ResidentStatusStyle }) {
-  const content = <><MaterialCommunityIcons name={icon} size={29} color="#FFFFFF" /><View style={styles.statusCopy}><Text style={styles.statusTitle}>{title}</Text><Text style={styles.statusDetail}>{detail}</Text></View></>;
-  return onPress ? <GreenButton style={styles.statusTile} onPress={onPress} label={`${title}: ${detail}`}>{content}</GreenButton> : <View style={[styles.statusTile, styles.greenTile]} accessibilityRole="text">{content}</View>;
+function StatusTile({ icon, mark, title, detail, onPress, tone }: { icon: IconName; mark: IconName; title: string; detail: string; onPress?: () => void; tone: keyof typeof TONES }) {
+  return <DashTile compact tone={tone} icon={icon} mark={mark} title={title} detail={detail} onPress={onPress} style={styles.statusTile} />;
 }
 
-function ResourceButton({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {
-  return <GreenButton style={styles.resourceButton} onPress={onPress} label={title}><View style={styles.resourceCopy}><Text style={styles.resourceTitle}>{title}</Text><Text style={styles.resourceDetail}>{detail}</Text></View><MaterialCommunityIcons name={icon} size={28} color="#FFFFFF" /></GreenButton>;
+function ResourceButton({ icon, mark, title, detail, onPress, tone }: { icon: IconName; mark: IconName; title: string; detail: string; onPress: () => void; tone: keyof typeof TONES }) {
+  return <DashTile compact tone={tone} icon={icon} mark={mark} title={title} detail={detail} onPress={onPress} />;
 }
 
 const styles = StyleSheet.create({
@@ -289,19 +319,19 @@ const styles = StyleSheet.create({
   disasterStatus: { color: Colors.white, fontSize: 9, marginTop: 2 },
   disasterStatusActive: { fontSize: 12 },
   statusRow: { flexDirection: 'row', gap: 9, marginHorizontal: 18, marginBottom: 14 },
-  statusTile: { flex: 1, minHeight: 70, paddingHorizontal: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' },
-  greenTile: { backgroundColor: '#218B25', borderWidth: 1, borderColor: '#176B1D', shadowColor: '#0F4D14', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 3 },
-  statusCopy: { marginLeft: 8 },
-  statusTitle: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
-  statusDetail: { color: '#FFFFFF', fontSize: 9, marginTop: 3 },
-  resourceRow: { gap: 9, marginHorizontal: 18, marginTop: 10, marginBottom: 14 },
-  resourceButton: { minHeight: 46, paddingHorizontal: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center' },
-  resourceCopy: { flex: 1, marginRight: 8 },
-  resourceTitle: { color: '#FFFFFF', fontSize: 9, fontWeight: '800', flexShrink: 1 },
-  resourceDetail: { color: '#FFFFFF', fontSize: 9, marginTop: 2 },
-  sectionTitle: { color: '#218B25', fontSize: 16, fontWeight: '800', marginHorizontal: 18, marginTop: 0, marginBottom: 8 },
-  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, marginHorizontal: 18 },
-  actionButton: { width: '48%', height: 74, borderRadius: 8, justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 8 },
+  statusTile: { flex: 1 },
+  tile: { minHeight: 112, padding: 14, borderRadius: 22, overflow: 'hidden', justifyContent: 'space-between', shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3 },
+  tileCompact: { minHeight: 96, borderRadius: 20 },
+  tileMark: { position: 'absolute', right: -14, bottom: -14 },
+  tileBadge: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  tileFooter: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 12 },
+  tileCopy: { flex: 1 },
+  tileTitle: { fontSize: 12, fontWeight: '800' },
+  tileDetail: { fontSize: 10, fontWeight: '600', marginTop: 2, opacity: 0.9 },
+  resourceRow: { gap: 12, marginHorizontal: 18, marginTop: 14, marginBottom: 14 },
+  sectionTitle: { color: '#218B25', fontSize: 16, fontWeight: '800', marginHorizontal: 18, marginTop: 0, marginBottom: 10 },
+  actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginHorizontal: 18 },
+  actionButton: { width: '48%' },
   actionButtonHovered: { transform: [{ translateY: -3 }], backgroundColor: Colors.surface, borderColor: '#8BC58B', shadowColor: '#1769AA', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.16, shadowRadius: 7, elevation: 5 },
   buttonPressed: { transform: [{ translateY: 1 }] },
   actionLabel: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', flexShrink: 1 },
