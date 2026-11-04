@@ -640,7 +640,7 @@ export default function ResponderLiveMap() {
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: INCIDENT_STATUS_COLORS.reported }]} /><Text style={styles.legendText}>Reported</Text></View>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: INCIDENT_STATUS_COLORS.acknowledged }]} /><Text style={styles.legendText}>Acknowledged</Text></View>
         <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: INCIDENT_STATUS_COLORS.in_progress }]} /><Text style={styles.legendText}>In progress</Text></View>
-        <View style={styles.statusCopy}>{isLoading ? <ActivityIndicator size="small" color={Colors.secondary} /> : <Text style={[styles.syncStatus, loadError && styles.errorStatus]}>{loadError ? data.unavailableSources.length ? `Partial data · ${data.unavailableSources.join(', ')}` : 'Live data unavailable' : `Live · ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</Text>}</View>
+        <View style={styles.statusCopy}>{isLoading ? <ActivityIndicator size="small" color={Colors.secondary} /> : <Text style={[styles.syncStatus, loadError && styles.errorStatus]} numberOfLines={1}>{loadError ? data.unavailableSources.length ? `Partial data · ${data.unavailableSources.join(', ')}` : 'Live data unavailable' : `Live · ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}</Text>}</View>
       </View>
       <WebView ref={webView} source={webViewSource} style={styles.webView} javaScriptEnabled domStorageEnabled geolocationEnabled mixedContentMode="always" originWhitelist={['*']} onMessage={handleMessage} onContentProcessDidTerminate={() => webView.current?.reload()} onRenderProcessGone={() => webView.current?.reload()} />
     </View>
@@ -649,11 +649,11 @@ export default function ResponderLiveMap() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, minHeight: 320, backgroundColor: Colors.surfaceMuted },
-  statusBar: { minHeight: 38, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 13, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: '#D7E2EA' },
+  statusBar: { minHeight: 38, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 13, rowGap: 4, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: '#D7E2EA' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dot: { width: 9, height: 9, borderRadius: 5 },
   legendText: { color: Colors.textMuted, fontSize: 10, fontWeight: '600' },
-  statusCopy: { flex: 1, alignItems: 'flex-end' },
+  statusCopy: { marginLeft: 'auto', flexShrink: 0 },
   syncStatus: { color: '#167A5B', fontSize: 10, fontWeight: '700' },
   errorStatus: { color: Colors.emergency },
   webView: { flex: 1 },
