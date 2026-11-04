@@ -93,14 +93,25 @@ export default function PreparednessGuideScreen() {
   );
 }
 
+const cardThemes: Record<string, { bg: string; tag: string; subtitle: string; chipBg: string; chipText: string; iconBg: string; iconColor: string }> = {
+  'EARTHQUAKE': { bg: '#D6503F', tag: 'EARTHQUAKE', subtitle: 'Ground shaking & fault line safety procedures.', chipBg: '#FCE3DD', chipText: '#B83A2A', iconBg: '#FFF1EC', iconColor: '#D6503F' },
+  'FLASH FLOOD': { bg: '#1F3A52', tag: 'FLOOD', subtitle: 'Evacuation steps for rising river & lake waters.', chipBg: '#DCE8F2', chipText: '#1F3A52', iconBg: '#E8EFF5', iconColor: '#1F3A52' },
+  'CHEMICAL LEAK': { bg: '#8A4410', tag: 'INDUSTRIAL', subtitle: 'Shelter-in-place & chemical spill protocols.', chipBg: '#FDEBC8', chipText: '#8A4410', iconBg: '#FFF3D6', iconColor: '#C25E0A' },
+  'FIRE': { bg: '#B0382B', tag: 'FIRE', subtitle: 'Escape plans, extinguishers & smoke safety.', chipBg: '#FCE3DD', chipText: '#B0382B', iconBg: '#FFF1EC', iconColor: '#B0382B' },
+  'WILDFIRE': { bg: '#A36A2C', tag: 'WILDFIRE', subtitle: 'Early evacuation & ember protection steps.', chipBg: '#FBEBD4', chipText: '#7A4A14', iconBg: '#FFF4E3', iconColor: '#A36A2C' },
+  'TYPHOON': { bg: '#8A2416', tag: 'TYPHOON', subtitle: '72-hour Go-Bag checklist & city hotlines.', chipBg: '#FFF04D', chipText: '#6B1B10', iconBg: '#FFF04D', iconColor: '#8A2416' },
+  'VOLCANIC ERUPTION': { bg: '#1E4A12', tag: 'VOLCANIC', subtitle: 'N95 mask & ashfall protection procedures.', chipBg: '#FFF04D', chipText: '#1E4A12', iconBg: '#FFF04D', iconColor: '#1E4A12' },
+};
+
 function GuideCard({ guide, onPress }: { guide: Guide; onPress: () => void }) {
   const motion = useRef(new Animated.Value(0)).current;
+  const theme = cardThemes[guide.title] ?? { bg: String(guide.color), tag: guide.title, subtitle: 'Preparedness guide', chipBg: '#FFFFFF', chipText: '#333333', iconBg: '#FFFFFF', iconColor: String(guide.color) };
   const animateTo = (value: number) => Animated.spring(motion, { toValue: value, useNativeDriver: true, friction: 7, tension: 120 }).start();
   const rotation = motion.interpolate({ inputRange: [0, 1], outputRange: ['0deg', guide.title === 'TYPHOON' ? '8deg' : guide.title === 'VOLCANIC ERUPTION' ? '-4deg' : '0deg'] });
   const lift = motion.interpolate({ inputRange: [0, 1], outputRange: [0, guide.title === 'VOLCANIC ERUPTION' ? -5 : 0] });
 
   return <Pressable
-    style={[styles.guideCard, { backgroundColor: guide.color }]}
+    style={[styles.guideCard, { backgroundColor: theme.bg }]}
     onPress={onPress}
     onPressIn={() => animateTo(1)}
     onPressOut={() => animateTo(0)}
@@ -108,10 +119,15 @@ function GuideCard({ guide, onPress }: { guide: Guide; onPress: () => void }) {
     onHoverOut={() => animateTo(0)}
     accessibilityLabel={`${guide.title} preparedness guide`}
   >
-    <Text style={styles.guideTitle}>{guide.title}</Text>
-    <Animated.View style={[styles.guideIcon, { transform: [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }, { rotate: rotation }, { translateY: lift }] }]}>
-      <MaterialCommunityIcons name={guide.icon} size={42} color={guide.color} />
+    <Animated.View style={[styles.guideIcon, { backgroundColor: theme.iconBg, transform: [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }, { rotate: rotation }, { translateY: lift }] }]}>
+      <MaterialCommunityIcons name={guide.icon} size={26} color={theme.iconColor} />
     </Animated.View>
+    <View style={styles.guideCopy}>
+      <View style={[styles.guideChip, { backgroundColor: theme.chipBg }]}><Text style={[styles.guideChipText, { color: theme.chipText }]}>{theme.tag}</Text></View>
+      <Text style={styles.guideTitle}>{titleCase(guide.title)} Safety</Text>
+      <Text style={styles.guideSubtitle}>{theme.subtitle}</Text>
+    </View>
+    <View style={styles.guideChevron}><MaterialCommunityIcons name="chevron-right" size={20} color={Colors.white} /></View>
   </Pressable>;
 }
 
@@ -134,10 +150,15 @@ const styles = StyleSheet.create({
   headerSubtitle: { color: Colors.white, fontSize: 15, fontWeight: '800', lineHeight: 17 },
   search: { height: 36, marginHorizontal: 5, marginVertical: 15, paddingHorizontal: 11, borderRadius: 18, backgroundColor: '#73AE6F', flexDirection: 'row', alignItems: 'center' },
   searchInput: { flex: 1, color: Colors.white, fontSize: 11, marginHorizontal: 10, paddingVertical: 0 },
-  list: { gap: 9, marginHorizontal: 9 },
-  guideCard: { minHeight: 57, paddingLeft: 10, paddingRight: 6, borderRadius: 6, flexDirection: 'row', alignItems: 'center' },
-  guideTitle: { flex: 1, color: Colors.white, fontSize: 12, fontWeight: '900' },
-  guideIcon: { width: 48, height: 48, borderRadius: 5, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
+  list: { gap: 12, marginHorizontal: 12 },
+  guideCard: { minHeight: 88, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  guideCopy: { flex: 1, minWidth: 0 },
+  guideChip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 5, marginBottom: 5 },
+  guideChipText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  guideTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  guideSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 11, lineHeight: 15, marginTop: 2 },
+  guideChevron: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
+  guideIcon: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   detail: { paddingHorizontal: 10, paddingTop: 10 },
   backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingVertical: 4 },
   backText: { color: '#218B25', fontSize: 11, fontWeight: '700', marginLeft: 5 },
