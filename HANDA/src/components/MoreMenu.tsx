@@ -73,6 +73,10 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
             <MaterialCommunityIcons name="account-outline" size={46} color="#218B25" />
             <Text style={styles.menuLabel}>ACCOUNT</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.menuButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={() => router.push(roleLabel === 'Resident' ? '/(resident)/chatbot' : '/(responder)/chatbot')} activeOpacity={0.8}>
+            <MaterialCommunityIcons name="robot-outline" size={46} color="#218B25" />
+            <Text style={styles.menuLabel}>BANTAY HANDA CHATBOT</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.menuButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={() => router.push('/developers')} activeOpacity={0.8}>
             <MaterialCommunityIcons name="code-braces" size={46} color="#218B25" />
             <Text style={styles.menuLabel}>DEVELOPER DETAILS</Text>

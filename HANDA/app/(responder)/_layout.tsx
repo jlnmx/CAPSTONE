@@ -102,6 +102,7 @@ export default function ResponderLayout() {
       />
       <Tabs.Screen name="responder-center-status" options={{ href: null }} />
       <Tabs.Screen name="response-history" options={{ href: null }} />
+      <Tabs.Screen name="chatbot" options={{ href: null }} />
     </Tabs>
     <StartupLocationPermission />
     </>
