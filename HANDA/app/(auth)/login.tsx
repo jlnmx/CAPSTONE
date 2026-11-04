@@ -18,6 +18,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [stayLoggedIn, setStayLoggedIn] = useState(true);
 
   const handleLogin = async () => {
     setValidationError('');
@@ -36,7 +37,7 @@ export default function LoginScreen() {
       return;
     }
 
-    await login(identifier, password, ['resident', 'responder']);
+    await login(identifier, password, ['resident', 'responder'], stayLoggedIn);
   };
 
   return (
@@ -80,6 +81,20 @@ export default function LoginScreen() {
             />
 
             <View style={styles.forgotRow}>
+              <Pressable
+                onPress={() => setStayLoggedIn((value) => !value)}
+                style={styles.stayRow}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: stayLoggedIn }}
+                accessibilityLabel="Keep me signed in"
+              >
+                <MaterialCommunityIcons
+                  name={stayLoggedIn ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                  size={22}
+                  color={stayLoggedIn ? '#218B25' : Colors.textMuted}
+                />
+                <Text style={styles.stayLabel}>Keep me signed in</Text>
+              </Pressable>
               <Pressable
                 onPress={() => router.push('/(auth)/forgot-password')}
                 accessibilityRole="link"
@@ -209,8 +224,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   forgotRow: {
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 20,
+  },
+  stayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  stayLabel: {
+    color: Colors.text,
+    fontFamily: 'InstrumentSans_500Medium',
+    fontSize: 14,
   },
   forgotLink: {
     color: '#218B25',

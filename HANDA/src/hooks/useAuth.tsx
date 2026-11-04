@@ -4,32 +4,62 @@
  */
 
 import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
-import { subscribeToUnauthorized } from '@services/apiClient';
+import { clearAccessToken, getAccessToken, subscribeToUnauthorized } from '@services/apiClient';
+import { clearOfflineCache } from '@services/offlineCache';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_PROFILE_KEY = 'handa.authProfile';
+const STAY_LOGGED_IN_KEY = 'handa.stayLoggedIn';
 
 interface AuthProviderProps {
   children: ReactNode;
+}
+
+async function clearStoredSession() {
+  await clearAccessToken().catch(() => undefined);
+  await Promise.all([
+    AsyncStorage.removeItem('userId'),
+    AsyncStorage.removeItem(AUTH_PROFILE_KEY),
+    clearOfflineCache(),
+  ]).catch((storageError) => console.error('Session cleanup error:', storageError));
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [usingSavedSession, setUsingSavedSession] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     void (async () => {
       try {
+        const stayLoggedIn = (await AsyncStorage.getItem(STAY_LOGGED_IN_KEY)) !== '0';
+        if (!stayLoggedIn) {
+          await clearStoredSession();
+          return;
+        }
         const authUser = await AuthService.restoreSession();
-        if (!authUser) return;
         if (!mounted) return;
-        setUser(authUser);
-        await AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser));
+        if (authUser) {
+          setUser(authUser);
+          await AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser));
+          return;
+        }
+        // Offline or server unavailable: keep the user signed in with the last saved profile.
+        if (await getAccessToken()) {
+          const savedProfile = await AsyncStorage.getItem(AUTH_PROFILE_KEY);
+          if (savedProfile && mounted) {
+            setUser(JSON.parse(savedProfile) as AuthUser);
+            setUsingSavedSession(true);
+          }
+        }
+      } catch (restoreError) {
+        console.error('Session restore error:', restoreError);
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -37,24 +67,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => { mounted = false; };
   }, []);
 
+  useEffect(() => {
+    if (!usingSavedSession) return undefined;
+    let cancelled = false;
+    const refresh = async () => {
+      const authUser = await AuthService.restoreSession();
+      if (cancelled) return;
+      if (authUser) {
+        setUser(authUser);
+        setUsingSavedSession(false);
+        await AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser));
+      } else if (!(await getAccessToken())) {
+        setUser(null);
+        setUsingSavedSession(false);
+        setError('Your session expired. Sign in again.');
+        await clearStoredSession();
+      }
+    };
+    const timer = setInterval(() => void refresh(), 30_000);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refresh();
+    });
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      appState.remove();
+    };
+  }, [usingSavedSession]);
+
   useEffect(() => subscribeToUnauthorized(() => {
     setUser(null);
     setError('Your session expired. Sign in again.');
-    void Promise.all([
-      AsyncStorage.removeItem('userId'),
-      AsyncStorage.removeItem(AUTH_PROFILE_KEY),
-    ]).catch((storageError) => console.error('Session cleanup error:', storageError));
+    void clearStoredSession();
   }), []);
 
-  const finishLogin = async (authUser: AuthUser) => {
+  const finishLogin = async (authUser: AuthUser, stayLoggedIn = true) => {
     setUser(authUser);
+    setUsingSavedSession(false);
     await Promise.all([
       AsyncStorage.setItem('userId', authUser.id),
       AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser)),
+      AsyncStorage.setItem(STAY_LOGGED_IN_KEY, stayLoggedIn ? '1' : '0'),
     ]);
   };
 
-  const login = async (email: string, password: string, allowedRoles?: readonly UserRole[]) => {
+  const login = async (email: string, password: string, allowedRoles?: readonly UserRole[], stayLoggedIn = true) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -62,7 +119,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const authUser = await AuthService.login(email, password, allowedRoles);
 
       if (authUser) {
-        await finishLogin(authUser);
+        await finishLogin(authUser, stayLoggedIn);
       } else {
         setError('Invalid email/mobile number or password.');
       }
@@ -115,10 +172,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Logout error:', e);
     } finally {
       setUser(null);
-      await Promise.all([
-        AsyncStorage.removeItem('userId'),
-        AsyncStorage.removeItem(AUTH_PROFILE_KEY),
-      ]);
+      setUsingSavedSession(false);
+      await clearStoredSession();
       setIsLoading(false);
     }
   };

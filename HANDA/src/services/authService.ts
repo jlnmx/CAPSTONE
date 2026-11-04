@@ -184,20 +184,32 @@ export class AuthService {
     return null;
   }
 
+  /**
+   * Returns the signed-in user, or null when there is no usable session.
+   * The token is kept on network/server failures so the app can keep working offline;
+   * it is only discarded when the server rejects it.
+   */
   static async restoreSession(): Promise<AuthUser | null> {
     if (!(await getAccessToken())) {
       return null;
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await authenticatedFetch('/api/v1/auth/me');
-      if (!response.ok) {
+      const response = await authenticatedFetch('/api/v1/auth/me', { signal: controller.signal });
+      if (response.status === 401 || response.status === 403) {
         await clearAccessToken();
+        return null;
+      }
+      if (!response.ok) {
         return null;
       }
       return await response.json() as AuthUser;
     } catch {
       return null;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 }

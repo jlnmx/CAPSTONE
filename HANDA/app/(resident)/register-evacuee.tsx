@@ -13,6 +13,7 @@ import { HouseholdMemberFields, EMPTY_MEMBER_DRAFT, HouseholdMemberDraft as Memb
 import type { ResidentHouseholdMember } from '@types/index';
 import { saveLocalEvacuationRegistration } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
+import { fetchJsonWithCache } from '@services/offlineCache';
 
 const GREEN = '#218B25';
 const FIELD_GREEN = '#548B56';
@@ -170,15 +171,15 @@ export default function RegisterEvacueeScreen() {
     let isCurrent = true;
     const loadCenters = async () => {
       try {
-        const response = await authenticatedFetch('/api/v1/centers');
-        if (!response.ok) throw new Error('Evacuation centers could not be loaded.');
-        const result = await response.json() as EvacuationCenter[];
+        const { data: result, fromCache } = await fetchJsonWithCache<EvacuationCenter[]>('/api/v1/centers');
         if (!isCurrent) return;
         const availableCenters = result.filter((center) => center.status !== 'closed' && center.status !== 'full' && center.current_occupancy < center.capacity);
         setCenters(availableCenters);
-        setCenterError(availableCenters.length ? '' : 'No evacuation centers are currently accepting registrations.');
+        setCenterError(availableCenters.length
+          ? (fromCache ? 'Offline: showing saved evacuation centers. Availability may be out of date; your registration will be sent once you reconnect.' : '')
+          : 'No evacuation centers are currently accepting registrations.');
       } catch {
-        if (isCurrent) setCenterError('Unable to load evacuation centers. Check your connection and try again.');
+        if (isCurrent) setCenterError('Unable to load evacuation centers. Connect to the internet once so they can be saved for offline use.');
       } finally {
         if (isCurrent) setIsCentersLoading(false);
       }

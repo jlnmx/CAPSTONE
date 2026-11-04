@@ -9,6 +9,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
 import { saveLocalEvacuationRegistration } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
+import { fetchJsonWithCache } from '@services/offlineCache';
 import { useAuth } from '@hooks/useAuth';
 import { MapEvacuationCenter, ResidentHouseholdMember } from '@types/index';
 import AppBackArrow from '@components/AppBackArrow';
@@ -86,11 +87,11 @@ export default function ResidentMapScreen() {
 
   useFocusEffect(useCallback(() => {
     let mounted = true;
-    void authenticatedFetch('/api/v1/centers')
-      .then(async (response) => {
-        if (!response.ok) throw new Error('Center request failed');
-        const result = await response.json() as MapEvacuationCenter[];
-        if (mounted) setCenters(result);
+    void fetchJsonWithCache<MapEvacuationCenter[]>('/api/v1/centers')
+      .then(({ data, fromCache }) => {
+        if (!mounted) return;
+        setCenters(data);
+        setError(fromCache ? 'Offline: showing saved evacuation centers.' : '');
       })
       .catch(() => {
         if (mounted) setError('Center locations are unavailable. Check your connection and try again.');
@@ -199,25 +200,34 @@ export default function ResidentMapScreen() {
     setIsSubmitting(true);
     setProfileError('');
     try {
-      const profileResponse = await authenticatedFetch('/api/v1/resident/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firstName: profile.firstName.trim(),
-          middleName: profile.middleName.trim() || null,
-          lastName: profile.lastName.trim(),
-          birthday: profile.birthday,
-          sex: profile.sex,
-          mobileNumber: profile.mobileNumber.replace(/[\s()-]/g, ''),
-          currentAddress: profile.currentAddress.trim(),
-          members: householdMembers.map((member) => draftToMember(memberToDraft(member))),
-        }),
-      });
-      const savedProfile = await profileResponse.json() as ResidentProfile & { detail?: unknown };
-      if (!profileResponse.ok) throw new Error(readRequestError(savedProfile.detail));
-      setProfile(savedProfile);
-      await setAuthenticatedUser({ ...savedProfile, role: 'resident' });
-
+      let profileResponse: Response | null = null;
+      try {
+        profileResponse = await authenticatedFetch('/api/v1/resident/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: profile.firstName.trim(),
+            middleName: profile.middleName.trim() || null,
+            lastName: profile.lastName.trim(),
+            birthday: profile.birthday,
+            sex: profile.sex,
+            mobileNumber: profile.mobileNumber.replace(/[\s()-]/g, ''),
+            currentAddress: profile.currentAddress.trim(),
+            members: householdMembers.map((member) => draftToMember(memberToDraft(member))),
+          }),
+        });
+      } catch {
+        // Offline: the registration below is queued on the device and the profile is synced with it later.
+        profileResponse = null;
+      }
+      let savedProfile: ResidentProfile = profile;
+      if (profileResponse) {
+        const result = await profileResponse.json() as ResidentProfile & { detail?: unknown };
+        if (!profileResponse.ok) throw new Error(readRequestError(result.detail));
+        savedProfile = result;
+        setProfile(savedProfile);
+        await setAuthenticatedUser({ ...savedProfile, role: 'resident' });
+      }
       const registrationBody = {
         id: `evac-registration-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
         centerId: selectedCenter.id,

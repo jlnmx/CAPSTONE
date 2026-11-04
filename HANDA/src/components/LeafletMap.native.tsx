@@ -6,6 +6,8 @@ import { Colors } from '@constants/colors';
 import { INCIDENT_STATUS_COLORS, INCIDENT_STATUS_LABELS } from '@constants/incidentStatus';
 import { useTheme } from '@hooks/useTheme';
 import { MapEvacuationCenter } from '@types/index';
+import { LEAFLET_CSS, LEAFLET_JS } from '@services/map/leafletAssets';
+import { OFFLINE_TILE_SCRIPT } from '@services/map/offlineTiles';
 
 const BINAN_CENTER = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -83,7 +85,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <style>${LEAFLET_CSS}</style>
         <style>
           html, body, #map { margin: 0; width: 100%; height: 100%; }
           .leaflet-container { background: #e5efe8; }
@@ -138,7 +140,8 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         <div id="map"></div>
         <div id="location-panel" class="location-panel"></div>
         <div id="navigation-panel" class="navigation-panel"></div>
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>${LEAFLET_JS}</script>
+        <script>${OFFLINE_TILE_SCRIPT}</script>
         <script>
           const center = ${JSON.stringify(BINAN_CENTER)};
           const map = L.map('map', { zoomControl: true }).setView(center, 13);
@@ -357,8 +360,13 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             }
             showCenter(nearest.item, nearest.distance);
           }
-          L.tileLayer(${JSON.stringify(tileUrl)}, { attribution: ${JSON.stringify(attribution)}, maxZoom: 19 }).addTo(map);
+          const baseTileLayer = createCachedTileLayer(${JSON.stringify(tileUrl)}, { attribution: ${JSON.stringify(attribution)}, maxZoom: 19 }).addTo(map);
           const centers = ${JSON.stringify(mappedCenters).replace(/</g, '\\u003c')};
+          map.whenReady(() => setTimeout(() => {
+            const points = centers.map((item) => item.position);
+            points.push(map.getCenter());
+            baseTileLayer.prefetchAround(points, [13, 14, 15, 16], 1, 450);
+          }, 2500));
           const evacuationIcon = L.divIcon({ className: 'evacuation-center-icon', html: '<div>⌂</div>', iconSize: [32, 32], iconAnchor: [16, 16] });
           centers.forEach((item) => L.marker(item.position, { icon: evacuationIcon }).addTo(map).on('click', () => {
             if (isNavigating) stopNavigation();
@@ -368,9 +376,16 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           const incidentLayer = L.layerGroup().addTo(map);
           async function loadReportedIncidents() {
             try {
-              const response = await fetch(${JSON.stringify(API_BASE_URL)} + '/api/v1/incidents');
-              if (!response.ok) return;
-              const incidents = await response.json();
+              let incidents = null;
+              try {
+                const response = await fetch(${JSON.stringify(API_BASE_URL)} + '/api/v1/incidents');
+                if (!response.ok) throw new Error('Incident request failed');
+                incidents = await response.json();
+                try { localStorage.setItem('handa.incidents', JSON.stringify(incidents)); } catch (storageError) {}
+              } catch (networkError) {
+                try { incidents = JSON.parse(localStorage.getItem('handa.incidents') || 'null'); } catch (storageError) {}
+                if (!Array.isArray(incidents)) return;
+              }
               incidentLayer.clearLayers();
               const activeIncidents = incidents.filter((incident) => {
                 const status = String(incident.status || incident.verificationStatus || incident.verification_status || 'reported').toLowerCase();
@@ -409,7 +424,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       {!ready && <ActivityIndicator size="large" color="#218B25" style={styles.loader} />}
       <WebView
         ref={webView}
-        source={{ html }}
+        source={{ html, baseUrl: API_BASE_URL }}
         style={styles.webView}
         originWhitelist={['*']}
         javaScriptEnabled

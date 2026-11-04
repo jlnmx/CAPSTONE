@@ -8,6 +8,8 @@ import { Colors } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
 import { INCIDENT_STATUS_COLORS, INCIDENT_STATUS_LABELS } from '@constants/incidentStatus';
 import { estimateResponseEta } from '@services/responderEta';
+import { LEAFLET_CSS, LEAFLET_JS } from '@services/map/leafletAssets';
+import { OFFLINE_TILE_SCRIPT } from '@services/map/offlineTiles';
 import { getIncidentReporterContacts, getResponderData, IncidentReporterContact, ResponderDataSnapshot, updateIncidentStatus } from '@services/responderData';
 
 const CENTER = [14.3036, 121.0781];
@@ -71,7 +73,7 @@ export default function ResponderLiveMap() {
     <html>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <style>${LEAFLET_CSS}</style>
         <style>
           html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #e5efe8; font-family: sans-serif; }
           #stage { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; overflow: hidden; perspective: 900px; perspective-origin: 50% 60%; }
@@ -132,7 +134,8 @@ export default function ResponderLiveMap() {
       <body>
         <div id="stage"><div id="map"></div></div>
         <div id="navigation-panel" class="navigation-panel"></div>
-        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>${LEAFLET_JS}</script>
+        <script>${OFFLINE_TILE_SCRIPT}</script>
         <script>
           const center = ${JSON.stringify(CENTER)};
           const map = L.map('map').setView(center, 13);
@@ -142,10 +145,11 @@ export default function ResponderLiveMap() {
           };
           requestAnimationFrame(() => requestAnimationFrame(focusMapOnBinan));
           window.addEventListener('resize', () => map.invalidateSize({ pan: false }));
-          L.tileLayer(${JSON.stringify(mapboxToken ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}&tileSize=512` : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')}, {
+          const baseTileLayer = createCachedTileLayer(${JSON.stringify(mapboxToken ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}&tileSize=512` : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')}, {
             attribution: ${JSON.stringify(mapboxToken ? '&copy; Mapbox &copy; OpenStreetMap contributors' : '&copy; OpenStreetMap contributors')}, maxZoom: 19
           }).addTo(map);
-          (function () { let fell = false; map.eachLayer((l) => { if (l.on && l._url) l.on('tileerror', () => { if (fell) return; fell = true; map.removeLayer(l); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }).addTo(map); }); }); })();
+          window.prefetchHANDATiles = (points) => baseTileLayer.prefetchAround(points.concat([center]), [13, 14, 15, 16], 1, 450);
+          (function () { let fell = false; map.eachLayer((l) => { if (l.on && l._url) l.on('tileerror', () => { if (fell) return; fell = true; map.removeLayer(l); createCachedTileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }).addTo(map); }); }); })();
           const routeRenderer = L.svg({ padding: .35 }).addTo(map);
           const centersLayer = L.layerGroup().addTo(map);
           const incidentsLayer = L.layerGroup().addTo(map);
@@ -451,6 +455,11 @@ export default function ResponderLiveMap() {
           window.updateResponderMapData = (data) => {
             centersLayer.clearLayers();
             incidentsLayer.clearLayers();
+            const centerPoints = (data.centers || []).filter((center) => Number.isFinite(Number(center.latitude)) && Number.isFinite(Number(center.longitude))).map((center) => [Number(center.latitude), Number(center.longitude)]);
+            if (!window.handaTilesPrefetched && centerPoints.length) {
+              window.handaTilesPrefetched = true;
+              setTimeout(() => window.prefetchHANDATiles(centerPoints), 2500);
+            }
             (data.centers || []).filter((center) => Number.isFinite(Number(center.latitude)) && Number.isFinite(Number(center.longitude))).forEach((center) => {
               const occupied = Math.max(0, Number(center.currentOccupancy) || 0);
               const capacity = Math.max(0, Number(center.capacity) || 0);

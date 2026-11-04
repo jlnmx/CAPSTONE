@@ -65,12 +65,11 @@ export type ResponderDataSnapshot = {
   unavailableSources: string[];
 };
 import { authenticatedFetch } from './apiClient';
+import { fetchJsonWithCache } from './offlineCache';
 
 
 async function fetchRecords<T>(path: string): Promise<T[]> {
-  const response = await authenticatedFetch(path);
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-  return response.json() as Promise<T[]>;
+  return (await fetchJsonWithCache<T[]>(path)).data;
 }
 
 function normalizeIncident(record: Record<string, any>): ResponderIncident {
