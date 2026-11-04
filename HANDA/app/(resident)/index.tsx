@@ -239,21 +239,21 @@ function useHoverLift() {
   return { onHoverIn: () => to(1), onHoverOut: () => to(0), transform: [{ translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }, { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }] };
 }
 
-function DashTile({ tone, icon, mark, title, detail, onPress, compact, style }: { tone: keyof typeof TONES; icon: IconName; mark: IconName; title: string; detail?: string; onPress?: () => void; compact?: boolean; style?: object }) {
+function DashTile({ tone, icon, mark, title, detail, onPress, compact, row, style }: { tone: keyof typeof TONES; icon: IconName; mark: IconName; title: string; detail?: string; onPress?: () => void; compact?: boolean; row?: boolean; style?: object }) {
   const hover = useHoverLift();
   const t = TONES[tone];
   const body = <>
-    <MaterialCommunityIcons name={mark} size={compact ? 84 : 104} color={t.mark} style={styles.tileMark} />
-    <View style={[styles.tileBadge, { backgroundColor: t.badgeBg }]}><MaterialCommunityIcons name={icon} size={compact ? 20 : 22} color={t.badgeFg} /></View>
-    <View style={styles.tileFooter}>
+    <MaterialCommunityIcons name={mark} size={row ? 56 : compact ? 84 : 104} color={t.mark} style={styles.tileMark} />
+    <View style={[styles.tileBadge, row && styles.tileBadgeRow, { backgroundColor: t.badgeBg }]}><MaterialCommunityIcons name={icon} size={row ? 17 : compact ? 20 : 22} color={t.badgeFg} /></View>
+    <View style={[styles.tileFooter, row && styles.tileFooterRow]}>
       <View style={styles.tileCopy}>
         <Text style={[styles.tileTitle, { color: t.fg }]} numberOfLines={2}>{title}</Text>
-        {detail ? <Text style={[styles.tileDetail, { color: t.fg }]} numberOfLines={1}>{detail}</Text> : null}
+        {detail && !row ? <Text style={[styles.tileDetail, { color: t.fg }]} numberOfLines={1}>{detail}</Text> : null}
       </View>
       {onPress ? <MaterialCommunityIcons name="chevron-right" size={18} color={t.fg} /> : null}
     </View>
   </>;
-  const base = [styles.tile, compact && styles.tileCompact, { backgroundColor: t.bg }, style];
+  const base = [styles.tile, compact && styles.tileCompact, row && styles.tileRow, { backgroundColor: t.bg }, style];
   return onPress
     ? <AnimatedPressable style={[...base, { transform: hover.transform }]} onPress={onPress} onHoverIn={hover.onHoverIn} onHoverOut={hover.onHoverOut} accessibilityRole="button" accessibilityLabel={detail ? `${title}: ${detail}` : title}>{body}</AnimatedPressable>
     : <View style={base} accessibilityRole="text">{body}</View>;
@@ -264,7 +264,7 @@ function StatusTile({ icon, mark, title, detail, onPress, tone }: { icon: IconNa
 }
 
 function ResourceButton({ icon, mark, title, detail, onPress, tone }: { icon: IconName; mark: IconName; title: string; detail: string; onPress: () => void; tone: keyof typeof TONES }) {
-  return <DashTile compact tone={tone} icon={icon} mark={mark} title={title} detail={detail} onPress={onPress} />;
+  return <DashTile compact row tone={tone} icon={icon} mark={mark} title={title} detail={detail} onPress={onPress} style={styles.resourceTile} />;
 }
 
 const styles = StyleSheet.create({
@@ -319,7 +319,11 @@ const styles = StyleSheet.create({
   tileCopy: { flex: 1 },
   tileTitle: { fontSize: 12, fontWeight: '800' },
   tileDetail: { fontSize: 10, fontWeight: '600', marginTop: 2, opacity: 0.9 },
-  resourceRow: { gap: 12, marginHorizontal: 18, marginTop: 14, marginBottom: 14 },
+  resourceRow: { flexDirection: 'row', gap: 10, marginHorizontal: 18, marginTop: 14, marginBottom: 14 },
+  resourceTile: { flex: 1 },
+  tileRow: { minHeight: 56, padding: 10, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8 },
+  tileBadgeRow: { width: 32, height: 32, borderRadius: 16 },
+  tileFooterRow: { flex: 1, marginTop: 0, alignItems: 'center' },
   sectionTitle: { color: '#218B25', fontSize: 16, fontWeight: '800', marginHorizontal: 18, marginTop: 0, marginBottom: 10 },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginHorizontal: 18 },
   actionButton: { width: '48%' },
