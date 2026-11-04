@@ -191,7 +191,7 @@ export default function AccountSectionScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+        <View style={[styles.header, { marginHorizontal: -gutter }]}>
           <AppBackArrow />
           <View style={styles.headerCopy}><Text style={styles.eyebrow}>ACCOUNT SETTINGS</Text><Text style={styles.title} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{section.title}</Text></View>
         </View>

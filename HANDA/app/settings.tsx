@@ -90,7 +90,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+        <View style={[styles.header, { marginHorizontal: -gutter }]}>
           <AppBackArrow />
           <View><Text style={styles.eyebrow}>PREFERENCES</Text><Text style={styles.title}>Settings</Text></View>
         </View>
