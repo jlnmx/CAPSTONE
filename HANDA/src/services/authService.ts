@@ -4,7 +4,7 @@
  */
 
 import { AuthUser, UserRole } from '@/types/index';
-import { API_BASE_URL, authenticatedFetch, clearAccessToken, getAccessToken, setAccessToken } from './apiClient';
+import { API_BASE_URL, authenticatedFetch, clearAccessToken, fetchWithRetry, getAccessToken, setAccessToken } from './apiClient';
 
 const MOCK_USERS = {
   admin: {
@@ -73,19 +73,11 @@ export class AuthService {
     let apiReachable = false;
     let connectionError: unknown;
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 15000);
-      let response: Response;
-      try {
-        response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: identifier.trim(), password }),
-          signal: controller.signal,
-        });
-      } finally {
-        clearTimeout(timeout);
-      }
+      const response = await fetchWithRetry(`${API_BASE_URL}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier.trim(), password }),
+      });
       apiReachable = true;
       if (response.ok) {
         const result = await response.json() as { accessToken?: string; user?: AuthUser };

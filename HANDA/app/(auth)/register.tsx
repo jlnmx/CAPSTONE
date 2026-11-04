@@ -5,7 +5,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
-import { API_BASE_URL } from '@services/apiClient';
+import { API_BASE_URL, SLOW_NETWORK_TIMEOUT_MS, fetchWithRetry } from '@services/apiClient';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthUser, ResidentHouseholdMember } from '@types/index';
@@ -302,10 +302,8 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
       return;
     }
 
-    const abortController = new AbortController();
-    const requestTimeout = setTimeout(() => abortController.abort(), 10000);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/users/register`, {
+      const response = await fetchWithRetry(`${API_BASE_URL}/api/v1/users/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -331,8 +329,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             }
             : { members: householdMembers.map((member) => draftToMember(memberToDraft(member))) }),
         }),
-        signal: abortController.signal,
-      });
+      }, SLOW_NETWORK_TIMEOUT_MS, 1);
       const result = await response.json() as { id?: string; status?: string; accessToken?: string; user?: AuthUser; detail?: unknown; message?: string };
       if (!response.ok) {
         setValidationErrors({ form: getRegistrationErrorMessage(result.detail) });
@@ -362,9 +359,8 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
       router.replace('/(resident)');
     } catch (error) {
       const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
-      setValidationErrors({ form: errorName === 'AbortError' ? 'The registration service timed out. Check that your phone and API are on the same Wi-Fi network.' : 'Unable to connect to the registration service.' });
+      setValidationErrors({ form: errorName === 'AbortError' ? 'The registration service timed out. Check your internet connection and try again.' : 'Unable to connect to the registration service.' });
     } finally {
-      clearTimeout(requestTimeout);
       setIsSubmitting(false);
     }
   };

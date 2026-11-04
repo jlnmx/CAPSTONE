@@ -10,6 +10,34 @@ const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, 
 export const API_BASE_URL = configuredApiUrl
   ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
 
+// Render's free tier sleeps when idle and needs up to ~60s to wake, and mobile/public networks add latency.
+export const SLOW_NETWORK_TIMEOUT_MS = 60000;
+
+export function warmUpServer(): void {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SLOW_NETWORK_TIMEOUT_MS);
+  fetch(`${API_BASE_URL}/health/ready`, { signal: controller.signal })
+    .catch(() => undefined)
+    .finally(() => clearTimeout(timer));
+}
+
+export async function fetchWithRetry(url: string, init: RequestInit, timeoutMs = SLOW_NETWORK_TIMEOUT_MS, attempts = 2): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timer);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  throw lastError;
+}
+
 const ACCESS_TOKEN_KEY = 'handa.accessToken';
 const unauthorizedListeners = new Set<() => void>();
 let unauthorizedHandled = false;

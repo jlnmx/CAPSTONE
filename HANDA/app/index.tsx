@@ -7,12 +7,14 @@ import { Animated, ImageBackground, View, StyleSheet } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { useRouter } from 'expo-router';
 import { Colors } from '@constants/colors';
+import { warmUpServer } from '@services/apiClient';
 
 export default function SplashScreen() {
   const router = useRouter();
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    warmUpServer();
     const animation = Animated.timing(progress, {
       toValue: 1,
       duration: 2300,
