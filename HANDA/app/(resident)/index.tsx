@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { ColorValue, SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Moon, Sun, Sunrise, Sunset } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useWeather } from '@hooks/useWeather';
 import { WeatherWidget } from '@components/WeatherWidget';
@@ -126,13 +125,6 @@ export default function ResidentDashboard() {
 
   const disasterIsActive = activeDisaster?.status.toLowerCase() === 'active';
   const timePresentation = getTimeOfDayPresentation(now);
-  const GreetingIcon = timePresentation.label === 'Dawn'
-    ? Sunrise
-    : timePresentation.label === 'Dusk'
-      ? Sunset
-      : timePresentation.label === 'Night'
-        ? Moon
-        : Sun;
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
@@ -153,7 +145,6 @@ export default function ResidentDashboard() {
             <Text style={styles.greetingTitle}>{greeting}, {getFirstName(user, 'Biñanense')}!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
-          <View style={[styles.weatherIcon, { borderColor: getReadableColor(presentation.accent, resolvedTheme), backgroundColor: Colors.surface }]} accessibilityLabel={`${timePresentation.label}, ${presentation.description}, ${Math.round(weather.temperature)} degrees`}><GreetingIcon size={23} color={getReadableColor(presentation.accent, resolvedTheme)} strokeWidth={2.5} /></View>
         </View>
 
         <WeatherWidget weather={weather} weatherEvents={weatherEvents} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={disasterIsActive} />

@@ -6,7 +6,6 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, SafeAreaView, Animated } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Moon, Sun, Sunrise, Sunset } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Colors, getReadableColor } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
@@ -60,14 +59,6 @@ export default function ResponderDashboard() {
   const displayedIncidents = data.unavailableSources.includes('incidents') ? 'N/A' : activeIncidents;
   const displayedCenters = data.unavailableSources.includes('centers') ? 'N/A' : data.centers.length;
   const displayedResponses = responseCount ?? 'N/A';
-  const timePresentation = getTimeOfDayPresentation();
-  const GreetingIcon = timePresentation.label === 'Dawn'
-    ? Sunrise
-    : timePresentation.label === 'Dusk'
-      ? Sunset
-      : timePresentation.label === 'Night'
-        ? Moon
-        : Sun;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -86,9 +77,6 @@ export default function ResponderDashboard() {
           <View>
             <Text style={styles.greetingTitle}>{getGreeting()}, {getFirstName(user, 'Responder')}!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
-          </View>
-          <View style={[styles.weatherIcon, { backgroundColor: timePresentation.indicator, borderColor: timePresentation.accent }]} accessibilityLabel={`${timePresentation.label} weather`}>
-            <GreetingIcon size={23} color={timePresentation.background} strokeWidth={2.5} />
           </View>
         </View>
 
