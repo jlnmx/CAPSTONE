@@ -13,3 +13,9 @@ export function getGreeting(date = new Date()) {
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';
 }
+
+export function getFirstName(user: { firstName?: string; name?: string } | null | undefined, fallback: string) {
+  const source = (user?.firstName || user?.name || '').trim();
+  const first = source.split(/\s+/)[0];
+  return first || fallback;
+}

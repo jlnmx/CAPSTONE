@@ -16,7 +16,8 @@ import { NotificationBell } from '@components/NotificationBell';
 import AppBackArrow from '@components/AppBackArrow';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, getResponseHistory, ResponderDataSnapshot } from '@services/responderData';
-import { getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
+import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
+import { useAuth } from '@hooks/useAuth';
 
 const formattedDate = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -26,6 +27,7 @@ const formattedDate = new Intl.DateTimeFormat('en-US', {
 
 export default function ResponderDashboard() {
   const { resolvedTheme } = useTheme();
+  const { user } = useAuth();
   const [data, setData] = useState<ResponderDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [dataUnavailable, setDataUnavailable] = useState(false);
@@ -82,7 +84,7 @@ export default function ResponderDashboard() {
 
         <View style={styles.greeting}>
           <View>
-            <Text style={styles.greetingTitle}>{getGreeting()}, Responder!</Text>
+            <Text style={styles.greetingTitle}>{getGreeting()}, {getFirstName(user, 'Responder')}!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
           <View style={[styles.weatherIcon, { backgroundColor: timePresentation.indicator, borderColor: timePresentation.accent }]} accessibilityLabel={`${timePresentation.label} weather`}>

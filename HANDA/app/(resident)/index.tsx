@@ -16,7 +16,7 @@ import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { TyphoonCard } from '@components/TyphoonCard';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
-import { getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
+import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
 import type { LiveTyphoon } from '@types/weather';
 import type { ResidentHouseholdMember } from '@types/index';
 
@@ -150,7 +150,7 @@ export default function ResidentDashboard() {
 
         <View style={styles.greeting}>
           <View>
-            <Text style={styles.greetingTitle}>{greeting}, Biñanense!</Text>
+            <Text style={styles.greetingTitle}>{greeting}, {getFirstName(user, 'Biñanense')}!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
           <View style={[styles.weatherIcon, { borderColor: getReadableColor(presentation.accent, resolvedTheme), backgroundColor: Colors.surface }]} accessibilityLabel={`${timePresentation.label}, ${presentation.description}, ${Math.round(weather.temperature)} degrees`}><GreetingIcon size={23} color={getReadableColor(presentation.accent, resolvedTheme)} strokeWidth={2.5} /></View>
