@@ -84,7 +84,7 @@ export default function ResponderLiveMap() {
           .navigation-start { width:100%; margin-top:9px; min-height:44px !important; border-radius:10px !important; background:#167A5B; color:#fff; font-size:14px; letter-spacing:.3px; }
           .navigation-arrived { margin-top:10px; padding:11px 12px; border-radius:10px; background:#E5F6EE; color:#0F5E44; font-size:14px; font-weight:800; text-align:center; }
           .leaflet-popup-content { min-width: 190px; }
-          .map-action { margin-top: 9px; border: 0; border-radius: 4px; padding: 8px 10px; background: #0B3A63; color: #fff; font-weight: 700; }
+          .map-action { display: inline-block; margin: 10px 10px 0 0; min-height: 40px; border: 0; border-radius: 6px; padding: 9px 14px; background: #0B3A63; color: #fff; font-weight: 700; }
           .navigation-panel { position: absolute; display: none; z-index: 1000; left: 10px; right: 10px; bottom: 18px; max-width: 460px; margin: 0 auto; padding: 13px 14px; box-sizing: border-box; border: 1px solid rgba(213,225,232,.92); border-radius: 14px; background: rgba(255,255,255,.97); box-shadow: 0 10px 32px rgba(17,39,54,.22); color: #17212B; font: 13px/1.35 InstrumentSans_400Regular,'Avenir Next',sans-serif; }
           .navigation-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
           .navigation-head-actions { display:flex; align-items:center; gap:5px; }
