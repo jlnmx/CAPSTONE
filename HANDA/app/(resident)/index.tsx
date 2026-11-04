@@ -1,6 +1,6 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { ColorValue, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ColorValue, SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Moon, Sun, Sunrise, Sunset } from 'lucide-react-native';
@@ -183,7 +183,7 @@ export default function ResidentDashboard() {
         </View>
 
         <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-        <View style={styles.actionGrid}>{actions.map((action) => <AnimatedPressable key={action.label} style={styles.actionButton} onPress={() => router.push(action.route)}><Text style={styles.actionLabel}>{action.label}</Text><MaterialCommunityIcons name={action.icon} size={32} color={getReadableColor('#218B25', resolvedTheme)} style={styles.actionIcon} /></AnimatedPressable>)}</View>
+        <View style={styles.actionGrid}>{actions.map((action) => <GreenButton key={action.label} style={styles.actionButton} label={action.label} onPress={() => router.push(action.route)}><Text style={styles.actionLabel}>{action.label}</Text><MaterialCommunityIcons name={action.icon} size={32} color="#FFFFFF" style={styles.actionIcon} /></GreenButton>)}</View>
         <View style={styles.resourceRow}>
           <ResourceButton
             icon="phone-in-talk-outline"
@@ -226,16 +226,24 @@ function getResidentStatusStyle(unavailable: boolean, status: ResidentEvacuation
   };
 }
 
-function StatusTile({ icon, title, detail, onPress, status }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress?: () => void; status?: ResidentStatusStyle }) {
-  const { resolvedTheme } = useTheme();
-  const content = <><MaterialCommunityIcons name={icon} size={29} color={status?.iconColor ?? getReadableColor('#1E5987', resolvedTheme)} /><View style={styles.statusCopy}><Text style={[styles.statusTitle, { color: status?.textColor ?? '#1E5987' }]}>{title}</Text><Text style={[styles.statusDetail, { color: status?.textColor ?? '#1E5987' }]}>{detail}</Text></View></>;
-  return onPress ? <AnimatedPressable style={[styles.statusTile, status && { backgroundColor: status.backgroundColor }]} onPress={onPress}>{content}</AnimatedPressable> : <View style={[styles.statusTile, status && { backgroundColor: status.backgroundColor }]} accessibilityRole="text">{content}</View>;
+function useHoverLift() {
+  const lift = React.useRef(new Animated.Value(0)).current;
+  const to = (value: number) => Animated.spring(lift, { toValue: value, useNativeDriver: true, speed: 30, bounciness: 6 }).start();
+  return { onHoverIn: () => to(1), onHoverOut: () => to(0), transform: [{ translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }, { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }] };
+}
+
+function GreenButton({ style, onPress, children, label }: { style: object; onPress: () => void; children: React.ReactNode; label?: string }) {
+  const hover = useHoverLift();
+  return <AnimatedPressable style={[style, styles.greenTile, { transform: hover.transform }]} onPress={onPress} onHoverIn={hover.onHoverIn} onHoverOut={hover.onHoverOut} accessibilityRole="button" accessibilityLabel={label}>{children}</AnimatedPressable>;
+}
+
+function StatusTile({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress?: () => void; status?: ResidentStatusStyle }) {
+  const content = <><MaterialCommunityIcons name={icon} size={29} color="#FFFFFF" /><View style={styles.statusCopy}><Text style={styles.statusTitle}>{title}</Text><Text style={styles.statusDetail}>{detail}</Text></View></>;
+  return onPress ? <GreenButton style={styles.statusTile} onPress={onPress} label={`${title}: ${detail}`}>{content}</GreenButton> : <View style={[styles.statusTile, styles.greenTile]} accessibilityRole="text">{content}</View>;
 }
 
 function ResourceButton({ icon, title, detail, onPress }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; detail: string; onPress: () => void }) {
-  const { resolvedTheme } = useTheme();
-  const accent = getReadableColor('#218B25', resolvedTheme);
-  return <AnimatedPressable style={styles.resourceButton} onPress={onPress}><View style={styles.resourceCopy}><Text style={[styles.resourceTitle, { color: accent }]}>{title}</Text><Text style={styles.resourceDetail}>{detail}</Text></View><MaterialCommunityIcons name={icon} size={28} color={accent} /></AnimatedPressable>;
+  return <GreenButton style={styles.resourceButton} onPress={onPress} label={title}><View style={styles.resourceCopy}><Text style={styles.resourceTitle}>{title}</Text><Text style={styles.resourceDetail}>{detail}</Text></View><MaterialCommunityIcons name={icon} size={28} color="#FFFFFF" /></GreenButton>;
 }
 
 const styles = StyleSheet.create({
@@ -281,20 +289,21 @@ const styles = StyleSheet.create({
   disasterStatus: { color: Colors.white, fontSize: 9, marginTop: 2 },
   disasterStatusActive: { fontSize: 12 },
   statusRow: { flexDirection: 'row', gap: 9, marginHorizontal: 18, marginBottom: 14 },
-  statusTile: { flex: 1, minHeight: 70, paddingHorizontal: 8, borderRadius: 8, backgroundColor: Colors.surfaceMuted, flexDirection: 'row', alignItems: 'center' },
+  statusTile: { flex: 1, minHeight: 70, paddingHorizontal: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' },
+  greenTile: { backgroundColor: '#218B25', borderWidth: 1, borderColor: '#176B1D', shadowColor: '#0F4D14', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 3 },
   statusCopy: { marginLeft: 8 },
-  statusTitle: { color: '#1E5987', fontSize: 10, fontWeight: '800' },
-  statusDetail: { color: '#218B25', fontSize: 9, marginTop: 3 },
+  statusTitle: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  statusDetail: { color: '#FFFFFF', fontSize: 9, marginTop: 3 },
   resourceRow: { gap: 9, marginHorizontal: 18, marginTop: 10, marginBottom: 14 },
-  resourceButton: { minHeight: 46, paddingHorizontal: 10, borderRadius: 8, backgroundColor: Colors.surfaceMuted, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+  resourceButton: { minHeight: 46, paddingHorizontal: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center' },
   resourceCopy: { flex: 1, marginRight: 8 },
-  resourceTitle: { color: '#218B25', fontSize: 9, fontWeight: '800', flexShrink: 1 },
-  resourceDetail: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
+  resourceTitle: { color: '#FFFFFF', fontSize: 9, fontWeight: '800', flexShrink: 1 },
+  resourceDetail: { color: '#FFFFFF', fontSize: 9, marginTop: 2 },
   sectionTitle: { color: '#218B25', fontSize: 16, fontWeight: '800', marginHorizontal: 18, marginTop: 0, marginBottom: 8 },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, marginHorizontal: 18 },
-  actionButton: { width: '48%', height: 74, borderRadius: 8, backgroundColor: Colors.surfaceMuted, justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: 'transparent' },
+  actionButton: { width: '48%', height: 74, borderRadius: 8, justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 8 },
   actionButtonHovered: { transform: [{ translateY: -3 }], backgroundColor: Colors.surface, borderColor: '#8BC58B', shadowColor: '#1769AA', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.16, shadowRadius: 7, elevation: 5 },
   buttonPressed: { transform: [{ translateY: 1 }] },
-  actionLabel: { color: '#218B25', fontSize: 11, fontWeight: '700', flexShrink: 1 },
+  actionLabel: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', flexShrink: 1 },
   actionIcon: { alignSelf: 'flex-end' },
 });
