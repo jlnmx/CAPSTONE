@@ -1,5 +1,5 @@
 import React from 'react';
-import { Linking, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { Image, Linking, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,12 +7,12 @@ import { Colors } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
 
 const contacts = [
-  { name: 'BCDRRMO', number: '(049) 513-9111', detail: 'Smart 0908-891-9711  |  Globe 0917-120-8911', icon: 'shield-check-outline' as const, color: '#D07B19' },
-  { name: 'PNP', number: '(049) 513-5111', detail: 'Police assistance', icon: 'account-outline' as const, color: '#2A5793' },
-  { name: 'BFP', number: '(049) 511-9111', detail: 'Fire and rescue', icon: 'alert-circle-outline' as const, color: '#D59A1E' },
-  { name: 'Ospital ng Biñan', number: '(049) 511-4119', detail: 'Medical emergency', icon: 'home-city-outline' as const, color: '#1BAA8B' },
-  { name: 'POSO', number: '(049) 513-8888', detail: 'Traffic and road assistance', icon: 'map-marker' as const, color: '#2A5793' },
-  { name: 'BJMP', number: '(049) 511-6324', detail: 'Jail management assistance', icon: 'account-multiple-outline' as const, color: '#4D8540' },
+  { name: 'BCDRRMO', number: '(049) 513-9111', detail: 'Smart 0908-891-9711  |  Globe 0917-120-8911', logo: require('../../assets/logos/bcdrrmo.jpg'), color: '#D07B19' },
+  { name: 'PNP', number: '(049) 513-5111', detail: 'Police assistance', logo: require('../../assets/logos/pnp.jpg'), color: '#2A5793' },
+  { name: 'BFP', number: '(049) 511-9111', detail: 'Fire and rescue', logo: require('../../assets/logos/bfp.png'), color: '#D59A1E' },
+  { name: 'Ospital ng Biñan', number: '(049) 511-4119', detail: 'Medical emergency', logo: require('../../assets/logos/ospital.jpg'), color: '#1BAA8B' },
+  { name: 'POSO', number: '(049) 513-8888', detail: 'Traffic and road assistance', logo: require('../../assets/logos/poso.jpg'), color: '#2A5793' },
+  { name: 'BJMP', number: '(049) 511-6324', detail: 'Jail management assistance', logo: require('../../assets/logos/bjmp.jpg'), color: '#4D8540' },
 ];
 
 export default function EmergencyContactsScreen() {
@@ -26,7 +26,7 @@ export default function EmergencyContactsScreen() {
         </View>
         <Text style={styles.intro}>Keep these numbers accessible during an emergency.</Text>
         <View style={styles.list}>{contacts.map((contact) => <Pressable key={contact.name} style={styles.contactCard} onPress={() => Linking.openURL(`tel:${contact.number.replace(/[^0-9+]/g, '')}`)} accessibilityLabel={`Call ${contact.name}`}>
-          <View style={[styles.contactIcon, { borderColor: contact.color }]}><MaterialCommunityIcons name={contact.icon} size={30} color={contact.color} /></View>
+          <View style={[styles.contactIcon, { borderColor: contact.color }]}><Image source={contact.logo} style={styles.logo} resizeMode="contain" accessibilityIgnoresInvertColors /></View>
           <View style={styles.contactCopy}><Text style={styles.contactName}>{contact.name}</Text><Text style={styles.contactDetail}>{contact.detail}</Text></View>
           <Text style={styles.contactNumber}>{contact.number}</Text>
         </Pressable>)}</View>
@@ -47,7 +47,8 @@ const styles = StyleSheet.create({
   intro: { color: Colors.textMuted, fontSize: 11, marginHorizontal: 16, marginVertical: 14 },
   list: { gap: 8, marginHorizontal: 9 },
   contactCard: { minHeight: 58, paddingHorizontal: 8, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface },
-  contactIcon: { width: 43, height: 43, borderWidth: 1, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted },
+  contactIcon: { width: 46, height: 46, borderWidth: 1, borderRadius: 23, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', backgroundColor: '#FFFFFF' },
+  logo: { width: 40, height: 40 },
   contactCopy: { flex: 1, marginLeft: 7 },
   contactName: { color: Colors.text, fontSize: 18, fontWeight: '900' },
   contactDetail: { color: Colors.textMuted, fontSize: 8, marginTop: 2 },
