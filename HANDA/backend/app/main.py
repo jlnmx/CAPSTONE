@@ -22,7 +22,7 @@ from .auth import CurrentUser, create_access_token, get_current_user, normalize_
 from .config import settings
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import get_live_typhoon_report
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
 
@@ -387,6 +387,31 @@ def seed_binan_evacuation_centers(connection: psycopg.Connection) -> None:
     )
 
 
+INCIDENT_RESPONSE_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS incident_status_events (
+  id TEXT PRIMARY KEY,
+  incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS incident_status_events_actor_idx ON incident_status_events (actor_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS incident_status_events_incident_idx ON incident_status_events (incident_id, created_at);
+CREATE TABLE IF NOT EXISTS incident_response_photos (
+  id TEXT PRIMARY KEY,
+  incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+  responder_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+  photo_uri TEXT NOT NULL,
+  caption TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS incident_response_photos_incident_idx ON incident_response_photos (incident_id, created_at);
+"""
+
+RESPONSE_PHOTO_PATTERN = re.compile(r"^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$")
+MAX_RESPONSE_PHOTOS_PER_INCIDENT = 20
+
+
 def ensure_operational_schema() -> None:
     with psycopg.connect(settings.database_url, connect_timeout=CONNECT_TIMEOUT_SECONDS) as connection:
         connection.execute("ALTER TABLE incidents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'reported'")
@@ -415,6 +440,7 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_barangay TEXT")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
+        connection.execute(INCIDENT_RESPONSE_SCHEMA_SQL)
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS responder_verification_documents (
@@ -745,10 +771,91 @@ def list_logs(category: str, connection: psycopg.Connection = Depends(get_connec
 
 @app.get("/api/v1/incidents")
 def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
+    # Photos taken by responders on scene are appended so residents, responders and admins all see them.
     rows = connection.execute(
-        "SELECT id, type, description, severity, location_text AS location, latitude, longitude, photo_uris, status, action_notes, response_people, response_organizations, response_eta_minutes, response_notes, verified_by, verified_at, created_at FROM incidents ORDER BY created_at DESC"
+        """
+        SELECT incidents.id, incidents.type, incidents.description, incidents.severity, incidents.location_text AS location,
+               incidents.latitude, incidents.longitude,
+               incidents.photo_uris || COALESCE((
+                 SELECT jsonb_agg(photos.photo_uri ORDER BY photos.created_at)
+                 FROM incident_response_photos AS photos WHERE photos.incident_id = incidents.id
+               ), '[]'::jsonb) AS photo_uris,
+               incidents.status, incidents.action_notes, incidents.response_people, incidents.response_organizations,
+               incidents.response_eta_minutes, incidents.response_notes, incidents.verified_by, incidents.verified_at, incidents.created_at
+        FROM incidents ORDER BY incidents.created_at DESC
+        """
     ).fetchall()
     return rows
+
+
+@app.post("/api/v1/incidents/{incident_id}/response-photos", status_code=201)
+def add_incident_response_photo(incident_id: str, photo: IncidentResponsePhotoCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("responder", "admin"))):
+    if not RESPONSE_PHOTO_PATTERN.match(photo.photoUri):
+        raise HTTPException(status_code=422, detail="The photo must be a JPEG, PNG or WebP image.")
+    incident = connection.execute("SELECT type, location_text, status FROM incidents WHERE id = %s FOR UPDATE", (incident_id,)).fetchone()
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found.")
+    if incident["status"] == "resolved":
+        raise HTTPException(status_code=409, detail="Photos can only be added to an active incident.")
+    if incident["status"] == "reported" and user.role == "responder":
+        raise HTTPException(status_code=409, detail="Acknowledge the incident before sending photos from the scene.")
+    count = connection.execute("SELECT COUNT(*) AS total FROM incident_response_photos WHERE incident_id = %s", (incident_id,)).fetchone()["total"]
+    if count >= MAX_RESPONSE_PHOTOS_PER_INCIDENT:
+        raise HTTPException(status_code=409, detail="This incident already has the maximum number of response photos.")
+    photo_id = f"response-photo-{uuid4()}"
+    row = connection.execute(
+        "INSERT INTO incident_response_photos (id, incident_id, responder_id, photo_uri, caption) VALUES (%s, %s, %s, %s, %s) RETURNING id, created_at",
+        (photo_id, incident_id, user.id, photo.photoUri, (photo.caption or "").strip()),
+    ).fetchone()
+    reporter = connection.execute("SELECT reporter_user_id FROM incidents WHERE id = %s", (incident_id,)).fetchone()
+    if reporter and reporter["reporter_user_id"]:
+        connection.execute(
+            "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
+            (f"notification-{uuid4()}", reporter["reporter_user_id"], incident_id, "New photo from responders", f"Responders shared a new photo from the scene of your {incident['type']} report."),
+        )
+    notify_responders(connection, incident_id, f"New response photo: {incident['type']}", f"A responder shared a new photo from {incident['location_text']}.", user.id)
+    write_log(connection, "audit", "response_photo", user.id, "incident", incident_id, f"Responder shared a scene photo for {incident['type']}.")
+    connection.commit()
+    return {"id": row["id"], "incidentId": incident_id, "createdAt": row["created_at"]}
+
+
+@app.get("/api/v1/responders/me/response-history")
+def my_response_history(connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("responder"))):
+    incidents = connection.execute(
+        """
+        SELECT id, type, description, severity, location_text AS location, latitude, longitude, status,
+               response_people, response_organizations, response_eta_minutes, response_notes,
+               verified_by, verified_at, created_at
+        FROM incidents
+        WHERE verified_by = %s
+           OR EXISTS (SELECT 1 FROM incident_status_events WHERE incident_status_events.incident_id = incidents.id AND incident_status_events.actor_id = %s)
+        ORDER BY created_at DESC
+        LIMIT 200
+        """,
+        (user.id, user.id),
+    ).fetchall()
+    ids = [incident["id"] for incident in incidents]
+    events: dict[str, list[dict]] = {}
+    photos: dict[str, list[str]] = {}
+    if ids:
+        for event in connection.execute(
+            "SELECT incident_id, status, created_at FROM incident_status_events WHERE actor_id = %s AND incident_id = ANY(%s) ORDER BY created_at",
+            (user.id, ids),
+        ).fetchall():
+            events.setdefault(event["incident_id"], []).append({"status": event["status"], "at": event["created_at"]})
+        for photo in connection.execute(
+            "SELECT incident_id, photo_uri FROM incident_response_photos WHERE responder_id = %s AND incident_id = ANY(%s) ORDER BY created_at",
+            (user.id, ids),
+        ).fetchall():
+            photos.setdefault(photo["incident_id"], []).append(photo["photo_uri"])
+    history = []
+    for incident in incidents:
+        timeline = events.get(incident["id"])
+        if not timeline and incident["verified_at"]:
+            # Incidents handled before status events were recorded only know their latest update.
+            timeline = [{"status": incident["status"], "at": incident["verified_at"]}]
+        history.append({**incident, "timeline": timeline or [], "photoUris": photos.get(incident["id"], [])})
+    return history
 
 
 @app.get("/api/v1/incidents/reporters")
@@ -856,6 +963,10 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Incident not found.")
+    connection.execute(
+        "INSERT INTO incident_status_events (id, incident_id, status, actor_id) VALUES (%s, %s, %s, %s)",
+        (f"status-event-{uuid4()}", incident_id, update.status, user.id),
+    )
     saved = update.model_copy(update={
         "responsePeople": row["response_people"],
         "responseOrganizations": row["response_organizations"],

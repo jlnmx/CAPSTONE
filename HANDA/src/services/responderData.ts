@@ -196,3 +196,53 @@ export function updateIncidentStatus(id: string, status: IncidentStatus, respons
 export function updateEvacueeStatus(id: string, evacuationStatus: EvacuationStatus) {
   return patch(`/api/v1/evacuees/${encodeURIComponent(id)}/status`, { evacuationStatus });
 }
+
+export type ResponseHistoryEntry = {
+  id: string;
+  type: string;
+  description: string;
+  severity: string;
+  location: string;
+  latitude?: number;
+  longitude?: number;
+  status: IncidentStatus;
+  responseOrganizations: string;
+  responseEtaMinutes?: number;
+  responseNotes: string;
+  createdAt: string;
+  timeline: { status: IncidentStatus; at: string }[];
+  photoUris: string[];
+};
+
+// Only the signed-in responder's own responses are returned; cached copies keep the list readable offline.
+export async function getResponseHistory(): Promise<ResponseHistoryEntry[]> {
+  const records = await fetchRecords<Record<string, any>>('/api/v1/responders/me/response-history');
+  return records.map((record) => ({
+    id: record.id,
+    type: record.type,
+    description: record.description ?? '',
+    severity: record.severity ?? 'medium',
+    location: record.location ?? '',
+    latitude: record.latitude ?? undefined,
+    longitude: record.longitude ?? undefined,
+    status: record.status ?? 'reported',
+    responseOrganizations: record.response_organizations ?? '',
+    responseEtaMinutes: record.response_eta_minutes ?? undefined,
+    responseNotes: record.response_notes ?? '',
+    createdAt: record.created_at,
+    timeline: (record.timeline ?? []).map((event: { status: IncidentStatus; at: string }) => ({ status: event.status, at: event.at })),
+    photoUris: record.photoUris ?? [],
+  }));
+}
+
+export async function addIncidentResponsePhoto(incidentId: string, photoUri: string): Promise<void> {
+  const response = await authenticatedFetch(`/api/v1/incidents/${encodeURIComponent(incidentId)}/response-photos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ photoUri }),
+  });
+  if (!response.ok) {
+    const result = await response.json().catch(() => null) as { detail?: string } | null;
+    throw new Error(typeof result?.detail === 'string' ? result.detail : `The photo could not be sent (${response.status}).`);
+  }
+}

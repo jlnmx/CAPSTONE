@@ -239,6 +239,11 @@ class IncidentStatusUpdate(BaseModel):
     responseNotes: str | None = Field(default=None, max_length=2000)
 
 
+class IncidentResponsePhotoCreate(BaseModel):
+    photoUri: str = Field(min_length=32, max_length=4_000_000)
+    caption: str | None = Field(default=None, max_length=300)
+
+
 class EvacueeStatusUpdate(BaseModel):
     evacuationStatus: Literal['registered', 'checked_in', 'evacuated', 'released']
 

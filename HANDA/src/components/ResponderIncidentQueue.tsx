@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PhotoGallery } from '@components/PhotoGallery';
 import { Colors } from '@constants/colors';
-import { Alert, Image, Linking, Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Image, Linking, Modal, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
@@ -10,7 +11,7 @@ import { useAuth } from '@hooks/useAuth';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import { formatResponderOrganization, parseOrganizations, RESPONDER_ORGANIZATIONS, ResponderOrganization } from '@constants/responderOrganizations';
 import { estimateResponseEta } from '@services/responderEta';
-import { getIncidentReporterContacts, getResponderData, IncidentReporterContact, IncidentStatus, ResponderIncident, updateIncidentStatus } from '@services/responderData';
+import { addIncidentResponsePhoto, getIncidentReporterContacts, getResponderData, IncidentReporterContact, IncidentStatus, ResponderIncident, updateIncidentStatus } from '@services/responderData';
 
 const GREEN = '#218B25';
 const STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress', 'resolved'];
@@ -50,6 +51,7 @@ export default function ResponderIncidentQueue() {
   const [responseNotes, setResponseNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [photoBusyId, setPhotoBusyId] = useState<string | null>(null);
   const etaRequest = useRef(0);
   const etaEdited = useRef(false);
 
@@ -90,6 +92,34 @@ export default function ResponderIncidentQueue() {
     setEtaHint('');
     setIsEtaLoading(false);
     if (status === 'acknowledged' && incident.responseEtaMinutes == null) void calculateEta(incident);
+  };
+
+  const takeScenePhoto = async (incident: ResponderIncident) => {
+    if (photoBusyId) return;
+    try {
+      if (Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Camera access needed', permission.canAskAgain ? 'Allow camera access to take a photo of the scene.' : 'Camera access is turned off for HANDA. Enable it in your device settings.');
+          return;
+        }
+      }
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.5, base64: true });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (!asset?.base64) {
+        Alert.alert('Photo not ready', 'The photo could not be prepared. Please try again.');
+        return;
+      }
+      setPhotoBusyId(incident.id);
+      await addIncidentResponsePhoto(incident.id, `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`);
+      Alert.alert('Photo sent', 'The photo was sent to the command center and is now visible on the incident.');
+      await load();
+    } catch (error) {
+      Alert.alert('Photo not sent', error instanceof Error ? error.message : 'Check your connection and try again.');
+    } finally {
+      setPhotoBusyId(null);
+    }
   };
 
   const handleStatusPress = async (incident: ResponderIncident, status: IncidentStatus) => {
@@ -193,6 +223,10 @@ export default function ResponderIncidentQueue() {
         <Text style={styles.contactText}>Reporter: {reporters[incident.id].name} · {reporters[incident.id].mobileNumber}</Text>
       </AnimatedPressable>}
       {incident.photoUris.length > 0 && <PhotoGallery uris={incident.photoUris} style={styles.photos} thumbnailStyle={styles.photo} />}
+      {user?.role === 'responder' && (incident.status === 'acknowledged' || incident.status === 'in_progress') && <AnimatedPressable style={styles.photoButton} onPress={() => void takeScenePhoto(incident)} disabled={photoBusyId === incident.id} accessibilityRole="button" accessibilityLabel="Take a photo of the scene and send it to the command center">
+        <MaterialCommunityIcons name="camera-outline" size={18} color={GREEN} />
+        <Text style={styles.contactText}>{photoBusyId === incident.id ? 'Sending photo...' : 'Take scene photo'}</Text>
+      </AnimatedPressable>}
       <View style={styles.actions}>{STATUSES.map((status) => {
         const canTransition = canTransitionStatus(incident.status, status, incident, user?.id, user?.role);
         const isCurrent = incident.status === status;
@@ -246,6 +280,7 @@ const styles = StyleSheet.create({
   status: { color: GREEN, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
   description: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
   photos: { marginTop: 9 },
+  photoButton: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 40, marginTop: 9, paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 6, backgroundColor: Colors.surfaceMuted },
   contact: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 36, marginTop: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 6, backgroundColor: Colors.surfaceMuted },
   contactText: { color: GREEN, fontSize: 11, fontWeight: '700' },
   photo: { width: 72, height: 72, marginRight: 6, borderRadius: 6, backgroundColor: Colors.surfaceMuted },

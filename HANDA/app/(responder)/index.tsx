@@ -15,7 +15,7 @@ import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { NotificationBell } from '@components/NotificationBell';
 import AppBackArrow from '@components/AppBackArrow';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
-import { getResponderData, ResponderDataSnapshot } from '@services/responderData';
+import { getResponderData, getResponseHistory, ResponderDataSnapshot } from '@services/responderData';
 import { getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
 
 const formattedDate = new Intl.DateTimeFormat('en-US', {
@@ -29,8 +29,10 @@ export default function ResponderDashboard() {
   const [data, setData] = useState<ResponderDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [dataUnavailable, setDataUnavailable] = useState(false);
+  const [responseCount, setResponseCount] = useState<number | null>(null);
 
   const loadData = async () => {
+    getResponseHistory().then((history) => setResponseCount(history.length)).catch(() => undefined);
     try {
       const snapshot = await getResponderData();
       setData(snapshot);
@@ -55,11 +57,7 @@ export default function ResponderDashboard() {
   const displayedEvacuees = data.unavailableSources.includes('evacuees') || data.unavailableSources.includes('registrations') ? 'N/A' : data.evacuees.length + data.registeredEvacuees;
   const displayedIncidents = data.unavailableSources.includes('incidents') ? 'N/A' : activeIncidents;
   const displayedCenters = data.unavailableSources.includes('centers') ? 'N/A' : data.centers.length;
-  const availableCapacity = data.centers.reduce((total, center) => {
-    if (center.status === 'closed') return total;
-    return total + Math.max(0, center.capacity - center.currentOccupancy);
-  }, 0);
-  const displayedCapacity = data.unavailableSources.includes('centers') ? 'N/A' : availableCapacity;
+  const displayedResponses = responseCount ?? 'N/A';
   const timePresentation = getTimeOfDayPresentation();
   const GreetingIcon = timePresentation.label === 'Dawn'
     ? Sunrise
@@ -114,8 +112,8 @@ export default function ResponderDashboard() {
         </View>
 
         <View style={styles.statsContainer}>
-          <StatTile icon="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers" color="#1E5987" onPress={() => router.push('/map')} />
-          <StatTile icon="account-multiple-outline" value={isLoading ? '...' : displayedCapacity} label="Available Capacity" color="#C85B1C" onPress={() => router.push('/responder-center-status')} />
+          <StatTile icon="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers"           color="#1E5987" onPress={() => router.push('/responder-center-status')} />
+                    <StatTile icon="history" value={isLoading ? '...' : displayedResponses} label="Response History" color="#C85B1C" onPress={() => router.push('/response-history')} />
         </View>
 
         <Text style={styles.dataSource}>{isLoading ? 'Loading live server data...' : dataUnavailable ? `Partial live data · unavailable: ${data.unavailableSources.join(', ')}` : 'Live server data · refreshes every 15 seconds'}</Text>
