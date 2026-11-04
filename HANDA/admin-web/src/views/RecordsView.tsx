@@ -57,7 +57,28 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
 
 function IncidentTable({ rows }: { rows: IncidentRecord[] }) {
   if (!rows.length) return <EmptyState title="No incident records found" detail="Incident reports will appear here when they are submitted." />;
-  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Incident</th><th>Location</th><th>Reporter</th><th>Reported</th><th>Status</th><th>Sync</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td><strong>{row.type}</strong><small className="cell-subtitle">{row.description}</small></td><td>{row.location || 'Location unavailable'}</td><td>{row.reporterContact ? <div className="person-cell"><span className="avatar avatar-table" style={row.reporterPicture ? { padding: 0, overflow: 'hidden' } : undefined}>{row.reporterPicture ? <img src={row.reporterPicture} alt={`${row.reporterName || 'Resident'} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : (row.reporterName || 'R').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{row.reporterName || 'Resident'}</strong><small className="cell-subtitle">{row.reporterContact}</small></span></div> : '—'}</td><td>{formatDate(row.createdAt)}</td><td><StatusPill value={row.status} /></td><td><span className="sync-state"><i />{row.syncStatus}</span></td></tr>)}</tbody></table></div>;
+  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Incident</th><th>Location</th><th>Reporter</th><th>Photos</th><th>Reported</th><th>Status</th><th>Sync</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td><strong>{row.type}</strong><small className="cell-subtitle">{row.description}</small></td><td>{row.location || 'Location unavailable'}</td><td>{row.reporterContact ? <div className="person-cell"><span className="avatar avatar-table" style={row.reporterPicture ? { padding: 0, overflow: 'hidden' } : undefined}>{row.reporterPicture ? <img src={row.reporterPicture} alt={`${row.reporterName || 'Resident'} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : (row.reporterName || 'R').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{row.reporterName || 'Resident'}</strong><small className="cell-subtitle">{row.reporterContact}</small></span></div> : '—'}</td><td><PhotoCell photos={row.photoUris || []} title={row.type} /></td><td>{formatDate(row.createdAt)}</td><td><StatusPill value={row.status} /></td><td><span className="sync-state"><i />{row.syncStatus}</span></td></tr>)}</tbody></table></div>;
+}
+
+function PhotoCell({ photos, title }: { photos: string[]; title: string }) {
+  const [open, setOpen] = useState<number | null>(null);
+  if (!photos.length) return <>—</>;
+  const thumb = { width: 44, height: 44, objectFit: 'cover' as const, borderRadius: 8, border: '1px solid #d8e2d6', cursor: 'pointer' };
+  return <>
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      {photos.slice(0, 3).map((uri, index) => <img key={index} src={uri} alt={`${title} photo ${index + 1}`} style={thumb} onClick={() => setOpen(index)} />)}
+      {photos.length > 3 && <button className="button-secondary" onClick={() => setOpen(3)}>+{photos.length - 3}</button>}
+    </div>
+    {open !== null && <div role="dialog" aria-label={`${title} photos`} onClick={() => setOpen(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, padding: 16 }}>
+      <img src={photos[open]} alt={`${title} photo ${open + 1}`} style={{ maxWidth: '92vw', maxHeight: '78vh', borderRadius: 10 }} onClick={(event) => event.stopPropagation()} />
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#fff' }} onClick={(event) => event.stopPropagation()}>
+        <button className="button-secondary" disabled={open === 0} onClick={() => setOpen(open - 1)}>Prev</button>
+        <span>{open + 1} / {photos.length}</span>
+        <button className="button-secondary" disabled={open === photos.length - 1} onClick={() => setOpen(open + 1)}>Next</button>
+        <button className="button-secondary" onClick={() => setOpen(null)}>Close</button>
+      </div>
+    </div>}
+  </>;
 }
 
 function EvacueeTable({ rows }: { rows: EvacueeRecord[] }) {

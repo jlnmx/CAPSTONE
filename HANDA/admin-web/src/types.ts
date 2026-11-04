@@ -23,6 +23,7 @@ export interface IncidentRecord {
   responseOrganizations?: string;
   responseEtaMinutes?: number | null;
   responseNotes?: string;
+  photoUris?: string[];
   reporterName?: string;
   reporterContact?: string;
   reporterPicture?: string | null;
