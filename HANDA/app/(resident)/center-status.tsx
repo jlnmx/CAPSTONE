@@ -9,7 +9,6 @@ import { authenticatedFetch } from '@services/apiClient';
 import AppBackArrow from '@components/AppBackArrow';
 
 const GREEN = '#218B25';
-const AMBER = '#E2C64B';
 const RED = '#B76565';
 
 type EvacuationCenter = {
@@ -184,26 +183,40 @@ function CenterCard({ center, onDetails }: { center: EvacuationCenter; onDetails
   const capacity = safeCapacity(center);
   const occupancy = safeOccupancy(center);
   const percentage = capacity > 0 ? Math.min(100, (occupancy / capacity) * 100) : 0;
-  const color = center.status === 'closed' || center.status === 'full' || (capacity > 0 && occupancy >= capacity)
-    ? RED
-    : percentage >= 60 ? AMBER : '#72A876';
+  const spaces = availableSpaces(center);
+  const statusKey = getAvailabilityKey(center);
+  const tone = statusKey === 'available'
+    ? { fg: '#1F6B2B', bg: '#E3F1E3', accent: '#2E9B3E' }
+    : statusKey === 'limited'
+      ? { fg: '#8A6A00', bg: '#FBF1CC', accent: '#E2B93B' }
+      : { fg: '#A33A3A', bg: '#F8E1E1', accent: '#CF5A5A' };
+  const statusLabel = statusKey === 'limited' ? 'Limited' : statusKey.charAt(0).toUpperCase() + statusKey.slice(1);
 
   return (
     <View style={styles.card}>
-      <View style={styles.iconCircle}>
-        <MaterialCommunityIcons name={center.name.toLowerCase().includes('hall') ? 'office-building-outline' : 'home-outline'} size={25} color={GREEN} />
-      </View>
-      <Text style={styles.centerName}>{center.name}</Text>
-      <View style={styles.locationRow}><MaterialCommunityIcons name="map-marker" size={13} color={GREEN} /><Text style={styles.location}>{center.location || 'Location not provided'}</Text></View>
-      <View style={styles.capacityRow}>
-        <Text style={styles.capacityLabel}>Capacity</Text>
-        <Text style={styles.capacityValue}>{occupancy}/{capacity}</Text>
-      </View>
-      <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: color }]} /></View>
-      <View style={styles.cardFooter}>
-        <Text style={[styles.availability, { color }]}>{getAvailability(center)}</Text>
-        <TouchableOpacity style={styles.detailsButton} onPress={onDetails} accessibilityRole="button">
+      <View style={[styles.cardAccent, { backgroundColor: tone.accent }]} />
+      <View style={styles.cardBody}>
+        <View style={styles.cardTop}>
+          <View style={[styles.iconCircle, { backgroundColor: tone.bg }]}>
+            <MaterialCommunityIcons name={center.name.toLowerCase().includes('hall') ? 'office-building-outline' : 'home-city-outline'} size={24} color={tone.fg} />
+          </View>
+          <View style={styles.cardTitleBlock}>
+            <Text style={styles.centerName} numberOfLines={2}>{center.name}</Text>
+            <View style={styles.locationRow}><MaterialCommunityIcons name="map-marker" size={13} color={tone.fg} /><Text style={styles.location} numberOfLines={2}>{center.location || 'Location not provided'}</Text></View>
+          </View>
+          <View style={[styles.statusChip, { backgroundColor: tone.bg }]}><View style={[styles.statusDot, { backgroundColor: tone.accent }]} /><Text style={[styles.statusChipText, { color: tone.fg }]}>{statusLabel}</Text></View>
+        </View>
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}><Text style={styles.statNumber}>{occupancy}<Text style={styles.statOf}>/{capacity}</Text></Text><Text style={styles.statCaption}>Occupied</Text></View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}><Text style={[styles.statNumber, { color: tone.fg }]}>{spaces}</Text><Text style={styles.statCaption}>Spaces left</Text></View>
+          <View style={styles.statDivider} />
+          <View style={styles.statBox}><Text style={styles.statNumber}>{Math.round(percentage)}%</Text><Text style={styles.statCaption}>Full</Text></View>
+        </View>
+        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: tone.accent }]} /></View>
+        <TouchableOpacity style={styles.detailsButton} onPress={onDetails} accessibilityRole="button" accessibilityLabel={`View details for ${center.name}`}>
           <Text style={styles.detailsText}>View Details</Text>
+          <MaterialCommunityIcons name="chevron-right" size={16} color={Colors.white} />
         </TouchableOpacity>
       </View>
     </View>
@@ -274,7 +287,6 @@ const styles = StyleSheet.create({
   clearFiltersText: { color: GREEN, fontSize: 11, fontWeight: '700' },
   safe: { flex: 1, backgroundColor: Colors.surface },
   content: { flexGrow: 1, width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 16 },
-  header: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: GREEN },
     header: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'space-between', backgroundColor: GREEN },
   headerTitle: { color: Colors.white, fontSize: 27, lineHeight: 31, fontWeight: '900' },
   headerSubtitle: { color: '#E1F1E1', fontSize: 10, marginTop: 2 },
@@ -282,21 +294,29 @@ const styles = StyleSheet.create({
   intro: { marginHorizontal: 14, marginTop: 7, marginBottom: 17 },
   sectionTitle: { color: Colors.text, fontSize: 20, fontWeight: '900' },
   sectionSubtitle: { color: Colors.textMuted, fontSize: 10, marginTop: 1 },
-  list: { gap: 11 },
-  card: { minHeight: 160, paddingHorizontal: 8, paddingVertical: 9, borderWidth: 1, borderColor: GREEN, borderRadius: 9, backgroundColor: Colors.surface },
-  iconCircle: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: GREEN, borderRadius: 20 },
-  centerName: { marginTop: 7, color: Colors.text, fontSize: 14, fontWeight: '900' },
-  locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
-  location: { color: Colors.textMuted, fontSize: 9 },
-  capacityRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  capacityLabel: { color: Colors.textMuted, fontSize: 8 },
-  capacityValue: { color: Colors.textMuted, fontSize: 9 },
-  progressTrack: { height: 6, marginTop: 5, overflow: 'hidden', borderRadius: 4, backgroundColor: Colors.surfaceMuted },
+  list: { gap: 14, marginHorizontal: 14 },
+  card: { flexDirection: 'row', overflow: 'hidden', borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, borderColor: '#E1EBE1', shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  cardAccent: { width: 6 },
+  cardBody: { flex: 1, padding: 12 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  cardTitleBlock: { flex: 1 },
+  iconCircle: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
+  centerName: { color: Colors.text, fontSize: 15, fontWeight: '900' },
+  locationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 2, marginTop: 3 },
+  location: { flex: 1, color: Colors.textMuted, fontSize: 10 },
+  statusChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12 },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusChipText: { fontSize: 10, fontWeight: '800' },
+  statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: '#F4F8F4' },
+  statBox: { flex: 1, alignItems: 'center' },
+  statNumber: { color: Colors.text, fontSize: 17, fontWeight: '900' },
+  statOf: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
+  statCaption: { marginTop: 1, color: Colors.textMuted, fontSize: 9, fontWeight: '600' },
+  statDivider: { width: 1, height: 26, backgroundColor: '#DCE6DC' },
+  progressTrack: { height: 8, marginTop: 10, overflow: 'hidden', borderRadius: 4, backgroundColor: '#E6ECE6' },
   progressFill: { height: '100%', borderRadius: 4 },
-  cardFooter: { minHeight: 27, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
-  availability: { fontSize: 9, fontWeight: '800' },
-  detailsButton: { minWidth: 82, alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: '#72A876' },
-  detailsText: { color: Colors.white, fontSize: 8, fontWeight: '600' },
+  detailsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, marginTop: 12, paddingVertical: 9, borderRadius: 12, backgroundColor: GREEN },
+  detailsText: { color: Colors.white, fontSize: 12, fontWeight: '800' },
   state: { minHeight: 220, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 10 },
   stateText: { color: Colors.textMuted, fontSize: 12 },
   errorText: { color: '#A34545', fontSize: 12, textAlign: 'center' },
