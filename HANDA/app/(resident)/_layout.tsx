@@ -6,7 +6,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
@@ -43,7 +43,7 @@ function SosTabIcon({ active, size }: { active: boolean; size: number }) {
     return () => animation.stop();
   }, [active, pulse]);
 
-  return <Animated.View style={[styles.sosTab, { width: size + 18, height: size + 18, transform: [{ scale: pulse }] }]}><Text style={styles.sosTabText}>SOS</Text></Animated.View>;
+  return <Animated.View style={[styles.sosTab, { width: size + (Platform.OS === 'web' ? 18 : 12), height: size + (Platform.OS === 'web' ? 18 : 12), transform: [{ scale: pulse }] }]}><Text style={styles.sosTabText}>SOS</Text></Animated.View>;
 }
 
 export default function ResidentLayout() {
@@ -137,6 +137,6 @@ export default function ResidentLayout() {
 }
 
 const styles = StyleSheet.create({
-  sosTab: { marginTop: -4, borderRadius: 999, borderWidth: 2, borderColor: '#E33E48', backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
+  sosTab: { marginTop: Platform.OS === 'web' ? -4 : 6, borderRadius: 999, borderWidth: 2, borderColor: '#E33E48', backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
   sosTabText: { color: '#E33E48', fontSize: 13, fontWeight: '900' },
 });
