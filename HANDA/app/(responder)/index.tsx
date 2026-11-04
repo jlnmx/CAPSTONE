@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, SafeAreaView } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, SafeAreaView, Animated } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Moon, Sun, Sunrise, Sunset } from 'lucide-react-native';
@@ -109,13 +109,13 @@ export default function ResponderDashboard() {
         </View>
 
         <View style={styles.statsContainer}>
-          <StatTile icon="account-group-outline" value={isLoading ? '...' : displayedEvacuees} label="Total Evacuees" color="#218B25" onPress={() => router.push('/evacuees')} />
-          <StatTile icon="alert-outline" value={isLoading ? '...' : displayedIncidents} label="Active Incidents" color="#D63F43" onPress={() => router.push('/incidents')} />
+          <StatTile tone="forest" icon="account-group-outline" mark="account-group-outline" value={isLoading ? '...' : displayedEvacuees} label="Total Evacuees" onPress={() => router.push('/evacuees')} />
+          <StatTile tone="clay" icon="alert-outline" mark="alert-octagon-outline" value={isLoading ? '...' : displayedIncidents} label="Active Incidents" onPress={() => router.push('/incidents')} />
         </View>
 
         <View style={styles.statsContainer}>
-          <StatTile icon="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers"           color="#1E5987" onPress={() => router.push('/responder-center-status')} />
-                    <StatTile icon="history" value={isLoading ? '...' : displayedResponses} label="Response History" color="#C85B1C" onPress={() => router.push('/response-history')} />
+          <StatTile tone="teal" icon="home-city-outline" mark="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers" onPress={() => router.push('/responder-center-status')} />
+          <StatTile tone="sand" icon="history" mark="clipboard-text-clock-outline" value={isLoading ? '...' : displayedResponses} label="Response History" onPress={() => router.push('/response-history')} />
         </View>
 
         <Text style={styles.dataSource}>{isLoading ? 'Loading live server data...' : dataUnavailable ? `Partial live data · unavailable: ${data.unavailableSources.join(', ')}` : 'Live server data · refreshes every 15 seconds'}</Text>
@@ -125,25 +125,38 @@ export default function ResponderDashboard() {
   );
 }
 
+const TILE_TONES = {
+  forest: { bg: '#1F6B2B', fg: '#FFFFFF', badgeBg: '#F4F8D8', badgeFg: '#1F6B2B', mark: 'rgba(255,255,255,0.14)' },
+  clay: { bg: '#C9573F', fg: '#FFFFFF', badgeBg: '#FFF1E8', badgeFg: '#C9573F', mark: 'rgba(255,255,255,0.16)' },
+  teal: { bg: '#1E4D5C', fg: '#FFFFFF', badgeBg: '#E6F0F3', badgeFg: '#1E4D5C', mark: 'rgba(255,255,255,0.14)' },
+  sand: { bg: '#ECE6D6', fg: '#1B3D20', badgeBg: '#1F6B2B', badgeFg: '#FFFFFF', mark: 'rgba(31,107,43,0.12)' },
+};
+
 interface StatTileProps {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  mark: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   value: number | string;
   label: string;
-  color: string;
+  tone: keyof typeof TILE_TONES;
   onPress: () => void;
 }
 
-function StatTile({ icon, value, label, color, onPress }: StatTileProps) {
-  const { resolvedTheme } = useTheme();
-  const readableColor = getReadableColor(color, resolvedTheme);
+function StatTile({ icon, mark, value, label, tone, onPress }: StatTileProps) {
+  const t = TILE_TONES[tone];
+  const lift = React.useRef(new Animated.Value(0)).current;
+  const to = (v: number) => Animated.spring(lift, { toValue: v, useNativeDriver: true, speed: 30, bounciness: 6 }).start();
+  const transform = [{ translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }, { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }];
   return (
-    <AnimatedPressable style={styles.statTile} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open related records`}>
-      <MaterialCommunityIcons name={icon} size={31} color={readableColor} style={styles.statIcon} />
-      <View>
-        <Text style={[styles.statValue, { color }]}>{value}</Text>
-        <Text style={[styles.statLabel, { color }]}>{label}</Text>
+    <AnimatedPressable style={[styles.statTile, { backgroundColor: t.bg, transform }]} onPress={onPress} onHoverIn={() => to(1)} onHoverOut={() => to(0)} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open related records`}>
+      <MaterialCommunityIcons name={mark} size={96} color={t.mark} style={styles.statMark} />
+      <View style={[styles.statBadge, { backgroundColor: t.badgeBg }]}><MaterialCommunityIcons name={icon} size={21} color={t.badgeFg} /></View>
+      <View style={styles.statFooter}>
+        <View style={styles.statCopy}>
+          <Text style={[styles.statValue, { color: t.fg }]}>{value}</Text>
+          <Text style={[styles.statLabel, { color: t.fg }]} numberOfLines={1}>{label}</Text>
+        </View>
+        <MaterialCommunityIcons name="chevron-right" size={18} color={t.fg} />
       </View>
-      <MaterialCommunityIcons name="chevron-right" size={17} color={readableColor} style={styles.statChevron} />
     </AnimatedPressable>
   );
 }
@@ -253,32 +266,35 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: 'row',
     marginHorizontal: 18,
-    gap: 8,
-    marginBottom: 10,
+    gap: 12,
+    marginBottom: 12,
   },
   dataSource: { marginHorizontal: 18, marginTop: -3, marginBottom: 12, color: Colors.textMuted, fontSize: 10 },
   statTile: {
     flex: 1,
-    height: 100,
-    borderRadius: 9,
-    backgroundColor: Colors.surfaceMuted,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
+    minHeight: 112,
+    borderRadius: 22,
+    padding: 14,
     overflow: 'hidden',
+    justifyContent: 'space-between',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  statIcon: {
-    marginRight: 8,
-  },
+  statMark: { position: 'absolute', right: -14, bottom: -14 },
+  statBadge: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  statFooter: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 10 },
+  statCopy: { flex: 1 },
   statValue: {
     fontSize: 20,
     fontWeight: '800',
-    letterSpacing: 3,
   },
   statLabel: {
-    fontSize: 9,
+    fontSize: 10,
+    fontWeight: '700',
   },
-  statChevron: { marginLeft: 'auto' },
   pendingTile: {
     height: 51,
     marginHorizontal: 18,

@@ -45,7 +45,7 @@ export function WeatherWidget({ weather, weatherEvents, presentation, isLoading,
       </View>
       {weatherEvents.length > 0 ? <WeatherEventSlideshow events={weatherEvents} index={weatherEventIndex} setIndex={setSelectedWeatherEventIndex} /> : <Text style={styles.noEvents}>{isLoading ? 'Checking the hourly forecast...' : isUnavailable ? 'Hourly forecast unavailable. Check official PAGASA advisories.' : 'No significant modeled rain, thunderstorm, wind, or heat events detected.'}</Text>}
       <View style={styles.forecastFooter}>
-        <Text style={styles.forecastDisclaimer}>Model outlook is not an official warning. Check PAGASA and local government advisories.</Text>
+        <Text style={styles.forecastDisclaimer} numberOfLines={1}>Not an official warning. Check PAGASA advisories.</Text>
         <View style={styles.forecastAttribution}>
           <Text style={styles.forecastDisclaimer}>Weather data by </Text>
           <Pressable onPress={() => void Linking.openURL('https://open-meteo.com/')} accessibilityRole="link">
@@ -94,33 +94,27 @@ function WeatherEventSlideshow({ events, index, setIndex }: { events: WeatherEve
 
   return <View style={[styles.slideshow, compactForecastStyles.slideshow, { borderLeftColor: icon.color }]}>
     <Animated.View style={[styles.eventSlide, { opacity: fade, transform: [{ translateX: slide }] }]}>
-      <View style={[styles.eventMain, compactForecastStyles.eventMain]}>
+      <View style={compactForecastStyles.row}>
         <View style={[styles.eventIconTile, compactForecastStyles.eventIconTile, { backgroundColor: `${icon.color}18` }]}>
-          <MaterialCommunityIcons name={icon.icon} size={24} color={icon.color} />
+          <MaterialCommunityIcons name={icon.icon} size={20} color={icon.color} />
         </View>
         <View style={[styles.eventCopy, compactForecastStyles.eventCopy]}>
-          <Text style={styles.eventEyebrow}>FORECAST EVENT</Text>
-          <Text style={[styles.eventTitle, compactForecastStyles.eventTitle]}>{event.title}</Text>
+          <Text style={[styles.eventTitle, compactForecastStyles.eventTitle]} numberOfLines={1}>{event.title}</Text>
+          <View style={compactForecastStyles.windowRow}>
+            <MaterialCommunityIcons name="clock-outline" size={12} color="#344054" />
+            <Text style={compactForecastStyles.windowText} numberOfLines={1}>{event.window}</Text>
+          </View>
         </View>
+        <Pressable style={[styles.slideArrow, compactForecastStyles.slideArrow]} onPress={showPrevious} disabled={events.length < 2} accessibilityRole="button" accessibilityLabel="Previous forecast event">
+          <MaterialCommunityIcons name="chevron-left" size={18} color={events.length < 2 ? '#AAB2B8' : '#344054'} />
+        </Pressable>
+        <Text style={styles.slideCount}>{index + 1}/{events.length}</Text>
+        <Pressable style={[styles.slideArrow, compactForecastStyles.slideArrow]} onPress={showNext} disabled={events.length < 2} accessibilityRole="button" accessibilityLabel="Next forecast event">
+          <MaterialCommunityIcons name="chevron-right" size={18} color={events.length < 2 ? '#AAB2B8' : '#344054'} />
+        </Pressable>
       </View>
-      <View style={[styles.eventTimeChip, compactForecastStyles.eventTimeChip]}>
-        <MaterialCommunityIcons name="clock-outline" size={14} color="#344054" />
-        <Text style={styles.eventWindow}>{event.window}</Text>
-      </View>
-      <Text style={[styles.eventDetail, compactForecastStyles.eventDetail]}>{event.detail}</Text>
+      <Text style={[styles.eventDetail, compactForecastStyles.eventDetail]} numberOfLines={2}>{event.detail}</Text>
     </Animated.View>
-    <View style={[styles.slideshowFooter, compactForecastStyles.slideshowFooter]}>
-      <Pressable style={[styles.slideArrow, compactForecastStyles.slideArrow]} onPress={showPrevious} disabled={events.length < 2} accessibilityRole="button" accessibilityLabel="Previous forecast event">
-        <MaterialCommunityIcons name="chevron-left" size={20} color={events.length < 2 ? '#AAB2B8' : '#344054'} />
-      </Pressable>
-      <View style={styles.slideDots}>
-        {events.map((item, itemIndex) => <Pressable key={item.id} onPress={() => setIndex(itemIndex)} accessibilityRole="button" accessibilityLabel={`Show forecast event ${itemIndex + 1}: ${item.title}`} accessibilityState={{ selected: itemIndex === index }} style={[styles.slideDot, itemIndex === index && { backgroundColor: icon.color, width: 18 }]} />)}
-      </View>
-      <Text style={styles.slideCount}>{index + 1}/{events.length}</Text>
-      <Pressable style={[styles.slideArrow, compactForecastStyles.slideArrow]} onPress={showNext} disabled={events.length < 2} accessibilityRole="button" accessibilityLabel="Next forecast event">
-        <MaterialCommunityIcons name="chevron-right" size={20} color={events.length < 2 ? '#AAB2B8' : '#344054'} />
-      </Pressable>
-    </View>
     {events.length > 1 && <View style={[styles.progressTrack, compactForecastStyles.progressTrack]}><Animated.View style={[styles.progressFill, { backgroundColor: icon.color, width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></View>}
   </View>;
 }
@@ -160,15 +154,15 @@ const styles = StyleSheet.create({
 });
 
 const compactForecastStyles = StyleSheet.create({
-  forecastHeading: { marginBottom: 6 },
-  slideshow: { minHeight: 136, paddingHorizontal: 10, paddingTop: 9, paddingBottom: 6 },
-  eventMain: { marginBottom: 6 },
-  eventIconTile: { width: 38, height: 38 },
-  eventCopy: { marginLeft: 9 },
-  eventTitle: { fontSize: 14 },
-  eventTimeChip: { minHeight: 26, paddingHorizontal: 8, paddingVertical: 4 },
-  eventDetail: { marginTop: 6, lineHeight: 14 },
-  slideshowFooter: { marginTop: 5 },
-  slideArrow: { width: 28, height: 26 },
+  forecastHeading: { marginBottom: 4 },
+  slideshow: { minHeight: 0, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 6, borderRadius: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  eventIconTile: { width: 32, height: 32, borderRadius: 16 },
+  eventCopy: { marginLeft: 0 },
+  eventTitle: { fontSize: 13, marginTop: 0 },
+  windowRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
+  windowText: { color: '#344054', fontSize: 9, fontWeight: '700', flexShrink: 1 },
+  eventDetail: { marginTop: 4, lineHeight: 13, fontSize: 9 },
+  slideArrow: { width: 24, height: 24, borderRadius: 12 },
   progressTrack: { marginTop: 4 },
 });
