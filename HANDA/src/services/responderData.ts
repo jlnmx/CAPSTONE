@@ -10,6 +10,7 @@ export type ResponderIncident = {
   latitude?: number;
   longitude?: number;
   photoUris: string[];
+  responsePhotoUris: string[];
   status: IncidentStatus;
   actionNotes: string;
   responsePeople: string;
@@ -81,6 +82,7 @@ function normalizeIncident(record: Record<string, any>): ResponderIncident {
     latitude: record.latitude,
     longitude: record.longitude,
     photoUris: record.photoUris ?? record.photo_uris ?? [],
+    responsePhotoUris: record.responsePhotoUris ?? record.response_photo_uris ?? [],
     status: record.status ?? 'reported',
     actionNotes: record.actionNotes ?? record.action_notes ?? '',
     responsePeople: record.responsePeople ?? record.response_people ?? '',

@@ -24,6 +24,7 @@ export interface IncidentRecord {
   responseEtaMinutes?: number | null;
   responseNotes?: string;
   photoUris?: string[];
+  responsePhotoUris?: string[];
   reporterName?: string;
   reporterContact?: string;
   reporterPicture?: string | null;

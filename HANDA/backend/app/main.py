@@ -771,15 +771,16 @@ def list_logs(category: str, connection: psycopg.Connection = Depends(get_connec
 
 @app.get("/api/v1/incidents")
 def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
-    # Photos taken by responders on scene are appended so residents, responders and admins all see them.
+    # photo_uris holds the reporter's photos; response_photo_uris holds photos responders took on scene.
     rows = connection.execute(
         """
         SELECT incidents.id, incidents.type, incidents.description, incidents.severity, incidents.location_text AS location,
                incidents.latitude, incidents.longitude,
-               incidents.photo_uris || COALESCE((
+               incidents.photo_uris,
+               COALESCE((
                  SELECT jsonb_agg(photos.photo_uri ORDER BY photos.created_at)
                  FROM incident_response_photos AS photos WHERE photos.incident_id = incidents.id
-               ), '[]'::jsonb) AS photo_uris,
+               ), '[]'::jsonb) AS response_photo_uris,
                incidents.status, incidents.action_notes, incidents.response_people, incidents.response_organizations,
                incidents.response_eta_minutes, incidents.response_notes, incidents.verified_by, incidents.verified_at, incidents.created_at
         FROM incidents ORDER BY incidents.created_at DESC

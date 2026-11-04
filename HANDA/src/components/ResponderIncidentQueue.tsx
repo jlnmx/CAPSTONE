@@ -222,7 +222,8 @@ export default function ResponderIncidentQueue() {
         <Avatar uri={reporters[incident.id].profilePicture} name={reporters[incident.id].name} size={28} />
         <Text style={styles.contactText}>Reporter: {reporters[incident.id].name} · {reporters[incident.id].mobileNumber}</Text>
       </AnimatedPressable>}
-      {incident.photoUris.length > 0 && <PhotoGallery uris={incident.photoUris} style={styles.photos} thumbnailStyle={styles.photo} />}
+      {incident.photoUris.length > 0 && <><Text style={styles.photoLabel}>REPORTED PHOTOS</Text><PhotoGallery uris={incident.photoUris} style={styles.photos} thumbnailStyle={styles.photo} /></>}
+      {incident.responsePhotoUris.length > 0 && <><Text style={styles.photoLabel}>RESPONDER SCENE PHOTOS</Text><PhotoGallery uris={incident.responsePhotoUris} style={styles.photos} thumbnailStyle={styles.photo} /></>}
       {user?.role === 'responder' && (incident.status === 'acknowledged' || incident.status === 'in_progress') && <AnimatedPressable style={styles.photoButton} onPress={() => void takeScenePhoto(incident)} disabled={photoBusyId === incident.id} accessibilityRole="button" accessibilityLabel="Take a photo of the scene and send it to the command center">
         <MaterialCommunityIcons name="camera-outline" size={18} color={GREEN} />
         <Text style={styles.contactText}>{photoBusyId === incident.id ? 'Sending photo...' : 'Take scene photo'}</Text>
@@ -279,7 +280,8 @@ const styles = StyleSheet.create({
   coordinates: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 2 },
   status: { color: GREEN, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
   description: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
-  photos: { marginTop: 9 },
+  photos: { marginTop: 6 },
+  photoLabel: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 0.4, marginTop: 9 },
   photoButton: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 40, marginTop: 9, paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 6, backgroundColor: Colors.surfaceMuted },
   contact: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 36, marginTop: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 6, backgroundColor: Colors.surfaceMuted },
   contactText: { color: GREEN, fontSize: 11, fontWeight: '700' },

@@ -52,6 +52,7 @@ function normalizeIncident(record: Record<string, any>): IncidentRecord {
     responseEtaMinutes: record.responseEtaMinutes ?? record.response_eta_minutes ?? null,
     responseNotes: record.responseNotes ?? record.response_notes ?? '',
     photoUris: (Array.isArray(record.photoUris ?? record.photo_uris) ? (record.photoUris ?? record.photo_uris) : []).filter((uri: unknown) => typeof uri === 'string' && uri),
+    responsePhotoUris: (Array.isArray(record.responsePhotoUris ?? record.response_photo_uris) ? (record.responsePhotoUris ?? record.response_photo_uris) : []).filter((uri: unknown) => typeof uri === 'string' && uri),
   };
 }
 
