@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "HANDA",
-    "slug": "handa-evacuation",
+    "slug": "handa",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -67,9 +67,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "adc8392d-8343-4156-9b1c-0a73a789ba12"
+        "projectId": "245b0a0b-fbb0-407f-a1b1-f13c573d1854"
       }
     },
-    "owner": "jlnmx"
+    "owner": "handa-devs"
   }
 }
