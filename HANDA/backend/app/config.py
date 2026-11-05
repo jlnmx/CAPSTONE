@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     twilio_from_number: str = ""
     chatbot_api_base_url: str = Field(default="https://api.groq.com/openai/v1", validation_alias=AliasChoices("GROQ_API_BASE_URL", "CHATBOT_API_BASE_URL"))
     chatbot_api_key: str = Field(default="", validation_alias=AliasChoices("GROQ_API_KEY", "CHATBOT_API_KEY"))
-    chatbot_model: str = Field(default="", validation_alias=AliasChoices("GROQ_MODEL", "CHATBOT_MODEL"))
+    chatbot_model: str = Field(default="openai/gpt-oss-120b", validation_alias=AliasChoices("GROQ_MODEL", "CHATBOT_MODEL"))
     chatbot_timeout_seconds: int = 25
 
     model_config = SettingsConfigDict(env_file=(BACKEND_DIR / ".env", BACKEND_DIR / ".env.groq"), extra="ignore")

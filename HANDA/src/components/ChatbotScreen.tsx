@@ -19,7 +19,7 @@ export default function ChatbotScreen() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 'welcome', role: 'assistant', text: 'Hi. I am Bantay HANDA. Ask me about the app, incidents, evacuation, or disaster safety.' },
+    { id: 'welcome', role: 'assistant', text: 'Hi! I am HANDA Support. Ask me anything: how to use the app, incidents, evacuation, first aid, weather, or disaster safety.' },
   ]);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -51,8 +51,8 @@ export default function ChatbotScreen() {
       }
       const hasSpecificFallback = !fallback.startsWith('I can help with current Biñan weather');
       const status = hasSpecificFallback
-        ? `${fallback}\n\nThe AI assistant is unavailable; this is built-in HANDA guidance.`
-        : 'Custom AI answers are not available right now. Please retry later or ask about current weather, typhoons, disasters, or HANDA features.';
+        ? `${fallback}\n\nHANDA Support's AI is offline right now, so this is built-in guidance.`
+        : 'HANDA Support could not reach its AI service. Please check your connection and try again in a moment. For emergencies, call BCDRRMO (049) 513-9111.';
       setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: status, weatherAttribution: isWeatherQuestion(question) }]);
     } finally {
       setIsTyping(false);
@@ -64,7 +64,7 @@ export default function ChatbotScreen() {
       <View style={styles.header}>
         <AppBackArrow />
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>BANTAY HANDA</Text>
+          <Text style={styles.title}>HANDA SUPPORT</Text>
           <Text style={styles.subtitle}>Your quick safety companion</Text>
         </View>
         <MaterialCommunityIcons name="robot-outline" size={34} color={Colors.white} />
@@ -118,7 +118,7 @@ function TypingIndicator() {
   }, [dots]);
 
   return <View style={[styles.bubble, styles.assistantBubble, styles.typingBubble]}>
-    <Text style={styles.typingLabel}>Bantay HANDA is thinking</Text>
+    <Text style={styles.typingLabel}>HANDA Support is thinking</Text>
     <View style={styles.typingDots}>{dots.map((value, index) => <Animated.View key={index} style={[styles.typingDot, { opacity: value }]} />)}</View>
   </View>;
 }
