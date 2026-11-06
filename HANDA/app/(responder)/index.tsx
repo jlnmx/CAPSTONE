@@ -13,6 +13,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { NotificationBell } from '@components/NotificationBell';
 import AppBackArrow from '@components/AppBackArrow';
+import { HandaLogoBadge } from '@components/HandaLogo';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, getResponseHistory, ResponderDataSnapshot } from '@services/responderData';
 import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
@@ -69,7 +70,10 @@ export default function ResponderDashboard() {
       >
         <View style={styles.header}>
           <AppBackArrow />
-          <Text style={styles.headerLogo}>HANDA</Text>
+          <View style={styles.headerBrand}>
+            <HandaLogoBadge size={46} />
+            <Text style={styles.headerLogo}>HANDA</Text>
+          </View>
           <NotificationBell />
         </View>
 
@@ -171,6 +175,11 @@ const styles = StyleSheet.create({
     height: 86,
     paddingHorizontal: 16,
     backgroundColor: '#218B25',
+  },
+  headerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerLogo: {
     color: Colors.white,

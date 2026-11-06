@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { AuthService } from '@services/authService';
 import AppBackArrow from '@components/AppBackArrow';
+import { HandaLogoBadge } from '@components/HandaLogo';
 
 const GREEN = '#218B25';
 const PAGE_BACKGROUND = '#F5F7FA';
@@ -110,7 +111,7 @@ export default function ForgotPasswordScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={styles.header}><AppBackArrow /><View><Text style={styles.headerBrand}>HANDA</Text><Text style={styles.headerSubtitle}>ACCOUNT RECOVERY</Text></View></View>
+      <View style={styles.header}><AppBackArrow /><HandaLogoBadge size={44} /><View><Text style={styles.headerBrand}>HANDA</Text><Text style={styles.headerSubtitle}>ACCOUNT RECOVERY</Text></View></View>
       <Text style={styles.title}>Forgot password?</Text>
       <Text style={styles.subtitle}>
         {step === 'request' ? 'Choose where you want to receive your reset code.' : step === 'otp' ? `Enter the code sent to ${destination}.` : 'Create a new password for your account.'}

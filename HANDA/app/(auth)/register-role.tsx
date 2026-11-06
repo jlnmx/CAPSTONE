@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
+import { HandaLogoBadge } from '@components/HandaLogo';
 
 export default function RegistrationRoleScreen() {
   const router = useRouter();
@@ -23,6 +24,7 @@ export default function RegistrationRoleScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <AppBackArrow style={styles.backButton} />
+          <HandaLogoBadge size={44} />
           <View style={styles.headerCopy}>
             <Text style={styles.eyebrow}>HANDA ACCOUNT</Text>
             <Text style={styles.title}>Choose your registration type</Text>

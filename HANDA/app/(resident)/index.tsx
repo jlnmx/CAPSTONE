@@ -10,6 +10,7 @@ import { Colors, getReadableColor } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
 import { NotificationBell } from '@components/NotificationBell';
 import AppBackArrow from '@components/AppBackArrow';
+import { HandaLogoBadge } from '@components/HandaLogo';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { TyphoonCard } from '@components/TyphoonCard';
@@ -136,7 +137,7 @@ export default function ResidentDashboard() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: timePresentation.pageBackground }]}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.brandRow}><AppBackArrow /><Text style={styles.brand}>HANDA</Text></View>
+          <View style={styles.brandRow}><AppBackArrow /><HandaLogoBadge size={46} /><Text style={styles.brand}>HANDA</Text></View>
           <NotificationBell />
         </View>
 

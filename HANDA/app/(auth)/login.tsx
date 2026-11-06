@@ -3,7 +3,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
 import { useAuth } from '@hooks/useAuth';
@@ -56,9 +56,7 @@ export default function LoginScreen() {
         <View style={styles.formArea}>
           <View style={styles.formSection}>
             <View style={styles.brandLockup}>
-              <View style={styles.brandIcon}>
-                <MaterialCommunityIcons name="shield-check" size={22} color="#218B25" />
-              </View>
+              <Image source={require('../../assets/images/handa-logo.png')} style={styles.brandLogo} resizeMode="contain" accessibilityLabel="HANDA logo" />
               <Text style={styles.brandTitle}>HANDA</Text>
             </View>
             <TextInput
@@ -196,13 +194,9 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 22,
   },
-  brandIcon: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    backgroundColor: '#E8F2E8',
+  brandLogo: {
+    width: 56,
+    height: 56,
   },
   brandTitle: {
     color: '#218B25',

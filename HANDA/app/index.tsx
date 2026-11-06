@@ -7,6 +7,7 @@ import { Animated, ImageBackground, View, StyleSheet } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { useRouter } from 'expo-router';
 import { Colors } from '@constants/colors';
+import { HandaLogoBadge } from '@components/HandaLogo';
 import { warmUpServer } from '@services/apiClient';
 
 export default function SplashScreen() {
@@ -40,6 +41,7 @@ export default function SplashScreen() {
     >
       <View style={styles.overlay} />
       <View style={styles.branding}>
+        <HandaLogoBadge size={96} style={styles.splashLogo} />
         <Text style={styles.logo}>HANDA</Text>
         <Text style={styles.tagline}>Laging handa para sayo.</Text>
       </View>
@@ -76,6 +78,9 @@ const styles = StyleSheet.create({
   },
   branding: {
     alignItems: 'center',
+  },
+  splashLogo: {
+    marginBottom: 12,
   },
   logo: {
     color: Colors.white,

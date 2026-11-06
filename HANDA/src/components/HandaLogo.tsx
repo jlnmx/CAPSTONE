@@ -3,9 +3,11 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Image, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors, Typography, Spacing } from '@constants/colors';
+
+const logoSource = require('../../assets/images/handa-logo.png');
 
 interface LogoProps {
   size?: 'small' | 'medium' | 'large';
@@ -23,11 +25,33 @@ export function HandaLogo({ size = 'medium', showTagline = false }: LogoProps) {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.logoIcon, { width: style.iconSize, height: style.iconSize }]}>
-        <Text style={[styles.iconText, { fontSize: style.iconSize * 0.6 }]}>🛡️</Text>
-      </View>
+      <Image
+        source={logoSource}
+        style={{ width: style.iconSize, height: style.iconSize, marginBottom: Spacing.md }}
+        resizeMode="contain"
+        accessibilityLabel="HANDA logo"
+      />
       <Text style={[styles.logoText, { fontSize: style.fontSize }]}>HANDA</Text>
       {showTagline && <Text style={styles.tagline}>Ready When Connectivity Isn't.</Text>}
+    </View>
+  );
+}
+
+interface LogoBadgeProps {
+  size?: number;
+  style?: StyleProp<ViewStyle>;
+}
+
+/** HANDA mark on a white circle so the green logo stays visible on green headers. */
+export function HandaLogoBadge({ size = 44, style }: LogoBadgeProps) {
+  return (
+    <View style={[styles.badge, { width: size, height: size, borderRadius: size / 2 }, style]}>
+      <Image
+        source={logoSource}
+        style={{ width: size * 0.78, height: size * 0.78 }}
+        resizeMode="contain"
+        accessibilityLabel="HANDA logo"
+      />
     </View>
   );
 }
@@ -37,15 +61,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoIcon: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
+  badge: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.md,
-  },
-  iconText: {
-    textAlign: 'center',
+    backgroundColor: Colors.white,
   },
   logoText: {
     fontWeight: '700',

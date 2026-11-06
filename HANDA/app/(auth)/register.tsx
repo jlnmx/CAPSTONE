@@ -12,6 +12,7 @@ import { AuthUser, ResidentHouseholdMember } from '@types/index';
 import { BINAN_BARANGAYS, RESPONDER_ORGANIZATIONS } from '@constants/responderOrganizations';
 import * as ImagePicker from 'expo-image-picker';
 import AppBackArrow from '@components/AppBackArrow';
+import { HandaLogoBadge } from '@components/HandaLogo';
 import { HouseholdMemberFields, EMPTY_MEMBER_DRAFT, HouseholdMemberDraft, draftToMember, memberToDraft, memberSummary, validateMemberDraft, isMemberComplete } from '@components/HouseholdMemberFields';
 import Avatar from '@components/Avatar';
 import { pickProfilePicture } from '@services/profilePicture';
@@ -374,6 +375,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
       >
         <View style={styles.header}>
           <AppBackArrow />
+          <HandaLogoBadge size={44} />
           <View style={styles.headerCopy}>
             <Text style={styles.headerEyebrow}>HANDA ACCOUNT</Text>
             <Text style={styles.headerTitle}>{isResponder ? 'Responder application' : 'Create your account'}</Text>

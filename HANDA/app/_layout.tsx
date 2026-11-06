@@ -10,13 +10,13 @@ import { useFonts } from 'expo-font';
 import { Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold } from '@expo-google-fonts/sora';
 import { InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold, InstrumentSans_700Bold } from '@expo-google-fonts/instrument-sans';
 import { Stack, usePathname } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthProvider } from '@hooks/useAuth';
 import { initializeLocalDatabase } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AppFontFamily } from '@constants/typography';
 import { ThemeProvider } from '@hooks/useTheme';
+import { HandaLogoBadge } from '@components/HandaLogo';
 import { useTheme } from '@hooks/useTheme';
 
 const bodyTextStyle = { fontFamily: AppFontFamily };
@@ -47,7 +47,7 @@ function RootLayoutContent() {
     };
   }, []);
 
-  if (!fontsLoaded) return <View style={styles.fontLoading}><ActivityIndicator color={Colors.secondary} /></View>;
+  if (!fontsLoaded) return <View style={styles.fontLoading}><HandaLogoBadge size={96} style={styles.loadingLogo} /><ActivityIndicator color={Colors.secondary} /></View>;
 
   return (
       <AuthProvider>
@@ -91,9 +91,7 @@ function NavigationLoadingOverlay() {
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
       <View style={styles.overlay}>
         <View style={styles.loadingCard}>
-          <View style={styles.loadingIcon}>
-            <MaterialCommunityIcons name="shield-check-outline" size={26} color={Colors.white} />
-          </View>
+          <HandaLogoBadge size={64} style={styles.loadingLogo} />
           <ActivityIndicator size="small" color={Colors.secondary} />
           <Text style={[bodyTextStyle, styles.loadingTitle]}>HANDA</Text>
           <Text style={styles.loadingMessage}>Updating response view</Text>
@@ -128,14 +126,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     ...Shadows.lg,
   },
-  loadingIcon: {
-    width: 52,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
+  loadingLogo: {
     marginBottom: Spacing.md,
-    borderRadius: 26,
-    backgroundColor: Colors.primary,
   },
   loadingTitle: {
     marginTop: Spacing.md,

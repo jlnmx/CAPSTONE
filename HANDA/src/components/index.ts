@@ -2,7 +2,7 @@
  * Components Index
  */
 
-export { HandaLogo } from './HandaLogo';
+export { HandaLogo, HandaLogoBadge } from './HandaLogo';
 export { PrimaryButton, SecondaryButton, LinkButton, IconButton } from './Buttons';
 export { TextInput, PasswordInput } from './TextInputs';
 export {
