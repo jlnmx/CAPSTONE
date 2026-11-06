@@ -31,7 +31,7 @@ export default function AdminOverview() {
   const handleLogout = () => {
     Alert.alert('Sign out', 'End this administrator session?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: async () => { await logout(); router.replace('/(auth)/login'); } },
+      { text: 'Sign out', style: 'destructive', onPress: async () => { if (await logout()) router.replace('/(auth)/login'); } },
     ]);
   };
 

@@ -18,6 +18,14 @@ The authenticated `/api/v1/chatbot/answer` endpoint supports free-form questions
 
 The chatbot includes recent conversation turns and retrieves live HANDA weather, typhoon, or disaster context when relevant. If the model is not configured or is unavailable, the UI labels built-in responses as fallback guidance; custom questions require a configured model provider.
 
+## Android push notifications
+
+The Android app registers an Expo push token after a resident or responder signs in and grants notification permission. New incidents notify active responders; status changes and response photos notify the incident's resident reporter. Notifications contain generic text rather than incident details, and tapping one opens the appropriate incident list.
+
+The API creates `push_devices` and `push_deliveries` during startup and runs a delivery worker while the API is running. It sends through Expo, checks delivery receipts, retries temporary failures, and removes tokens that Expo reports as unregistered. Its database user needs permission to create these tables. Devices refresh their registration when the app is opened; registrations inactive for 30 days are not sent notifications. A successful sign-out unregisters that device. If sign-out happens offline, the app warns that notifications may continue until the device is registered again. The Render free service can sleep, so queued notifications can be delayed while it is not running.
+
+Set up Firebase Cloud Messaging v1 for the Android application and upload the private service-account key to EAS, not the repository. The public Firebase Android configuration must be available as both `google-services.json` and `android/app/google-services.json` for this tracked native project. Use a new Android development or preview build on a physical device; Expo Go does not support Android remote push in SDK 52. After deploying the updated API, install the build, sign in, allow notifications, then test a new incident and a status change from separate accounts. Notification delivery and heads-up presentation depend on network availability and the phone's settings; do not rely on push as the only emergency channel.
+
 ## Tests
 
 Run the backend authorization tests from `backend/`:
@@ -92,5 +100,3 @@ Send pending SQLite outbox events in batches of up to 100. The server uses the c
 ## Database
 
 `database/init.sql` enables PostGIS and creates the `incidents` and `evacuees` tables. Latitude and longitude are stored as a PostGIS `GEOGRAPHY(POINT, 4326)` value when available, while the original human-readable location remains in `location_text`.
-
-

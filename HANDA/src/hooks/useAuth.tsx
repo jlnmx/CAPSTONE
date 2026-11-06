@@ -4,13 +4,14 @@
  */
 
 import { createContext, useContext, ReactNode, useEffect, useState } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
 import { clearAccessToken, getAccessToken, subscribeToUnauthorized } from '@services/apiClient';
 import { disposeRealtime } from '@services/realtimeClient';
 import { clearOfflineCache } from '@services/offlineCache';
+import { unregisterPushDevice } from '@services/pushNotifications';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_PROFILE_KEY = 'handa.authProfile';
@@ -42,6 +43,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const stayLoggedIn = (await AsyncStorage.getItem(STAY_LOGGED_IN_KEY)) !== '0';
         if (!stayLoggedIn) {
+          try {
+            await unregisterPushDevice();
+          } catch (registrationError) {
+            console.error('Could not unregister notifications for the expired session:', registrationError);
+          }
           await clearStoredSession();
           return;
         }
@@ -155,20 +161,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const setAuthenticatedUser = async (authUser: AuthUser, accessToken?: string) => {
     setError(null);
+    if (accessToken) {
+      const { setAccessToken } = await import('@services/apiClient');
+      await setAccessToken(accessToken);
+    }
     setUser(authUser);
     await Promise.all([
       AsyncStorage.setItem('userId', authUser.id),
       AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser)),
     ]);
-    if (accessToken) {
-      const { setAccessToken } = await import('@services/apiClient');
-      await setAccessToken(accessToken);
-    }
   };
 
   const logout = async () => {
+    setIsLoading(true);
+    if (user && !user.isDemo && (user.role === 'resident' || user.role === 'responder')) {
+      try {
+        await unregisterPushDevice();
+      } catch (e) {
+        console.error('Could not unregister push notifications:', e);
+        const signOutAnyway = await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Notifications could not be disabled',
+            'Reconnect to stop notifications on this phone. If you sign out now, notifications may still appear until this device is registered again.',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Sign out anyway', style: 'destructive', onPress: () => resolve(true) },
+            ],
+            { cancelable: false },
+          );
+        });
+        if (!signOutAnyway) {
+          setIsLoading(false);
+          return false;
+        }
+      }
+    }
     try {
-      setIsLoading(true);
       await AuthService.logout();
     } catch (e) {
       console.error('Logout error:', e);
@@ -178,6 +206,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await clearStoredSession();
       setIsLoading(false);
     }
+    return true;
   };
 
   const value: AuthContextType = {

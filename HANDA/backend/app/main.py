@@ -1,4 +1,5 @@
 import base64
+import asyncio
 import json
 import hashlib
 import hmac
@@ -26,6 +27,8 @@ from .typhoons import get_live_typhoon_report
 from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
+from .schemas import PushDeviceInput
+from .push import PUSH_SCHEMA_SQL, enqueue_responders, enqueue_user, process_one
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +249,9 @@ def notify_responders(connection: psycopg.Connection, incident_id: str, title: s
 def notify_responders_of_new_incident(connection: psycopg.Connection, incident: IncidentCreate, incident_id: str, exclude_user_id: str | None = None) -> None:
     if incident.severity == "critical":
         notify_responders(connection, incident_id, f"EMERGENCY SOS: {incident.type}", f"{incident.description} Location: {incident.location}", exclude_user_id)
+    else:
+        notify_responders(connection, incident_id, f"New incident: {incident.type}", f"A new incident was reported at {incident.location}.", exclude_user_id)
+    enqueue_responders(connection, incident_id, exclude_user_id)
 
 
 def write_evacuee(connection: psycopg.Connection, evacuee: EvacueeCreate) -> dict:
@@ -471,6 +477,7 @@ def ensure_operational_schema() -> None:
             """
         )
         connection.execute("CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications (user_id, created_at DESC)")
+        connection.execute(PUSH_SCHEMA_SQL)
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS application_logs (
@@ -645,7 +652,27 @@ async def lifespan(_: FastAPI):
             "Database unavailable during startup; starting API in degraded mode error_type=%s sqlstate=%s",
             type(error).__name__, getattr(error, "sqlstate", None),
         )
-    yield
+    async def push_worker():
+        while True:
+            try:
+                processed = await asyncio.to_thread(process_one)
+            except psycopg.Error:
+                logger.exception("Push delivery worker could not access the database")
+                processed = False
+            except Exception:
+                logger.exception("Push delivery worker failed unexpectedly")
+                processed = False
+            await asyncio.sleep(0.1 if processed else 10)
+
+    worker = asyncio.create_task(push_worker())
+    try:
+        yield
+    finally:
+        worker.cancel()
+        try:
+            await worker
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="HANDA API", version="0.1.0", lifespan=lifespan)
@@ -725,8 +752,10 @@ def chatbot_answer(request: ChatbotRequest, _: CurrentUser = Depends(get_current
 
 @app.post("/api/v1/incidents", status_code=201)
 def create_incident(incident: IncidentCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+    is_new = not incident.id or connection.execute("SELECT 1 FROM incidents WHERE id = %s", (incident.id,)).fetchone() is None
     result = write_incident(connection, incident, user.id if user.role == "resident" else None)
-    notify_responders_of_new_incident(connection, incident, result["id"], user.id)
+    if is_new:
+        notify_responders_of_new_incident(connection, incident, result["id"], user.id)
     connection.commit()
     return result
 
@@ -821,6 +850,7 @@ def add_incident_response_photo(incident_id: str, photo: IncidentResponsePhotoCr
             "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
             (f"notification-{uuid4()}", reporter["reporter_user_id"], incident_id, "New photo from responders", f"Responders shared a new photo from the scene of your {incident['type']} report."),
         )
+        enqueue_user(connection, reporter["reporter_user_id"], incident_id, "Update on your incident", "Responders shared a new photo. Open HANDA to view it.")
     notify_responders(connection, incident_id, f"New response photo: {incident['type']}", f"A responder shared a new photo from {incident['location_text']}.", user.id)
     write_log(connection, "audit", "response_photo", user.id, "incident", incident_id, f"Responder shared a scene photo for {incident['type']}.")
     connection.commit()
@@ -999,6 +1029,7 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
             "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
             (f"notification-{uuid4()}", reporter["id"], incident_id, title, message),
         )
+        enqueue_user(connection, reporter["id"], incident_id, "Update on your incident", "Your incident report has a new status. Open HANDA for details.")
     incident_type = incident_info["type"] if incident_info else "Incident"
     notify_responders(
         connection,
@@ -1026,6 +1057,24 @@ def list_notifications(connection: psycopg.Connection = Depends(get_connection),
         "SELECT id, incident_id, title, message, read_at, created_at FROM notifications WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
         (user.id,),
     ).fetchall()
+
+@app.post("/api/v1/push-devices")
+def register_push_device(device: PushDeviceInput, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):
+    connection.execute("DELETE FROM push_deliveries WHERE token = %s AND user_id <> %s", (device.token, user.id))
+    connection.execute(
+        """INSERT INTO push_devices (token, user_id) VALUES (%s, %s)
+           ON CONFLICT (token) DO UPDATE SET user_id = EXCLUDED.user_id, updated_at = NOW()""",
+        (device.token, user.id),
+    )
+    connection.commit()
+    return {"registered": True}
+
+
+@app.post("/api/v1/push-devices/remove")
+def remove_push_device(device: PushDeviceInput, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):
+    connection.execute("DELETE FROM push_devices WHERE token = %s AND user_id = %s", (device.token, user.id))
+    connection.commit()
+    return {"removed": True}
 
 
 @app.post("/api/v1/realtime/token")

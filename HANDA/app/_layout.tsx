@@ -18,6 +18,7 @@ import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AppFontFamily } from '@constants/typography';
 import { ThemeProvider } from '@hooks/useTheme';
 import { HandaLogoBadge } from '@components/HandaLogo';
+import PushNotificationManager from '@components/PushNotificationManager';
 import { useTheme } from '@hooks/useTheme';
 
 const bodyTextStyle = { fontFamily: AppFontFamily };
@@ -52,6 +53,7 @@ function RootLayoutContent() {
 
   return (
       <AuthProvider>
+        <PushNotificationManager />
         <View style={[styles.root, { backgroundColor: palette.background }, width >= 1024 && styles.desktopRoot]}>
         <NavigationThemeProvider value={{ ...DefaultTheme, colors: { ...DefaultTheme.colors, background: palette.surface, card: palette.surface } }}>
         <Stack

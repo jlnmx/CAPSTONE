@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "com.handa.evacuation",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 14,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -62,6 +63,7 @@
       ],
       "@maplibre/maplibre-react-native",
       "expo-asset",
+      "expo-notifications",
       "expo-secure-store"
     ],
     "experiments": {

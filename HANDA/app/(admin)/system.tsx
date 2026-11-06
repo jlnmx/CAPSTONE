@@ -16,8 +16,7 @@ export default function AdminSystem() {
 
   const confirmLogout = async () => {
     setIsLogoutPromptOpen(false);
-    await logout();
-    router.replace('/(auth)/login');
+    if (await logout()) router.replace('/(auth)/login');
   };
 
   return <SafeAreaView style={styles.safe}>

@@ -11,6 +11,9 @@ BINAN_BARANGAYS = (
     "San Vicente", "Santo Domingo", "Santo Niño", "Santo Tomas", "Soro-Soro", "Timbao", "Tubigan", "Zapote",
 )
 
+class PushDeviceInput(BaseModel):
+    token: str = Field(min_length=10, max_length=255, pattern=r"^(ExpoPushToken|ExponentPushToken)\[[A-Za-z0-9_-]+\]$")
+
 
 class IncidentCreate(BaseModel):
     id: str | None = None

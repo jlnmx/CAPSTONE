@@ -43,7 +43,7 @@ export interface AuthContextType {
   login: (email: string, password: string, allowedRoles?: readonly UserRole[], stayLoggedIn?: boolean) => Promise<void>;
   loginAsDemo: (role: UserRole) => Promise<void>;
   setAuthenticatedUser: (user: AuthUser, accessToken?: string) => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => Promise<boolean>;
   error: string | null;
 }
 

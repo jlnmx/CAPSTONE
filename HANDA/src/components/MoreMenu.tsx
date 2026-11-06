@@ -38,13 +38,12 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
-      await logout();
+      if (await logout()) router.replace('/(auth)/login');
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
       setIsLoggingOut(false);
       setIsLogoutDialogOpen(false);
-      router.replace('/(auth)/login');
     }
   };
 

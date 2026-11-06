@@ -158,7 +158,7 @@ class ReporterContactTests(unittest.TestCase):
 class ResidentNotificationTests(unittest.TestCase):
     def test_critical_incident_notifies_active_responders(self):
         connection = MagicMock()
-        connection.execute.return_value.fetchall.return_value = [{"id": "responder-1"}]
+        connection.execute.return_value.fetchone.return_value = None
         incident = main.IncidentCreate(
             id="sos-1",
             type="SOS - Medical",
