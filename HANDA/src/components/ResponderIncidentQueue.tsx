@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
 import Avatar from '@components/Avatar';
 import { useAuth } from '@hooks/useAuth';
+import { useIncidentFeed } from '@hooks/useRealtime';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import { formatResponderOrganization, parseOrganizations, RESPONDER_ORGANIZATIONS, ResponderOrganization } from '@constants/responderOrganizations';
 import { estimateResponseEta } from '@services/responderEta';
@@ -67,6 +68,8 @@ export default function ResponderIncidentQueue() {
       setIsLoading(false);
     }
   };
+
+  useIncidentFeed(() => void load());
 
   useEffect(() => {
     void load();

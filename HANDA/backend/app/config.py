@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     cors_origin_regex: str = ""
     auth_secret: str = "handa-development-auth-secret-change-me"
     access_token_minutes: int = 480
+    realtime_jwt_private_key: str = ""
+    realtime_jwt_algorithm: str = "ES256"
+    realtime_token_minutes: int = 30
     password_reset_expiry_minutes: int = 10
     password_reset_max_attempts: int = 3
     smtp_host: str = ""

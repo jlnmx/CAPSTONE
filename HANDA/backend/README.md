@@ -92,3 +92,5 @@ Send pending SQLite outbox events in batches of up to 100. The server uses the c
 ## Database
 
 `database/init.sql` enables PostGIS and creates the `incidents` and `evacuees` tables. Latitude and longitude are stored as a PostGIS `GEOGRAPHY(POINT, 4326)` value when available, while the original human-readable location remains in `location_text`.
+
+

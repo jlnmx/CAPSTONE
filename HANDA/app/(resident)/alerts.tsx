@@ -6,6 +6,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
+import { useNotificationStream } from '@hooks/useRealtime';
 
 type Notification = { id: string; title: string; message: string; read_at?: string | null; created_at: string };
 const GREEN = '#218B25';
@@ -30,6 +31,8 @@ export default function ResidentAlertsScreen() {
       setIsRefreshing(false);
     }
   };
+
+  useNotificationStream(() => void load());
 
   useEffect(() => {
     void load();

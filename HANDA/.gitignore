@@ -50,3 +50,6 @@ web-build/
 
 # OS
 Thumbs.db
+
+# Realtime signing key (private)
+/backend/realtime-key.jwk.json

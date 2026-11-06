@@ -6,6 +6,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { authenticatedFetch } from '@services/apiClient';
+import { useIncidentFeed } from '@hooks/useRealtime';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 
 type ResidentIncident = {
@@ -62,6 +63,8 @@ export default function ResidentIncidentFeed() {
       setIsRefreshing(false);
     }
   }, []);
+
+  useIncidentFeed(() => void load());
 
   useFocusEffect(useCallback(() => {
     void load();

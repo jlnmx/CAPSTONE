@@ -8,6 +8,7 @@ import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
+import { useNotificationStream } from '@hooks/useRealtime';
 import { useWeather } from '@hooks/useWeather';
 
 const GREEN = '#218B25';
@@ -43,6 +44,10 @@ export function NotificationBell() {
   const [disasters, setDisasters] = useState<Array<{ id: string; name: string; description?: string; status: string; severity?: string; started_at?: string | null }>>([]);
   const [evacuationStatus, setEvacuationStatus] = useState<{ status: string; householdCount: number } | null>(null);
   const [readIds, setReadIds] = useState<string[]>([]);
+
+  useNotificationStream(({ notification }) => {
+    setServerNotifications((current) => current.some((item) => item.id === notification.id) ? current : [{ ...notification, read_at: null }, ...current]);
+  });
 
   useEffect(() => {
     void AsyncStorage.getItem(READ_IDS_KEY).then((value) => setReadIds(value ? JSON.parse(value) as string[] : [])).catch(() => undefined);

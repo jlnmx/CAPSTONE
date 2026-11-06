@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
 import { clearAccessToken, getAccessToken, subscribeToUnauthorized } from '@services/apiClient';
+import { disposeRealtime } from '@services/realtimeClient';
 import { clearOfflineCache } from '@services/offlineCache';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,6 +21,7 @@ interface AuthProviderProps {
 }
 
 async function clearStoredSession() {
+  disposeRealtime();
   await clearAccessToken().catch(() => undefined);
   await Promise.all([
     AsyncStorage.removeItem('userId'),

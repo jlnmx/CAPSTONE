@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { authenticatedFetch } from '@services/apiClient';
+import { useEvacuationCenterFeed } from '@hooks/useRealtime';
 import AppBackArrow from '@components/AppBackArrow';
 
 const GREEN = '#218B25';
@@ -71,6 +72,8 @@ export default function CenterStatusScreen() {
       setIsRefreshing(false);
     }
   }, []);
+
+  useEvacuationCenterFeed(() => void loadCenters());
 
   useFocusEffect(useCallback(() => {
     void loadCenters();

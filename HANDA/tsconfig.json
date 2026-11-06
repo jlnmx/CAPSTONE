@@ -53,7 +53,8 @@
   "exclude": [
     "node_modules",
     "dist",
-    ".expo"
+    ".expo",
+    "**/__tests__/**"
   ],
   "extends": "expo/tsconfig.base"
 }

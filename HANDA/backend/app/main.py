@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
+from .realtime import RealtimeNotConfigured, create_realtime_token
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import get_live_typhoon_report
 from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
@@ -1025,6 +1026,15 @@ def list_notifications(connection: psycopg.Connection = Depends(get_connection),
         "SELECT id, incident_id, title, message, read_at, created_at FROM notifications WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
         (user.id,),
     ).fetchall()
+
+
+@app.post("/api/v1/realtime/token")
+def issue_realtime_token(user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+    try:
+        token, expires_in = create_realtime_token(user.id, user.role)
+    except RealtimeNotConfigured:
+        raise HTTPException(status_code=503, detail="Realtime is not available.") from None
+    return {"token": token, "expires_in": expires_in}
 
 
 def notification_preferences_payload(row: dict) -> dict:

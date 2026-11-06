@@ -18,6 +18,7 @@ import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, getResponseHistory, ResponderDataSnapshot } from '@services/responderData';
 import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
 import { useAuth } from '@hooks/useAuth';
+import { useEvacuationCenterFeed, useIncidentFeed } from '@hooks/useRealtime';
 
 const formattedDate = new Intl.DateTimeFormat('en-US', {
   weekday: 'long',
@@ -45,6 +46,9 @@ export default function ResponderDashboard() {
       setIsLoading(false);
     }
   };
+
+  useIncidentFeed(() => void loadData());
+  useEvacuationCenterFeed(() => void loadData());
 
   useEffect(() => {
     void loadData();
