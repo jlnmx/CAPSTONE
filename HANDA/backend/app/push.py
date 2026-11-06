@@ -27,12 +27,14 @@ CREATE TABLE IF NOT EXISTS push_deliveries (
     title TEXT NOT NULL,
     body TEXT NOT NULL,
     incident_id TEXT NOT NULL,
+    notification_type TEXT NOT NULL DEFAULT 'incident',
     receipt_id TEXT,
     attempts INTEGER NOT NULL DEFAULT 0,
     next_attempt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS push_deliveries_due_idx ON push_deliveries (next_attempt);
+ALTER TABLE push_deliveries ADD COLUMN IF NOT EXISTS notification_type TEXT NOT NULL DEFAULT 'incident';
 """
 
 
@@ -45,7 +47,16 @@ def enqueue_user(connection: psycopg.Connection, user_id: str, incident_id: str,
     )
 
 
-def enqueue_responders(connection: psycopg.Connection, incident_id: str, exclude_user_id: str | None) -> None:
+def enqueue_evacuation_status(connection: psycopg.Connection, user_id: str, registration_id: str, body: str) -> None:
+    connection.execute(
+        """INSERT INTO push_deliveries (token, user_id, title, body, incident_id, notification_type)
+           SELECT token, user_id, %s, %s, %s, 'evacuation'
+           FROM push_devices WHERE user_id = %s AND updated_at > NOW() - INTERVAL '30 days'""",
+        ("Evacuation status update", body, registration_id, user_id),
+    )
+
+
+def enqueue_responders(connection: psycopg.Connection, incident_id: str, incident_type: str, severity: str, location: str, exclude_user_id: str | None) -> None:
     connection.execute(
         """INSERT INTO push_deliveries (token, user_id, title, body, incident_id)
            SELECT devices.token, devices.user_id, %s, %s, %s
@@ -53,7 +64,7 @@ def enqueue_responders(connection: psycopg.Connection, incident_id: str, exclude
            WHERE users.role = 'Responder' AND users.status = 'Active'
              AND users.id <> COALESCE(%s, '')
              AND devices.updated_at > NOW() - INTERVAL '30 days'""",
-        ("New incident reported", "Open HANDA to view the incident.", incident_id, exclude_user_id),
+        ("New incident reported", f"{incident_type}: {severity.upper()} severity. Location: {location}.", incident_id, exclude_user_id),
     )
 
 
@@ -109,7 +120,11 @@ def process_one() -> bool:
                     "sound": "default",
                     "priority": "high",
                     "channelId": "incidents",
-                    "data": {"type": "incident", "incidentId": delivery["incident_id"]},
+                    "data": (
+                        {"type": "evacuation", "registrationId": delivery["incident_id"]}
+                        if delivery["notification_type"] == "evacuation"
+                        else {"type": "incident", "incidentId": delivery["incident_id"]}
+                    ),
                 }).get("data")
                 ticket = data[0] if isinstance(data, list) and data else data
             if not isinstance(ticket, dict):

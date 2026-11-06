@@ -28,7 +28,7 @@ from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, Cen
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
-from .push import PUSH_SCHEMA_SQL, enqueue_responders, enqueue_user, process_one
+from .push import PUSH_SCHEMA_SQL, enqueue_evacuation_status, enqueue_responders, enqueue_user, process_one
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +251,8 @@ def notify_responders_of_new_incident(connection: psycopg.Connection, incident: 
         notify_responders(connection, incident_id, f"EMERGENCY SOS: {incident.type}", f"{incident.description} Location: {incident.location}", exclude_user_id)
     else:
         notify_responders(connection, incident_id, f"New incident: {incident.type}", f"A new incident was reported at {incident.location}.", exclude_user_id)
-    enqueue_responders(connection, incident_id, exclude_user_id)
+    severity = "medium" if incident.severity == "moderity" else incident.severity
+    enqueue_responders(connection, incident_id, incident.type, severity, incident.location, exclude_user_id)
 
 
 def write_evacuee(connection: psycopg.Connection, evacuee: EvacueeCreate) -> dict:
@@ -850,7 +851,8 @@ def add_incident_response_photo(incident_id: str, photo: IncidentResponsePhotoCr
             "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
             (f"notification-{uuid4()}", reporter["reporter_user_id"], incident_id, "New photo from responders", f"Responders shared a new photo from the scene of your {incident['type']} report."),
         )
-        enqueue_user(connection, reporter["reporter_user_id"], incident_id, "Update on your incident", "Responders shared a new photo. Open HANDA to view it.")
+        actor_role = "Responder" if user.role == "responder" else "Administrator"
+        enqueue_user(connection, reporter["reporter_user_id"], incident_id, "Update on your incident", f"{actor_role} {user.name} shared a photo for your {incident['type']} report.")
     notify_responders(connection, incident_id, f"New response photo: {incident['type']}", f"A responder shared a new photo from {incident['location_text']}.", user.id)
     write_log(connection, "audit", "response_photo", user.id, "incident", incident_id, f"Responder shared a scene photo for {incident['type']}.")
     connection.commit()
@@ -1029,7 +1031,9 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
             "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
             (f"notification-{uuid4()}", reporter["id"], incident_id, title, message),
         )
-        enqueue_user(connection, reporter["id"], incident_id, "Update on your incident", "Your incident report has a new status. Open HANDA for details.")
+        actor_role = "Responder" if user.role == "responder" else "Administrator"
+        push_message = f"{reporter['incident_type']} report: {update.status.replace('_', ' ').upper()}. Updated by {actor_role} {user.name}."
+        enqueue_user(connection, reporter["id"], incident_id, "Update on your incident", push_message)
     incident_type = incident_info["type"] if incident_info else "Incident"
     notify_responders(
         connection,
@@ -1476,7 +1480,7 @@ def update_evacuation_registration_status(
     connection: psycopg.Connection = Depends(get_connection),
 ):
     registration = connection.execute(
-        "SELECT id, center_id, status, household_size FROM evacuation_registrations WHERE id = %s FOR UPDATE",
+        "SELECT id, center_id, status, household_size, resident_user_id FROM evacuation_registrations WHERE id = %s FOR UPDATE",
         (registration_id,),
     ).fetchone()
     if not registration:
@@ -1520,6 +1524,9 @@ def update_evacuation_registration_status(
         "UPDATE evacuation_household_members SET status = %s, updated_at = NOW() WHERE registration_id = %s",
         (update.status, registration_id),
     )
+    actor_role = "Responder" if user.role == "responder" else "Administrator"
+    message = f"Your evacuation registration is {update.status.replace('_', ' ').upper()}. Updated by {actor_role} {user.name}."
+    enqueue_evacuation_status(connection, registration["resident_user_id"], registration_id, message)
     connection.commit()
     return {"id": registration_id, "status": update.status}
 

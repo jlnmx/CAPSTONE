@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app import main, push
 from app.auth import CurrentUser
-from app.schemas import IncidentCreate, IncidentStatusUpdate, PushDeviceInput
+from app.schemas import EvacuationRegistrationStatusUpdate, IncidentCreate, IncidentStatusUpdate, PushDeviceInput
 
 
 class PushDeviceTests(unittest.TestCase):
@@ -38,6 +38,7 @@ class PushDeviceTests(unittest.TestCase):
         self.assertEqual(connection.execute.call_count, 2)
         self.assertIn("INSERT INTO notifications", connection.execute.call_args_list[0].args[0])
         self.assertIn("INSERT INTO push_deliveries", connection.execute.call_args_list[1].args[0])
+        self.assertEqual(connection.execute.call_args_list[1].args[1][1], "Fire: HIGH severity. Location: Biñan.")
         self.assertEqual(connection.execute.call_args_list[1].args[1][-2:], ("incident-1", "resident-1"))
 
     def test_existing_incident_does_not_send_new_alert(self):
@@ -71,7 +72,51 @@ class PushDeviceTests(unittest.TestCase):
             main.update_incident_status("incident-1", IncidentStatusUpdate(status="acknowledged"), connection, user)
         call = next(c for c in connection.execute.call_args_list if "INSERT INTO push_deliveries" in c.args[0])
         self.assertEqual(call.args[1][-1], "resident-1")
+        self.assertEqual(call.args[1][1], "Fire report: ACKNOWLEDGED. Updated by Responder Responder.")
         connection.commit.assert_called_once()
+
+    def test_evacuation_status_changes_notify_registration_owner(self):
+        for current, new_status in (("registered", "checked_in"), ("checked_in", "evacuated"), ("evacuated", "released")):
+            with self.subTest(status=new_status):
+                connection = MagicMock()
+                def execute(sql, params=None):
+                    cursor = MagicMock()
+                    if "SELECT id, center_id, status" in sql:
+                        cursor.fetchone.return_value = {
+                            "id": "registration-1", "center_id": "center-1", "status": current,
+                            "household_size": 2, "resident_user_id": "resident-1",
+                        }
+                    elif "SELECT capacity" in sql:
+                        cursor.fetchone.return_value = {"capacity": 10, "current_occupancy": 0, "status": "available"}
+                    return cursor
+                connection.execute.side_effect = execute
+                user = CurrentUser("responder-1", "r@example.com", "Ana Santos", "responder", 0)
+                result = main.update_evacuation_registration_status(
+                    "registration-1", EvacuationRegistrationStatusUpdate(status=new_status), user, connection,
+                )
+                self.assertEqual(result["status"], new_status)
+                calls = connection.execute.call_args_list
+                push_call = next(call for call in calls if "INSERT INTO push_deliveries" in call.args[0])
+                self.assertEqual(push_call.args[1], (
+                    "Evacuation status update",
+                    f"Your evacuation registration is {new_status.replace('_', ' ').upper()}. Updated by Responder Ana Santos.",
+                    "registration-1", "resident-1",
+                ))
+                connection.commit.assert_called_once()
+
+    def test_rejected_evacuation_transition_sends_no_notification(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {
+            "id": "registration-1", "center_id": "center-1", "status": "registered",
+            "household_size": 1, "resident_user_id": "resident-1",
+        }
+        user = CurrentUser("admin-1", "a@example.com", "Admin", "admin", 0)
+        with self.assertRaises(main.HTTPException):
+            main.update_evacuation_registration_status(
+                "registration-1", EvacuationRegistrationStatusUpdate(status="evacuated"), user, connection,
+            )
+        self.assertFalse(any("INSERT INTO push_deliveries" in call.args[0] for call in connection.execute.call_args_list))
+        connection.commit.assert_not_called()
 
 
 class PushDeliveryTests(unittest.TestCase):
@@ -79,7 +124,7 @@ class PushDeliveryTests(unittest.TestCase):
         self.delivery = {
             "id": 1, "token": "ExpoPushToken[abc123]", "user_id": "resident-1",
             "title": "Update", "body": "Open HANDA", "incident_id": "incident-1",
-            "receipt_id": None, "attempts": 0,
+            "receipt_id": None, "attempts": 0, "notification_type": "incident",
         }
         self.connection = MagicMock()
         self.connection.execute.return_value.fetchone.return_value = self.delivery
@@ -96,6 +141,13 @@ class PushDeliveryTests(unittest.TestCase):
         self.assertEqual(payload["data"], {"type": "incident", "incidentId": "incident-1"})
         self.assertIn("receipt_id = %s", self.connection.execute.call_args.args[0])
         self.assertEqual(self.connection.execute.call_args.args[1], ("receipt-1", 1))
+
+    def test_evacuation_payload_contains_registration_type(self):
+        self.delivery["notification_type"] = "evacuation"
+        self.delivery["incident_id"] = "registration-1"
+        with patch("app.push._request", return_value={"data": {"status": "ok", "id": "receipt-1"}}) as request:
+            self.assertTrue(push.process_one())
+        self.assertEqual(request.call_args.args[1]["data"], {"type": "evacuation", "registrationId": "registration-1"})
 
     def test_successful_receipt_removes_delivery(self):
         self.delivery["receipt_id"] = "receipt-1"

@@ -3,6 +3,7 @@ import { Alert, AppState, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { registerPushDevice } from '@services/pushNotifications';
+import { pushNotificationRoute } from '@utils/pushNotificationRoute';
 
 export default function PushNotificationManager() {
   const { user, isLoading } = useAuth();
@@ -31,9 +32,10 @@ export default function PushNotificationManager() {
       });
       const handleResponse = (response: import('expo-notifications').NotificationResponse) => {
         const request = response.notification.request;
-        if (request.content.data.type !== 'incident' || lastHandled.current === request.identifier) return;
+        const route = pushNotificationRoute(request.content.data.type, user.role);
+        if (!route || lastHandled.current === request.identifier) return;
         lastHandled.current = request.identifier;
-        router.push(user.role === 'responder' ? '/(responder)/incidents' : '/(resident)/incidents');
+        router.push(route);
       };
       const responseListener = notifications.addNotificationResponseReceivedListener(handleResponse);
       const tokenListener = notifications.addPushTokenListener(register);
