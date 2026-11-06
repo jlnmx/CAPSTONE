@@ -92,7 +92,7 @@ android {
         applicationId 'com.handa.evacuation'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 13
+        versionCode 15
         versionName "0.1.3"
     }
     signingConfigs {
