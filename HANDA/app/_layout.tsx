@@ -10,6 +10,7 @@ import { useFonts } from 'expo-font';
 import { Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold } from '@expo-google-fonts/sora';
 import { InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold, InstrumentSans_700Bold } from '@expo-google-fonts/instrument-sans';
 import { Stack, usePathname } from 'expo-router';
+import { DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { AuthProvider } from '@hooks/useAuth';
 import { initializeLocalDatabase } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
@@ -52,6 +53,7 @@ function RootLayoutContent() {
   return (
       <AuthProvider>
         <View style={[styles.root, { backgroundColor: palette.background }, width >= 1024 && styles.desktopRoot]}>
+        <NavigationThemeProvider value={{ ...DefaultTheme, colors: { ...DefaultTheme.colors, background: palette.surface, card: palette.surface } }}>
         <Stack
           screenOptions={{
             headerShown: false,
@@ -64,6 +66,7 @@ function RootLayoutContent() {
           <Stack.Screen name="(responder)" />
           <Stack.Screen name="(resident)" />
         </Stack>
+        </NavigationThemeProvider>
           <NavigationLoadingOverlay />
         </View>
       </AuthProvider>

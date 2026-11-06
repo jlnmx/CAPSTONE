@@ -127,6 +127,30 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     setValidationErrors((current) => ({ ...current, verificationDocument: '' }));
   };
 
+  const captureWithSystemCamera = async (fallbackMessage: string) => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) throw new Error(fallbackMessage);
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      const mimeType = asset.mimeType && isVerificationDocumentMimeType(asset.mimeType) ? asset.mimeType : 'image/jpeg';
+      if (!asset.base64) throw new Error('The ID photo could not be read. Please try again.');
+      setVerificationDocument({
+        base64: asset.base64,
+        mimeType,
+        name: `${responderType?.toLowerCase() || 'responder'}-id.${mimeType.split('/')[1]}`,
+        previewUri: `data:${mimeType};base64,${asset.base64}`,
+      });
+      setValidationErrors((current) => ({ ...current, verificationDocument: '' }));
+    } catch (error) {
+      setValidationErrors((current) => ({
+        ...current,
+        verificationDocument: error instanceof Error ? error.message : fallbackMessage,
+      }));
+    }
+  };
+
   const openIdCamera = async () => {
     setValidationErrors((current) => ({ ...current, verificationDocument: '' }));
     if (Platform.OS === 'web') {
@@ -134,10 +158,6 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
       return;
     }
     try {
-      if (!await CameraView.isAvailableAsync()) {
-        setValidationErrors((current) => ({ ...current, verificationDocument: 'A camera is not available on this device. Choose an ID photo instead.' }));
-        return;
-      }
       const permission = await Camera.requestCameraPermissionsAsync();
       if (!permission.granted) {
         setValidationErrors((current) => ({
@@ -152,10 +172,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
       setCameraBounds({ width: 0, height: 0 });
       setIsCameraOpen(true);
     } catch (error) {
-      setValidationErrors((current) => ({
-        ...current,
-        verificationDocument: error instanceof Error ? error.message : 'The camera could not be opened. Choose an ID photo instead.',
-      }));
+      await captureWithSystemCamera(error instanceof Error ? error.message : 'The camera could not be opened. Choose an ID photo instead.');
     }
   };
 
@@ -214,14 +231,14 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
       if (!picture?.uri || !picture.width || !picture.height) throw new Error('The camera did not return a usable photo.');
 
       const cardRatio = 85.6 / 53.98;
-      const frameWidth = Math.min(cameraBounds.width - 40, (cameraBounds.height - 208) * cardRatio);
+      const frameWidth = Math.max(0, Math.min(cameraBounds.width - 40, (cameraBounds.height - 190) * cardRatio));
       const frameHeight = frameWidth / cardRatio;
       const scale = Math.max(cameraBounds.width / picture.width, cameraBounds.height / picture.height);
       const renderedWidth = picture.width * scale;
       const renderedHeight = picture.height * scale;
       const frameTop = 66 + (cameraBounds.height - 66 - 142 - frameHeight) / 2;
-      const originX = Math.max(0, Math.round((renderedWidth - frameWidth) / (2 * scale)));
-      const originY = Math.max(0, Math.round((frameTop + (renderedHeight - cameraBounds.height) / 2) / scale));
+      const originX = Math.min(picture.width - 1, Math.max(0, Math.round((renderedWidth - frameWidth) / (2 * scale))));
+      const originY = Math.min(picture.height - 1, Math.max(0, Math.round((frameTop + (renderedHeight - cameraBounds.height) / 2) / scale)));
       const cropWidth = Math.min(picture.width - originX, Math.round(frameWidth / scale));
       const cropHeight = Math.min(picture.height - originY, Math.round(frameHeight / scale));
       if (cropWidth < 1 || cropHeight < 1) throw new Error('Could not crop the ID photo. Please try again.');
@@ -642,7 +659,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             onCameraReady={() => setIsCameraReady(true)}
             onMountError={(event) => {
               setIsCameraOpen(false);
-              setValidationErrors((current) => ({ ...current, verificationDocument: `The camera could not start: ${event.message}` }));
+              void captureWithSystemCamera(`The camera could not start: ${event.message}`);
             }}
           />
           <View style={styles.cameraTopBar}>

@@ -97,7 +97,7 @@ export default function ChatbotScreen() {
         </ScrollView>
         <View style={styles.inputRow}>
           <TextInput value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Ask about weather, typhoons, or HANDA" placeholderTextColor="#8A9B8C" style={styles.input} returnKeyType="send" blurOnSubmit={false} />
-          <Pressable onPress={() => sendMessage()} style={styles.sendButton} accessibilityRole="button" accessibilityLabel="Send assistant question"><MaterialCommunityIcons name="send" size={20} color="#FFFFFF" /></Pressable>
+          <Pressable onPress={() => sendMessage()} style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendDisabled]} disabled={!input.trim() || isTyping} accessibilityRole="button" accessibilityLabel="Send assistant question"><MaterialCommunityIcons name="send" size={20} color="#FFFFFF" /></Pressable>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -125,15 +125,15 @@ function TypingIndicator() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.surface },
-  header: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: GREEN },
+  header: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: GREEN, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 },
   headerCopy: { flex: 1 },
   title: { color: Colors.white, fontSize: 24, lineHeight: 28, fontWeight: '900' },
   subtitle: { color: '#E1F1E1', fontSize: 10, marginTop: 2 },
-  body: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center' },
+  body: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center', backgroundColor: Colors.surface },
   messages: { flex: 1 },
-  messageContent: { padding: 14, gap: 10 },
+  messageContent: { padding: 14, paddingTop: 18, gap: 10 },
   bubble: { maxWidth: '88%', paddingHorizontal: 13, paddingVertical: 10, borderRadius: 16 },
-  assistantBubble: { alignSelf: 'flex-start', backgroundColor: Colors.surfaceMuted, borderBottomLeftRadius: 4 },
+  assistantBubble: { alignSelf: 'flex-start', backgroundColor: Colors.surfaceMuted, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#E3ECE4' },
   userBubble: { alignSelf: 'flex-end', backgroundColor: GREEN, borderBottomRightRadius: 4 },
   messageText: { color: Colors.text, fontSize: 13, lineHeight: 19 },
   userText: { color: '#FFFFFF' },
@@ -145,10 +145,11 @@ const styles = StyleSheet.create({
   typingDots: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: GREEN },
   promptsScroll: { flexGrow: 0 },
-  prompts: { gap: 8, paddingHorizontal: 14, paddingBottom: 10 },
-  prompt: { paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, backgroundColor: Colors.surface },
+  prompts: { gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
+  prompt: { paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#BFDDC0', borderRadius: 16, backgroundColor: '#F0F8F0' },
   promptText: { color: GREEN, fontSize: 11, fontWeight: '700' },
-  inputRow: { padding: 10, paddingBottom: 96, flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: '#E7EFE7' },
-  input: { flex: 1, minHeight: 42, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border, borderRadius: 21, color: Colors.text, fontSize: 13 },
-  sendButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21, backgroundColor: GREEN },
+  inputRow: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: '#E7EFE7', backgroundColor: Colors.surface },
+  input: { flex: 1, minHeight: 44, paddingHorizontal: 16, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border, borderRadius: 22, backgroundColor: '#F7FAF7', color: Colors.text, fontSize: 13 },
+  sendButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: GREEN },
+  sendDisabled: { opacity: 0.45 },
 });
