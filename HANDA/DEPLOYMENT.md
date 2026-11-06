@@ -15,7 +15,7 @@ The API uses the existing PostgreSQL database. During the initial Blueprint setu
 The frontend services use `https://handa-api.onrender.com` as their API origin. If Render assigns a different service URL, update both frontend variables to that URL and redeploy:
 
 - `EXPO_PUBLIC_API_URL` for the resident/responder web app.
-- `EXPO_PUBLIC_MAPBOX_TOKEN` for resident/responder maps and route ETA.
+- `EXPO_PUBLIC_MAPBOX_TOKEN` (optional) for Mapbox maps and directions. Without it, the app uses OpenStreetMap tiles and routing.
 - `VITE_API_URL` for the admin web app.
 
 `CORS_ORIGIN_REGEX` allows only the configured `handa-mobile-web` and `handa-admin-web` Vercel project domains and their Vercel preview variants, plus the corresponding Render sites. Keep the Vercel project names aligned with those prefixes. `CORS_ORIGINS` retains the local development origins.
@@ -30,7 +30,7 @@ Create two separate Vercel projects from the same Git repository. For both, set 
 - Build command: `npm run web:export`
 - Output directory: `dist`
 - Environment variable: `EXPO_PUBLIC_API_URL=https://handa-api.onrender.com`
-- Environment variable: `EXPO_PUBLIC_MAPBOX_TOKEN=<restricted-public-mapbox-token>`
+- Optional environment variable: `EXPO_PUBLIC_MAPBOX_TOKEN=<restricted-public-mapbox-token>`
 
 **Admin project**
 
@@ -39,7 +39,9 @@ Create two separate Vercel projects from the same Git repository. For both, set 
 - Output directory: `admin-web/dist`
 - Environment variable: `VITE_API_URL=https://handa-api.onrender.com`
 
-Set these variables for both Preview and Production environments. Vite and Expo inline public values during the build, so redeploy after changing them. Restrict the Mapbox public token to the deployed site URLs in the Mapbox dashboard; never use a secret server token in a frontend build.
+Set the API URL for both Preview and Production environments. If using Mapbox, set its optional token in both environments as well. Vite and Expo inline public values during the build, so redeploy after changing them. Restrict the Mapbox public token to the deployed site URLs in the Mapbox dashboard; never use a secret server token in a frontend build.
+
+When no Mapbox token is configured, resident and responder maps use OpenStreetMap tiles and the public OpenStreetMap routing service for driving, cycling, and walking directions. The fallback route service receives the start and destination coordinates.
 
 ## Database and release checks
 

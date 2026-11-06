@@ -78,9 +78,11 @@ The HANDA system includes:
 
 `preview` and `production` set `EXPO_PUBLIC_API_URL=https://handa-api.onrender.com`
 (the Render API in [DEPLOYMENT.md](DEPLOYMENT.md)), so the APK never falls back
-to `localhost`. `.env.local` is Git-ignored and is **not** uploaded to EAS, so
-add the public Mapbox token as an EAS environment variable (never put a
-secret or service-role key in `EXPO_PUBLIC_*` variables):
+to `localhost`. `.env.local` is Git-ignored and is **not** uploaded to EAS. A Mapbox token is
+optional: without it, the maps use OpenStreetMap tiles and public routing for
+directions. To use Mapbox tiles and directions, add its restricted public token
+as an EAS environment variable (never put a secret or service-role key in
+`EXPO_PUBLIC_*` variables):
 
 ```powershell
 Set-Location HANDA

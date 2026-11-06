@@ -267,12 +267,14 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           async function loadRoutes() {
             const stats = navigationStats();
             if (!activeDestination || !hasLocatedUser || !stats) return;
-            ${mapboxToken ? '' : "stats.textContent = 'Directions unavailable. Check map routing configuration.'; return;"}
             const requestId = ++routeRequestId;
             stats.textContent = 'Finding routes…';
             clearRoute();
             try {
-              const url = 'https://api.mapbox.com/directions/v5/mapbox/' + activeProfile + '/' + currentPosition[1] + ',' + currentPosition[0] + ';' + activeDestination[1] + ',' + activeDestination[0] + '?alternatives=true&steps=true&geometries=geojson&overview=full&access_token=${mapboxToken}';
+              const routingProfile = activeProfile === 'walking' ? 'routed-foot' : activeProfile === 'cycling' ? 'routed-bike' : 'routed-car';
+              const url = ${JSON.stringify(mapboxToken)}
+                ? 'https://api.mapbox.com/directions/v5/mapbox/' + activeProfile + '/' + currentPosition[1] + ',' + currentPosition[0] + ';' + activeDestination[1] + ',' + activeDestination[0] + '?alternatives=true&steps=true&geometries=geojson&overview=full&access_token=${mapboxToken}'
+                : 'https://routing.openstreetmap.de/' + routingProfile + '/route/v1/driving/' + currentPosition[1] + ',' + currentPosition[0] + ';' + activeDestination[1] + ',' + activeDestination[0] + '?alternatives=true&steps=true&geometries=geojson&overview=full';
               const response = await fetch(url);
               if (!response.ok) throw new Error('Route request failed');
               const result = await response.json();

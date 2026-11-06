@@ -157,6 +157,23 @@ export default function ResponderLiveMap() {
       const minutes = Math.max(1, Math.round(seconds / 60));
       return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
     };
+    const addRouteInstructions = (route: any) => {
+      route.legs?.forEach((leg: any) => leg.steps?.forEach((step: any) => {
+        if (step.maneuver && !step.maneuver.instruction) {
+          const maneuver = step.maneuver;
+          const road = step.name ? ` onto ${step.name}` : '';
+          const direction = maneuver.modifier ? ` ${maneuver.modifier}` : '';
+          maneuver.instruction = maneuver.type === 'arrive'
+            ? 'Arrive at your destination'
+            : maneuver.type === 'depart'
+              ? (step.name ? `Head out on ${step.name}` : 'Start along the highlighted route')
+              : maneuver.type === 'turn'
+                ? `Turn${direction}${road}`
+                : step.name ? `Continue on ${step.name}` : 'Continue along the highlighted route';
+        }
+      }));
+      return route;
+    };
     const haversineMeters = (first: [number, number], second: [number, number]) => {
       const radians = Math.PI / 180;
       const latitudeDelta = (second[0] - first[0]) * radians;
@@ -276,23 +293,21 @@ export default function ResponderLiveMap() {
     };
     const loadRoutes = async (status = 'Finding routes…', chooseAlternative = false) => {
       if (!destination || !currentPosition || activeRouteRequestId !== null) return;
-      if (!mapboxToken) {
-        renderNavigationPanel('Directions unavailable. Configure the Mapbox token.');
-        return;
-      }
       const requestId = ++routeRequestId;
       activeRouteRequestId = requestId;
       renderNavigationPanel(status);
       clearRouteLayers();
       try {
         const profile = 'driving-traffic';
-        const endpoint = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${currentPosition[1]},${currentPosition[0]};${destination.position[1]},${destination.position[0]}?alternatives=true&steps=true&geometries=geojson&overview=full&access_token=${mapboxToken}`;
+        const endpoint = mapboxToken
+          ? `https://api.mapbox.com/directions/v5/mapbox/${profile}/${currentPosition[1]},${currentPosition[0]};${destination.position[1]},${destination.position[0]}?alternatives=true&steps=true&geometries=geojson&overview=full&access_token=${mapboxToken}`
+          : `https://routing.openstreetmap.de/routed-car/route/v1/driving/${currentPosition[1]},${currentPosition[0]};${destination.position[1]},${destination.position[0]}?alternatives=true&steps=true&geometries=geojson&overview=full`;
         const response = await fetch(endpoint);
         if (!response.ok) throw new Error('Directions request failed');
         const result = await response.json();
         if (requestId !== routeRequestId || !destination) return;
         if (result.code !== 'Ok' || !Array.isArray(result.routes) || result.routes.length === 0) throw new Error('No routes found');
-        routes = result.routes;
+        routes = result.routes.map(addRouteInstructions);
         activeRouteRequestId = null;
         selectedRouteIndex = chooseAlternative && routes.length > 1 ? 1 : 0;
         currentStepIndex = 0;
