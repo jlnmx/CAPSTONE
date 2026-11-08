@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { ArrowRight, Check, Eye, EyeOff, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Check, Eye, EyeOff, LockKeyhole } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 
@@ -29,7 +29,7 @@ export default function LoginView() {
   return (
     <main className="login-screen">
       <section className="login-identity">
-        <div className="login-brand"><span className="brand-emblem brand-emblem-light"><ShieldCheck size={23} /></span><span><strong>HANDA</strong><small>COMMAND CENTER</small></span></div>
+        <div className="login-brand"><span className="brand-emblem brand-emblem-light"><img src="/handa-logo.png" alt="HANDA logo" /></span><span><strong>HANDA</strong><small>COMMAND CENTER</small></span></div>
         <div className="login-intro">
           <div className="eyebrow eyebrow-light"><span className="eyebrow-rule" /> COMMUNITY RESPONSE SYSTEM</div>
           <h1>Ready when<br /><em>it matters.</em></h1>

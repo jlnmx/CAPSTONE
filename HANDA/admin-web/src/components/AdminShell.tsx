@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity, AlertTriangle, BarChart3, Building2, ChevronDown, ClipboardList,
-  Command, LayoutDashboard, LogOut, Map, Menu, Radio, Settings, ShieldCheck,
+  LayoutDashboard, LogOut, Map, Menu, Radio, Settings, ShieldCheck,
   Siren, Users, X,
 } from 'lucide-react';
 import { useAuth } from '../auth';
@@ -44,7 +44,7 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
       <div className={`sidebar-scrim ${menuOpen ? 'is-visible' : ''}`} onClick={() => setMenuOpen(false)} />
       <aside className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`}>
         <div className="brand-lockup">
-          <div className="brand-emblem"><Command size={20} strokeWidth={2.2} /></div>
+          <div className="brand-emblem"><img src="/handa-logo.png" alt="HANDA logo" /></div>
           <div className="brand-copy"><strong>HANDA</strong><span>COMMAND CENTER</span></div>
           <button className="icon-button sidebar-close" onClick={() => setMenuOpen(false)} aria-label="Close navigation"><X size={18} /></button>
         </div>
