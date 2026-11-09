@@ -16,6 +16,8 @@ const emergencyTypes = [
   { label: 'Other / unsure', icon: 'help-circle-outline' as const },
 ];
 
+type IncidentStatus = 'reported' | 'acknowledged' | 'in_progress' | 'resolved';
+
 export default function ResidentSosScreen() {
   const { width } = useWindowDimensions();
   const sosDiameter = Math.min(218, Math.max(176, width - 72));
@@ -24,6 +26,8 @@ export default function ResidentSosScreen() {
   const [isHolding, setIsHolding] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [incidentId, setIncidentId] = useState<string | null>(null);
+  const [incidentStatus, setIncidentStatus] = useState<IncidentStatus>('reported');
   const [feedback, setFeedback] = useState('');
   const progress = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(1)).current;
@@ -86,6 +90,11 @@ export default function ResidentSosScreen() {
         }
         throw new Error(detail || `The emergency service returned ${response.status}.`);
       }
+      const result = await response.json() as { id?: unknown; status?: unknown };
+      if (typeof result.id !== 'string' || !result.id) throw new Error('The emergency service did not return an incident reference.');
+      const nextStatus: IncidentStatus = result.status === 'resolved' || result.status === 'acknowledged' || result.status === 'in_progress' ? result.status : 'reported';
+      setIncidentId(result.id);
+      setIncidentStatus(nextStatus);
       setIsActivated(true);
       progress.setValue(1);
       setFeedback(coordinate
@@ -98,6 +107,31 @@ export default function ResidentSosScreen() {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!incidentId || incidentStatus === 'resolved') return undefined;
+    let mounted = true;
+    const refreshStatus = async () => {
+      try {
+        const response = await authenticatedFetch('/api/v1/incidents');
+        if (!response.ok) throw new Error(`Incident status request failed (${response.status}).`);
+        const incidents = await response.json() as Array<{ id?: unknown; status?: unknown }>;
+        const incident = incidents.find((item) => item.id === incidentId);
+        if (!mounted || !incident) return;
+        if (incident.status === 'resolved' || incident.status === 'acknowledged' || incident.status === 'in_progress' || incident.status === 'reported') {
+          setIncidentStatus(incident.status);
+        }
+      } catch {
+        // Keep the last confirmed status visible while the next refresh retries.
+      }
+    };
+    void refreshStatus();
+    const refresh = setInterval(() => void refreshStatus(), 10_000);
+    return () => {
+      mounted = false;
+      clearInterval(refresh);
+    };
+  }, [incidentId, incidentStatus]);
 
   const startHolding = () => {
     if (isActivated || isSubmitting) return;
@@ -186,11 +220,13 @@ export default function ResidentSosScreen() {
         <Text style={styles.sectionHint}>Optional, but it helps responders prepare.</Text>
         <View style={styles.typeGrid}>{emergencyTypes.map((type) => <Pressable key={type.label} style={[styles.typeChip, selectedType === type.label && styles.typeChipSelected]} onPress={() => setSelectedType(type.label)}><MaterialCommunityIcons name={type.icon} size={17} color={selectedType === type.label ? Colors.white : Colors.primary} /><Text style={[styles.typeLabel, selectedType === type.label && styles.typeLabelSelected]}>{type.label}</Text></Pressable>)}</View>
 
-        <Animated.View style={[styles.sosShell, { transform: [{ scale: pulse }] }]}>
-          <View style={[styles.sosRing, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2 }]}>
-            {renderSosButton()}
-          </View>
-        </Animated.View>
+        {isActivated ? <SosStatusCard status={incidentStatus} /> : (
+          <Animated.View style={[styles.sosShell, { transform: [{ scale: pulse }] }]}>
+            <View style={[styles.sosRing, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2 }]}>
+              {renderSosButton()}
+            </View>
+          </Animated.View>
+        )}
 
         {!!feedback && <Text style={[styles.feedback, isActivated && styles.feedbackSuccess]} accessibilityRole={isActivated ? 'text' : 'alert'}>{feedback}</Text>}
         <View style={styles.expectCard}><MaterialCommunityIcons name="shield-check-outline" size={22} color={Colors.primary} /><View style={styles.expectCopy}><Text style={styles.expectTitle}>WHAT TO EXPECT</Text><Text style={styles.expectText}>{isActivated ? 'Your request is being monitored by emergency responders.' : 'Your location and situation type will be shared with the response team after activation.'}</Text></View></View>
@@ -236,4 +272,57 @@ const styles = StyleSheet.create({
   expectCopy: { flex: 1, marginLeft: 10 },
   expectTitle: { color: Colors.primary, fontSize: 11, fontWeight: '900', letterSpacing: 0.7 },
   expectText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 },
+  statusCard: { width: '100%', maxWidth: 430, marginTop: 20, padding: 18, borderRadius: 14, backgroundColor: '#FFF4DF', shadowColor: Colors.shadowColor, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 7, elevation: 3 },
+  statusCardResolved: { backgroundColor: '#E8F7EA' },
+  statusHeading: { minHeight: 142, flexDirection: 'row', alignItems: 'center' },
+  statusHeadingCopy: { flex: 1, paddingRight: 10 },
+  statusEyebrow: { color: Colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  statusTitle: { color: Colors.primary, fontSize: 22, fontWeight: '900', marginTop: 12 },
+  statusDetail: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 7 },
+  statusProgress: { minHeight: 46, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 8 },
+  statusStep: { alignItems: 'center', gap: 4 },
+  statusStepActive: { opacity: 1 },
+  statusStepLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '700' },
+  statusStepLabelActive: { color: Colors.text, fontWeight: '900' },
+  statusConnector: { flex: 1, height: 3, marginTop: 8, marginHorizontal: 4, borderRadius: 2, backgroundColor: Colors.border },
+  statusConnectorActive: { backgroundColor: Colors.success },
+  statusBarTrack: { height: 6, marginTop: 6, overflow: 'hidden', borderRadius: 3, backgroundColor: '#D7E2EA' },
+  statusBarFill: { height: '100%', borderRadius: 3, backgroundColor: Colors.success },
 });
+
+function SosStatusCard({ status }: { status: IncidentStatus }) {
+  const stage = status === 'resolved' ? 2 : status === 'acknowledged' || status === 'in_progress' ? 1 : 0;
+  const isResolved = status === 'resolved';
+  const title = isResolved ? 'Resolved' : stage === 1 ? 'Help is on the way!' : 'SOS sent';
+  const detail = isResolved
+    ? 'Your emergency request has been completed.'
+    : stage === 1
+      ? 'Responders are responding to your emergency.'
+      : 'Your emergency request was sent to the response team.';
+  const stages = ['Sent', 'Responding', 'Resolved'];
+
+  return (
+    <View style={[styles.statusCard, isResolved && styles.statusCardResolved]}>
+      <View style={styles.statusHeading}>
+        <View style={styles.statusHeadingCopy}>
+          <Text style={styles.statusEyebrow}>EMERGENCY STATUS</Text>
+          <Text style={styles.statusTitle}>{title}</Text>
+          <Text style={styles.statusDetail}>{detail}</Text>
+        </View>
+        <MaterialCommunityIcons name={isResolved ? 'check-circle' : stage === 1 ? 'ambulance' : 'clock-alert-outline'} size={46} color={isResolved ? Colors.success : Colors.secondary} />
+      </View>
+      <View style={styles.statusProgress}>
+        {stages.map((label, index) => (
+          <React.Fragment key={label}>
+            <View style={[styles.statusStep, index <= stage && styles.statusStepActive]}>
+              <MaterialCommunityIcons name={index <= stage ? 'check-circle' : 'circle-outline'} size={18} color={index <= stage ? Colors.success : Colors.border} />
+              <Text style={[styles.statusStepLabel, index <= stage && styles.statusStepLabelActive]}>{label}</Text>
+            </View>
+            {index < stages.length - 1 && <View style={[styles.statusConnector, index < stage && styles.statusConnectorActive]} />}
+          </React.Fragment>
+        ))}
+      </View>
+      <View style={styles.statusBarTrack}><View style={[styles.statusBarFill, { width: `${stage === 0 ? 33 : stage === 1 ? 66 : 100}%` }]} /></View>
+    </View>
+  );
+}
