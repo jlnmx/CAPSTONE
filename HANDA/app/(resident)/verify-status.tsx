@@ -6,7 +6,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { authenticatedFetch } from '@services/apiClient';
-import AppBackArrow from '@components/AppBackArrow';
+import { GradientHeader, Reveal } from '@components/ScreenKit';
+import { PulseDot } from '@components/IncidentCardKit';
 
 const GREEN = '#218B25';
 
@@ -141,13 +142,11 @@ export default function VerifyStatusScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <AppBackArrow />
-          <Text style={[styles.headerTitle, styles.headerCopy]}>VERIFY STATUS</Text>
+        <GradientHeader title="Verify Status" subtitle="Live evacuation check-in" icon="shield-check" right={
           <TouchableOpacity onPress={() => { setIsLoading(true); void loadStatus(); }} accessibilityRole="button" accessibilityLabel="Refresh evacuation status" style={styles.refreshButton}>
             <MaterialCommunityIcons name="refresh" size={22} color={Colors.white} />
           </TouchableOpacity>
-        </View>
+        } />
 
         {isLoading && !status ? (
           <View style={styles.centerState}><ActivityIndicator color={GREEN} /><Text style={styles.stateText}>Loading live evacuation status...</Text></View>
@@ -167,18 +166,18 @@ export default function VerifyStatusScreen() {
           </View>
         ) : status ? (
           <>
-            <View style={styles.personCard}>
+            <Reveal index={0}><View style={styles.personCard}>
               <View style={styles.avatar}><MaterialCommunityIcons name="account" size={26} color={GREEN} /></View>
               <View style={styles.personCopy}>
                 <Text style={styles.personName}>{status.evacuee?.name || status.resident.name}</Text>
                 <Text style={styles.personDetails}>{status.registrationId} · {status.evacuee?.address || 'Address not provided'}</Text>
               </View>
-            </View>
+            </View></Reveal>
 
-            <View style={styles.statusCard}>
+            <Reveal index={1}><View style={[styles.statusCard, status.status === 'checked_in' || status.status === 'evacuated' ? styles.statusCardOk : styles.statusCardPending]}>
               <View style={styles.cardHeading}>
-                <View style={styles.headingTitle}><MaterialCommunityIcons name="check-decagram-outline" size={18} color={GREEN} /><Text style={styles.sectionTitle}>VERIFIED STATUS</Text></View>
-                <Text style={styles.liveTag}>LIVE STATUS</Text>
+                <View style={styles.headingTitle}><MaterialCommunityIcons name="check-decagram-outline" size={18} color={GREEN} /><Text style={styles.sectionTitle}>Verified status</Text></View>
+                <View style={styles.livePill}><PulseDot color={GREEN} /><Text style={styles.liveTag}>LIVE</Text></View>
               </View>
               <View style={styles.statusContent}>
                 <View style={[styles.statusIcon, status.status === 'checked_in' ? styles.statusConfirmed : styles.statusPending]}>
@@ -190,19 +189,19 @@ export default function VerifyStatusScreen() {
                   {status.checkedInAt && <Text style={styles.timestamp}>{new Date(status.checkedInAt).toLocaleString()}</Text>}
                 </View>
               </View>
-            </View>
+            </View></Reveal>
 
-            <View style={styles.assignmentCard}>
+            <Reveal index={2}><View style={styles.assignmentCard}>
               <View style={styles.cardHeading}>
-                <Text style={styles.sectionTitle}>EVACUATION ASSIGNMENT</Text>
+                <Text style={styles.sectionTitle}>Evacuation assignment</Text>
                 <Text style={styles.memberCount}>{status.householdCount} {status.householdCount === 1 ? 'MEMBER' : 'MEMBERS'}</Text>
               </View>
               <Detail icon="map-marker-outline" label="CENTER ASSIGNED" value={status.center?.name || 'Not available'} />
               <Detail icon="map-outline" label="LOCATION" value={status.center?.location || 'Not available'} />
               <Detail icon="account-check-outline" label="CHECK-IN VERIFIED BY" value={status.checkedInBy || 'Awaiting responder'} />
-            </View>
+            </View></Reveal>
 
-            {status.status === 'registered' && <View style={styles.registrationActions}>
+            {status.status === 'registered' && <Reveal index={3}><View style={styles.registrationActions}>
               <TouchableOpacity style={styles.changeCenterButton} onPress={() => void openCenterEditor()} accessibilityRole="button">
                 <MaterialCommunityIcons name="map-marker-edit-outline" size={18} color={GREEN} />
                 <Text style={styles.changeCenterText}>Change center</Text>
@@ -211,19 +210,19 @@ export default function VerifyStatusScreen() {
                 <MaterialCommunityIcons name="close-circle-outline" size={18} color="#A34545" />
                 <Text style={styles.cancelRegistrationText}>Cancel registration</Text>
               </TouchableOpacity>
-            </View>}
+            </View></Reveal>}
             {!!actionMessage && isRegistered && <Text style={styles.actionMessage}>{actionMessage}</Text>}
             {!!actionError && !isCenterEditorOpen && <Text style={styles.staleError}>{actionError}</Text>}
 
-            <View style={styles.householdCard}>
+            <Reveal index={4}><View style={styles.householdCard}>
               <View style={styles.cardHeading}>
-                <Text style={styles.sectionTitle}>HOUSEHOLD MEMBERS</Text>
+                <Text style={styles.sectionTitle}>Household members</Text>
                 <Text style={styles.memberCount}>{status.members.length + 1} TOTAL</Text>
               </View>
               <HouseholdRow name={status.evacuee?.name || status.resident.name} relationship="Evacuee" status={status.status} primary />
               {status.members.map((member) => <HouseholdRow key={member.id} name={member.name} relationship={member.relationship} status={member.status} />)}
               {status.members.length === 0 && <Text style={styles.noMembers}>No additional household members were registered.</Text>}
-            </View>
+            </View></Reveal>
           </>
         ) : null}
         {!!error && status && <Text style={styles.staleError}>{error}</Text>}
@@ -292,10 +291,7 @@ function HouseholdRow({ name, relationship, status, primary = false }: { name: s
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.surfaceMuted },
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 20 },
-  header: { minHeight: 70, paddingHorizontal: 12, backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerCopy: { flex: 1 },
-  headerTitle: { color: Colors.white, fontSize: 24, fontWeight: '800' },
-  refreshButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  refreshButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.18)' },
   centerState: { flex: 1, minHeight: 240, alignItems: 'center', justifyContent: 'center', padding: 26, gap: 12 },
   stateText: { color: Colors.textMuted, fontSize: 13 },
   errorText: { color: '#A34545', fontSize: 13, textAlign: 'center' },
@@ -306,45 +302,48 @@ const styles = StyleSheet.create({
   emptyText: { marginTop: 7, color: Colors.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
   primaryButton: { marginTop: 18, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 5, backgroundColor: GREEN },
   primaryText: { color: Colors.white, fontSize: 12, fontWeight: '700' },
-  personCard: { minHeight: 72, marginHorizontal: 11, marginTop: 13, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center', flexDirection: 'row', borderWidth: 1, borderColor: '#92C092', borderRadius: 6, backgroundColor: Colors.surface },
-  avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted },
-  personCopy: { flex: 1, marginLeft: 10 },
-  personName: { color: Colors.text, fontSize: 13, fontWeight: '800' },
-  personDetails: { marginTop: 4, color: Colors.textMuted, fontSize: 9 },
-  statusCard: { marginHorizontal: 11, marginTop: 10, padding: 11, borderWidth: 1, borderColor: '#78B578', borderRadius: 6, backgroundColor: Colors.surface },
-  cardHeading: { minHeight: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  headingTitle: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  sectionTitle: { color: Colors.text, fontSize: 11, fontWeight: '800' },
-  liveTag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, backgroundColor: Colors.surfaceMuted, color: GREEN, fontSize: 8, fontWeight: '700' },
-  statusContent: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  statusIcon: { width: 38, height: 38, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
-  statusConfirmed: { backgroundColor: '#83B982' },
-  statusPending: { backgroundColor: '#D99932' },
+  personCard: { minHeight: 80, marginHorizontal: 14, marginTop: 16, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', borderWidth: 1, borderColor: '#E0EAE0', borderRadius: 20, backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
+  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E4F1E4' },
+  personCopy: { flex: 1, marginLeft: 12 },
+  personName: { color: Colors.text, fontFamily: 'Sora_700Bold', fontSize: 15 },
+  personDetails: { marginTop: 4, color: Colors.textMuted, fontSize: 11 },
+  statusCard: { marginHorizontal: 14, marginTop: 12, padding: 16, borderWidth: 1, borderColor: '#E0EAE0', borderLeftWidth: 6, borderRadius: 20, backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
+  statusCardOk: { borderLeftColor: GREEN },
+  statusCardPending: { borderLeftColor: '#E0A02E' },
+  livePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, backgroundColor: '#E4F1E4' },
+  cardHeading: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  headingTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionTitle: { color: Colors.text, fontFamily: 'Sora_700Bold', fontSize: 14 },
+  liveTag: { color: GREEN, fontSize: 10, fontWeight: '800' },
+  statusContent: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  statusIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  statusConfirmed: { backgroundColor: GREEN },
+  statusPending: { backgroundColor: '#E0A02E' },
   statusCopy: { flex: 1 },
-  statusLabel: { color: Colors.text, fontSize: 13, fontWeight: '900' },
-  statusDescription: { marginTop: 3, color: Colors.textMuted, fontSize: 10 },
-  timestamp: { marginTop: 3, color: Colors.textMuted, fontSize: 9 },
-  assignmentCard: { marginHorizontal: 11, marginTop: 10, padding: 11, borderWidth: 1, borderColor: '#78B578', borderRadius: 6, backgroundColor: Colors.surface },
-  memberCount: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, backgroundColor: Colors.surfaceMuted, color: GREEN, fontSize: 8, fontWeight: '700' },
-  detailRow: { minHeight: 39, flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: '#EDF2ED' },
+  statusLabel: { color: Colors.text, fontFamily: 'Sora_700Bold', fontSize: 16 },
+  statusDescription: { marginTop: 4, color: Colors.textMuted, fontSize: 12, lineHeight: 17 },
+  timestamp: { marginTop: 4, color: Colors.textMuted, fontSize: 10 },
+  assignmentCard: { marginHorizontal: 14, marginTop: 12, padding: 16, borderWidth: 1, borderColor: '#E0EAE0', borderRadius: 20, backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
+  memberCount: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, backgroundColor: '#E4F1E4', color: GREEN, fontSize: 10, fontWeight: '700', overflow: 'hidden' },
+  detailRow: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: '#EDF2ED' },
   detailCopy: { flex: 1 },
-  detailLabel: { color: Colors.textMuted, fontSize: 8, fontWeight: '800' },
-  detailValue: { marginTop: 2, color: Colors.textMuted, fontSize: 11, fontWeight: '600' },
-  householdCard: { marginHorizontal: 11, marginTop: 10, padding: 10, borderWidth: 1, borderColor: '#78B578', borderRadius: 6, backgroundColor: Colors.surface },
-  memberRow: { minHeight: 49, marginTop: 6, paddingHorizontal: 8, alignItems: 'center', flexDirection: 'row', gap: 8, borderWidth: 1, borderColor: '#B6D4B6', borderRadius: 12, backgroundColor: Colors.surfaceMuted },
-  memberAvatar: { width: 31, height: 31, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#88B788', borderRadius: 17, backgroundColor: Colors.surface },
+  detailLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  detailValue: { marginTop: 2, color: Colors.text, fontSize: 13, fontWeight: '600' },
+  householdCard: { marginHorizontal: 14, marginTop: 12, padding: 16, borderWidth: 1, borderColor: '#E0EAE0', borderRadius: 20, backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
+  memberRow: { minHeight: 56, marginTop: 8, paddingHorizontal: 10, alignItems: 'center', flexDirection: 'row', gap: 10, borderRadius: 14, backgroundColor: '#F4F9F4' },
+  memberAvatar: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: Colors.surface },
   memberCopy: { flex: 1 },
-  memberName: { color: Colors.text, fontSize: 11, fontWeight: '800' },
-  memberRelationship: { marginTop: 2, color: Colors.textMuted, fontSize: 9 },
-  memberStatus: { maxWidth: 92, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: Colors.surfaceMuted, color: Colors.textMuted, fontSize: 7, fontWeight: '800', textAlign: 'center' },
+  memberName: { color: Colors.text, fontSize: 13, fontWeight: '800' },
+  memberRelationship: { marginTop: 2, color: Colors.textMuted, fontSize: 11 },
+  memberStatus: { maxWidth: 100, overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, backgroundColor: '#E4EBE4', color: Colors.textMuted, fontSize: 8, fontWeight: '800', textAlign: 'center' },
   memberStatusConfirmed: { backgroundColor: '#78AE78', color: Colors.white },
   noMembers: { paddingVertical: 12, color: Colors.textMuted, fontSize: 10 },
   staleError: { margin: 12, color: '#A34545', fontSize: 10 },
-  registrationActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginHorizontal: 11, marginTop: 10 },
-  changeCenterButton: { minHeight: 40, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: GREEN, borderRadius: 6, backgroundColor: Colors.surface },
-  changeCenterText: { color: GREEN, fontSize: 11, fontWeight: '700' },
-  cancelRegistrationButton: { minHeight: 40, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#D5A5A5', borderRadius: 6, backgroundColor: Colors.surface },
-  cancelRegistrationText: { color: '#A34545', fontSize: 11, fontWeight: '700' },
+  registrationActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginHorizontal: 14, marginTop: 12 },
+  changeCenterButton: { minHeight: 48, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 10, borderWidth: 1.5, borderColor: GREEN, borderRadius: 16, backgroundColor: Colors.surface },
+  changeCenterText: { color: GREEN, fontSize: 13, fontWeight: '700' },
+  cancelRegistrationButton: { minHeight: 48, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 10, borderWidth: 1.5, borderColor: '#D5A5A5', borderRadius: 16, backgroundColor: Colors.surface },
+  cancelRegistrationText: { color: '#A34545', fontSize: 13, fontWeight: '700' },
   actionMessage: { marginHorizontal: 14, marginTop: 10, color: GREEN, fontSize: 12, lineHeight: 17, textAlign: 'center' },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: 'rgba(0,0,0,0.5)' },
   modalCard: { width: '100%', maxWidth: 440, maxHeight: '90%', padding: 18, borderRadius: 8, backgroundColor: Colors.surface },

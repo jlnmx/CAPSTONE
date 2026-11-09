@@ -4,7 +4,8 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
-import AppBackArrow from '@components/AppBackArrow';
+import { LinearGradient } from 'expo-linear-gradient';
+import { GradientHeader, Reveal } from '@components/ScreenKit';
 
 type Guide = {
   title: string;
@@ -83,10 +84,10 @@ export default function PreparednessGuideScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}><AppBackArrow /><View style={styles.headerCopy}><Text style={styles.headerTitle}>GUIDE</Text><Text style={styles.headerSubtitle}>PREPAREDNESS GUIDE</Text></View></View>
+        <GradientHeader title="Preparedness Guide" subtitle="Know what to do before, during and after" icon="book-open-page-variant" />
         {selectedGuide ? <GuideDetail guide={selectedGuide} openSection={openSection} setOpenSection={setOpenSection} onBack={() => setSelectedGuide(null)} /> : <>
-          <View style={styles.search}><MaterialCommunityIcons name="menu" size={18} color={Colors.white} /><TextInput value={search} onChangeText={setSearch} placeholder="Search type of disaster" placeholderTextColor="#D8EAD8" style={styles.searchInput} /><MaterialCommunityIcons name="magnify" size={22} color={Colors.white} /></View>
-          <View style={styles.list}>{visibleGuides.map((guide) => <GuideCard key={guide.title} guide={guide} onPress={() => openGuide(guide)} />)}</View>
+          <View style={styles.search}><MaterialCommunityIcons name="magnify" size={22} color="#218B25" /><TextInput value={search} onChangeText={setSearch} placeholder="Search type of disaster" placeholderTextColor="#8FA891" style={styles.searchInput} /></View>
+          <View style={styles.list}>{visibleGuides.map((guide, index) => <Reveal key={guide.title} index={index}><GuideCard guide={guide} onPress={() => openGuide(guide)} /></Reveal>)}</View>
         </>}
       </ScrollView>
     </SafeAreaView>
@@ -131,9 +132,51 @@ function GuideCard({ guide, onPress }: { guide: Guide; onPress: () => void }) {
   </Pressable>;
 }
 
+const phaseMeta = {
+  before: { label: 'Before', icon: 'clipboard-check-outline', color: '#2F7FD1', hint: 'Prepare ahead' },
+  during: { label: 'During', icon: 'alert-octagon-outline', color: '#D9822B', hint: 'Stay safe in the moment' },
+  after: { label: 'After', icon: 'shield-check-outline', color: '#218B25', hint: 'Recover carefully' },
+} as const;
+
+function AccordionBody({ tips, color }: { tips: string[]; color: string }) {
+  const enter = useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    Animated.timing(enter, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [enter]);
+  return <Animated.View style={[styles.accordionBody, { opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }] }]}>
+    {tips.map((tip, index) => <View key={tip} style={styles.tipRow}><View style={[styles.tipNumber, { backgroundColor: `${color}1A` }]}><Text style={[styles.tipNumberText, { color }]}>{index + 1}</Text></View><Text style={styles.tip}>{tip}</Text></View>)}
+  </Animated.View>;
+}
+
 function GuideDetail({ guide, openSection, setOpenSection, onBack }: { guide: Guide; openSection: 'before' | 'during' | 'after' | null; setOpenSection: (section: 'before' | 'during' | 'after' | null) => void; onBack: () => void }) {
   const sections = { before: guide.before, during: guide.during, after: guide.after };
-  return <View style={styles.detail}><Pressable style={styles.backButton} onPress={onBack}><MaterialCommunityIcons name="arrow-left" size={20} color="#218B25" /><Text style={styles.backText}>All disasters</Text></Pressable><Text style={styles.detailTitle}>{titleCase(guide.title)}</Text><Image source={guide.image} style={styles.disasterImage} /><View style={styles.accordionList}>{(['before', 'during', 'after'] as const).map((section) => <View key={section} style={styles.accordion}><Pressable style={styles.accordionHeader} onPress={() => setOpenSection(openSection === section ? null : section)}><Text style={styles.accordionTitle}>{section.toUpperCase()}</Text><MaterialCommunityIcons name={openSection === section ? 'chevron-up' : 'chevron-down'} size={22} color="#78A67B" /></Pressable>{openSection === section && <View style={styles.accordionBody}>{sections[section].map((tip) => <Text key={tip} style={styles.tip}>· {tip}</Text>)}</View>}</View>)}</View></View>;
+  return <View style={styles.detail}>
+    <Pressable style={styles.backButton} onPress={onBack}><MaterialCommunityIcons name="arrow-left" size={18} color="#218B25" /><Text style={styles.backText}>All disasters</Text></Pressable>
+    <Reveal index={0}>
+      <View style={styles.hero}>
+        <Image source={guide.image} style={styles.disasterImage} />
+        <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.72)']} style={styles.heroShade} />
+        <View style={styles.heroCopy}>
+          <View style={styles.heroIcon}><MaterialCommunityIcons name={guide.icon} size={22} color="#FFFFFF" /></View>
+          <View style={styles.heroText}><Text style={styles.detailTitle}>{titleCase(guide.title)} Safety</Text><Text style={styles.heroSub}>{guide.before.length + guide.during.length + guide.after.length} steps to keep you safe</Text></View>
+        </View>
+      </View>
+    </Reveal>
+    <View style={styles.accordionList}>{(['before', 'during', 'after'] as const).map((section, index) => {
+      const meta = phaseMeta[section];
+      const open = openSection === section;
+      return <Reveal key={section} index={index + 1}>
+        <View style={[styles.accordion, open && { borderColor: meta.color }]}>
+          <Pressable style={styles.accordionHeader} onPress={() => setOpenSection(open ? null : section)} accessibilityRole="button" accessibilityState={{ expanded: open }}>
+            <View style={[styles.phaseIcon, { backgroundColor: `${meta.color}1A` }]}><MaterialCommunityIcons name={meta.icon} size={20} color={meta.color} /></View>
+            <View style={styles.phaseCopy}><Text style={styles.accordionTitle}>{meta.label}</Text><Text style={styles.phaseHint}>{meta.hint} · {sections[section].length} steps</Text></View>
+            <MaterialCommunityIcons name={open ? 'chevron-up' : 'chevron-down'} size={24} color={meta.color} />
+          </Pressable>
+          {open && <AccordionBody tips={sections[section]} color={meta.color} />}
+        </View>
+      </Reveal>;
+    })}</View>
+  </View>;
 }
 
 function titleCase(value: string) {
@@ -148,26 +191,38 @@ const styles = StyleSheet.create({
   headerCopy: { flex: 1 },
   headerTitle: { color: Colors.white, fontSize: 24, fontWeight: '900', lineHeight: 25 },
   headerSubtitle: { color: Colors.white, fontSize: 15, fontWeight: '800', lineHeight: 17 },
-  search: { height: 36, marginHorizontal: 5, marginVertical: 15, paddingHorizontal: 11, borderRadius: 18, backgroundColor: '#73AE6F', flexDirection: 'row', alignItems: 'center' },
-  searchInput: { flex: 1, color: Colors.white, fontSize: 11, marginHorizontal: 10, paddingVertical: 0 },
-  list: { gap: 12, marginHorizontal: 12 },
-  guideCard: { minHeight: 88, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  search: { height: 48, marginHorizontal: 14, marginTop: 18, marginBottom: 14, paddingHorizontal: 14, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#D9E3D9', flexDirection: 'row', alignItems: 'center' },
+  searchInput: { flex: 1, color: Colors.text, fontSize: 14, marginHorizontal: 10, paddingVertical: 0 },
+  list: { gap: 12, marginHorizontal: 14 },
+  guideCard: { minHeight: 96, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 22, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#000000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 12, elevation: 4 },
   guideCopy: { flex: 1, minWidth: 0 },
   guideChip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 5, marginBottom: 5 },
   guideChipText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
-  guideTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  guideSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 11, lineHeight: 15, marginTop: 2 },
+  guideTitle: { color: '#FFFFFF', fontFamily: 'Sora_700Bold', fontSize: 15 },
+  guideSubtitle: { color: 'rgba(255,255,255,0.88)', fontSize: 12, lineHeight: 16, marginTop: 2 },
   guideChevron: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
-  guideIcon: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  detail: { paddingHorizontal: 10, paddingTop: 10 },
-  backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingVertical: 4 },
-  backText: { color: '#218B25', fontSize: 11, fontWeight: '700', marginLeft: 5 },
-  detailTitle: { color: Colors.text, fontSize: 18, fontWeight: '800', marginTop: 6, marginBottom: 6 },
-  disasterImage: { width: '100%', height: 125, borderRadius: 7, resizeMode: 'cover' },
-  accordionList: { gap: 9, marginTop: 14 },
-  accordion: { borderWidth: 1, borderColor: '#8BC58B', borderRadius: 8, overflow: 'hidden' },
-  accordionHeader: { minHeight: 58, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  accordionTitle: { color: Colors.text, fontSize: 16, fontWeight: '800' },
-  accordionBody: { paddingHorizontal: 12, paddingBottom: 10 },
-  tip: { color: Colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 2 },
+  guideIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  detail: { paddingHorizontal: 14, paddingTop: 14 },
+  backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#E4F1E4', marginBottom: 12 },
+  backText: { color: '#218B25', fontSize: 12, fontWeight: '700', marginLeft: 5 },
+  hero: { height: 200, borderRadius: 22, overflow: 'hidden', backgroundColor: '#1B2A1C' },
+  disasterImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  heroShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120 },
+  heroCopy: { position: 'absolute', left: 14, right: 14, bottom: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  heroIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.22)' },
+  heroText: { flex: 1 },
+  detailTitle: { color: '#FFFFFF', fontFamily: 'Sora_700Bold', fontSize: 20 },
+  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
+  accordionList: { gap: 12, marginTop: 16 },
+  accordion: { borderWidth: 1.5, borderColor: '#E0EAE0', borderRadius: 20, overflow: 'hidden', backgroundColor: '#FFFFFF', shadowColor: '#103A18', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 2 },
+  accordionHeader: { minHeight: 68, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  phaseIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  phaseCopy: { flex: 1 },
+  accordionTitle: { color: Colors.text, fontFamily: 'Sora_700Bold', fontSize: 16 },
+  phaseHint: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
+  accordionBody: { paddingHorizontal: 14, paddingBottom: 14, gap: 10 },
+  tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  tipNumber: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  tipNumberText: { fontSize: 11, fontWeight: '800' },
+  tip: { flex: 1, color: Colors.text, fontSize: 13, lineHeight: 19 },
 });

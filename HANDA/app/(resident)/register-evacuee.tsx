@@ -8,7 +8,7 @@ import { authenticatedFetch } from '@services/apiClient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
-import AppBackArrow from '@components/AppBackArrow';
+import { GradientHeader, SectionCard, Field, SexToggle } from '@components/ScreenKit';
 import { HouseholdMemberFields, EMPTY_MEMBER_DRAFT, HouseholdMemberDraft as MemberFormDraft, draftToMember, memberToDraft, memberSummary, validateMemberDraft, isMemberComplete } from '@components/HouseholdMemberFields';
 import type { ResidentHouseholdMember } from '@types/index';
 import { saveLocalEvacuationRegistration } from '@services/localDatabase';
@@ -79,7 +79,6 @@ export default function RegisterEvacueeScreen() {
   const [lastName, setLastName] = useState('');
   const [age, setAge] = useState(() => String(calculateAge(user?.birthday) ?? ''));
   const [sex, setSex] = useState(() => normalizeSex(user?.sex));
-  const [isSexOpen, setIsSexOpen] = useState(false);
   const [contactNumber, setContactNumber] = useState(() => user?.mobileNumber ?? '');
   const [address, setAddress] = useState('');
   const [centerId, setCenterId] = useState(requestedCenterId ?? '');
@@ -329,10 +328,7 @@ export default function RegisterEvacueeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.titleBand}>
-          <AppBackArrow />
-          <View><Text style={styles.title}>REGISTER</Text><Text style={styles.title}>EVACUEE</Text></View>
-        </View>
+        <GradientHeader title="Register Evacuee" subtitle="Reserve a safe space for your household" icon="home-heart" />
 
         {isCheckingExistingRegistration ? (
           <View style={styles.registrationGuard}>
@@ -349,44 +345,23 @@ export default function RegisterEvacueeScreen() {
             </AnimatedPressable>
           </View>
         ) : <View style={styles.form}>
-          <FieldLabel label="First Name" required />
-          <TextInput style={styles.input} placeholder="Enter first name" placeholderTextColor="#A6C1A7" value={firstName} onChangeText={setFirstName} />
-          <FieldLabel label="Middle Name" />
-          <TextInput style={styles.input} placeholder="Enter middle name" placeholderTextColor="#A6C1A7" value={middleName} onChangeText={setMiddleName} />
-          <FieldLabel label="Last Name" required />
-          <TextInput style={styles.input} placeholder="Enter last name" placeholderTextColor="#A6C1A7" value={lastName} onChangeText={setLastName} />
+          <SectionCard index={0} title="Your details" icon="account-outline">
+            <Field label="First name" required placeholder="Enter first name" value={firstName} onChangeText={setFirstName} />
+            <Field label="Middle name" placeholder="Enter middle name" value={middleName} onChangeText={setMiddleName} />
+            <Field label="Last name" required placeholder="Enter last name" value={lastName} onChangeText={setLastName} />
+            <Field label="Age" required placeholder="Years" keyboardType="number-pad" maxLength={3} value={age} onChangeText={setAge} />
+            <SexToggle value={sex} onChange={setSex} fromAccount={!!normalizeSex(user?.sex) && sex === normalizeSex(user?.sex)} />
+            <Field label="Contact number" required placeholder="(+63) 900-000-0000" keyboardType="phone-pad" value={contactNumber} onChangeText={setContactNumber} />
+            <Field label="Address" required placeholder="Enter full address" value={address} onChangeText={setAddress} />
+          </SectionCard>
 
-          <View style={[styles.inlineFields, isMobile && styles.inlineFieldsStacked]}>
-            <View style={[styles.halfField, isCompact && styles.halfFieldStacked]}>
-              <FieldLabel label="Age" required />
-              <TextInput style={styles.input} placeholder="Years" placeholderTextColor="#A6C1A7" keyboardType="number-pad" value={age} onChangeText={setAge} />
-            </View>
-            <View style={[styles.halfField, isCompact && styles.halfFieldStacked, isSexOpen && styles.openPickerField]}>
-              <FieldLabel label="Sex" required />
-              <AnimatedPressable style={styles.selectField} onPress={() => setIsSexOpen((open) => !open)}>
-                <Text style={[styles.fieldText, !sex && styles.placeholder]}>{sex || 'Select'}</Text>
-                <MaterialCommunityIcons name={isSexOpen ? 'chevron-up' : 'chevron-down'} size={18} color={GREEN} />
-              </AnimatedPressable>
-              {isSexOpen && (
-                <View style={styles.sexOptions}>
-                  {SEXES.map((item) => <AnimatedPressable key={item} style={styles.sexOption} onPress={() => { setSex(item); setIsSexOpen(false); }}><Text style={styles.fieldText}>{item}</Text></AnimatedPressable>)}
-                </View>
-              )}
-            </View>
-          </View>
-
-          <FieldLabel label="Contact Number" required />
-          <TextInput style={styles.input} placeholder="(+63) 900-000-0000" placeholderTextColor="#A6C1A7" keyboardType="phone-pad" value={contactNumber} onChangeText={setContactNumber} />
-
-          <Text style={styles.sectionHeading}>HOUSEHOLD INFORMATION</Text>
-          <FieldLabel label="Address" required />
-          <TextInput style={styles.input} placeholder="Enter Full Address" placeholderTextColor="#A6C1A7" value={address} onChangeText={setAddress} />
           <View style={styles.householdHeading}>
             <View><Text style={styles.sectionHeading}>HOUSEHOLD MEMBERS</Text><Text style={styles.householdCount}>{members.length + 1} people including you</Text></View>
             <AnimatedPressable style={[styles.addMemberButton, (isHouseholdLoading || members.length >= 20) && styles.submitDisabled]} onPress={() => openMemberEditor()} disabled={isHouseholdLoading || members.length >= 20} accessibilityRole="button" accessibilityLabel="Add household member">
               <MaterialCommunityIcons name="plus" size={17} color={Colors.white} /><Text style={styles.addMemberText}>Add member</Text>
             </AnimatedPressable>
           </View>
+          <View style={styles.formRest}>
           {isHouseholdLoading && <View style={styles.householdLoading}><ActivityIndicator color={GREEN} size="small" /><Text style={styles.householdCount}>Loading saved household members...</Text></View>}
           {members.length === 0 && <Text style={styles.noMembers}>No additional household members yet. Use Add member to include them in this registration.</Text>}
           {members.map((member, index) => (
@@ -397,7 +372,7 @@ export default function RegisterEvacueeScreen() {
             </View>
           ))}
           {!!formError && <Text style={styles.formError}>{formError}</Text>}
-          <FieldLabel label="Barangay Center" required />
+          <FieldLabel label="Choose a barangay center" required />
           <View style={styles.centerSearchBox}>
             <MaterialCommunityIcons name="magnify" size={19} color={Colors.textMuted} />
             <TextInput value={centerSearch} onChangeText={setCenterSearch} placeholder="Search center or barangay" placeholderTextColor={Colors.textMuted} style={styles.centerSearchInput} returnKeyType="search" accessibilityLabel="Search evacuation centers" />
@@ -451,6 +426,7 @@ export default function RegisterEvacueeScreen() {
             ))}
           </View>
           {!!centerError && centers.length > 0 && <Text style={styles.centerError}>{centerError}</Text>}
+          </View>
         </View>}
       </ScrollView>
 
@@ -553,35 +529,36 @@ const styles = StyleSheet.create({
   content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingBottom: 12 },
   titleBand: { backgroundColor: GREEN, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 9, flexDirection: 'row', alignItems: 'center', gap: 9 },
   title: { color: Colors.white, fontSize: 20, fontWeight: '800', lineHeight: 22 },
-  centerSearchBox: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 6, backgroundColor: Colors.surface },
-  centerSearchInput: { minWidth: 0, flex: 1, height: 40, padding: 0, color: Colors.text, fontSize: 11 },
+  centerSearchBox: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 10, paddingHorizontal: 12, borderWidth: 1.5, borderColor: '#D9E3D9', borderRadius: 14, backgroundColor: Colors.surface },
+  centerSearchInput: { minWidth: 0, flex: 1, height: 42, padding: 0, color: Colors.text, fontSize: 13 },
   clearCenterSearch: { width: 30, height: 36, alignItems: 'center', justifyContent: 'center' },
-  centerFilterList: { gap: 6, paddingTop: 8, paddingBottom: 2 },
-  centerFilterChip: { minHeight: 30, justifyContent: 'center', paddingHorizontal: 10, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 15, backgroundColor: Colors.surface },
+  centerFilterList: { gap: 8, paddingTop: 10, paddingBottom: 2 },
+  centerFilterChip: { minHeight: 34, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1.5, borderColor: '#D9E3D9', borderRadius: 17, backgroundColor: Colors.surface },
   centerFilterChipSelected: { borderColor: GREEN, backgroundColor: GREEN },
-  centerFilterText: { color: Colors.textMuted, fontSize: 9, fontWeight: '700' },
+  centerFilterText: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
   centerFilterTextSelected: { color: Colors.white },
-  centerSortHeading: { minHeight: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 3 },
-  centerResults: { color: Colors.textMuted, fontSize: 9, fontWeight: '700' },
-  centerSortControl: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 5, backgroundColor: '#E8EEE8' },
-  centerSortOption: { minHeight: 30, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: 4 },
+  centerSortHeading: { minHeight: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  centerResults: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' },
+  centerSortControl: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 12, backgroundColor: '#E8EEE8' },
+  centerSortOption: { minHeight: 34, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderRadius: 9 },
   centerSortOptionSelected: { backgroundColor: Colors.surface },
-  centerSortText: { color: Colors.textMuted, fontSize: 9, fontWeight: '700', textAlign: 'center' },
+  centerSortText: { color: Colors.textMuted, fontSize: 11, fontWeight: '700', textAlign: 'center' },
   centerSortTextSelected: { color: GREEN },
-  selectedCenterSummary: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 9, paddingVertical: 6, borderWidth: 1, borderColor: '#A8CFA8', borderRadius: 6, backgroundColor: '#F1F7F1' },
+  selectedCenterSummary: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1.5, borderColor: '#A8CFA8', borderRadius: 14, backgroundColor: '#F1F7F1' },
   selectedCenterCopy: { flex: 1, minWidth: 0 },
-  selectedCenterLabel: { color: GREEN, fontSize: 8, fontWeight: '800' },
-  selectedCenterName: { color: Colors.text, fontSize: 10, fontWeight: '800', marginTop: 2 },
-  selectedCenterDetail: { color: Colors.textMuted, fontSize: 8, lineHeight: 12, marginTop: 1 },
-  noCenterResults: { paddingVertical: 15, color: Colors.textMuted, fontSize: 10, lineHeight: 15, textAlign: 'center' },
-  form: { paddingHorizontal: 14, paddingBottom: 12 },
+  selectedCenterLabel: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 0.6 },
+  selectedCenterName: { color: Colors.text, fontSize: 13, fontWeight: '800', marginTop: 2 },
+  selectedCenterDetail: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 1 },
+  noCenterResults: { paddingVertical: 15, color: Colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  form: { paddingBottom: 24 },
+  formRest: { paddingHorizontal: 14 },
   registrationGuard: { minHeight: 260, margin: 16, alignItems: 'center', justifyContent: 'center', padding: 24, borderWidth: 1, borderColor: '#B5D4B5', borderRadius: 7, backgroundColor: Colors.surface, gap: 10 },
   registrationGuardTitle: { color: '#1E5322', fontSize: 17, fontWeight: '800', textAlign: 'center' },
   registrationGuardText: { maxWidth: 360, color: Colors.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
   manageRegistrationButton: { minHeight: 44, marginTop: 6, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center', borderRadius: 5, backgroundColor: GREEN },
   manageRegistrationText: { color: Colors.white, fontSize: 12, fontWeight: '800' },
-  sectionHeading: { color: Colors.text, fontSize: 18, marginTop: 12, marginBottom: 1 },
-  label: { color: FIELD_GREEN, fontSize: 9, marginTop: 8, marginBottom: 4 },
+  sectionHeading: { color: Colors.text, fontFamily: 'Sora_700Bold', fontSize: 14 },
+  label: { color: Colors.text, fontFamily: 'Sora_700Bold', fontSize: 14, marginTop: 20, marginBottom: 2 },
   required: { color: '#D33D3D' },
   input: { height: 31, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, paddingHorizontal: 12, color: FIELD_GREEN, fontSize: 10, backgroundColor: Colors.surface },
   inlineFields: { flexDirection: 'row', gap: 10 },
@@ -595,23 +572,23 @@ const styles = StyleSheet.create({
   placeholder: { color: '#A6C1A7' },
   sexOptions: { position: 'absolute', top: 58, left: 0, right: 0, zIndex: 20, borderWidth: 1, borderColor: '#79B879', borderRadius: 6, backgroundColor: '#FFFFFF', opacity: 1, elevation: 8, shadowColor: '#000000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 6 },
   sexOption: { minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#E3EDE3', backgroundColor: '#FFFFFF' },
-  centerList: { gap: 7, marginTop: 2 },
-  centerOption: { minHeight: 46, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  centerOptionSelected: { borderColor: GREEN, backgroundColor: Colors.surfaceMuted },
+  centerList: { gap: 10, marginTop: 10 },
+  centerOption: { minHeight: 58, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, borderColor: '#E0EAE0', borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF' },
+  centerOptionSelected: { borderColor: GREEN, backgroundColor: '#EEF7EE' },
   centerCopy: { flex: 1 },
-  centerName: { color: FIELD_GREEN, fontSize: 11, fontWeight: '700' },
-  centerDetails: { color: Colors.textMuted, fontSize: 9, marginTop: 3 },
-  centerError: { color: '#A34545', fontSize: 10, paddingVertical: 6 },
-  submitButton: { height: 38, backgroundColor: GREEN, borderRadius: 5, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  centerName: { color: Colors.text, fontSize: 14, fontWeight: '700' },
+  centerDetails: { color: Colors.textMuted, fontSize: 11, marginTop: 3 },
+  centerError: { color: '#A34545', fontSize: 11, paddingVertical: 6 },
+  submitButton: { height: 52, backgroundColor: GREEN, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
   submitDisabled: { opacity: 0.55 },
-  submitText: { color: Colors.white, fontSize: 11, fontWeight: '700' },
-  householdHeading: { marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  householdCount: { color: Colors.textMuted, fontSize: 10, marginTop: 3 },
+  submitText: { color: Colors.white, fontSize: 14, fontWeight: '700' },
+  householdHeading: { marginHorizontal: 14, marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  householdCount: { color: Colors.textMuted, fontSize: 11, marginTop: 3 },
   householdLoading: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8 },
-  noMembers: { color: Colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 8 },
-  addMemberButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 10, borderRadius: 5, backgroundColor: GREEN },
-  addMemberText: { color: Colors.white, fontSize: 11, fontWeight: '700' },
-  memberCard: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, paddingLeft: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 6, backgroundColor: Colors.background },
+  noMembers: { color: Colors.textMuted, fontSize: 12, lineHeight: 17, marginTop: 8 },
+  addMemberButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 14, borderRadius: 14, backgroundColor: GREEN },
+  addMemberText: { color: Colors.white, fontSize: 12, fontWeight: '700' },
+  memberCard: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingLeft: 14, borderWidth: 1, borderColor: '#E0EAE0', borderLeftWidth: 5, borderLeftColor: GREEN, borderRadius: 16, backgroundColor: '#FFFFFF' },
   memberCopy: { flex: 1, minWidth: 0 },
   memberFormScroll: { maxHeight: 420 },
   memberName: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
