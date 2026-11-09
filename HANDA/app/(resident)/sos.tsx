@@ -3,11 +3,13 @@ import { Animated, Platform, SafeAreaView, ScrollView, StyleSheet, useWindowDime
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@constants/colors';
-import AppBackArrow from '@components/AppBackArrow';
+import { AppBoldFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 import * as Location from 'expo-location';
 import { authenticatedFetch } from '@services/apiClient';
 import { router } from 'expo-router';
+import { SosIncidentStatus, SosStatusView } from '@components/SosStatusView';
 
 const emergencyTypes = [
   { label: 'Flood / landslide', icon: 'waves' as const },
@@ -17,11 +19,11 @@ const emergencyTypes = [
   { label: 'Other / unsure', icon: 'help-circle-outline' as const },
 ];
 
-type IncidentStatus = 'reported' | 'acknowledged' | 'in_progress' | 'resolved';
+type IncidentStatus = SosIncidentStatus;
 
 export default function ResidentSosScreen() {
-  const { width } = useWindowDimensions();
-  const sosDiameter = Math.min(218, Math.max(176, width - 72));
+  const { width, height } = useWindowDimensions();
+  const sosDiameter = Math.min(236, Math.max(176, Math.min(width - 72, height * 0.32)));
   const sosButtonDiameter = sosDiameter - 34;
   const [selectedType, setSelectedType] = useState('Other / unsure');
   const [isHolding, setIsHolding] = useState(false);
@@ -29,6 +31,9 @@ export default function ResidentSosScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [incidentId, setIncidentId] = useState<string | null>(null);
   const [incidentStatus, setIncidentStatus] = useState<IncidentStatus>('reported');
+  const [sentAt, setSentAt] = useState<Date | null>(null);
+  const [locationLabel, setLocationLabel] = useState('Location unavailable');
+  const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [feedback, setFeedback] = useState('');
   const progress = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(1)).current;
@@ -96,6 +101,8 @@ export default function ResidentSosScreen() {
       const nextStatus: IncidentStatus = result.status === 'resolved' || result.status === 'acknowledged' || result.status === 'in_progress' ? result.status : 'reported';
       setIncidentId(result.id);
       setIncidentStatus(nextStatus);
+      setSentAt(new Date());
+      setLocationLabel(coordinate ? `${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}` : 'Location unavailable');
       setIsActivated(true);
       progress.setValue(1);
       setFeedback(coordinate
@@ -116,9 +123,10 @@ export default function ResidentSosScreen() {
       try {
         const response = await authenticatedFetch('/api/v1/incidents');
         if (!response.ok) throw new Error(`Incident status request failed (${response.status}).`);
-        const incidents = await response.json() as Array<{ id?: unknown; status?: unknown }>;
+        const incidents = await response.json() as Array<{ id?: unknown; status?: unknown; response_eta_minutes?: unknown }>;
         const incident = incidents.find((item) => item.id === incidentId);
         if (!mounted || !incident) return;
+        if (typeof incident.response_eta_minutes === 'number') setEtaMinutes(incident.response_eta_minutes);
         if (incident.status === 'resolved' || incident.status === 'acknowledged' || incident.status === 'in_progress' || incident.status === 'reported') {
           setIncidentStatus(incident.status);
         }
@@ -181,8 +189,8 @@ export default function ResidentSosScreen() {
         width: sosButtonDiameter,
         height: sosButtonDiameter,
         borderRadius: sosButtonDiameter / 2,
-        backgroundColor: isHolding ? '#246E45' : Colors.success,
-        border: `4px solid ${isHolding ? '#246E45' : '#8FC5A0'}`,
+        backgroundColor: isHolding ? '#B42318' : Colors.emergency,
+        border: `4px solid ${isHolding ? '#B42318' : '#F6B1AB'}`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -206,42 +214,75 @@ export default function ResidentSosScreen() {
       </Pressable>
     );
 
+  const handleReturnHome = () => router.replace('/(resident)');
+  const handleOpenContacts = () => router.push('/(resident)/emergency-contacts');
+
   return (
     <SafeAreaView style={styles.safeArea}>
+      <LinearGradient colors={['#176B2D', '#25A04A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <View style={styles.headerIcon}><MaterialCommunityIcons name={isActivated ? 'radar' : 'alarm-light-outline'} size={22} color={Colors.white} /></View>
+        <View style={styles.headerCopy}>
+          <Text darkText style={styles.headerTitle}>{isActivated ? 'Emergency Status' : 'Emergency SOS'}</Text>
+          <Text darkText style={styles.headerSubtitle}>{isActivated ? 'Live updates from the response team' : 'Biñan City response network'}</Text>
+        </View>
+      </LinearGradient>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}><AppBackArrow /><Text style={styles.headerTitle}>{isActivated ? 'EMERGENCY STATUS' : 'EMERGENCY SOS'}</Text></View>
         <View style={styles.contentBody}>
-        {isActivated ? (
-          <View style={styles.statusPageHeading}>
-            <MaterialCommunityIcons name="arrow-left-circle-outline" size={18} color={Colors.primary} />
-            <View style={styles.statusBadge}><MaterialCommunityIcons name="alert-outline" size={13} color="#A85B00" /><Text style={styles.statusBadgeText}>RESCUE</Text></View>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.eyebrow}>HANDA EMERGENCY ASSISTANCE</Text>
-            <Text style={styles.title}>Need immediate help?</Text>
-            <Text style={styles.description}>Touch and hold the SOS button for 2 seconds to alert the response team.</Text>
-          </>
-        )}
+          {isActivated ? (
+            <SosStatusView
+              status={incidentStatus}
+              emergencyType={selectedType}
+              locationLabel={locationLabel}
+              sentAt={sentAt}
+              etaMinutes={etaMinutes}
+              onReturnHome={handleReturnHome}
+              onOpenContacts={handleOpenContacts}
+            />
+          ) : (
+            <View style={styles.sendColumn}>
+              <Text style={styles.title}>Need immediate help?</Text>
+              <Text style={styles.description}>Press and hold the SOS button for 2 seconds to alert the response team and share your location.</Text>
 
-        {!isActivated && <View style={styles.readiness}><View style={styles.readinessDot} /><Text style={styles.readinessText}>RESPONSE NETWORK READY</Text><Text style={styles.readinessDetail}>Location sharing available</Text></View>}
+              <View style={styles.readiness}>
+                <View style={styles.readinessDot} />
+                <Text style={styles.readinessText}>Network ready</Text>
+                <MaterialCommunityIcons name="crosshairs-gps" size={14} color={Colors.textMuted} />
+                <Text style={styles.readinessDetail}>Location sharing on</Text>
+              </View>
 
-        {!isActivated && <>
-          <Text style={styles.sectionTitle}>WHAT KIND OF SITUATION?</Text>
-          <Text style={styles.sectionHint}>Optional, but it helps responders prepare.</Text>
-          <View style={styles.typeGrid}>{emergencyTypes.map((type) => <Pressable key={type.label} style={[styles.typeChip, selectedType === type.label && styles.typeChipSelected]} onPress={() => setSelectedType(type.label)}><MaterialCommunityIcons name={type.icon} size={17} color={selectedType === type.label ? Colors.white : Colors.primary} /><Text style={[styles.typeLabel, selectedType === type.label && styles.typeLabelSelected]}>{type.label}</Text></Pressable>)}</View>
-        </>}
+              <Animated.View style={[styles.sosShell, { transform: [{ scale: pulse }] }]}>
+                <View style={[styles.sosHalo, { width: sosDiameter + 28, height: sosDiameter + 28, borderRadius: (sosDiameter + 28) / 2 }]}>
+                  <View style={[styles.sosRing, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2 }]}>
+                    {renderSosButton()}
+                  </View>
+                </View>
+              </Animated.View>
 
-        {isActivated ? <SosStatusCard status={incidentStatus} /> : (
-          <Animated.View style={[styles.sosShell, { transform: [{ scale: pulse }] }]}>
-            <View style={[styles.sosRing, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2 }]}>
-              {renderSosButton()}
+              {!!feedback && <Text style={styles.feedback} accessibilityRole="alert">{feedback}</Text>}
+
+              <Text style={styles.sectionTitle}>What kind of situation?</Text>
+              <Text style={styles.sectionHint}>Optional, but it helps responders prepare.</Text>
+              <View style={styles.typeGrid}>
+                {emergencyTypes.map((type) => {
+                  const selected = selectedType === type.label;
+                  return (
+                    <Pressable key={type.label} style={[styles.typeChip, selected && styles.typeChipSelected]} onPress={() => setSelectedType(type.label)} accessibilityRole="button" accessibilityState={{ selected }}>
+                      <MaterialCommunityIcons name={type.icon} size={18} color={selected ? Colors.white : Colors.primary} />
+                      <Text style={[styles.typeLabel, selected && styles.typeLabelSelected]}>{type.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={styles.expectCard}>
+                <View style={styles.expectIcon}><MaterialCommunityIcons name="shield-check-outline" size={22} color={Colors.secondary} /></View>
+                <View style={styles.expectCopy}>
+                  <Text style={styles.expectTitle}>What happens next</Text>
+                  <Text style={styles.expectText}>Your location and situation type are shared with CDRRMO responders. You can follow progress live on the next screen.</Text>
+                </View>
+              </View>
             </View>
-          </Animated.View>
-        )}
-
-        {!!feedback && !isActivated && <Text style={[styles.feedback, isActivated && styles.feedbackSuccess]} accessibilityRole="alert">{feedback}</Text>}
-        {isActivated ? <SafetyTips status={incidentStatus} /> : <View style={styles.expectCard}><MaterialCommunityIcons name="shield-check-outline" size={22} color={Colors.primary} /><View style={styles.expectCopy}><Text style={styles.expectTitle}>WHAT TO EXPECT</Text><Text style={styles.expectText}>Your location and situation type will be shared with the response team after activation.</Text></View></View>}
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -250,126 +291,42 @@ export default function ResidentSosScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
-  content: { flexGrow: 1, paddingBottom: 28 },
-  header: { minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, backgroundColor: '#218B25' },
-  headerTitle: { color: Colors.white, fontSize: 14, fontWeight: '800' },
-  contentBody: { alignItems: 'center', paddingTop: 24, paddingHorizontal: 20 },
-  eyebrow: { color: Colors.success, fontSize: 10, fontWeight: '900', letterSpacing: 1.6 },
-  title: { color: Colors.primary, fontSize: 25, fontWeight: '900', textAlign: 'center', marginTop: 8 },
-  description: { maxWidth: 330, color: Colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 7 },
-  readiness: { width: '100%', maxWidth: 430, minHeight: 42, marginTop: 20, paddingHorizontal: 12, borderRadius: 8, backgroundColor: Colors.surfaceMuted, flexDirection: 'row', alignItems: 'center' },
-  readinessDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success, marginRight: 8 },
-  readinessText: { color: Colors.text, fontSize: 10, fontWeight: '900', letterSpacing: 0.7 },
-  readinessDetail: { flex: 1, color: Colors.textMuted, fontSize: 10, textAlign: 'right' },
-  sectionTitle: { color: Colors.primary, fontSize: 12, fontWeight: '900', letterSpacing: 1, marginTop: 21 },
-  sectionHint: { color: Colors.textMuted, fontSize: 11, marginTop: 4 },
-  typeGrid: { maxWidth: 440, marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 7 },
-  typeChip: { minHeight: 36, paddingHorizontal: 12, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, backgroundColor: Colors.surface, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  content: { flexGrow: 1, paddingBottom: 32 },
+  header: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 14, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  headerIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.2)' },
+  headerCopy: { flex: 1 },
+  headerTitle: { color: Colors.white, fontFamily: AppHeadingFontFamily, fontSize: 18 },
+  headerSubtitle: { color: 'rgba(255,255,255,0.85)', fontFamily: AppMediumFontFamily, fontSize: 12, marginTop: 2 },
+  contentBody: { paddingTop: 20, paddingHorizontal: 16 },
+  sendColumn: { width: '100%', maxWidth: 520, alignSelf: 'center', alignItems: 'center' },
+  title: { color: Colors.primary, fontFamily: AppHeadingFontFamily, fontSize: 26, lineHeight: 32, textAlign: 'center' },
+  description: { maxWidth: 360, color: Colors.textMuted, fontFamily: AppMediumFontFamily, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 8 },
+  readiness: { marginTop: 18, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: '#E7F5EB', flexDirection: 'row', alignItems: 'center', gap: 8 },
+  readinessDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
+  readinessText: { color: '#1F5F32', fontFamily: AppBoldFontFamily, fontSize: 12 },
+  readinessDetail: { color: Colors.textMuted, fontFamily: AppMediumFontFamily, fontSize: 12 },
+  sectionTitle: { color: Colors.primary, fontFamily: AppBoldFontFamily, fontSize: 15, marginTop: 26 },
+  sectionHint: { color: Colors.textMuted, fontFamily: AppMediumFontFamily, fontSize: 12, marginTop: 4 },
+  typeGrid: { width: '100%', marginTop: 12, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+  typeChip: { minHeight: 44, paddingHorizontal: 14, borderWidth: 1.5, borderColor: Colors.border, borderRadius: 14, backgroundColor: Colors.surface, flexDirection: 'row', alignItems: 'center', gap: 8 },
   typeChipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary },
-  typeLabel: { color: Colors.primary, fontSize: 10, fontWeight: '700' },
+  typeLabel: { color: Colors.primary, fontFamily: AppSemiboldFontFamily, fontSize: 12 },
   typeLabelSelected: { color: Colors.white },
-  sosShell: { marginTop: 20 },
-  sosRing: { borderWidth: 10, borderColor: '#A8D3B5', backgroundColor: Colors.surfaceMuted, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.success, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 8 },
-  sosButton: { backgroundColor: Colors.success, borderWidth: 4, borderColor: '#8FC5A0', alignItems: 'center', justifyContent: 'center' },
-  sosButtonHolding: { backgroundColor: '#246E45' },
-  sosButtonActivated: { backgroundColor: Colors.success, borderColor: '#8FC5A0' },
+  sosShell: { marginTop: 26 },
+  sosHalo: { backgroundColor: '#FDECEA', alignItems: 'center', justifyContent: 'center' },
+  sosRing: { borderWidth: 10, borderColor: '#F8C7C2', backgroundColor: '#FFF6F5', alignItems: 'center', justifyContent: 'center', shadowColor: Colors.emergency, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.28, shadowRadius: 16, elevation: 10 },
+  sosButton: { backgroundColor: Colors.emergency, borderWidth: 4, borderColor: '#F6B1AB', alignItems: 'center', justifyContent: 'center' },
+  sosButtonHolding: { backgroundColor: '#B42318' },
+  sosButtonActivated: { backgroundColor: Colors.emergency, borderColor: '#F6B1AB' },
   sosButtonPressed: { transform: [{ scale: 0.97 }] },
-  sosLabel: { color: Colors.white, fontSize: 31, fontWeight: '900', marginTop: 2 },
-  sosState: { color: Colors.white, fontSize: 9, fontWeight: '900', marginTop: 4, letterSpacing: 0.4 },
-  progressTrack: { width: 82, height: 7, marginTop: 9, overflow: 'hidden', borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)' },
+  sosLabel: { color: Colors.white, fontFamily: AppHeadingFontFamily, fontSize: 32, marginTop: 2 },
+  sosState: { color: Colors.white, fontFamily: AppBoldFontFamily, fontSize: 10, marginTop: 4, letterSpacing: 0.6 },
+  progressTrack: { width: 88, height: 7, marginTop: 10, overflow: 'hidden', borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)' },
   progressFill: { height: '100%', borderRadius: 4, backgroundColor: Colors.white },
-  feedback: { maxWidth: 340, marginTop: 12, color: Colors.emergency, fontSize: 12, fontWeight: '700', textAlign: 'center' },
-  feedbackSuccess: { color: Colors.success },
-  expectCard: { width: '100%', maxWidth: 430, marginTop: 20, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 8, backgroundColor: Colors.surface, flexDirection: 'row', alignItems: 'flex-start', shadowColor: Colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 5, elevation: 2 },
-  expectCopy: { flex: 1, marginLeft: 10 },
-  expectTitle: { color: Colors.primary, fontSize: 11, fontWeight: '900', letterSpacing: 0.7 },
-  expectText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 },
-  statusCard: { width: '100%', maxWidth: 430, marginTop: 20, padding: 18, borderRadius: 14, backgroundColor: '#FFF4DF', shadowColor: Colors.shadowColor, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 7, elevation: 3 },
-  statusCardResolved: { backgroundColor: '#E8F7EA' },
-  statusHeading: { minHeight: 142, flexDirection: 'row', alignItems: 'center' },
-  statusHeadingCopy: { flex: 1, paddingRight: 10 },
-  statusEyebrow: { color: Colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  statusTitle: { color: Colors.primary, fontSize: 22, fontWeight: '900', marginTop: 12 },
-  statusDetail: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 7 },
-  statusProgress: { minHeight: 46, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginTop: 8 },
-  statusStep: { alignItems: 'center', gap: 4 },
-  statusStepActive: { opacity: 1 },
-  statusStepLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '700' },
-  statusStepLabelActive: { color: Colors.text, fontWeight: '900' },
-  statusConnector: { flex: 1, height: 3, marginTop: 8, marginHorizontal: 4, borderRadius: 2, backgroundColor: Colors.border },
-  statusConnectorActive: { backgroundColor: Colors.success },
-  statusBarTrack: { height: 6, marginTop: 6, overflow: 'hidden', borderRadius: 3, backgroundColor: '#D7E2EA' },
-  statusBarFill: { height: '100%', borderRadius: 3, backgroundColor: Colors.success },
-  statusPercentRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  statusPercentLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '700' },
-  statusPercent: { color: Colors.success, fontSize: 9, fontWeight: '900' },
-  statusPageHeading: { width: '100%', alignItems: 'center', minHeight: 34 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#FFE5B6', marginTop: -4 },
-  statusBadgeText: { color: '#A85B00', fontSize: 9, fontWeight: '900' },
-  statusSubdetail: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 7 },
-  statusIconBubble: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFE5B6' },
-  statusIconBubbleResponding: { backgroundColor: '#D9F0FF' },
-  statusIconBubbleResolved: { backgroundColor: '#CDEFD1' },
-  statusCardResponding: { backgroundColor: '#E8F5FF' },
-  returnHomeButton: { minHeight: 38, alignItems: 'center', justifyContent: 'center', marginTop: 14, borderRadius: 8, backgroundColor: '#43B94D' },
-  returnHomeText: { color: Colors.white, fontSize: 12, fontWeight: '900' },
-  safetyCard: { width: '100%', maxWidth: 430, marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: '#F3FBD9' },
-  safetyHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 },
-  safetyTitle: { color: Colors.primary, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
-  safetyText: { color: Colors.textMuted, fontSize: 10, lineHeight: 16 },
+  feedback: { maxWidth: 360, marginTop: 14, color: Colors.emergency, fontFamily: AppSemiboldFontFamily, fontSize: 13, textAlign: 'center' },
+  expectCard: { width: '100%', marginTop: 24, padding: 16, borderRadius: 18, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  expectIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8F1FA' },
+  expectCopy: { flex: 1 },
+  expectTitle: { color: Colors.primary, fontFamily: AppBoldFontFamily, fontSize: 13 },
+  expectText: { color: Colors.textMuted, fontFamily: AppMediumFontFamily, fontSize: 12, lineHeight: 18, marginTop: 4 },
 });
-
-function SosStatusCard({ status }: { status: IncidentStatus }) {
-  const stage = status === 'resolved' ? 2 : status === 'acknowledged' || status === 'in_progress' ? 1 : 0;
-  const isResolved = status === 'resolved';
-  const isResponding = stage === 1;
-  const title = isResolved ? 'Resolved' : isResponding ? 'Help is on the way!' : 'Processing...';
-  const detail = isResolved
-    ? 'Your emergency request has been completed.'
-    : isResponding
-      ? 'Responders are responding to your emergency.'
-      : 'Waiting for CDRRMO to respond...';
-  const stages = ['Sent', 'Responding', 'Resolved'];
-
-  return (
-    <View style={[styles.statusCard, isResponding && styles.statusCardResponding, isResolved && styles.statusCardResolved]}>
-      <View style={styles.statusHeading}>
-        <View style={styles.statusHeadingCopy}>
-          <Text style={styles.statusEyebrow}>EMERGENCY STATUS</Text>
-          <Text style={styles.statusTitle}>{title}</Text>
-          <Text style={styles.statusDetail}>{detail}</Text>
-          <Text style={styles.statusSubdetail}>{isResolved ? 'You can now continue safely.' : 'Please stay calm and remain where responders can find you.'}</Text>
-        </View>
-        <View style={[styles.statusIconBubble, isResponding && styles.statusIconBubbleResponding, isResolved && styles.statusIconBubbleResolved]}>
-          <MaterialCommunityIcons name={isResolved ? 'check-circle' : isResponding ? 'ambulance' : 'clock-alert-outline'} size={34} color={isResolved ? Colors.success : isResponding ? Colors.secondary : '#F39A00'} />
-        </View>
-      </View>
-      <View style={styles.statusProgress}>
-        {stages.map((label, index) => (
-          <React.Fragment key={label}>
-            <View style={[styles.statusStep, index <= stage && styles.statusStepActive]}>
-              <MaterialCommunityIcons name={index <= stage ? 'check-circle' : 'circle-outline'} size={18} color={index <= stage ? Colors.success : Colors.border} />
-              <Text style={[styles.statusStepLabel, index <= stage && styles.statusStepLabelActive]}>{label}</Text>
-            </View>
-            {index < stages.length - 1 && <View style={[styles.statusConnector, index < stage && styles.statusConnectorActive]} />}
-          </React.Fragment>
-        ))}
-      </View>
-      <View style={styles.statusBarTrack}><View style={[styles.statusBarFill, { width: `${stage === 0 ? 33 : stage === 1 ? 66 : 100}%` }]} /></View>
-      <View style={styles.statusPercentRow}><Text style={styles.statusPercentLabel}>Response progress</Text><Text style={styles.statusPercent}>{stage === 0 ? '33%' : stage === 1 ? '66%' : '100%'}</Text></View>
-      {isResolved && <Pressable style={styles.returnHomeButton} onPress={() => router.replace('/(resident)')} accessibilityRole="button"><Text darkText style={styles.returnHomeText}>Return Home</Text></Pressable>}
-    </View>
-  );
-}
-
-function SafetyTips({ status }: { status: IncidentStatus }) {
-  const isResolved = status === 'resolved';
-  return (
-    <View style={styles.safetyCard}>
-      <View style={styles.safetyHeader}><MaterialCommunityIcons name="shield-check-outline" size={18} color={Colors.success} /><Text style={styles.safetyTitle}>Safety Tips</Text></View>
-      <Text style={styles.safetyText}>• Stay calm and remain in a safe location.</Text>
-      <Text style={styles.safetyText}>• Keep your phone charged and accessible.</Text>
-      <Text style={styles.safetyText}>{isResolved ? '• Thank you for using HANDA emergency assistance.' : '• Follow instructions from the response team.'}</Text>
-    </View>
-  );
-}
