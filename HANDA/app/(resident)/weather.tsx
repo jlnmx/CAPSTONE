@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
-import { fetchPagasaTenDayForecast, getPagasaCurrentPresentation, PAGASA_TEN_DAY_FORECAST_URL, PagasaForecastDay } from '@services/pagasaForecast';
+import { fetchPagasaTenDayForecast, getPagasaCurrentPresentation, PAGASA_API_BASE_URL, PagasaForecastDay } from '@services/pagasaForecast';
 
 function displayDate(value: string, includeYear = false): string {
   const date = new Date(`${value}T00:00:00`);
@@ -54,7 +54,7 @@ export default function WeatherForecastScreen() {
             <MaterialCommunityIcons name="alert-circle-outline" size={32} color={Colors.emergency} />
             <Text style={styles.errorTitle}>Forecast unavailable</Text>
             <Text style={styles.errorText}>{error}</Text>
-            {!PAGASA_TEN_DAY_FORECAST_URL && <Text style={styles.errorText}>Set EXPO_PUBLIC_PAGASA_TEN_DAY_FORECAST_API_URL to the approved PAGASA API or proxy endpoint.</Text>}
+            <Text style={styles.errorText}>Source: {PAGASA_API_BASE_URL}</Text>
             <Pressable onPress={() => void loadForecast()} style={styles.retryButton}><Text darkText style={styles.retryText}>Retry</Text></Pressable>
           </View>
         )}

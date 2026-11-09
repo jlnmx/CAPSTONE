@@ -12,7 +12,12 @@ export type PagasaForecastDay = {
   wind: string;
 };
 
-export const PAGASA_TEN_DAY_FORECAST_URL = process.env.EXPO_PUBLIC_PAGASA_TEN_DAY_FORECAST_API_URL?.trim() ?? '';
+const configuredPagasaUrl = process.env.EXPO_PUBLIC_PAGASA_TEN_DAY_FORECAST_API_URL?.trim().replace(/\/$/, '');
+export const PAGASA_API_BASE_URL = configuredPagasaUrl || 'https://tenday.pagasa.dost.gov.ph';
+export const PAGASA_TEN_DAY_CURRENT_URL = `${PAGASA_API_BASE_URL}/api/v1/tenday/current`;
+export const PAGASA_TEN_DAY_FULL_URL = `${PAGASA_API_BASE_URL}/api/v1/tenday/full`;
+export const PAGASA_LOCATION = { municity: 'Biñan City', province: 'Laguna' };
+const pagasaApiToken = process.env.EXPO_PUBLIC_PAGASA_API_TOKEN?.trim();
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -48,6 +53,8 @@ function iconForCondition(condition: string): PagasaForecastDay['icon'] {
 function normalizeDay(value: unknown): PagasaForecastDay | null {
   const source = asRecord(value);
   const temperature = asRecord(firstValue(source, ['temperature', 'temp']));
+  const rainfall = asRecord(firstValue(source, ['rainfall', 'precipitation']));
+  const wind = asRecord(firstValue(source, ['wind', 'wind_speed', 'windSpeed']));
   const condition = String(firstValue(source, ['condition', 'cloud_cover', 'cloudCover', 'description']) ?? 'No condition reported');
   const date = firstValue(source, ['date', 'forecast_date', 'forecastDate', 'valid_date']);
   if (!date) return null;
@@ -63,25 +70,51 @@ function normalizeDay(value: unknown): PagasaForecastDay | null {
     icon: iconForCondition(condition),
     minTemperature,
     maxTemperature,
-    rainfall: String(firstValue(source, ['rainfall', 'rainfall_amount', 'precipitation']) ?? 'Not reported'),
-    wind: String(firstValue(source, ['wind', 'wind_speed', 'windSpeed']) ?? 'Not reported'),
+    rainfall: String(firstValue(rainfall, ['description', 'total']) ?? firstValue(source, ['rainfall_amount', 'precipitation']) ?? 'Not reported'),
+    wind: String(firstValue(wind, ['speed', 'direction']) ?? firstValue(source, ['wind_speed', 'windSpeed']) ?? 'Not reported'),
   };
 }
 
-export async function fetchPagasaTenDayForecast(): Promise<PagasaForecastDay[]> {
-  if (!PAGASA_TEN_DAY_FORECAST_URL) {
-    throw new Error('PAGASA Ten-Day Forecast API URL is not configured.');
-  }
-
-  const response = await fetch(PAGASA_TEN_DAY_FORECAST_URL);
-  if (!response.ok) throw new Error(`PAGASA forecast request failed (${response.status}).`);
-
-  const payload = await response.json() as unknown;
+function getForecastCandidates(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
   const root = asRecord(payload);
-  const candidates = Array.isArray(payload)
-    ? payload
-    : (Array.isArray(root.forecasts) ? root.forecasts : Array.isArray(root.data) ? root.data : []);
-  const days = candidates.map(normalizeDay).filter((day): day is PagasaForecastDay => day !== null);
+  for (const key of ['forecasts', 'forecast', 'data', 'results']) {
+    const value = root[key];
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === 'object') {
+      const nested = getForecastCandidates(value);
+      if (nested.length > 0) return nested;
+    }
+  }
+  return Object.keys(root).length > 0 ? [payload] : [];
+}
+
+function buildEndpoint(path: string): string {
+  const query = new URLSearchParams(PAGASA_LOCATION);
+  return `${path}?${query.toString()}`;
+}
+
+export async function fetchPagasaTenDayForecast(): Promise<PagasaForecastDay[]> {
+  const headers: HeadersInit = {
+    Accept: 'application/json',
+    ...(pagasaApiToken ? { Authorization: `Bearer ${pagasaApiToken}`, token: pagasaApiToken } : {}),
+  };
+  const [currentResponse, fullResponse] = await Promise.all([
+    fetch(buildEndpoint(PAGASA_TEN_DAY_CURRENT_URL), { headers }),
+    fetch(buildEndpoint(PAGASA_TEN_DAY_FULL_URL), { headers }),
+  ]);
+  if (!currentResponse.ok) throw new Error(`PAGASA current forecast request failed (${currentResponse.status}).`);
+  if (!fullResponse.ok) throw new Error(`PAGASA full forecast request failed (${fullResponse.status}).`);
+
+  const [currentPayload, fullPayload] = await Promise.all([
+    currentResponse.json() as Promise<unknown>,
+    fullResponse.json() as Promise<unknown>,
+  ]);
+  const currentDay = getForecastCandidates(currentPayload).map(normalizeDay).find((day): day is PagasaForecastDay => day !== null);
+  const fullDays = getForecastCandidates(fullPayload).map(normalizeDay).filter((day): day is PagasaForecastDay => day !== null);
+  const days = currentDay && !fullDays.some((day) => day.date === currentDay.date)
+    ? [currentDay, ...fullDays]
+    : fullDays;
   if (days.length === 0) throw new Error('PAGASA returned no ten-day forecast records.');
   return days.slice(0, 10);
 }
