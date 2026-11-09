@@ -18,7 +18,7 @@ const weatherEventPresentation: Record<WeatherEventType, { icon: React.Component
   'high-heat': { icon: 'weather-sunny-alert', color: '#D97725' },
 };
 
-export function WeatherWidget({ weather, weatherEvents, presentation, isLoading, isUnavailable, time, disasterActive = false }: { weather: WeatherSnapshot; weatherEvents: WeatherEvent[]; presentation: WeatherPresentation; isLoading: boolean; isUnavailable: boolean; time: Date; disasterActive?: boolean }) {
+export function WeatherWidget({ weather, weatherEvents, presentation, isLoading, isUnavailable, time, disasterActive = false, onPress }: { weather: WeatherSnapshot; weatherEvents: WeatherEvent[]; presentation: WeatherPresentation; isLoading: boolean; isUnavailable: boolean; time: Date; disasterActive?: boolean; onPress?: () => void }) {
   const [selectedWeatherEventIndex, setSelectedWeatherEventIndex] = useState(0);
   const weatherEventIndex = weatherEvents.length > 0 ? selectedWeatherEventIndex % weatherEvents.length : 0;
   const weatherEventIds = weatherEvents.map((event) => event.id).join('|');
@@ -29,7 +29,7 @@ export function WeatherWidget({ weather, weatherEvents, presentation, isLoading,
   }, [weatherEventIds]);
 
   return <>
-    <View style={styles.weatherCard}>
+    <Pressable style={styles.weatherCard} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? 'Open ten-day weather forecast' : undefined}>
       <LinearGradient colors={presentation.gradient} style={styles.weatherGradient}>
         <MaterialCommunityIcons name={presentation.backgroundIcon} size={138} color="rgba(255,255,255,0.10)" style={styles.backgroundGlyph} />
         <View style={styles.weatherCardTop}><View><Text style={styles.weatherEyebrow}>LIVE CONDITIONS · {timePresentation.label.toUpperCase()}</Text><Text style={styles.weatherLocation}>Biñan City forecast</Text></View><MaterialCommunityIcons name={presentation.icon} size={30} color={Colors.white} /></View>
@@ -37,7 +37,7 @@ export function WeatherWidget({ weather, weatherEvents, presentation, isLoading,
         {isUnavailable && <Text style={styles.weatherMeta}>Showing the latest local estimate for Biñan City.</Text>}
         <SafetyTip presentation={presentation} time={time} disasterActive={disasterActive} />
       </LinearGradient>
-    </View>
+    </Pressable>
     <View style={styles.forecastSection}>
       <View style={[styles.forecastHeading, compactForecastStyles.forecastHeading]}>
         <Text style={styles.forecastTitle}>NEXT 24 HOURS IN BIÑAN</Text>

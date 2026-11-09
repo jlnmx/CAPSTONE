@@ -16,6 +16,7 @@ The frontend services use `https://handa-api.onrender.com` as their API origin. 
 
 - `EXPO_PUBLIC_API_URL` for the resident/responder web app.
 - `EXPO_PUBLIC_MAPBOX_TOKEN` (optional) for Mapbox maps and directions. Without it, the app uses OpenStreetMap tiles and routing.
+- `EXPO_PUBLIC_PAGASA_TEN_DAY_FORECAST_API_URL` for the approved PAGASA Ten-Day Forecast API or server-side proxy endpoint.
 - `VITE_API_URL` for the admin web app.
 
 `CORS_ORIGIN_REGEX` allows only the configured `handa-mobile-web` and `handa-admin-web` Vercel project domains and their Vercel preview variants, plus the corresponding Render sites. Keep the Vercel project names aligned with those prefixes. `CORS_ORIGINS` retains the local development origins.
@@ -31,6 +32,7 @@ Create two separate Vercel projects from the same Git repository. For both, set 
 - Output directory: `dist`
 - Environment variable: `EXPO_PUBLIC_API_URL=https://handa-api.onrender.com`
 - Optional environment variable: `EXPO_PUBLIC_MAPBOX_TOKEN=<restricted-public-mapbox-token>`
+- Required for the resident Weather screen: `EXPO_PUBLIC_PAGASA_TEN_DAY_FORECAST_API_URL=<approved-PAGASA-endpoint>`
 
 **Admin project**
 

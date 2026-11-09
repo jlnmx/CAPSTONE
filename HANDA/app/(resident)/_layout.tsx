@@ -131,6 +131,7 @@ export default function ResidentLayout() {
       <Tabs.Screen name="emergency-contacts" options={{ href: null }} />
       <Tabs.Screen name="preparedness-guide" options={{ href: null }} />
       <Tabs.Screen name="chatbot" options={{ href: null }} />
+      <Tabs.Screen name="weather" options={{ href: null }} />
     </Tabs>
     <StartupLocationPermission />
     </>
