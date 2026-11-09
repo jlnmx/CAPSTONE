@@ -18,7 +18,7 @@ const weatherEventPresentation: Record<WeatherEventType, { icon: React.Component
   'high-heat': { icon: 'weather-sunny-alert', color: '#D97725' },
 };
 
-export function WeatherWidget({ weather, weatherEvents, presentation, isLoading, isUnavailable, time, disasterActive = false, onPress }: { weather: WeatherSnapshot; weatherEvents: WeatherEvent[]; presentation: WeatherPresentation; isLoading: boolean; isUnavailable: boolean; time: Date; disasterActive?: boolean; onPress?: () => void }) {
+export function WeatherWidget({ weather, weatherEvents, presentation, isLoading, isUnavailable, time, disasterActive = false, showForecast = true, onPress }: { weather: WeatherSnapshot; weatherEvents: WeatherEvent[]; presentation: WeatherPresentation; isLoading: boolean; isUnavailable: boolean; time: Date; disasterActive?: boolean; showForecast?: boolean; onPress?: () => void }) {
   const [selectedWeatherEventIndex, setSelectedWeatherEventIndex] = useState(0);
   const weatherEventIndex = weatherEvents.length > 0 ? selectedWeatherEventIndex % weatherEvents.length : 0;
   const weatherEventIds = weatherEvents.map((event) => event.id).join('|');
@@ -38,7 +38,7 @@ export function WeatherWidget({ weather, weatherEvents, presentation, isLoading,
         <SafetyTip presentation={presentation} time={time} disasterActive={disasterActive} />
       </LinearGradient>
     </Pressable>
-    <View style={styles.forecastSection}>
+    {showForecast && <View style={styles.forecastSection}>
       <View style={[styles.forecastHeading, compactForecastStyles.forecastHeading]}>
         <Text style={styles.forecastTitle}>NEXT 24 HOURS IN BIÑAN</Text>
         <Text style={styles.forecastSource}>{weatherEvents.length > 0 ? `Event ${weatherEvents.length > 1 ? `${weatherEventIndex + 1} of ` : ''}${weatherEvents.length} · ` : ''}{isUnavailable ? 'Forecast unavailable' : 'Model outlook'}</Text>
@@ -57,7 +57,7 @@ export function WeatherWidget({ weather, weatherEvents, presentation, isLoading,
           </Pressable>
         </View>
       </View>
-    </View>
+    </View>}
   </>;
 }
 

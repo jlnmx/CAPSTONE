@@ -148,7 +148,7 @@ export default function ResidentDashboard() {
           </View>
         </View>
 
-        <WeatherWidget weather={weather} weatherEvents={weatherEvents} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={disasterIsActive} onPress={() => router.push('/(resident)/weather')} />
+        <WeatherWidget weather={weather} weatherEvents={weatherEvents} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={disasterIsActive} showForecast={false} onPress={() => router.push('/(resident)/weather')} />
 
         {disasterIsActive && activeDisaster && (
           <ActiveDisasterCard
