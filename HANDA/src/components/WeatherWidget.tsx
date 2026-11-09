@@ -29,7 +29,7 @@ export function WeatherWidget({ weather, weatherEvents, presentation, isLoading,
   }, [weatherEventIds]);
 
   return <>
-    <Pressable style={styles.weatherCard} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? 'Open ten-day weather forecast' : undefined}>
+    <Pressable style={styles.weatherCard} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? 'Open seven-day weather forecast' : undefined}>
       <LinearGradient colors={presentation.gradient} style={styles.weatherGradient}>
         <MaterialCommunityIcons name={presentation.backgroundIcon} size={138} color="rgba(255,255,255,0.10)" style={styles.backgroundGlyph} />
         <View style={styles.weatherCardTop}><View><Text style={styles.weatherEyebrow}>LIVE CONDITIONS · {timePresentation.label.toUpperCase()}</Text><Text style={styles.weatherLocation}>Biñan City forecast</Text></View><MaterialCommunityIcons name={presentation.icon} size={30} color={Colors.white} /></View>
