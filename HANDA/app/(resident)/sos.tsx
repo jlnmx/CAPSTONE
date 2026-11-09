@@ -7,6 +7,7 @@ import { Colors } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
 import * as Location from 'expo-location';
 import { authenticatedFetch } from '@services/apiClient';
+import { router } from 'expo-router';
 
 const emergencyTypes = [
   { label: 'Flood / landslide', icon: 'waves' as const },
@@ -208,17 +209,28 @@ export default function ResidentSosScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}><AppBackArrow /><Text style={styles.headerTitle}>EMERGENCY SOS</Text></View>
+        <View style={styles.header}><AppBackArrow /><Text style={styles.headerTitle}>{isActivated ? 'EMERGENCY STATUS' : 'EMERGENCY SOS'}</Text></View>
         <View style={styles.contentBody}>
-        <Text style={styles.eyebrow}>HANDA EMERGENCY ASSISTANCE</Text>
-        <Text style={styles.title}>Need immediate help?</Text>
-        <Text style={styles.description}>Touch and hold the SOS button for 2 seconds to alert the response team.</Text>
+        {isActivated ? (
+          <View style={styles.statusPageHeading}>
+            <MaterialCommunityIcons name="arrow-left-circle-outline" size={18} color={Colors.primary} />
+            <View style={styles.statusBadge}><MaterialCommunityIcons name="alert-outline" size={13} color="#A85B00" /><Text style={styles.statusBadgeText}>RESCUE</Text></View>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.eyebrow}>HANDA EMERGENCY ASSISTANCE</Text>
+            <Text style={styles.title}>Need immediate help?</Text>
+            <Text style={styles.description}>Touch and hold the SOS button for 2 seconds to alert the response team.</Text>
+          </>
+        )}
 
-        <View style={styles.readiness}><View style={styles.readinessDot} /><Text style={styles.readinessText}>RESPONSE NETWORK READY</Text><Text style={styles.readinessDetail}>Location sharing available</Text></View>
+        {!isActivated && <View style={styles.readiness}><View style={styles.readinessDot} /><Text style={styles.readinessText}>RESPONSE NETWORK READY</Text><Text style={styles.readinessDetail}>Location sharing available</Text></View>}
 
-        <Text style={styles.sectionTitle}>WHAT KIND OF SITUATION?</Text>
-        <Text style={styles.sectionHint}>Optional, but it helps responders prepare.</Text>
-        <View style={styles.typeGrid}>{emergencyTypes.map((type) => <Pressable key={type.label} style={[styles.typeChip, selectedType === type.label && styles.typeChipSelected]} onPress={() => setSelectedType(type.label)}><MaterialCommunityIcons name={type.icon} size={17} color={selectedType === type.label ? Colors.white : Colors.primary} /><Text style={[styles.typeLabel, selectedType === type.label && styles.typeLabelSelected]}>{type.label}</Text></Pressable>)}</View>
+        {!isActivated && <>
+          <Text style={styles.sectionTitle}>WHAT KIND OF SITUATION?</Text>
+          <Text style={styles.sectionHint}>Optional, but it helps responders prepare.</Text>
+          <View style={styles.typeGrid}>{emergencyTypes.map((type) => <Pressable key={type.label} style={[styles.typeChip, selectedType === type.label && styles.typeChipSelected]} onPress={() => setSelectedType(type.label)}><MaterialCommunityIcons name={type.icon} size={17} color={selectedType === type.label ? Colors.white : Colors.primary} /><Text style={[styles.typeLabel, selectedType === type.label && styles.typeLabelSelected]}>{type.label}</Text></Pressable>)}</View>
+        </>}
 
         {isActivated ? <SosStatusCard status={incidentStatus} /> : (
           <Animated.View style={[styles.sosShell, { transform: [{ scale: pulse }] }]}>
@@ -228,8 +240,8 @@ export default function ResidentSosScreen() {
           </Animated.View>
         )}
 
-        {!!feedback && <Text style={[styles.feedback, isActivated && styles.feedbackSuccess]} accessibilityRole={isActivated ? 'text' : 'alert'}>{feedback}</Text>}
-        <View style={styles.expectCard}><MaterialCommunityIcons name="shield-check-outline" size={22} color={Colors.primary} /><View style={styles.expectCopy}><Text style={styles.expectTitle}>WHAT TO EXPECT</Text><Text style={styles.expectText}>{isActivated ? 'Your request is being monitored by emergency responders.' : 'Your location and situation type will be shared with the response team after activation.'}</Text></View></View>
+        {!!feedback && !isActivated && <Text style={[styles.feedback, isActivated && styles.feedbackSuccess]} accessibilityRole="alert">{feedback}</Text>}
+        {isActivated ? <SafetyTips status={incidentStatus} /> : <View style={styles.expectCard}><MaterialCommunityIcons name="shield-check-outline" size={22} color={Colors.primary} /><View style={styles.expectCopy}><Text style={styles.expectTitle}>WHAT TO EXPECT</Text><Text style={styles.expectText}>Your location and situation type will be shared with the response team after activation.</Text></View></View>}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -288,28 +300,49 @@ const styles = StyleSheet.create({
   statusConnectorActive: { backgroundColor: Colors.success },
   statusBarTrack: { height: 6, marginTop: 6, overflow: 'hidden', borderRadius: 3, backgroundColor: '#D7E2EA' },
   statusBarFill: { height: '100%', borderRadius: 3, backgroundColor: Colors.success },
+  statusPercentRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  statusPercentLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '700' },
+  statusPercent: { color: Colors.success, fontSize: 9, fontWeight: '900' },
+  statusPageHeading: { width: '100%', alignItems: 'center', minHeight: 34 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#FFE5B6', marginTop: -4 },
+  statusBadgeText: { color: '#A85B00', fontSize: 9, fontWeight: '900' },
+  statusSubdetail: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 7 },
+  statusIconBubble: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFE5B6' },
+  statusIconBubbleResponding: { backgroundColor: '#D9F0FF' },
+  statusIconBubbleResolved: { backgroundColor: '#CDEFD1' },
+  statusCardResponding: { backgroundColor: '#E8F5FF' },
+  returnHomeButton: { minHeight: 38, alignItems: 'center', justifyContent: 'center', marginTop: 14, borderRadius: 8, backgroundColor: '#43B94D' },
+  returnHomeText: { color: Colors.white, fontSize: 12, fontWeight: '900' },
+  safetyCard: { width: '100%', maxWidth: 430, marginTop: 12, padding: 14, borderRadius: 12, backgroundColor: '#F3FBD9' },
+  safetyHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 6 },
+  safetyTitle: { color: Colors.primary, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
+  safetyText: { color: Colors.textMuted, fontSize: 10, lineHeight: 16 },
 });
 
 function SosStatusCard({ status }: { status: IncidentStatus }) {
   const stage = status === 'resolved' ? 2 : status === 'acknowledged' || status === 'in_progress' ? 1 : 0;
   const isResolved = status === 'resolved';
-  const title = isResolved ? 'Resolved' : stage === 1 ? 'Help is on the way!' : 'SOS sent';
+  const isResponding = stage === 1;
+  const title = isResolved ? 'Resolved' : isResponding ? 'Help is on the way!' : 'Processing...';
   const detail = isResolved
     ? 'Your emergency request has been completed.'
-    : stage === 1
+    : isResponding
       ? 'Responders are responding to your emergency.'
-      : 'Your emergency request was sent to the response team.';
+      : 'Waiting for CDRRMO to respond...';
   const stages = ['Sent', 'Responding', 'Resolved'];
 
   return (
-    <View style={[styles.statusCard, isResolved && styles.statusCardResolved]}>
+    <View style={[styles.statusCard, isResponding && styles.statusCardResponding, isResolved && styles.statusCardResolved]}>
       <View style={styles.statusHeading}>
         <View style={styles.statusHeadingCopy}>
           <Text style={styles.statusEyebrow}>EMERGENCY STATUS</Text>
           <Text style={styles.statusTitle}>{title}</Text>
           <Text style={styles.statusDetail}>{detail}</Text>
+          <Text style={styles.statusSubdetail}>{isResolved ? 'You can now continue safely.' : 'Please stay calm and remain where responders can find you.'}</Text>
         </View>
-        <MaterialCommunityIcons name={isResolved ? 'check-circle' : stage === 1 ? 'ambulance' : 'clock-alert-outline'} size={46} color={isResolved ? Colors.success : Colors.secondary} />
+        <View style={[styles.statusIconBubble, isResponding && styles.statusIconBubbleResponding, isResolved && styles.statusIconBubbleResolved]}>
+          <MaterialCommunityIcons name={isResolved ? 'check-circle' : isResponding ? 'ambulance' : 'clock-alert-outline'} size={34} color={isResolved ? Colors.success : isResponding ? Colors.secondary : '#F39A00'} />
+        </View>
       </View>
       <View style={styles.statusProgress}>
         {stages.map((label, index) => (
@@ -323,6 +356,20 @@ function SosStatusCard({ status }: { status: IncidentStatus }) {
         ))}
       </View>
       <View style={styles.statusBarTrack}><View style={[styles.statusBarFill, { width: `${stage === 0 ? 33 : stage === 1 ? 66 : 100}%` }]} /></View>
+      <View style={styles.statusPercentRow}><Text style={styles.statusPercentLabel}>Response progress</Text><Text style={styles.statusPercent}>{stage === 0 ? '33%' : stage === 1 ? '66%' : '100%'}</Text></View>
+      {isResolved && <Pressable style={styles.returnHomeButton} onPress={() => router.replace('/(resident)')} accessibilityRole="button"><Text darkText style={styles.returnHomeText}>Return Home</Text></Pressable>}
+    </View>
+  );
+}
+
+function SafetyTips({ status }: { status: IncidentStatus }) {
+  const isResolved = status === 'resolved';
+  return (
+    <View style={styles.safetyCard}>
+      <View style={styles.safetyHeader}><MaterialCommunityIcons name="shield-check-outline" size={18} color={Colors.success} /><Text style={styles.safetyTitle}>Safety Tips</Text></View>
+      <Text style={styles.safetyText}>• Stay calm and remain in a safe location.</Text>
+      <Text style={styles.safetyText}>• Keep your phone charged and accessible.</Text>
+      <Text style={styles.safetyText}>{isResolved ? '• Thank you for using HANDA emergency assistance.' : '• Follow instructions from the response team.'}</Text>
     </View>
   );
 }
