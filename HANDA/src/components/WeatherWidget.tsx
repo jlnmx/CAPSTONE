@@ -18,7 +18,7 @@ const weatherEventPresentation: Record<WeatherEventType, { icon: React.Component
   'high-heat': { icon: 'weather-sunny-alert', color: '#D97725' },
 };
 
-export function WeatherWidget({ weather, weatherEvents, presentation, isLoading, isUnavailable, time, disasterActive = false, showForecast = true, onPress }: { weather: WeatherSnapshot; weatherEvents: WeatherEvent[]; presentation: WeatherPresentation; isLoading: boolean; isUnavailable: boolean; time: Date; disasterActive?: boolean; showForecast?: boolean; onPress?: () => void }) {
+export function WeatherWidget({ weather, weatherEvents, presentation, isLoading, isUnavailable, time, disasterActive = false, showForecast = true, scale = 1, onPress }: { weather: WeatherSnapshot; weatherEvents: WeatherEvent[]; presentation: WeatherPresentation; isLoading: boolean; isUnavailable: boolean; time: Date; disasterActive?: boolean; showForecast?: boolean; scale?: number; onPress?: () => void }) {
   const [selectedWeatherEventIndex, setSelectedWeatherEventIndex] = useState(0);
   const weatherEventIndex = weatherEvents.length > 0 ? selectedWeatherEventIndex % weatherEvents.length : 0;
   const weatherEventIds = weatherEvents.map((event) => event.id).join('|');
@@ -29,11 +29,11 @@ export function WeatherWidget({ weather, weatherEvents, presentation, isLoading,
   }, [weatherEventIds]);
 
   return <>
-    <Pressable style={styles.weatherCard} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? 'Open seven-day weather forecast' : undefined}>
-      <LinearGradient colors={presentation.gradient} style={styles.weatherGradient}>
+    <Pressable style={[styles.weatherCard, { minHeight: 112 * scale }]} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? 'Open seven-day weather forecast' : undefined}>
+      <LinearGradient colors={presentation.gradient} style={[styles.weatherGradient, { minHeight: 112 * scale, paddingVertical: 12 * scale, justifyContent: 'space-between' }]}>
         <MaterialCommunityIcons name={presentation.backgroundIcon} size={138} color="rgba(255,255,255,0.10)" style={styles.backgroundGlyph} />
-        <View style={styles.weatherCardTop}><View><Text style={styles.weatherEyebrow}>LIVE CONDITIONS · {timePresentation.label.toUpperCase()}</Text><Text style={styles.weatherLocation}>Biñan City forecast</Text></View><MaterialCommunityIcons name={presentation.icon} size={30} color={Colors.white} /></View>
-        {isLoading ? <ActivityIndicator color={Colors.white} /> : <><View style={styles.weatherMain}><Text style={styles.temperature}>{Math.round(weather.temperature)}° C</Text><Text style={styles.weatherDescription}>{presentation.description}</Text></View><Text style={styles.weatherMeta}>Feels like {Math.round(weather.feelsLike)}°  |  Humidity {weather.humidity}%  |  Wind {Math.round(weather.windSpeed)} km/h</Text></>}
+        <View style={styles.weatherCardTop}><View><Text style={[styles.weatherEyebrow, { fontSize: 8 * scale }]}>LIVE CONDITIONS · {timePresentation.label.toUpperCase()}</Text><Text style={[styles.weatherLocation, { fontSize: 11 * scale }]}>Biñan City forecast</Text></View><MaterialCommunityIcons name={presentation.icon} size={30} color={Colors.white} /></View>
+        {isLoading ? <ActivityIndicator color={Colors.white} /> : <><View style={styles.weatherMain}><Text style={[styles.temperature, { fontSize: 20 * scale }]}>{Math.round(weather.temperature)}° C</Text><Text style={[styles.weatherDescription, { fontSize: 9 * scale }]}>{presentation.description}</Text></View><Text style={[styles.weatherMeta, { fontSize: 9 * scale }]}>Feels like {Math.round(weather.feelsLike)}°  |  Humidity {weather.humidity}%  |  Wind {Math.round(weather.windSpeed)} km/h</Text></>}
         {isUnavailable && <Text style={styles.weatherMeta}>Showing the latest local estimate for Biñan City.</Text>}
         <SafetyTip presentation={presentation} time={time} disasterActive={disasterActive} />
       </LinearGradient>

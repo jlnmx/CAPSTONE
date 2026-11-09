@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, SafeAreaView, Animated } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, SafeAreaView, Animated, useWindowDimensions } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -29,6 +29,9 @@ const formattedDate = new Intl.DateTimeFormat('en-US', {
 export default function ResponderDashboard() {
   const { resolvedTheme } = useTheme();
   const { user } = useAuth();
+  const { width, height } = useWindowDimensions();
+  const fontScale = Math.max(0.9, Math.min(width / 390, height / 800, 1.4));
+  const heightScale = Math.max(0.9, Math.min(height / 800, 1.8));
   const [data, setData] = useState<ResponderDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [dataUnavailable, setDataUnavailable] = useState(false);
@@ -88,7 +91,7 @@ export default function ResponderDashboard() {
           </View>
         </View>
 
-        <ResponderWeatherCard disasterActive={disasterIsActive} />
+        <ResponderWeatherCard disasterActive={disasterIsActive} scale={heightScale} />
 
         {disasterIsActive && activeDisaster && (
           <ActiveDisasterCard
@@ -104,14 +107,14 @@ export default function ResponderDashboard() {
           <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
         </View>
 
-        <View style={styles.statsContainer}>
-          <StatTile tone="forest" icon="account-group-outline" mark="account-group-outline" value={isLoading ? '...' : displayedEvacuees} label="Total Evacuees" onPress={() => router.push('/evacuees')} />
-          <StatTile tone="clay" icon="alert-outline" mark="alert-octagon-outline" value={isLoading ? '...' : displayedIncidents} label="Active Incidents" onPress={() => router.push('/incidents')} />
+        <View style={[styles.statsContainer, { minHeight: 112 * heightScale }]}>
+          <StatTile scale={fontScale} tone="forest" icon="account-group-outline" mark="account-group-outline" value={isLoading ? '...' : displayedEvacuees} label="Total Evacuees" onPress={() => router.push('/evacuees')} />
+          <StatTile scale={fontScale} tone="clay" icon="alert-outline" mark="alert-octagon-outline" value={isLoading ? '...' : displayedIncidents} label="Active Incidents" onPress={() => router.push('/incidents')} />
         </View>
 
-        <View style={styles.statsContainer}>
-          <StatTile tone="teal" icon="home-city-outline" mark="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers" onPress={() => router.push('/responder-center-status')} />
-          <StatTile tone="sand" icon="history" mark="clipboard-text-clock-outline" value={isLoading ? '...' : displayedResponses} label="Response History" onPress={() => router.push('/response-history')} />
+        <View style={[styles.statsContainer, { minHeight: 112 * heightScale }]}>
+          <StatTile scale={fontScale} tone="teal" icon="home-city-outline" mark="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers" onPress={() => router.push('/responder-center-status')} />
+          <StatTile scale={fontScale} tone="sand" icon="history" mark="clipboard-text-clock-outline" value={isLoading ? '...' : displayedResponses} label="Response History" onPress={() => router.push('/response-history')} />
         </View>
 
         <Text style={styles.dataSource}>{isLoading ? 'Loading live server data...' : dataUnavailable ? `Partial live data · unavailable: ${data.unavailableSources.join(', ')}` : 'Live server data · refreshes every 15 seconds'}</Text>
@@ -134,22 +137,23 @@ interface StatTileProps {
   value: number | string;
   label: string;
   tone: keyof typeof TILE_TONES;
+  scale: number;
   onPress: () => void;
 }
 
-function StatTile({ icon, mark, value, label, tone, onPress }: StatTileProps) {
+function StatTile({ icon, mark, value, label, tone, scale, onPress }: StatTileProps) {
   const t = TILE_TONES[tone];
   const lift = React.useRef(new Animated.Value(0)).current;
   const to = (v: number) => Animated.spring(lift, { toValue: v, useNativeDriver: true, speed: 30, bounciness: 6 }).start();
   const transform = [{ translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) }, { scale: lift.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }];
   return (
-    <AnimatedPressable style={[styles.statTile, { backgroundColor: t.bg, transform }]} onPress={onPress} onHoverIn={() => to(1)} onHoverOut={() => to(0)} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open related records`}>
-      <MaterialCommunityIcons name={mark} size={96} color={t.mark} style={styles.statMark} />
-      <View style={[styles.statBadge, { backgroundColor: t.badgeBg }]}><MaterialCommunityIcons name={icon} size={21} color={t.badgeFg} /></View>
+    <AnimatedPressable style={[styles.statTile, { backgroundColor: t.bg, padding: 14 * scale, transform }]} onPress={onPress} onHoverIn={() => to(1)} onHoverOut={() => to(0)} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open related records`}>
+      <MaterialCommunityIcons name={mark} size={96 * scale} color={t.mark} style={styles.statMark} />
+      <View style={[styles.statBadge, { backgroundColor: t.badgeBg, width: 38 * scale, height: 38 * scale, borderRadius: 19 * scale }]}><MaterialCommunityIcons name={icon} size={21 * scale} color={t.badgeFg} /></View>
       <View style={styles.statFooter}>
         <View style={styles.statCopy}>
-          <Text style={[styles.statValue, { color: t.fg }]}>{value}</Text>
-          <Text style={[styles.statLabel, { color: t.fg }]} numberOfLines={1}>{label}</Text>
+          <Text style={[styles.statValue, { color: t.fg, fontSize: 20 * scale }]}>{value}</Text>
+          <Text style={[styles.statLabel, { color: t.fg, fontSize: 10 * scale }]} numberOfLines={1}>{label}</Text>
         </View>
         <MaterialCommunityIcons name="chevron-right" size={18} color={t.fg} />
       </View>
@@ -171,6 +175,7 @@ const styles = StyleSheet.create({
     maxWidth: 900,
     alignSelf: 'center',
     paddingBottom: 18,
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
@@ -269,6 +274,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
     gap: 12,
     marginBottom: 12,
+    flexGrow: 1,
   },
   dataSource: { marginHorizontal: 18, marginTop: -3, marginBottom: 12, color: Colors.textMuted, fontSize: 10 },
   statTile: {
