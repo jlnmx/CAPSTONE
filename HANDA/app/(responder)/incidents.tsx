@@ -2,20 +2,22 @@ import React from 'react';
 import { Colors } from '@constants/colors';
 import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
+import { LinearGradient } from 'expo-linear-gradient';
 import ResponderIncidentQueue from '@components/ResponderIncidentQueue';
 import AppBackArrow from '@components/AppBackArrow';
-
-const GREEN = '#218B25';
+import { kitFonts } from '@components/IncidentCardKit';
 
 export default function IncidentsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.titleBand, styles.titleBandWithBack]}>
+        <LinearGradient colors={['#1F9A2E', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.titleBand}>
           <AppBackArrow />
-          <Text style={styles.title}>ACTIVE</Text>
-          <Text style={styles.title}>INCIDENTS</Text>
-        </View>
+          <View>
+            <Text style={styles.title}>Active</Text>
+            <Text style={styles.subtitle}>INCIDENTS</Text>
+          </View>
+        </LinearGradient>
         <ResponderIncidentQueue />
       </ScrollView>
     </SafeAreaView>
@@ -23,9 +25,9 @@ export default function IncidentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  titleBandWithBack: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingTop: 10 },
   container: { flex: 1, backgroundColor: Colors.background },
-  content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 10 },
-  titleBand: { backgroundColor: GREEN, paddingHorizontal: 14, paddingTop: 18, paddingBottom: 9 },
-  title: { color: '#FFFFFF', fontSize: 20, fontWeight: '800', lineHeight: 22 },
+  content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 14 },
+  titleBand: { flexDirection: 'row', alignItems: 'center', gap: 9, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 16, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  title: { color: '#FFFFFF', fontFamily: kitFonts.heading, fontSize: 22, lineHeight: 26 },
+  subtitle: { color: 'rgba(255,255,255,0.85)', fontFamily: kitFonts.semibold, fontSize: 11, letterSpacing: 2.2, marginTop: 1 },
 });

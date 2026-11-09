@@ -1,13 +1,14 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { PhotoGallery } from '@components/PhotoGallery';
 import { Colors } from '@constants/colors';
-import { ActivityIndicator, Image, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { authenticatedFetch } from '@services/apiClient';
 import { useIncidentFeed } from '@hooks/useRealtime';
-import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
+import { incidentStatusColor } from '@constants/incidentStatus';
+import { IncidentTypeBadge, KIT_GREEN as GREEN, ProgressSteps, Reveal, StatusPill, kitFonts } from '@components/IncidentCardKit';
 
 type ResidentIncident = {
   id: string;
@@ -23,8 +24,6 @@ type ResidentIncident = {
   responseEtaMinutes?: number;
   responseOrganizations: string;
 };
-
-const GREEN = '#218B25';
 
 function normalizeIncident(record: Record<string, unknown>): ResidentIncident {
   const rawPhotos = record.photoUris ?? record.photo_uris;
@@ -72,27 +71,63 @@ export default function ResidentIncidentFeed() {
     return () => clearInterval(refresh);
   }, [load]));
 
+  const spin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 3200, easing: Easing.linear, useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [spin]);
+
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void load(true)} tintColor={GREEN} />}>
-      <View style={styles.heading}><View><Text style={styles.eyebrow}>COMMUNITY WATCH</Text><Text style={styles.title}>Current incidents</Text><Text style={styles.subtitle}>Live reports from residents and responders around Biñan City.</Text></View><MaterialCommunityIcons name="radar" size={28} color={GREEN} /></View>
-      {isLoading && <ActivityIndicator color={GREEN} style={styles.loader} />}
-      {!!error && <Text style={styles.error}>{error}</Text>}
-      {!isLoading && !error && incidents.length === 0 && <View style={styles.empty}><MaterialCommunityIcons name="shield-check-outline" size={34} color={GREEN} /><Text style={styles.emptyTitle}>No active incidents</Text><Text style={styles.emptyText}>New community reports will appear here as they are posted.</Text></View>}
-      {incidents.map((incident) => <View style={styles.card} key={incident.id}>
-        <View style={styles.cardHeader}><View style={[styles.icon, { backgroundColor: `${incidentStatusColor(incident.status)}1F` }]}><MaterialCommunityIcons name="alert-outline" size={21} color={incidentStatusColor(incident.status)} /></View><View style={styles.cardCopy}><Text style={styles.cardTitle}>{incident.type}</Text><Text style={[styles.status, { color: incidentStatusColor(incident.status) }]}>{incidentStatusLabel(incident.status).toUpperCase()}</Text></View><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></View>
-        {(incident.status === 'acknowledged' || incident.status === 'in_progress') && <Text style={[styles.responding, { color: incidentStatusColor(incident.status) }]}>Responders are on the way{incident.responseEtaMinutes != null ? ` · ETA ${incident.responseEtaMinutes} min` : ''}{incident.responseOrganizations ? ` · ${incident.responseOrganizations}` : ''}</Text>}
-        <View style={styles.location}>
-          <View style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></View>
-          <View style={styles.locationCopy}>
-            <Text style={styles.locationLabel}>INCIDENT LOCATION</Text>
-            <Text style={styles.locationText}>{displayLocationLabel(incident.location, incident.latitude, incident.longitude)}</Text>
-            {incident.latitude != null && incident.longitude != null && Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude) && <Text style={styles.coordinates}>GPS {incident.latitude.toFixed(6)}, {incident.longitude.toFixed(6)}</Text>}
+      <Reveal index={0}>
+        <View style={styles.heading}>
+          <View style={styles.headingCopy}>
+            <Text style={styles.eyebrow}>COMMUNITY WATCH</Text>
+            <Text style={styles.title}>Current incidents</Text>
+            <Text style={styles.subtitle}>Live reports from residents and responders around Biñan City.</Text>
+          </View>
+          <View style={styles.radar}>
+            <Animated.View style={{ transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}><MaterialCommunityIcons name="radar" size={30} color={GREEN} /></Animated.View>
           </View>
         </View>
-        <Text style={styles.description}>{incident.description}</Text>
-        {incident.photoUris.length > 0 && <><Text style={styles.photoLabel}>REPORTED PHOTOS</Text><PhotoGallery uris={incident.photoUris} style={styles.photos} thumbnailStyle={styles.photo} /></>}
-        {incident.responsePhotoUris.length > 0 && <><Text style={styles.photoLabel}>RESPONDER SCENE PHOTOS</Text><PhotoGallery uris={incident.responsePhotoUris} style={styles.photos} thumbnailStyle={styles.photo} /></>}
-      </View>)}
+      </Reveal>
+      {isLoading && <ActivityIndicator color={GREEN} style={styles.loader} />}
+      {!!error && <Text style={styles.error}>{error}</Text>}
+      {!isLoading && !error && incidents.length === 0 && <Reveal index={1}><View style={styles.empty}><View style={styles.emptyIcon}><MaterialCommunityIcons name="shield-check-outline" size={34} color={GREEN} /></View><Text style={styles.emptyTitle}>No active incidents</Text><Text style={styles.emptyText}>New community reports will appear here as they are posted.</Text></View></Reveal>}
+      {incidents.map((incident, index) => {
+        const color = incidentStatusColor(incident.status);
+        const hasResponders = incident.status === 'acknowledged' || incident.status === 'in_progress';
+        return <Reveal index={index + 1} key={incident.id}>
+          <View style={styles.card}>
+            <View style={[styles.accent, { backgroundColor: color }]} />
+            <View style={styles.cardHeader}>
+              <IncidentTypeBadge type={incident.type} status={incident.status} />
+              <View style={styles.cardCopy}>
+                <Text style={styles.cardTitle} numberOfLines={1}>{incident.type}</Text>
+                <View style={styles.metaRow}><MaterialCommunityIcons name="clock-outline" size={12} color={Colors.textMuted} /><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></View>
+              </View>
+              <StatusPill status={incident.status} />
+            </View>
+            {hasResponders && <View style={[styles.responding, { backgroundColor: `${color}12`, borderColor: `${color}30` }]}>
+              <MaterialCommunityIcons name="run-fast" size={16} color={color} />
+              <Text style={[styles.respondingText, { color }]}>Responders are on the way{incident.responseEtaMinutes != null ? ` · ETA ${incident.responseEtaMinutes} min` : ''}{incident.responseOrganizations ? ` · ${incident.responseOrganizations}` : ''}</Text>
+            </View>}
+            <View style={styles.location}>
+              <View style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></View>
+              <View style={styles.locationCopy}>
+                <Text style={styles.locationLabel}>INCIDENT LOCATION</Text>
+                <Text style={styles.locationText}>{displayLocationLabel(incident.location, incident.latitude, incident.longitude)}</Text>
+                {incident.latitude != null && incident.longitude != null && Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude) && <Text style={styles.coordinates}>GPS {incident.latitude.toFixed(6)}, {incident.longitude.toFixed(6)}</Text>}
+              </View>
+            </View>
+            {!!incident.description && <Text style={styles.description}>{incident.description}</Text>}
+            <ProgressSteps status={incident.status} />
+            {incident.photoUris.length > 0 && <><Text style={styles.photoLabel}>REPORTED PHOTOS</Text><PhotoGallery uris={incident.photoUris} style={styles.photos} thumbnailStyle={styles.photo} /></>}
+            {incident.responsePhotoUris.length > 0 && <><Text style={styles.photoLabel}>RESPONDER SCENE PHOTOS</Text><PhotoGallery uris={incident.responsePhotoUris} style={styles.photos} thumbnailStyle={styles.photo} /></>}
+          </View>
+        </Reveal>;
+      })}
     </ScrollView>
   );
 }
@@ -104,5 +139,36 @@ function formatTime(value: string) {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 14, paddingBottom: 22, backgroundColor: Colors.background }, heading: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }, eyebrow: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 1 }, title: { color: Colors.text, fontSize: 22, fontWeight: '800', marginTop: 3 }, subtitle: { maxWidth: 290, color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 4 }, loader: { marginVertical: 24 }, error: { color: '#B42318', fontSize: 12, lineHeight: 17, paddingVertical: 12 }, empty: { alignItems: 'center', paddingVertical: 45, paddingHorizontal: 30, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, emptyTitle: { color: Colors.text, fontSize: 15, fontWeight: '800', marginTop: 9 }, emptyText: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, textAlign: 'center', marginTop: 5 }, card: { padding: 12, marginBottom: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 9, backgroundColor: Colors.surface }, cardHeader: { flexDirection: 'row', alignItems: 'center' }, icon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19 }, cardCopy: { flex: 1, marginLeft: 9 }, cardTitle: { color: Colors.text, fontSize: 13, fontWeight: '800' }, status: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', marginTop: 3, textTransform: 'uppercase' }, responding: { fontSize: 11, fontWeight: '700', lineHeight: 16, marginTop: 8 }, time: { color: Colors.textMuted, fontSize: 10 }, location: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 10, padding: 9, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 6, backgroundColor: '#F2F7F1' }, locationIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#E1EFE0' }, locationCopy: { flex: 1, minWidth: 0 }, locationLabel: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 0.4 }, locationText: { color: Colors.text, fontSize: 12, fontWeight: '700', lineHeight: 17, marginTop: 2 }, coordinates: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 2 }, description: { color: Colors.textMuted, fontSize: 12, lineHeight: 18, marginTop: 7 }, photoLabel: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 0.4, marginTop: 10 }, photos: { marginTop: 6 }, photo: { width: 82, height: 82, marginRight: 7, borderRadius: 7, backgroundColor: Colors.surfaceMuted },
+  content: { padding: 14, paddingBottom: 26, backgroundColor: Colors.background },
+  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  headingCopy: { flex: 1, paddingRight: 10 },
+  eyebrow: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 10, letterSpacing: 1.6 },
+  title: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 23, marginTop: 3 },
+  subtitle: { maxWidth: 300, color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  radar: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E4F1E4', borderWidth: 1, borderColor: '#BFDDBF' },
+  loader: { marginVertical: 24 },
+  error: { color: '#B42318', fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 17, paddingVertical: 12 },
+  empty: { alignItems: 'center', paddingVertical: 45, paddingHorizontal: 30, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, backgroundColor: Colors.surface },
+  emptyIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E4F1E4' },
+  emptyTitle: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 16, marginTop: 12 },
+  emptyText: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 17, textAlign: 'center', marginTop: 5 },
+  card: { padding: 14, paddingLeft: 18, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, overflow: 'hidden', backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 14, elevation: 3 },
+  accent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardCopy: { flex: 1, minWidth: 0 },
+  cardTitle: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 16 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  time: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 11 },
+  responding: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  respondingText: { flex: 1, fontFamily: kitFonts.semibold, fontSize: 11, lineHeight: 16 },
+  location: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12, padding: 10, borderRadius: 14, backgroundColor: '#F2F7F1' },
+  locationIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: '#E1EFE0' },
+  locationCopy: { flex: 1, minWidth: 0 },
+  locationLabel: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 0.8 },
+  locationText: { color: Colors.text, fontFamily: kitFonts.semibold, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  coordinates: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  description: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 18, marginTop: 10 },
+  photoLabel: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 0.8, marginTop: 12 },
+  photos: { marginTop: 6 },
+  photo: { width: 82, height: 82, marginRight: 7, borderRadius: 12, backgroundColor: Colors.surfaceMuted },
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PhotoGallery } from '@components/PhotoGallery';
 import { Colors } from '@constants/colors';
-import { Alert, Image, Linking, Modal, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Linking, Modal, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -12,9 +12,9 @@ import { useIncidentFeed } from '@hooks/useRealtime';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import { formatResponderOrganization, parseOrganizations, RESPONDER_ORGANIZATIONS, ResponderOrganization } from '@constants/responderOrganizations';
 import { estimateResponseEta } from '@services/responderEta';
-import { addIncidentResponsePhoto, getIncidentReporterContacts, getResponderData, IncidentReporterContact, IncidentStatus, ResponderIncident, updateIncidentStatus } from '@services/responderData';
+import { addIncidentResponsePhoto, getIncidentReporterContacts, getIncidentResponders, getResponderData, IncidentReporterContact, IncidentResponderEntry, IncidentStatus, ResponderIncident, updateIncidentStatus } from '@services/responderData';
+import { IncidentTypeBadge, KIT_GREEN as GREEN, ProgressSteps, Reveal, StatusPill, kitFonts } from '@components/IncidentCardKit';
 
-const GREEN = '#218B25';
 const STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress', 'resolved'];
 const ACTIVE_STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress'];
 const NEXT_STATUSES: Record<IncidentStatus, IncidentStatus[]> = {
@@ -35,10 +35,16 @@ function displayLocationLabel(location: string, latitude?: number, longitude?: n
   return latitude != null && longitude != null ? 'Pinned incident location' : 'Location unavailable';
 }
 
+function formatReportedTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Reported recently' : `Reported ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
+
 export default function ResponderIncidentQueue() {
   const { user } = useAuth();
   const [incidents, setIncidents] = useState<ResponderIncident[]>([]);
   const [reporters, setReporters] = useState<Record<string, IncidentReporterContact>>({});
+  const [responders, setResponders] = useState<Record<string, IncidentResponderEntry[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIncident, setSelectedIncident] = useState<ResponderIncident | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<IncidentStatus>('acknowledged');
@@ -58,8 +64,9 @@ export default function ResponderIncidentQueue() {
 
   const load = async () => {
     try {
-      const [snapshot, contacts] = await Promise.all([getResponderData(), user?.role === 'responder' ? getIncidentReporterContacts().catch(() => null) : Promise.resolve(null)]);
+      const [snapshot, contacts, crew] = await Promise.all([getResponderData(), user?.role === 'responder' ? getIncidentReporterContacts().catch(() => null) : Promise.resolve(null), getIncidentResponders().catch(() => null)]);
       setIncidents(snapshot.incidents.filter((incident) => ACTIVE_STATUSES.includes(incident.status)));
+      if (crew) setResponders(crew);
       if (user?.role !== 'responder') setReporters({});
       else if (contacts) setReporters(contacts);
     } catch {
@@ -207,11 +214,20 @@ export default function ResponderIncidentQueue() {
   };
 
   return <View style={styles.section}>
-    <View style={styles.heading}><View><Text style={styles.eyebrow}>FIELD OPERATIONS</Text><Text style={styles.title}>Active incidents</Text></View><MaterialCommunityIcons name="radio-tower" size={22} color={GREEN} /></View>
+    <Reveal index={0}><View style={styles.heading}><View><Text style={styles.eyebrow}>FIELD OPERATIONS</Text><Text style={styles.title}>Active incidents</Text></View><View style={styles.liveBadge}><MaterialCommunityIcons name="radio-tower" size={20} color={GREEN} /><Text style={styles.liveCount}>{incidents.length}</Text></View></View></Reveal>
     {isLoading && <Text style={styles.empty}>Loading live incident reports...</Text>}
     {!isLoading && incidents.length === 0 && <Text style={styles.empty}>No active incidents on the server.</Text>}
-    {incidents.map((incident) => <View style={styles.card} key={incident.id}>
-      <View style={styles.cardHeader}><View style={styles.icon}><MaterialCommunityIcons name="alert-outline" size={20} color={incidentStatusColor(incident.status)} /></View><View style={styles.copy}><Text style={styles.name}>{incident.type}</Text></View><Text style={[styles.status, { color: incidentStatusColor(incident.status) }]}>{incidentStatusLabel(incident.status)}</Text></View>
+    {incidents.map((incident, index) => <Reveal index={index + 1} key={incident.id}><View style={styles.card}>
+      <View style={[styles.accent, { backgroundColor: incidentStatusColor(incident.status) }]} />
+      <View style={styles.cardHeader}><IncidentTypeBadge type={incident.type} status={incident.status} /><View style={styles.copy}><Text style={styles.name} numberOfLines={1}>{incident.type}</Text><Text style={styles.detail}>{formatReportedTime(incident.createdAt)}</Text></View><StatusPill status={incident.status} /></View>
+      {(responders[incident.id]?.length ?? 0) > 0 && <View style={styles.crew}>
+        <View style={styles.crewHeading}><MaterialCommunityIcons name="account-group-outline" size={14} color={GREEN} /><Text style={styles.crewLabel}>RESPONDING TEAM · {responders[incident.id].length}</Text></View>
+        {responders[incident.id].map((responder) => <View key={responder.id} style={styles.crewRow}>
+          <Avatar name={responder.name} size={26} />
+          <View style={styles.crewCopy}><Text style={styles.crewName} numberOfLines={1}>{responder.id === user?.id ? `${responder.name} (You)` : responder.name}</Text>{!!responder.organization && <Text style={styles.crewOrg} numberOfLines={1}>{responder.organization}</Text>}</View>
+          <View style={[styles.crewTag, { backgroundColor: `${incidentStatusColor(responder.status)}1A` }]}><Text style={[styles.crewTagText, { color: incidentStatusColor(responder.status) }]}>{responder.status === 'in_progress' ? 'DISPATCHED' : 'ACKNOWLEDGED'}</Text></View>
+        </View>)}
+      </View>}
       <View style={styles.location}>
         <View style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></View>
         <View style={styles.locationCopy}>
@@ -221,6 +237,7 @@ export default function ResponderIncidentQueue() {
         </View>
       </View>
       <Text style={styles.description}>{incident.description}</Text>
+      <ProgressSteps status={incident.status} />
       {user?.role === 'responder' && reporters[incident.id] && <AnimatedPressable style={styles.contact} onPress={() => void Linking.openURL(`tel:${reporters[incident.id].mobileNumber.replace(/[\s()-]/g, '')}`)} accessibilityRole="link" accessibilityLabel={`Call ${reporters[incident.id].name}`}>
         <Avatar uri={reporters[incident.id].profilePicture} name={reporters[incident.id].name} size={28} />
         <Text style={styles.contactText}>Reporter: {reporters[incident.id].name} · {reporters[incident.id].mobileNumber}</Text>
@@ -238,7 +255,7 @@ export default function ResponderIncidentQueue() {
           <Text style={[styles.actionText, isCurrent && styles.activeActionText]}>{status.replace('_', ' ')}</Text>
         </AnimatedPressable>;
       })}</View>
-    </View>)}
+    </View></Reveal>)}
     <Modal transparent visible={!!selectedIncident} animationType="fade" onRequestClose={closeEditor}>
       <View style={styles.modalBackdrop}><View style={styles.responseDialog}>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -265,35 +282,47 @@ export default function ResponderIncidentQueue() {
 }
 
 const styles = StyleSheet.create({
-  section: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 4, backgroundColor: Colors.background },
-  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  eyebrow: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
-  title: { color: Colors.text, fontSize: 17, fontWeight: '800', marginTop: 3 },
-  card: { backgroundColor: Colors.surface, borderRadius: 7, padding: 11, marginBottom: 9, borderWidth: 1, borderColor: Colors.border },
-  cardHeader: { flexDirection: 'row', alignItems: 'center' },
+  section: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 8, backgroundColor: Colors.background },
+  heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
+  eyebrow: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 10, letterSpacing: 1.6 },
+  title: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 21, marginTop: 3 },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 40, borderRadius: 20, backgroundColor: '#E4F1E4', borderWidth: 1, borderColor: '#BFDDBF' },
+  liveCount: { color: GREEN, fontFamily: kitFonts.heading, fontSize: 15 },
+  card: { backgroundColor: Colors.surface, borderRadius: 20, padding: 14, paddingLeft: 18, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', shadowColor: '#103A18', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 14, elevation: 3 },
+  accent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   icon: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.surfaceMuted, alignItems: 'center', justifyContent: 'center' },
-  copy: { flex: 1, marginLeft: 9 },
-  name: { color: Colors.text, fontSize: 12, fontWeight: '800' },
-  detail: { color: Colors.textMuted, fontSize: 10, marginTop: 3 },
-  location: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 9, padding: 9, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 6, backgroundColor: '#F2F7F1' },
-  locationIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#E1EFE0' },
+  copy: { flex: 1, minWidth: 0 },
+  name: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 16 },
+  detail: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 11, marginTop: 2 },
+  crew: { marginTop: 12, padding: 10, borderRadius: 14, backgroundColor: '#F2F7F1', borderWidth: 1, borderColor: '#D5E6D5', gap: 8 },
+  crewHeading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  crewLabel: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 0.8 },
+  crewRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  crewCopy: { flex: 1, minWidth: 0 },
+  crewName: { color: Colors.text, fontFamily: kitFonts.semibold, fontSize: 12 },
+  crewOrg: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 10, marginTop: 1 },
+  crewTag: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999 },
+  crewTagText: { fontFamily: kitFonts.bold, fontSize: 8, letterSpacing: 0.6 },
+  location: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12, padding: 10, borderRadius: 14, backgroundColor: '#F2F7F1' },
+  locationIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: '#E1EFE0' },
   locationCopy: { flex: 1, minWidth: 0 },
-  locationLabel: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 0.4 },
-  locationText: { color: Colors.text, fontSize: 12, fontWeight: '700', lineHeight: 17, marginTop: 2 },
-  coordinates: { color: Colors.textMuted, fontSize: 10, lineHeight: 14, marginTop: 2 },
+  locationLabel: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 0.8 },
+  locationText: { color: Colors.text, fontFamily: kitFonts.semibold, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  coordinates: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 10, lineHeight: 14, marginTop: 2 },
   status: { color: GREEN, fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
-  description: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 8 },
+  description: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 18, marginTop: 10 },
   photos: { marginTop: 6 },
-  photoLabel: { color: GREEN, fontSize: 9, fontWeight: '800', letterSpacing: 0.4, marginTop: 9 },
-  photoButton: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 40, marginTop: 9, paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 6, backgroundColor: Colors.surfaceMuted },
-  contact: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 36, marginTop: 8, paddingHorizontal: 10, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 6, backgroundColor: Colors.surfaceMuted },
-  contactText: { color: GREEN, fontSize: 11, fontWeight: '700' },
-  photo: { width: 72, height: 72, marginRight: 6, borderRadius: 6, backgroundColor: Colors.surfaceMuted },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 9 },
-  action: { paddingHorizontal: 8, paddingVertical: 6, borderRadius: 5, backgroundColor: Colors.surfaceMuted },
+  photoLabel: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 0.8, marginTop: 12 },
+  photoButton: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 40, marginTop: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 20, backgroundColor: Colors.surfaceMuted },
+  contact: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', minHeight: 38, marginTop: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 20, backgroundColor: Colors.surfaceMuted },
+  contactText: { color: GREEN, fontFamily: kitFonts.semibold, fontSize: 11 },
+  photo: { width: 72, height: 72, marginRight: 6, borderRadius: 12, backgroundColor: Colors.surfaceMuted },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 },
+  action: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: Colors.surfaceMuted },
   actionDisabled: { opacity: 0.4 },
   activeAction: { backgroundColor: GREEN },
-  actionText: { color: GREEN, fontSize: 9, fontWeight: '700', textTransform: 'capitalize' },
+  actionText: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 10, textTransform: 'capitalize' },
   activeActionText: { color: '#FFFFFF' },
   empty: { color: Colors.textMuted, fontSize: 11, paddingVertical: 12 },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: 'rgba(0,0,0,0.4)' },

@@ -155,6 +155,27 @@ class ReporterContactTests(unittest.TestCase):
         self.assertIn("<> 'resolved'", connection.execute.call_args.args[0])
 
 
+class ResponderRosterTests(unittest.TestCase):
+    def test_residents_cannot_read_responder_names(self):
+        route = next(route for route in main.app.routes if getattr(route, "path", "") == "/api/v1/incidents/responders")
+        guard = next(dependency.call for dependency in route.dependant.dependencies if dependency.call.__name__ == "dependency")
+        resident = CurrentUser("resident-1", "resident@example.com", "resident", "resident", 0)
+        with self.assertRaises(HTTPException) as error:
+            guard(resident)
+        self.assertEqual(error.exception.status_code, 403)
+
+    def test_roster_lists_acknowledgers_of_active_incidents_only(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchall.return_value = [{"incident_id": "i-1", "name": "Ben", "status": "acknowledged"}]
+
+        result = main.list_incident_responders(connection, MagicMock())
+
+        self.assertEqual(result[0]["name"], "Ben")
+        sql = connection.execute.call_args.args[0]
+        self.assertIn("<> 'resolved'", sql)
+        self.assertIn("'acknowledged', 'in_progress'", sql)
+
+
 class ResidentNotificationTests(unittest.TestCase):
     def test_critical_incident_notifies_active_responders(self):
         connection = MagicMock()

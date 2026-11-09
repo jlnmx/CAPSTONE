@@ -144,6 +144,18 @@ export async function getIncidentReporterContacts(): Promise<Record<string, Inci
   return Object.fromEntries(records.filter((record) => record.mobile_number).map((record) => [record.incident_id, { name: record.name, mobileNumber: record.mobile_number, profilePicture: record.profile_picture ?? null }]));
 }
 
+export type IncidentResponderEntry = { id: string; name: string; organization: string; status: 'acknowledged' | 'in_progress'; at: string };
+
+// Responder/admin-only; lists who acknowledged or took each active incident in progress.
+export async function getIncidentResponders(): Promise<Record<string, IncidentResponderEntry[]>> {
+  const records = await fetchRecords<{ incident_id: string; responder_id: string; name: string; responder_organization?: string | null; status: 'acknowledged' | 'in_progress'; created_at: string }>('/api/v1/incidents/responders');
+  const grouped: Record<string, IncidentResponderEntry[]> = {};
+  for (const record of records) {
+    (grouped[record.incident_id] ??= []).push({ id: record.responder_id, name: record.name, organization: record.responder_organization ?? '', status: record.status, at: record.created_at });
+  }
+  return grouped;
+}
+
 export async function getResponderData(): Promise<ResponderDataSnapshot> {
   const [incidentResult, evacueeResult, disasterResult, centerResult, registrationResult] = await Promise.allSettled([
     fetchRecords<Record<string, any>>('/api/v1/incidents'),

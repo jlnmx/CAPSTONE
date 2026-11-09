@@ -911,6 +911,24 @@ def list_incident_reporters(connection: psycopg.Connection = Depends(get_connect
     ).fetchall()
 
 
+@app.get("/api/v1/incidents/responders")
+def list_incident_responders(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
+    # Names of responders who acknowledged or took an incident in progress; kept off the public incident list.
+    return connection.execute(
+        """
+        SELECT DISTINCT ON (events.incident_id, events.actor_id)
+               events.incident_id, events.actor_id AS responder_id, users.name,
+               users.responder_organization, events.status, events.created_at
+        FROM incident_status_events AS events
+        JOIN users ON users.id = events.actor_id
+        JOIN incidents ON incidents.id = events.incident_id
+        WHERE incidents.status <> 'resolved'
+          AND events.status IN ('acknowledged', 'in_progress')
+        ORDER BY events.incident_id, events.actor_id, events.created_at DESC
+        """
+    ).fetchall()
+
+
 def responder_organization_label(organization: str | None, barangay: str | None) -> str:
     if not organization:
         return ""
