@@ -3,8 +3,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import * as Leaflet from '../vendor/leaflet/LeafletWithGlobals.js';
 import '../vendor/leaflet/leaflet.css';
-import { getIncidentReporterContacts, getResponderData, IncidentReporterContact, ResponderDataSnapshot, ResponderIncident, updateIncidentStatus } from '@services/responderData';
-import { estimateResponseEta } from '@services/responderEta';
+import { getIncidentReporterContacts, getIncidentResponders, getResponderData, IncidentReporterContact, ResponderDataSnapshot } from '@services/responderData';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import { Colors } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
@@ -13,13 +12,6 @@ const CENTER: [number, number] = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const LeafletApi = (Leaflet as any).default ?? Leaflet;
 const EMPTY_DATA: ResponderDataSnapshot = { incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] };
-
-function nextIncidentAction(status: ResponderIncident['status']) {
-  if (status === 'reported') return { status: 'acknowledged' as const, label: 'Acknowledge' };
-  if (status === 'acknowledged') return { status: 'in_progress' as const, label: 'Start response' };
-  if (status === 'in_progress') return { status: 'resolved' as const, label: 'Resolve incident' };
-  return null;
-}
 
 export default function ResponderLiveMap() {
   const { user } = useAuth();
@@ -37,10 +29,13 @@ export default function ResponderLiveMap() {
     let mounted = true;
     const loadData = async () => {
       try {
-        const [snapshot, contacts] = await Promise.all([getResponderData(), getIncidentReporterContacts().catch(() => null)]);
+        const [snapshot, contacts, crew] = await Promise.all([getResponderData(), getIncidentReporterContacts().catch(() => null), getIncidentResponders()]);
         if (!mounted) return;
         if (contacts) setReporters(contacts);
-        setData(snapshot);
+        const incidents = user?.role === 'responder'
+          ? snapshot.incidents.filter((incident) => crew[incident.id]?.some((responder) => responder.id === user.id))
+          : snapshot.incidents;
+        setData({ ...snapshot, incidents });
         setLastUpdated(new Date());
         setLoadError(snapshot.unavailableSources.length > 0);
       } catch {
@@ -55,7 +50,7 @@ export default function ResponderLiveMap() {
       mounted = false;
       clearInterval(refresh);
     };
-  }, []);
+  }, [user?.id, user?.role]);
 
   useEffect(() => {
     if (!mapElement.current) return undefined;
@@ -478,36 +473,12 @@ export default function ResponderLiveMap() {
         navigateButton.type = 'button';
         navigateButton.addEventListener('click', () => startIncidentNavigation.current(incident.type || 'Incident', [incident.latitude!, incident.longitude!]));
         popup.appendChild(navigateButton);
-        const action = nextIncidentAction(incident.status);
-        if (incident.status === 'in_progress' && user?.role === 'responder' && incident.verifiedBy !== user.id) {
-          popup.appendChild(makeText('div', 'Only the responder who started this response can resolve it.', { marginTop: '8px', fontSize: '11px', color: '#768491' }));
-        } else if (action) {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.textContent = action.label;
-          Object.assign(button.style, { marginTop: '9px', border: '0', borderRadius: '4px', padding: '8px 10px', background: '#0B3A63', color: '#FFFFFF', fontWeight: '700', cursor: 'pointer' });
-          button.addEventListener('click', async () => {
-            button.disabled = true;
-            button.textContent = 'Saving...';
-            try {
-              const eta = action.status === 'acknowledged' ? await estimateResponseEta({ latitude: incident.latitude!, longitude: incident.longitude! }) : null;
-              await updateIncidentStatus(incident.id, action.status, eta ? { etaMinutes: eta.minutes } : {});
-              const freshData = await getResponderData();
-              setData(freshData);
-              setLastUpdated(new Date());
-            } catch {
-              button.disabled = false;
-              button.textContent = 'Update failed · retry';
-            }
-          });
-          popup.appendChild(button);
-        }
         marker.bindPopup(popup);
       });
     };
 
     renderMarkers();
-  }, [data, reporters, user?.id, user?.role]);
+  }, [data, reporters]);
 
   return (
     <View style={styles.container}>

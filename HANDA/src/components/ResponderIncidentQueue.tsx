@@ -64,9 +64,10 @@ export default function ResponderIncidentQueue() {
 
   const load = async () => {
     try {
-      const [snapshot, contacts, crew] = await Promise.all([getResponderData(), user?.role === 'responder' ? getIncidentReporterContacts().catch(() => null) : Promise.resolve(null), getIncidentResponders().catch(() => null)]);
-      setIncidents(snapshot.incidents.filter((incident) => ACTIVE_STATUSES.includes(incident.status)));
-      if (crew) setResponders(crew);
+      const [snapshot, contacts, crew] = await Promise.all([getResponderData(), user?.role === 'responder' ? getIncidentReporterContacts().catch(() => null) : Promise.resolve(null), getIncidentResponders()]);
+      setIncidents(snapshot.incidents.filter((incident) => ACTIVE_STATUSES.includes(incident.status)
+        && (user?.role !== 'responder' || crew[incident.id]?.some((responder) => responder.id === user.id))));
+      setResponders(crew);
       if (user?.role !== 'responder') setReporters({});
       else if (contacts) setReporters(contacts);
     } catch {
@@ -248,15 +249,15 @@ export default function ResponderIncidentQueue() {
         <MaterialCommunityIcons name="camera-outline" size={18} color={GREEN} />
         <Text style={styles.contactText}>{photoBusyId === incident.id ? 'Sending photo...' : 'Take scene photo'}</Text>
       </AnimatedPressable>}
-      <View style={styles.actions}>{STATUSES.map((status) => {
+      {user?.role === 'admin' && <View style={styles.actions}>{STATUSES.map((status) => {
         const canTransition = canTransitionStatus(incident.status, status, incident, user?.id, user?.role);
         const isCurrent = incident.status === status;
         return <AnimatedPressable key={status} style={[styles.action, isCurrent && { backgroundColor: incidentStatusColor(status) }, !canTransition && styles.actionDisabled]} onPress={() => void handleStatusPress(incident, status)} disabled={updatingId === incident.id || !canTransition} accessibilityRole="button" accessibilityState={{ disabled: updatingId === incident.id || !canTransition, selected: isCurrent }}>
           <Text style={[styles.actionText, isCurrent && styles.activeActionText]}>{status.replace('_', ' ')}</Text>
         </AnimatedPressable>;
-      })}</View>
+      })}</View>}
     </View></Reveal>)}
-    <Modal transparent visible={!!selectedIncident} animationType="fade" onRequestClose={closeEditor}>
+    <Modal transparent visible={user?.role === 'admin' && !!selectedIncident} animationType="fade" onRequestClose={closeEditor}>
       <View style={styles.modalBackdrop}><View style={styles.responseDialog}>
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Text style={styles.dialogTitle}>{selectedStatus.replace('_', ' ').toUpperCase()} RESPONSE</Text>

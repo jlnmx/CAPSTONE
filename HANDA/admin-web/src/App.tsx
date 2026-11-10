@@ -7,6 +7,7 @@ import MapView from './views/MapView';
 import RecordsView from './views/RecordsView';
 import CentersView from './views/CentersView';
 import UsersView from './views/UsersView';
+import DispatchView from './views/DispatchView';
 import { AnalyticsView, DisastersView, LogsView, SettingsView, SystemView } from './views/ManagementViews';
 
 function ProtectedLayout() {
@@ -25,6 +26,7 @@ export default function App() {
         <Route index element={<DashboardView />} />
         <Route path="map" element={<MapView />} />
         <Route path="operations" element={<RecordsView mode="all" />} />
+        <Route path="dispatch" element={<DispatchView />} />
         <Route path="evacuees" element={<RecordsView mode="evacuees" />} />
         <Route path="centers" element={<CentersView />} />
         <Route path="disasters" element={<DisastersView />} />

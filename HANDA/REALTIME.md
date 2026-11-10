@@ -28,8 +28,8 @@ Known limit: `user_id` in location/presence payloads is supplied by the sending 
 1. Review and run `database/migrations/20261106_realtime_broadcast.sql` in the Supabase SQL Editor.
 2. Dashboard > Realtime Settings: turn off **Allow public access** so only private channels work.
 3. Set `REALTIME_JWT_PRIVATE_KEY` (private JWK as one JSON line, including `kid`) on the API host.
-4. Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (public/publishable key only) for the app build, e.g. EAS environment variables.
+4. Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (public/publishable key only) for the app build, e.g. EAS environment variables. Set the same public values as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the administrator web app to sort responders by live location.
 
 ## Client hooks (`src/hooks/useRealtime.ts`)
 
-`useIncidentFeed`, `useEvacuationCenterFeed`, `useNotificationStream`, `useResponderLive` (returns `responders`, `setAvailability`, `publishLocation`). Channels are private, retry with backoff and a fresh token, and close on unmount and logout. The hooks are wired into the resident incident feed, alerts, center status, notification bell, the responder dashboard, incident queue and the native responder live map (location publishing and live responder markers). The web map is not wired. Polling remains as a fallback.
+`useIncidentFeed`, `useEvacuationCenterFeed`, `useNotificationStream`, `useResponderLive` (returns `responders`, `setAvailability`, `publishLocation`). Channels are private, retry with backoff and a fresh token, and close on unmount and logout. The hooks are wired into the resident incident feed, alerts, center status, notification bell, the responder dashboard, incident queue and the native responder live map (location publishing and live responder markers). The Command Center dispatch page also subscribes to responder presence and location; regular incident and roster polling remains as a fallback.

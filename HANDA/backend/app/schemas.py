@@ -242,6 +242,19 @@ class IncidentStatusUpdate(BaseModel):
     responseNotes: str | None = Field(default=None, max_length=2000)
 
 
+class IncidentDispatch(BaseModel):
+    responderIds: list[str] = Field(min_length=1, max_length=50)
+
+    @field_validator("responderIds")
+    @classmethod
+    def require_unique_responders(cls, value: list[str]) -> list[str]:
+        if len(set(value)) != len(value):
+            raise ValueError("A responder can only be selected once.")
+        if any(not responder_id.strip() for responder_id in value):
+            raise ValueError("Responder IDs cannot be blank.")
+        return value
+
+
 class IncidentResponsePhotoCreate(BaseModel):
     photoUri: str = Field(min_length=32, max_length=4_000_000)
     caption: str | None = Field(default=None, max_length=300)

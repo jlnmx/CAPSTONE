@@ -24,7 +24,7 @@ from .config import settings
 from .realtime import RealtimeNotConfigured, create_realtime_token
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import get_live_typhoon_report
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
@@ -414,6 +414,15 @@ CREATE TABLE IF NOT EXISTS incident_response_photos (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS incident_response_photos_incident_idx ON incident_response_photos (incident_id, created_at);
+CREATE TABLE IF NOT EXISTS incident_responder_assignments (
+  incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+  responder_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  assigned_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'dispatched' CHECK (status IN ('dispatched', 'released')),
+  assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (incident_id, responder_id)
+);
+CREATE INDEX IF NOT EXISTS incident_responder_assignments_responder_idx ON incident_responder_assignments (responder_id, assigned_at DESC);
 """
 
 RESPONSE_PHOTO_PATTERN = re.compile(r"^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$")
@@ -836,7 +845,14 @@ def add_incident_response_photo(incident_id: str, photo: IncidentResponsePhotoCr
     if incident["status"] == "resolved":
         raise HTTPException(status_code=409, detail="Photos can only be added to an active incident.")
     if incident["status"] == "reported" and user.role == "responder":
-        raise HTTPException(status_code=409, detail="Acknowledge the incident before sending photos from the scene.")
+        raise HTTPException(status_code=409, detail="An administrator must dispatch you to this incident before you can send scene photos.")
+    if user.role == "responder":
+        assignment = connection.execute(
+            "SELECT 1 FROM incident_responder_assignments WHERE incident_id = %s AND responder_id = %s AND status = 'dispatched'",
+            (incident_id, user.id),
+        ).fetchone()
+        if not assignment:
+            raise HTTPException(status_code=403, detail="Only responders dispatched to this incident can send scene photos.")
     count = connection.execute("SELECT COUNT(*) AS total FROM incident_response_photos WHERE incident_id = %s", (incident_id,)).fetchone()["total"]
     if count >= MAX_RESPONSE_PHOTOS_PER_INCIDENT:
         raise HTTPException(status_code=409, detail="This incident already has the maximum number of response photos.")
@@ -869,20 +885,27 @@ def my_response_history(connection: psycopg.Connection = Depends(get_connection)
         FROM incidents
         WHERE verified_by = %s
            OR EXISTS (SELECT 1 FROM incident_status_events WHERE incident_status_events.incident_id = incidents.id AND incident_status_events.actor_id = %s)
+           OR EXISTS (SELECT 1 FROM incident_responder_assignments WHERE incident_responder_assignments.incident_id = incidents.id AND incident_responder_assignments.responder_id = %s)
         ORDER BY created_at DESC
         LIMIT 200
         """,
-        (user.id, user.id),
+        (user.id, user.id, user.id),
     ).fetchall()
     ids = [incident["id"] for incident in incidents]
     events: dict[str, list[dict]] = {}
     photos: dict[str, list[str]] = {}
+    assignments: dict[str, list[dict]] = {}
     if ids:
         for event in connection.execute(
             "SELECT incident_id, status, created_at FROM incident_status_events WHERE actor_id = %s AND incident_id = ANY(%s) ORDER BY created_at",
             (user.id, ids),
         ).fetchall():
             events.setdefault(event["incident_id"], []).append({"status": event["status"], "at": event["created_at"]})
+        for assignment in connection.execute(
+            "SELECT incident_id, assigned_at FROM incident_responder_assignments WHERE responder_id = %s AND incident_id = ANY(%s) AND status = 'dispatched' ORDER BY assigned_at",
+            (user.id, ids),
+        ).fetchall():
+            assignments.setdefault(assignment["incident_id"], []).append({"status": "in_progress", "at": assignment["assigned_at"]})
         for photo in connection.execute(
             "SELECT incident_id, photo_uri FROM incident_response_photos WHERE responder_id = %s AND incident_id = ANY(%s) ORDER BY created_at",
             (user.id, ids),
@@ -890,7 +913,10 @@ def my_response_history(connection: psycopg.Connection = Depends(get_connection)
             photos.setdefault(photo["incident_id"], []).append(photo["photo_uri"])
     history = []
     for incident in incidents:
-        timeline = events.get(incident["id"])
+        timeline = sorted(
+            [*events.get(incident["id"], []), *assignments.get(incident["id"], [])],
+            key=lambda event: event["at"],
+        )
         if not timeline and incident["verified_at"]:
             # Incidents handled before status events were recorded only know their latest update.
             timeline = [{"status": incident["status"], "at": incident["verified_at"]}]
@@ -913,20 +939,157 @@ def list_incident_reporters(connection: psycopg.Connection = Depends(get_connect
 
 @app.get("/api/v1/incidents/responders")
 def list_incident_responders(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
-    # Names of responders who acknowledged or took an incident in progress; kept off the public incident list.
+    # Only current deployments appear in the responder roster; assignment history remains stored separately.
     return connection.execute(
         """
-        SELECT DISTINCT ON (events.incident_id, events.actor_id)
-               events.incident_id, events.actor_id AS responder_id, users.name,
-               users.responder_organization, events.status, events.created_at
-        FROM incident_status_events AS events
-        JOIN users ON users.id = events.actor_id
-        JOIN incidents ON incidents.id = events.incident_id
+        SELECT assignments.incident_id, assignments.responder_id, users.name,
+               users.responder_organization, 'in_progress' AS status, assignments.assigned_at AS created_at
+        FROM incident_responder_assignments AS assignments
+        JOIN users ON users.id = assignments.responder_id
+        JOIN incidents ON incidents.id = assignments.incident_id
         WHERE incidents.status <> 'resolved'
-          AND events.status IN ('acknowledged', 'in_progress')
-        ORDER BY events.incident_id, events.actor_id, events.created_at DESC
+          AND assignments.status = 'dispatched'
+        ORDER BY assignments.incident_id, assignments.assigned_at
         """
     ).fetchall()
+
+
+@app.get("/api/v1/responders/active")
+def list_active_responders(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
+    return connection.execute(
+        """
+        SELECT id, name, responder_organization, responder_barangay
+        FROM users
+        WHERE role = 'Responder' AND status = 'Active'
+        ORDER BY name
+        """
+    ).fetchall()
+
+
+@app.post("/api/v1/incidents/{incident_id}/dispatch")
+def dispatch_incident_responders(
+    incident_id: str,
+    dispatch: IncidentDispatch,
+    connection: psycopg.Connection = Depends(get_connection),
+    user: CurrentUser = Depends(require_roles("admin")),
+):
+    incident = connection.execute(
+        "SELECT id, type, location_text, status, reporter_user_id FROM incidents WHERE id = %s FOR UPDATE",
+        (incident_id,),
+    ).fetchone()
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found.")
+    if incident["status"] == "resolved":
+        raise HTTPException(status_code=409, detail="Responders cannot be dispatched to a resolved incident.")
+
+    responders = connection.execute(
+        """
+        SELECT id, name, responder_organization, responder_barangay
+        FROM users
+        WHERE id = ANY(%s) AND role = 'Responder' AND status = 'Active'
+        FOR SHARE
+        """,
+        (dispatch.responderIds,),
+    ).fetchall()
+    responder_by_id = {responder["id"]: responder for responder in responders}
+    if len(responder_by_id) != len(dispatch.responderIds):
+        raise HTTPException(status_code=422, detail="Choose only active responder accounts.")
+
+    previously_assigned = {
+        row["responder_id"]
+        for row in connection.execute(
+            "SELECT responder_id FROM incident_responder_assignments WHERE incident_id = %s AND status = 'dispatched' AND responder_id = ANY(%s)",
+            (incident_id, dispatch.responderIds),
+        ).fetchall()
+    }
+    connection.executemany(
+        """
+        INSERT INTO incident_responder_assignments (incident_id, responder_id, assigned_by, status, assigned_at)
+        VALUES (%s, %s, %s, 'dispatched', NOW())
+        ON CONFLICT (incident_id, responder_id) DO UPDATE
+        SET assigned_by = EXCLUDED.assigned_by, status = 'dispatched', assigned_at = NOW()
+        """,
+        [(incident_id, responder_id, user.id) for responder_id in dispatch.responderIds],
+    )
+
+    team = connection.execute(
+        """
+        SELECT users.name, users.responder_organization, users.responder_barangay
+        FROM incident_responder_assignments AS assignments
+        JOIN users ON users.id = assignments.responder_id
+        WHERE assignments.incident_id = %s AND assignments.status = 'dispatched'
+        ORDER BY assignments.assigned_at, users.name
+        """,
+        (incident_id,),
+    ).fetchall()
+    people = ", ".join(member["name"] for member in team)
+    organizations = ", ".join(dict.fromkeys(
+        responder_organization_label(member["responder_organization"], member["responder_barangay"])
+        for member in team
+        if member["responder_organization"]
+    ))
+    connection.execute(
+        """
+        UPDATE incidents
+        SET status = 'in_progress', response_people = %s, response_organizations = %s,
+            verified_by = %s, verified_at = NOW()
+        WHERE id = %s
+        """,
+        (people, organizations, user.id, incident_id),
+    )
+    if incident["status"] != "in_progress":
+        connection.execute(
+            "INSERT INTO incident_status_events (id, incident_id, status, actor_id) VALUES (%s, %s, 'in_progress', %s)",
+            (f"status-event-{uuid4()}", incident_id, user.id),
+        )
+
+    title = f"You have been dispatched: {incident['type']}"
+    message = f"An administrator selected you to respond to {incident['type']} at {incident['location_text'] or 'the reported location'}."
+    for responder_id in dispatch.responderIds:
+        if responder_id in previously_assigned:
+            continue
+        connection.execute(
+            "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
+            (f"notification-{uuid4()}", responder_id, incident_id, title, message),
+        )
+        enqueue_user(connection, responder_id, incident_id, title, message)
+
+    reporter = None
+    reporter_alert: tuple[str, str, str, str, bool, bool] | None = None
+    if incident["reporter_user_id"]:
+        reporter = connection.execute(
+            "SELECT id, email, mobile_number, email_alerts_enabled, sms_alerts_enabled FROM users WHERE id = %s",
+            (incident["reporter_user_id"],),
+        ).fetchone()
+    if reporter and incident["status"] != "in_progress":
+        report_title, report_message = incident_notification_message(
+            "in_progress",
+            IncidentStatusUpdate(status="in_progress", responsePeople=people, responseOrganizations=organizations),
+            incident["type"],
+        )
+        connection.execute(
+            "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
+            (f"notification-{uuid4()}", reporter["id"], incident_id, report_title, report_message),
+        )
+        enqueue_user(connection, reporter["id"], incident_id, "Update on your incident", report_message)
+        reporter_alert = (
+            reporter["email"],
+            reporter["mobile_number"],
+            report_title,
+            report_message,
+            reporter["email_alerts_enabled"],
+            reporter["sms_alerts_enabled"],
+        )
+
+    write_log(connection, "audit", "incident_dispatch", user.id, "incident", incident_id, f"Dispatched {len(dispatch.responderIds)} responder(s) to {incident['type']}.")
+    connection.commit()
+    if reporter_alert:
+        deliver_incident_alert(*reporter_alert)
+    return {
+        "incidentId": incident_id,
+        "status": "in_progress",
+        "responders": [{"id": responder_id, "name": responder_by_id[responder_id]["name"]} for responder_id in dispatch.responderIds],
+    }
 
 
 def responder_organization_label(organization: str | None, barangay: str | None) -> str:
@@ -979,7 +1142,7 @@ def incident_notification_message(status: str, update: IncidentStatusUpdate, inc
 
 
 @app.patch("/api/v1/incidents/{incident_id}/status")
-def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("responder", "admin"))):
+def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("admin"))):
     current = connection.execute(
         "SELECT status, verified_by FROM incidents WHERE id = %s FOR UPDATE",
         (incident_id,),
@@ -997,9 +1160,6 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
             status_code=409,
             detail=f"An incident must be acknowledged before it can move to {update.status.replace('_', ' ')}.",
         )
-    if current["status"] == "in_progress" and user.role == "responder" and current["verified_by"] != user.id:
-        raise HTTPException(status_code=403, detail="Only the responder who marked this incident in progress can resolve it.")
-
     update = resolve_response_details(connection, user, update)
     clean = lambda value: None if value is None else value.strip()
     row = connection.execute(

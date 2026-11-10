@@ -8,21 +8,13 @@ import { Colors } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
 import { useEvacuationCenterFeed, useIncidentFeed, useResponderLive } from '@hooks/useRealtime';
 import { INCIDENT_STATUS_COLORS, INCIDENT_STATUS_LABELS } from '@constants/incidentStatus';
-import { estimateResponseEta } from '@services/responderEta';
 import { LEAFLET_CSS, LEAFLET_JS } from '@services/map/leafletAssets';
 import { OFFLINE_TILE_SCRIPT } from '@services/map/offlineTiles';
-import { getIncidentReporterContacts, getResponderData, IncidentReporterContact, ResponderDataSnapshot, updateIncidentStatus } from '@services/responderData';
+import { getIncidentReporterContacts, getIncidentResponders, getResponderData, IncidentReporterContact, ResponderDataSnapshot } from '@services/responderData';
 
 const CENTER = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const EMPTY_DATA: ResponderDataSnapshot = { incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] };
-
-function nextIncidentAction(status: string) {
-  if (status === 'reported') return { status: 'acknowledged' as const, label: 'Acknowledge' };
-  if (status === 'acknowledged') return { status: 'in_progress' as const, label: 'Start response' };
-  if (status === 'in_progress') return { status: 'resolved' as const, label: 'Resolve incident' };
-  return null;
-}
 
 export default function ResponderLiveMap() {
   const { user } = useAuth();
@@ -39,8 +31,11 @@ export default function ResponderLiveMap() {
 
   const loadData = async () => {
     try {
-      const [snapshot, contacts] = await Promise.all([getResponderData(), getIncidentReporterContacts().catch(() => null)]);
-      setData(snapshot);
+      const [snapshot, contacts, crew] = await Promise.all([getResponderData(), getIncidentReporterContacts().catch(() => null), getIncidentResponders()]);
+      const incidents = user?.role === 'responder'
+        ? snapshot.incidents.filter((incident) => crew[incident.id]?.some((responder) => responder.id === user.id))
+        : snapshot.incidents;
+      setData({ ...snapshot, incidents });
       if (contacts) setReporters(contacts);
       setLastUpdated(new Date());
       setLoadError(snapshot.unavailableSources.length > 0);
@@ -99,13 +94,13 @@ export default function ResponderLiveMap() {
       if (locationFixTimeout.current) clearTimeout(locationFixTimeout.current);
       locationFixTimeout.current = null;
     };
-  }, []);
+  }, [user?.id, user?.role]);
 
   useEffect(() => {
     if (mapReady) {
-      webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters, viewer: { id: user?.id, role: user?.role } })}); true;`);
+      webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters })}); true;`);
     }
-  }, [data, reporters, mapReady, user?.id, user?.role]);
+  }, [data, reporters, mapReady]);
 
   const mapHtml = useMemo(() => `
     <!DOCTYPE html>
@@ -229,10 +224,8 @@ export default function ResponderLiveMap() {
           let followingUser = true;
           let userMarker = null;
           const escapeHtml = (value) => String(value ?? '').replace(/[&<>\"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' })[character]);
-          const nextAction = (status) => status === 'reported' ? ['acknowledged', 'Acknowledge'] : status === 'acknowledged' ? ['in_progress', 'Start response'] : status === 'in_progress' ? ['resolved', 'Resolve incident'] : null;
           const statusColors = ${JSON.stringify(INCIDENT_STATUS_COLORS)};
           const statusLabels = ${JSON.stringify(INCIDENT_STATUS_LABELS)};
-          window.postIncidentAction = (id, status, label) => window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'incident-action', id, status, label }));
           window.postIncidentNavigation = (name, latitude, longitude) => window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'incident-navigation', name, latitude, longitude }));
           function formatDistance(meters) { return meters < 1000 ? Math.round(meters) + ' m' : (meters / 1000).toFixed(1) + ' km'; }
           function formatDuration(seconds) {
@@ -541,7 +534,6 @@ export default function ResponderLiveMap() {
               const marker = L.circleMarker([Number(incident.latitude), Number(incident.longitude)], {
                 radius: 11, color: '#fff', fillColor: color, fillOpacity: .96, weight: 3
               }).addTo(incidentsLayer);
-              const action = nextAction(status);
               const popup = document.createElement('div');
               const title = document.createElement('strong');
               title.textContent = String(incident.type || 'Incident');
@@ -601,21 +593,6 @@ export default function ResponderLiveMap() {
                 notes.textContent = 'Response: ' + incident.actionNotes;
                 popup.appendChild(notes);
               }
-              const viewer = data.viewer || {};
-              const lockedToOtherResponder = status === 'in_progress' && viewer.role === 'responder' && incident.verifiedBy !== viewer.id;
-              if (lockedToOtherResponder) {
-                const lockNote = document.createElement('div');
-                lockNote.textContent = 'Only the responder who started this response can resolve it.';
-                lockNote.style.cssText = 'margin-top:8px;font-size:11px;color:#768491';
-                popup.appendChild(lockNote);
-              } else if (action) {
-                const actionButton = document.createElement('button');
-                actionButton.type = 'button';
-                actionButton.className = 'map-action';
-                actionButton.textContent = action[1];
-                actionButton.addEventListener('click', () => window.postIncidentAction(incident.id, action[0], action[1]));
-                popup.appendChild(actionButton);
-              }
               marker.bindPopup(popup);
             });
           };
@@ -630,10 +607,10 @@ export default function ResponderLiveMap() {
 
   const handleMessage = async (event: WebViewMessageEvent) => {
     try {
-      const message = JSON.parse(event.nativeEvent.data) as { type: string; id?: string; status?: 'acknowledged' | 'in_progress' | 'resolved'; label?: string; name?: string; latitude?: number; longitude?: number; started?: boolean; mode?: string; profile?: string };
+      const message = JSON.parse(event.nativeEvent.data) as { type: string; name?: string; latitude?: number; longitude?: number; started?: boolean; mode?: string; profile?: string };
       if (message.type === 'map-ready') {
         setMapReady(true);
-        webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters, viewer: { id: user?.id, role: user?.role } })}); true;`);
+        webView.current?.injectJavaScript(`window.updateResponderMapData(${JSON.stringify({ ...data, reporters })}); true;`);
         const session = navigationSession.current;
         if (session) {
           webView.current?.injectJavaScript(`window.resumeResponderNavigation(${JSON.stringify(session.name)}, ${session.latitude}, ${session.longitude}, ${session.started}, ${JSON.stringify(session.mode)}, ${JSON.stringify(session.profile)}); true;`);
@@ -687,15 +664,8 @@ export default function ResponderLiveMap() {
         }
         return;
       }
-      if (message.type !== 'incident-action' || !message.id || !message.status) return;
-      const incident = data.incidents.find((item) => item.id === message.id);
-      const eta = message.status === 'acknowledged' && incident?.latitude != null && incident.longitude != null
-        ? await estimateResponseEta({ latitude: Number(incident.latitude), longitude: Number(incident.longitude) })
-        : null;
-      await updateIncidentStatus(message.id, message.status, eta ? { etaMinutes: eta.minutes } : {});
-      await loadData();
     } catch {
-      Alert.alert('Update failed', 'The incident status could not be saved. Check your connection and try again.');
+      Alert.alert('Map unavailable', 'The map action could not be completed. Check your connection and try again.');
     }
   };
 

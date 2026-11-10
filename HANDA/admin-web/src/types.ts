@@ -64,6 +64,22 @@ export interface AdminSnapshot {
   source: 'remote' | 'unavailable';
 }
 
+export interface ActiveResponderRecord {
+  id: string;
+  name: string;
+  responder_organization?: string | null;
+  responder_barangay?: string | null;
+}
+
+export interface IncidentAssignment {
+  incident_id: string;
+  responder_id: string;
+  name: string;
+  responder_organization?: string | null;
+  status: 'in_progress';
+  created_at: string;
+}
+
 export interface UserRecord {
   id: string;
   name: string;

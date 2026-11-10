@@ -1,4 +1,4 @@
-import type { AdminSnapshot, CenterRecord, DisasterRecord, EvacueeRecord, IncidentRecord, LogRecord, UserInput, UserRecord } from './types';
+import type { ActiveResponderRecord, AdminSnapshot, CenterRecord, DisasterRecord, EvacueeRecord, IncidentAssignment, IncidentRecord, LogRecord, UserInput, UserRecord } from './types';
 
 const API_BASE = (import.meta.env.VITE_API_URL?.trim() || 'http://localhost:8000').replace(/\/$/, '');
 export const ACCESS_TOKEN_KEY = 'handa.accessToken';
@@ -99,6 +99,38 @@ export async function getCommandMapSnapshot() {
     getReporterContacts(),
   ]);
   return { incidents: incidents.map((record) => withReporter(normalizeIncident(record), reporters)), centers: centers.map(normalizeCenter) };
+}
+
+export async function getDispatchData() {
+  const [incidentRows, responders, assignmentRows] = await Promise.all([
+    records<Record<string, any>>('/api/v1/incidents'),
+    records<ActiveResponderRecord>('/api/v1/responders/active'),
+    records<IncidentAssignment>('/api/v1/incidents/responders'),
+  ]);
+  const assignments: Record<string, IncidentAssignment[]> = {};
+  for (const assignment of assignmentRows) {
+    (assignments[assignment.incident_id] ??= []).push(assignment);
+  }
+  return {
+    incidents: incidentRows.map(normalizeIncident),
+    responders,
+    assignments,
+  };
+}
+
+export function dispatchIncident(incidentId: string, responderIds: string[]) {
+  return apiRequest<{ incidentId: string; status: string; responders: { id: string; name: string }[] }>(
+    `/api/v1/incidents/${encodeURIComponent(incidentId)}/dispatch`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ responderIds }) },
+  );
+}
+
+export function updateIncidentStatus(incidentId: string, status: 'resolved') {
+  return apiRequest<void>(`/api/v1/incidents/${encodeURIComponent(incidentId)}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
 }
 
 // Contact details come from an admin/responder-only endpoint; a failure just hides them.

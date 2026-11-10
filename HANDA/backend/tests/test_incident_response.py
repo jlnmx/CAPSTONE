@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app import main
 from app.auth import CurrentUser
-from app.schemas import IncidentStatusUpdate, UserRegistration
+from app.schemas import IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, UserRegistration
 
 RESPONDER = {
     "firstName": "Ana",
@@ -99,7 +99,7 @@ class AcknowledgementDefaultsTests(unittest.TestCase):
 
 class IncidentStatusTransitionTests(unittest.TestCase):
     def setUp(self):
-        self.responder = CurrentUser("responder-1", "r@example.com", "Juan Dela Cruz", "responder", 0)
+        self.admin = CurrentUser("admin-1", "a@example.com", "Admin", "admin", 0)
 
     def test_reported_incident_cannot_skip_acknowledgement(self):
         for next_status in ("in_progress", "resolved"):
@@ -112,7 +112,7 @@ class IncidentStatusTransitionTests(unittest.TestCase):
                         "incident-1",
                         IncidentStatusUpdate(status=next_status),
                         connection,
-                        self.responder,
+                        self.admin,
                     )
 
                 self.assertEqual(error.exception.status_code, 409)
@@ -120,15 +120,128 @@ class IncidentStatusTransitionTests(unittest.TestCase):
                 self.assertEqual(connection.execute.call_count, 1)
                 connection.commit.assert_not_called()
 
-    def test_only_the_responder_who_started_the_response_can_resolve_it(self):
-        connection = MagicMock()
-        connection.execute.return_value.fetchone.return_value = {"status": "in_progress", "verified_by": "responder-2"}
+    def test_status_endpoint_is_admin_only(self):
+        route = next(route for route in main.app.routes if getattr(route, "path", "") == "/api/v1/incidents/{incident_id}/status")
+        guard = next(dependency.call for dependency in route.dependant.dependencies if dependency.call.__name__ == "dependency")
+        responder = CurrentUser("responder-1", "r@example.com", "Responder", "responder", 0)
 
         with self.assertRaises(HTTPException) as error:
-            main.update_incident_status("incident-1", IncidentStatusUpdate(status="resolved"), connection, self.responder)
+            guard(responder)
 
         self.assertEqual(error.exception.status_code, 403)
-        self.assertEqual(connection.execute.call_count, 1)
+
+
+class IncidentDispatchTests(unittest.TestCase):
+    def test_dispatch_requires_unique_responder_ids(self):
+        with self.assertRaises(ValidationError):
+            IncidentDispatch(responderIds=["responder-1", "responder-1"])
+
+    def test_active_responder_roster_is_admin_only(self):
+        route = next(route for route in main.app.routes if getattr(route, "path", "") == "/api/v1/responders/active")
+        guard = next(dependency.call for dependency in route.dependant.dependencies if dependency.call.__name__ == "dependency")
+        responder = CurrentUser("responder-1", "r@example.com", "Responder", "responder", 0)
+
+        with self.assertRaises(HTTPException) as error:
+            guard(responder)
+
+        self.assertEqual(error.exception.status_code, 403)
+
+    def test_dispatch_endpoint_is_admin_only(self):
+        route = next(route for route in main.app.routes if getattr(route, "path", "") == "/api/v1/incidents/{incident_id}/dispatch")
+        guard = next(dependency.call for dependency in route.dependant.dependencies if dependency.call.__name__ == "dependency")
+        responder = CurrentUser("responder-1", "r@example.com", "Responder", "responder", 0)
+
+        with self.assertRaises(HTTPException) as error:
+            guard(responder)
+
+        self.assertEqual(error.exception.status_code, 403)
+
+    def test_resolved_incidents_cannot_be_dispatched(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {
+            "id": "incident-1",
+            "type": "Fire",
+            "location_text": "Biñan",
+            "status": "resolved",
+            "reporter_user_id": None,
+        }
+        admin = CurrentUser("admin-1", "a@example.com", "Admin", "admin", 0)
+
+        with self.assertRaises(HTTPException) as error:
+            main.dispatch_incident_responders("incident-1", IncidentDispatch(responderIds=["responder-1"]), connection, admin)
+
+        self.assertEqual(error.exception.status_code, 409)
+        connection.execute.assert_called_once()
+        connection.commit.assert_not_called()
+
+    def test_dispatch_saves_assignment_and_notifies_selected_responder(self):
+        connection = MagicMock()
+
+        def execute(sql, params=None):
+            cursor = MagicMock()
+            if "SELECT id, type, location_text, status, reporter_user_id" in sql:
+                cursor.fetchone.return_value = {
+                    "id": "incident-1",
+                    "type": "Fire",
+                    "location_text": "Biñan",
+                    "status": "reported",
+                    "reporter_user_id": None,
+                }
+            elif "SELECT id, name, responder_organization, responder_barangay" in sql:
+                cursor.fetchall.return_value = [{
+                    "id": "responder-1",
+                    "name": "Ana Santos",
+                    "responder_organization": "BFP",
+                    "responder_barangay": None,
+                }]
+            elif "SELECT responder_id FROM incident_responder_assignments" in sql:
+                cursor.fetchall.return_value = []
+            elif "SELECT users.name, users.responder_organization" in sql:
+                cursor.fetchall.return_value = [{
+                    "name": "Ana Santos",
+                    "responder_organization": "BFP",
+                    "responder_barangay": None,
+                }]
+            return cursor
+
+        connection.execute.side_effect = execute
+        admin = CurrentUser("admin-1", "a@example.com", "Admin", "admin", 0)
+
+        result = main.dispatch_incident_responders(
+            "incident-1",
+            IncidentDispatch(responderIds=["responder-1"]),
+            connection,
+            admin,
+        )
+
+        self.assertEqual(result["status"], "in_progress")
+        self.assertEqual(result["responders"], [{"id": "responder-1", "name": "Ana Santos"}])
+        connection.executemany.assert_called_once()
+        self.assertEqual(connection.executemany.call_args.args[1], [("incident-1", "responder-1", "admin-1")])
+        notifications = [call for call in connection.execute.call_args_list if "INSERT INTO notifications" in call.args[0]]
+        pushes = [call for call in connection.execute.call_args_list if "INSERT INTO push_deliveries" in call.args[0]]
+        self.assertEqual(len(notifications), 1)
+        self.assertIn("You have been dispatched", notifications[0].args[1][3])
+        self.assertEqual(len(pushes), 1)
+        connection.commit.assert_called_once()
+
+
+class ScenePhotoAssignmentTests(unittest.TestCase):
+    def test_only_dispatched_responders_can_submit_scene_photos(self):
+        connection = MagicMock()
+        incident_cursor = MagicMock()
+        incident_cursor.fetchone.return_value = {"type": "Fire", "location_text": "Biñan", "status": "in_progress"}
+        assignment_cursor = MagicMock()
+        assignment_cursor.fetchone.return_value = None
+        connection.execute.side_effect = [incident_cursor, assignment_cursor]
+        responder = CurrentUser("responder-1", "r@example.com", "Responder", "responder", 0)
+        photo = IncidentResponsePhotoCreate(photoUri="data:image/jpeg;base64," + "a" * 40)
+
+        with self.assertRaises(HTTPException) as error:
+            main.add_incident_response_photo("incident-1", photo, connection, responder)
+
+        self.assertEqual(error.exception.status_code, 403)
+        self.assertEqual(connection.execute.call_count, 2)
         connection.commit.assert_not_called()
 
 
@@ -164,7 +277,7 @@ class ResponderRosterTests(unittest.TestCase):
             guard(resident)
         self.assertEqual(error.exception.status_code, 403)
 
-    def test_roster_lists_acknowledgers_of_active_incidents_only(self):
+    def test_roster_lists_dispatched_responders_of_active_incidents_only(self):
         connection = MagicMock()
         connection.execute.return_value.fetchall.return_value = [{"incident_id": "i-1", "name": "Ben", "status": "acknowledged"}]
 
@@ -173,7 +286,8 @@ class ResponderRosterTests(unittest.TestCase):
         self.assertEqual(result[0]["name"], "Ben")
         sql = connection.execute.call_args.args[0]
         self.assertIn("<> 'resolved'", sql)
-        self.assertIn("'acknowledged', 'in_progress'", sql)
+        self.assertIn("incident_responder_assignments", sql)
+        self.assertIn("assignments.status = 'dispatched'", sql)
 
 
 class ResidentNotificationTests(unittest.TestCase):

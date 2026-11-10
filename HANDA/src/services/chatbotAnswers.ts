@@ -226,7 +226,7 @@ export async function answerQuestion(question: string): Promise<string> {
     }
   }
   if (normalized.includes('report') || normalized.includes('incident')) {
-    return 'Open Report incident from the resident Quick Actions, choose the incident type and severity, describe what happened, confirm your location, then post the report. Responders can acknowledge it and add response details.';
+    return 'Open Report incident from the resident Quick Actions, choose the incident type and severity, describe what happened, confirm your location, then post the report. Administrators dispatch active responders to incidents; selected responders are notified and can submit scene photos.';
   }
   if (normalized.includes('flood') || normalized.includes('water')) {
     return 'Move to higher ground when warned, never walk or drive through moving floodwater, avoid downed power lines, and follow official evacuation instructions. Bring essential medication, water, a charged phone, and identification.';

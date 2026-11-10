@@ -4,6 +4,8 @@ The administrator web app uses React and Vite. It has a desktop-first operations
 
 The web app and mobile app use the same HANDA backend accounts and role checks. Administrator sign-in is accepted only in the Command Center.
 
+The **Dispatch** page sorts active responders by fresh live GPS distance to the selected incident. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to the same public Supabase values used by the mobile app to enable live positions. Dispatch assignments and responder notifications are managed by the HANDA API.
+
 From the repository root:
 
 ```bash
