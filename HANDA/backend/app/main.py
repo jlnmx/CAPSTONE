@@ -16,8 +16,9 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 import psycopg
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request as FastAPIRequest
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -691,6 +692,27 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="HANDA API", version="0.1.0", lifespan=lifespan)
+
+
+@app.exception_handler(psycopg.Error)
+async def handle_database_error(request: FastAPIRequest, error: psycopg.Error) -> JSONResponse:
+    request_id = str(uuid4())
+    is_dispatch = request.method == "POST" and request.url.path.startswith("/api/v1/incidents/") and request.url.path.endswith("/dispatch")
+    operation = "incident_dispatch" if is_dispatch else "database_request"
+    logger.error(
+        "Database request failed operation=%s request_id=%s sqlstate=%s error_type=%s",
+        operation,
+        request_id,
+        getattr(error, "sqlstate", None),
+        type(error).__name__,
+        exc_info=(type(error), error, error.__traceback__),
+    )
+    detail = (
+        f"Dispatch failed because of a database error. Reference: {request_id}."
+        if is_dispatch
+        else f"The database request failed. Reference: {request_id}."
+    )
+    return JSONResponse(status_code=500, content={"detail": detail})
 
 
 @app.get("/health")

@@ -1,7 +1,9 @@
 import unittest
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import psycopg
 from starlette.middleware.cors import CORSMiddleware
 
 from app.db import get_connection
@@ -50,6 +52,27 @@ class SecurityHeadersTests(unittest.TestCase):
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.headers.get("access-control-allow-origin"), "https://handa-admin-web.vercel.app")
         self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
+
+    def test_dispatch_database_errors_are_logged_and_return_a_reference(self):
+        def unavailable_connection():
+            raise psycopg.Error("Simulated database failure")
+
+        app.dependency_overrides[get_connection] = unavailable_connection
+        try:
+            with patch("app.main.logger.error") as log_error:
+                response = self.client.post(
+                    "/api/v1/incidents/incident-1/dispatch",
+                    json={"responderIds": ["responder-1"]},
+                    headers={"Origin": "https://handa-admin-web.vercel.app"},
+                )
+        finally:
+            app.dependency_overrides.pop(get_connection, None)
+
+        self.assertEqual(response.status_code, 500)
+        self.assertIn("Reference:", response.json()["detail"])
+        self.assertEqual(log_error.call_args.args[0], "Database request failed operation=%s request_id=%s sqlstate=%s error_type=%s")
+        self.assertEqual(log_error.call_args.args[1], "incident_dispatch")
+        self.assertEqual(response.headers.get("access-control-allow-origin"), "https://handa-admin-web.vercel.app")
 
     def test_cors_and_hsts_are_present_on_unhandled_api_errors(self):
         test_app = FastAPI()
