@@ -27,7 +27,7 @@ from .config import settings
 from .realtime import RealtimeNotConfigured, create_realtime_token
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import get_live_typhoon_report
-from .schemas import AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, DisasterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminEvacuationRegistrationCreate, AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, CenterDetailsUpdate, DisasterCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
@@ -356,6 +356,7 @@ def ensure_disaster_schema(connection: psycopg.Connection) -> None:
                 )
                 """,
         )
+        connection.execute("ALTER TABLE evacuation_registrations ALTER COLUMN resident_user_id DROP NOT NULL")
         connection.execute("CREATE INDEX IF NOT EXISTS disasters_status_idx ON disasters (status)")
         connection.execute("CREATE INDEX IF NOT EXISTS disasters_started_at_idx ON disasters (started_at DESC)")
         connection.execute("ALTER TABLE disasters ADD COLUMN IF NOT EXISTS affected_barangays TEXT[] NOT NULL DEFAULT '{}'")
@@ -811,12 +812,7 @@ def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_co
                     if is_new:
                         notify_responders_of_new_incident(connection, incident_payload, result["id"], user.id)
                 elif event.entityType == "evacuation_registration":
-                    if user.role != "resident":
-                        raise HTTPException(status_code=403, detail="Only residents can register for evacuation.")
-                    registration_payload = EvacuationRegistrationCreate.model_validate(event.payload)
-                    if not registration_payload.id:
-                        raise ValueError("Offline registrations need a client id.")
-                    result = {"id": write_resident_registration(connection, user, registration_payload), "entityType": "evacuation_registration", "status": "accepted"}
+                    raise HTTPException(status_code=403, detail="Evacuation registration is managed by City Social Welfare and Development.")
                 else:
                     result = write_evacuee(connection, EvacueeCreate.model_validate(event.payload))
                 write_log(connection, "sync", "upload", user.id, event.entityType, result["id"], f"Synchronized {event.entityType} from the user device.")
@@ -1512,6 +1508,40 @@ def update_center_capacity(
     return row
 
 
+@app.put("/api/v1/centers/{center_id}")
+def update_center_details(
+    center_id: str,
+    update: CenterDetailsUpdate,
+    connection: psycopg.Connection = Depends(get_connection),
+    _: CurrentUser = Depends(require_roles("admin")),
+):
+    current = connection.execute(
+        "SELECT current_occupancy FROM evacuation_centers WHERE id = %s FOR UPDATE",
+        (center_id,),
+    ).fetchone()
+    if not current:
+        raise HTTPException(status_code=404, detail="Evacuation center not found.")
+    status = evacuation_center_status(update.capacity, current["current_occupancy"], update.status)
+    row = connection.execute(
+        """
+        UPDATE evacuation_centers
+        SET name = %s, location_text = %s, capacity = %s, status = %s,
+            coordinator_name = %s, contact_number = %s, notes = %s,
+            latitude = %s, longitude = %s, updated_at = NOW()
+        WHERE id = %s
+        RETURNING id, name, location_text AS location, capacity, current_occupancy,
+                  status, coordinator_name, contact_number, notes, latitude, longitude, updated_at
+        """,
+        (
+            update.name.strip(), update.location.strip(), update.capacity, status,
+            update.coordinatorName.strip(), update.contactNumber.strip(), update.notes.strip(),
+            update.latitude, update.longitude, center_id,
+        ),
+    ).fetchone()
+    connection.commit()
+    return row
+
+
 def resident_evacuation_status(connection: psycopg.Connection, resident: CurrentUser) -> dict:
     registration = connection.execute(
         """
@@ -1586,21 +1616,28 @@ def get_resident_evacuation_status(
     return resident_evacuation_status(connection, resident)
 
 
-def write_resident_registration(connection: psycopg.Connection, resident: CurrentUser, registration: EvacuationRegistrationCreate) -> str:
-    """Insert a household registration without committing. A repeated client id is treated as already saved."""
-    if len(registration.members) != registration.householdSize - 1:
-        raise HTTPException(status_code=422, detail="Add a name and relationship for every household member besides the evacuee.")
-
-    registration_id = registration.id or f"evac-registration-{uuid4()}"
-    if registration.id:
-        saved = connection.execute("SELECT resident_user_id FROM evacuation_registrations WHERE id = %s", (registration.id,)).fetchone()
-        if saved:
-            if saved["resident_user_id"] != resident.id:
-                raise HTTPException(status_code=409, detail="This registration id is already in use.")
-            return registration_id
+@app.post("/api/v1/evacuation-registrations", status_code=201)
+def create_evacuation_registration(
+    registration: AdminEvacuationRegistrationCreate,
+    connection: psycopg.Connection = Depends(get_connection),
+    user: CurrentUser = Depends(require_roles("admin")),
+):
+    if registration.residentUserId:
+        resident = connection.execute(
+            "SELECT id, name FROM users WHERE id = %s AND role = 'resident' AND status = 'Active' FOR UPDATE",
+            (registration.residentUserId,),
+        ).fetchone()
+        if not resident:
+            raise HTTPException(status_code=404, detail="The linked active Resident account was not found.")
+        existing = connection.execute(
+            "SELECT id FROM evacuation_registrations WHERE resident_user_id = %s AND status <> 'released' LIMIT 1",
+            (registration.residentUserId,),
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=409, detail="This Resident account already has an active evacuation registration.")
 
     center = connection.execute(
-        "SELECT id, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s",
+        "SELECT id, name, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
         (registration.centerId,),
     ).fetchone()
     if not center:
@@ -1608,92 +1645,33 @@ def write_resident_registration(connection: psycopg.Connection, resident: Curren
     if evacuation_center_status(center["capacity"], center["current_occupancy"], center["status"]) in ("closed", "full"):
         raise HTTPException(status_code=409, detail="This evacuation center is not accepting registrations.")
 
-    existing = connection.execute(
-        "SELECT id FROM evacuation_registrations WHERE resident_user_id = %s AND status <> 'released' LIMIT 1",
-        (resident.id,),
-    ).fetchone()
-    if existing:
-        raise HTTPException(status_code=409, detail="Your household already has an active evacuation registration.")
-
+    registration_id = f"evac-registration-{uuid4()}"
     connection.execute(
-        "INSERT INTO evacuation_registrations (id, resident_user_id, center_id, first_name, middle_name, last_name, age, sex, contact_number, address, household_size) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-        (registration_id, resident.id, registration.centerId, registration.firstName.strip(), (registration.middleName or "").strip() or None, registration.lastName.strip(), registration.age, registration.sex, registration.contactNumber, registration.address.strip(), registration.householdSize),
+        """
+        INSERT INTO evacuation_registrations
+          (id, resident_user_id, center_id, first_name, middle_name, last_name, age, sex,
+           contact_number, address, household_size)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            registration_id, registration.residentUserId, registration.centerId,
+            registration.firstName.strip(), (registration.middleName or "").strip() or None,
+            registration.lastName.strip(), registration.age, registration.sex,
+            (registration.contactNumber or "").strip(), registration.address.strip(),
+            registration.householdSize,
+        ),
     )
     for member in registration.members:
         insert_household_member(connection, "evacuation_household_members", "registration_id", f"household-member-{uuid4()}", registration_id, member)
-    connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
-    for member in registration.members:
-        insert_household_member(connection, "resident_household_members", "resident_user_id", f"resident-household-{uuid4()}", resident.id, member)
-    return registration_id
-
-
-@app.post("/api/v1/resident/evacuation-registrations", status_code=201)
-def register_resident_at_center(
-    registration: EvacuationRegistrationCreate,
-    resident: CurrentUser = Depends(require_roles("resident")),
-    connection: psycopg.Connection = Depends(get_connection),
-):
-    try:
-        write_resident_registration(connection, resident, registration)
-        connection.commit()
-    except psycopg.errors.UniqueViolation as error:
-        connection.rollback()
-        raise HTTPException(status_code=409, detail="Your household already has an active evacuation registration.") from error
-
-    return resident_evacuation_status(connection, resident)
-
-
-@app.patch("/api/v1/resident/evacuation-registrations/{registration_id}")
-def update_resident_evacuation_registration(
-    registration_id: str,
-    update: EvacuationRegistrationCenterUpdate,
-    resident: CurrentUser = Depends(require_roles("resident")),
-    connection: psycopg.Connection = Depends(get_connection),
-):
-    registration = connection.execute(
-        "SELECT id, status FROM evacuation_registrations WHERE id = %s AND resident_user_id = %s FOR UPDATE",
-        (registration_id, resident.id),
-    ).fetchone()
-    if not registration:
-        raise HTTPException(status_code=404, detail="Pending evacuation registration not found.")
-    if registration["status"] != "registered":
-        raise HTTPException(status_code=409, detail="Only a pending registration can change its evacuation center.")
-
-    center = connection.execute(
-        "SELECT id, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
-        (update.centerId,),
-    ).fetchone()
-    if not center:
-        raise HTTPException(status_code=404, detail="Evacuation center not found.")
-    if evacuation_center_status(center["capacity"], center["current_occupancy"], center["status"]) in ("closed", "full"):
-        raise HTTPException(status_code=409, detail="This evacuation center is not accepting registrations.")
-
-    connection.execute(
-        "UPDATE evacuation_registrations SET center_id = %s, updated_at = NOW() WHERE id = %s",
-        (update.centerId, registration_id),
-    )
+    if registration.residentUserId:
+        enqueue_evacuation_status(
+            connection,
+            registration.residentUserId,
+            registration_id,
+            f"City Social Welfare and Development registered your household at {center['name']}. Follow responder directions for your evacuation center.",
+        )
     connection.commit()
-    return {"id": registration_id, "status": "registered", "centerId": update.centerId}
-
-
-@app.delete("/api/v1/resident/evacuation-registrations/{registration_id}")
-def cancel_resident_evacuation_registration(
-    registration_id: str,
-    resident: CurrentUser = Depends(require_roles("resident")),
-    connection: psycopg.Connection = Depends(get_connection),
-):
-    registration = connection.execute(
-        "SELECT id, status FROM evacuation_registrations WHERE id = %s AND resident_user_id = %s FOR UPDATE",
-        (registration_id, resident.id),
-    ).fetchone()
-    if not registration:
-        raise HTTPException(status_code=404, detail="Pending evacuation registration not found.")
-    if registration["status"] != "registered":
-        raise HTTPException(status_code=409, detail="Only a pending registration can be canceled.")
-
-    connection.execute("DELETE FROM evacuation_registrations WHERE id = %s", (registration_id,))
-    connection.commit()
-    return {"id": registration_id, "status": "cancelled"}
+    return {"id": registration_id, "status": "registered", "centerId": registration.centerId, "residentUserId": registration.residentUserId}
 
 
 @app.get("/api/v1/evacuation-registrations")
@@ -1709,10 +1687,11 @@ def list_evacuation_registrations(
              registration.checked_in_at, registration.first_name,
              registration.middle_name, registration.last_name, registration.age,
              registration.sex, registration.contact_number, registration.address,
-             registration.household_size, resident.name AS resident_name, resident.profile_picture AS resident_profile_picture,
+             registration.household_size, resident.name AS resident_name,
+             resident.profile_picture AS resident_profile_picture,
                center.name AS center_name, center.location_text AS center_location
         FROM evacuation_registrations AS registration
-        JOIN users AS resident ON resident.id = registration.resident_user_id
+        LEFT JOIN users AS resident ON resident.id = registration.resident_user_id
         JOIN evacuation_centers AS center ON center.id = registration.center_id
         {status_filter}
         ORDER BY CASE WHEN registration.status = 'registered' THEN 0 ELSE 1 END,
@@ -1784,7 +1763,8 @@ def update_evacuation_registration_status(
     )
     actor_role = "Responder" if user.role == "responder" else "Administrator"
     message = f"Your evacuation registration is {update.status.replace('_', ' ').upper()}. Updated by {actor_role} {user.name}."
-    enqueue_evacuation_status(connection, registration["resident_user_id"], registration_id, message)
+    if registration["resident_user_id"]:
+        enqueue_evacuation_status(connection, registration["resident_user_id"], registration_id, message)
     connection.commit()
     return {"id": registration_id, "status": update.status}
 

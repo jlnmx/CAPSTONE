@@ -3,7 +3,7 @@ import { Colors } from '@constants/colors';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
 import * as Leaflet from '../vendor/leaflet/LeafletWithGlobals.js';
 import '../vendor/leaflet/leaflet.css';
-import { MapEvacuationCenter } from '@types/index';
+import { MapEvacuationCenter } from '@/types/index';
 
 const BINAN_CENTER: [number, number] = [14.3036, 121.0781];
 const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -98,14 +98,16 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     document.head.appendChild(compactNavigationStyle);
     LeafletApi.DomEvent.disableClickPropagation(navigationPanel);
 
-    const escapeHtml = (value: string) =>
-      value.replace(/[&<>'"]/g, (character) => ({
+    const escapeHtml = (value: string) => {
+      const entities: Record<string, string> = {
         '&': '&amp;',
         '<': '&lt;',
         '>': '&gt;',
         "'": '&#39;',
         '"': '&quot;',
-      })[character]);
+      };
+      return value.replace(/[&<>'"]/g, (character) => entities[character]);
+    };
 
     const showInfoPanel = (title: string, content: string) => {
       shownIncidentId = null;
@@ -310,8 +312,8 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           map.setView(nextPosition, 15, { animate: false });
           void updateInfoPanel({ lat: nextPosition[0], lng: nextPosition[1] });
         }
-        if (isNavigating && followingUser) map.panTo(trackedPosition, { animate: true, duration: 0.35 });
-        if (isNavigating && navigationRoutes.length > 0) updateNavigationStats(trackedPosition);
+        if (isNavigating && followingUser) map.panTo(nextPosition, { animate: true, duration: 0.35 });
+        if (isNavigating && navigationRoutes.length > 0) updateNavigationStats(nextPosition);
         else if (isNavigating) void loadRoutes();
       }, () => {
         if (navigationStats) navigationStats.textContent = 'Waiting for a GPS signal…';
@@ -373,8 +375,9 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
       const capacity = Math.max(0, Number(center.capacity) || 0);
       const occupancy = Math.max(0, Number(center.current_occupancy) || 0);
       const spaces = Math.max(0, capacity - occupancy);
-      const acceptingRegistrations = center.status !== 'closed' && center.status !== 'full' && spaces > 0;
-      showInfoPanel('Evacuation center', `<strong style="display:block;font-size:16px;margin-bottom:5px">${escapeHtml(center.name)}</strong><span style="display:block;font-size:12px;color:${Colors.textMuted}">${escapeHtml(center.location || 'Location not provided')}${distance == null ? '' : ` · ${distance.toFixed(1)} km straight-line`}</span><span style="display:block;font-size:12px;margin-top:6px">Capacity: ${occupancy} of ${capacity} · ${spaces} spaces available</span><span style="display:block;font-size:12px;color:${acceptingRegistrations ? '#218B25' : '#B42318'};font-weight:700;margin-top:2px">${acceptingRegistrations ? 'Accepting registrations' : 'Not accepting registrations'}</span><button id="navigate-button" style="margin-top:10px;margin-right:7px;border:0;border-radius:5px;padding:9px 12px;background:#E8F2E8;color:#175B19;font-weight:700;cursor:pointer">Navigate</button><button id="select-center-button" ${acceptingRegistrations ? '' : 'disabled'} style="margin-top:10px;border:0;border-radius:5px;padding:9px 12px;background:${acceptingRegistrations ? '#218B25' : '#98A29A'};color:#fff;font-weight:700;cursor:${acceptingRegistrations ? 'pointer' : 'not-allowed'}">${acceptingRegistrations ? 'Select center' : 'Unavailable'}</button>`);
+      const accepting = center.status !== 'closed' && center.status !== 'full' && spaces > 0;
+      const availability = center.status === 'closed' ? 'Closed' : accepting ? 'Spaces available' : 'At capacity';
+      showInfoPanel('Evacuation center', `<strong style="display:block;font-size:16px;margin-bottom:5px">${escapeHtml(center.name)}</strong><span style="display:block;font-size:12px;color:${Colors.textMuted}">${escapeHtml(center.location || 'Location not provided')}${distance == null ? '' : ` · ${distance.toFixed(1)} km straight-line`}</span><span style="display:block;font-size:12px;margin-top:6px">Capacity: ${occupancy} of ${capacity} · ${spaces} spaces available</span><span style="display:block;font-size:12px;color:${accepting ? '#218B25' : '#B42318'};font-weight:700;margin-top:2px">${availability}</span><button id="navigate-button" style="margin-top:10px;margin-right:7px;border:0;border-radius:5px;padding:9px 12px;background:#E8F2E8;color:#175B19;font-weight:700;cursor:pointer">Navigate</button><button id="select-center-button" style="margin-top:10px;border:0;border-radius:5px;padding:9px 12px;background:#218B25;color:#fff;font-weight:700;cursor:pointer">View details</button>`);
       infoPanel.querySelector('#navigate-button')?.addEventListener('click', () => startNavigation(center, destination));
       infoPanel.querySelector('#select-center-button')?.addEventListener('click', () => onSelectCenter?.(center.id));
     };

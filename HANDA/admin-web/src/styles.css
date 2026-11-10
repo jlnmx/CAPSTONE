@@ -247,6 +247,12 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .settings-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(270px, .75fr); align-items: start; gap: 14px; }
 .settings-panel { padding: 17px; }.settings-panel .panel-heading { margin-bottom: 16px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
+.heading-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.household-form-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+.household-form-heading strong, .household-member-title strong { display: block; color: var(--ink); font-size: 13px; }
+.household-form-heading small { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.household-member-form { display: grid; grid-column: 1 / -1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; padding: 12px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-soft); }
+.household-member-title { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; }
 .form-field { display: grid; min-width: 0; gap: 6px; color: #526156; font-size: 9px; font-weight: 800; }
 .form-field > span i { color: var(--red); font-style: normal; }.form-field > span small { color: #8c988e; font-size: 8px; font-weight: 500; }
 .form-field-wide { grid-column: 1 / -1; }
@@ -396,7 +402,7 @@ button:disabled { cursor: not-allowed; opacity: .64; }
   .records-toolbar .search-field { max-width: none; }.user-toolbar .select-control { width: calc(50% - 5px); flex: 1; }.results-count { margin-left: auto; }
   .center-grid { grid-template-columns: 1fr; }.center-card { padding: 14px; }
   .data-table { min-width: 740px; }.user-table { min-width: 680px; }
-  .form-grid { grid-template-columns: 1fr; }.form-field-wide { grid-column: auto; }.modal-card { padding: 15px; }.modal-actions { flex-wrap: wrap; }.modal-actions > button { flex: 1; }
+  .form-grid { grid-template-columns: 1fr; }.form-field-wide { grid-column: auto; }.household-member-form { grid-template-columns: 1fr; }.household-member-title { grid-column: auto; }.modal-card { padding: 15px; }.modal-actions { flex-wrap: wrap; }.modal-actions > button { flex: 1; }
   .system-status-banner { flex-wrap: wrap; }.system-status-banner > .status-pill { margin-left: 48px; }
   .login-screen { grid-template-columns: 1fr; }.login-identity { display: none; }.login-form-side { min-height: 100vh; justify-content: center; padding: 28px 22px 20px; }.login-form { width: min(100%, 400px); }.login-copyright { padding-top: 45px; }
 }

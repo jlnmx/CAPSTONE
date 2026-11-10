@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Download, Search, SlidersHorizontal } from 'lucide-react';
-import { getAdminSnapshot } from '../api';
-import type { AdminSnapshot, EvacueeRecord, IncidentRecord } from '../types';
+import React, { FormEvent, useEffect, useMemo, useState } from 'react';
+import { Download, Plus, Search, SlidersHorizontal, Trash2, UserRoundPlus } from 'lucide-react';
+import { createEvacuationRegistration, getAdminSnapshot, getCenters, getUsers } from '../api';
+import type { AdminSnapshot, CenterRecord, EvacuationHouseholdMemberInput, EvacuationRegistrationInput, EvacueeRecord, IncidentRecord, UserRecord } from '../types';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
 
 const emptySnapshot: AdminSnapshot = { incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' };
@@ -22,6 +22,7 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'incidents' | 'evacuees'>(mode === 'evacuees' ? 'evacuees' : 'incidents');
+  const [addEvacueeOpen, setAddEvacueeOpen] = useState(false);
 
   async function refresh() {
     setLoading(true);
@@ -42,7 +43,7 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
     : downloadCsv('handa-evacuees.csv', [['Name', 'Age', 'Barangay', 'Center', 'Status', 'Registered'], ...evacuees.map((row) => [row.displayName, String(row.age), row.barangay, row.centerName, row.status, row.createdAt])]);
 
   return <div className="page-content records-page">
-    <PageHeading eyebrow={tab === 'incidents' ? 'FIELD RESPONSE' : 'COMMUNITY RECORDS'} title={mode === 'evacuees' ? 'Evacuee directory' : 'Operations records'} description="Search, review, and export records from across the response network." action={<button className="button-secondary" onClick={exportRecords} disabled={loading}><Download size={16} /> Export CSV</button>} />
+    <PageHeading eyebrow={tab === 'incidents' ? 'FIELD RESPONSE' : 'COMMUNITY RECORDS'} title={mode === 'evacuees' ? 'Evacuee directory' : 'Operations records'} description="Search, review, and export records from across the response network." action={<div className="heading-actions">{(mode === 'evacuees' || tab === 'evacuees') && <button className="button-primary" onClick={() => setAddEvacueeOpen(true)}><Plus size={16} /> Add household</button>}<button className="button-secondary" onClick={exportRecords} disabled={loading}><Download size={16} /> Export CSV</button></div>} />
     {error && <InlineNotice onRetry={() => void refresh()}>{error}</InlineNotice>}
     <section className="surface-panel records-panel">
       <div className="records-toolbar">
@@ -52,7 +53,130 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
       </div>
       {loading ? <LoadingState label="Loading HANDA records" /> : tab === 'incidents' ? <IncidentTable rows={incidents} /> : <EvacueeTable rows={evacuees} />}
     </section>
+    {addEvacueeOpen && <AddEvacueeModal onClose={() => setAddEvacueeOpen(false)} onCreated={async () => { setAddEvacueeOpen(false); await refresh(); }} />}
   </div>;
+}
+
+type HouseholdDraft = { name: string; relationship: string; age: string; sex: '' | 'Male' | 'Female'; contactNumber: string };
+const emptyMember: HouseholdDraft = { name: '', relationship: '', age: '', sex: '', contactNumber: '' };
+
+function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => Promise<void> }) {
+  const [centers, setCenters] = useState<CenterRecord[]>([]);
+  const [residents, setResidents] = useState<UserRecord[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [optionsError, setOptionsError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [centerId, setCenterId] = useState('');
+  const [residentUserId, setResidentUserId] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [age, setAge] = useState('');
+  const [sex, setSex] = useState<'Female' | 'Male' | 'Other'>('Female');
+  const [contactNumber, setContactNumber] = useState('');
+  const [address, setAddress] = useState('');
+  const [members, setMembers] = useState<HouseholdDraft[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all([getCenters(), getUsers()])
+      .then(([centerRows, userRows]) => {
+        if (!active) return;
+        const activeCenters = centerRows.filter((center) => center.status !== 'closed' && center.status !== 'full' && center.currentOccupancy < center.capacity);
+        setCenters(activeCenters);
+        setCenterId(activeCenters[0]?.id ?? '');
+        setResidents(userRows.filter((user) => user.role === 'Resident' && user.status === 'Active'));
+        setOptionsError('');
+      })
+      .catch((cause) => {
+        if (active) setOptionsError(cause instanceof Error ? cause.message : 'Centers and Resident accounts could not be loaded.');
+      })
+      .finally(() => { if (active) setLoadingOptions(false); });
+    return () => { active = false; };
+  }, []);
+
+  const updateMember = (index: number, patch: Partial<HouseholdDraft>) => {
+    setMembers((current) => current.map((member, memberIndex) => memberIndex === index ? { ...member, ...patch } : member));
+  };
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      if (!centerId) throw new Error('Choose an evacuation center with available capacity.');
+      if (!firstName.trim() || !lastName.trim() || !address.trim()) throw new Error('Enter the evacuee’s name and address.');
+      const parsedAge = Number(age);
+      if (!Number.isInteger(parsedAge) || parsedAge < 0 || parsedAge > 150) throw new Error('Enter a valid age between 0 and 150.');
+      if (members.some((member) => !member.name.trim() || !member.relationship.trim())) {
+        throw new Error('Enter a name and relationship for each household member.');
+      }
+      const payload: EvacuationRegistrationInput = {
+        residentUserId: residentUserId || null,
+        centerId,
+        firstName: firstName.trim(),
+        middleName: middleName.trim() || null,
+        lastName: lastName.trim(),
+        age: parsedAge,
+        sex,
+        contactNumber: contactNumber.trim() || null,
+        address: address.trim(),
+        householdSize: members.length + 1,
+        members: members.map((member): EvacuationHouseholdMemberInput => ({
+          name: member.name.trim(),
+          relationship: member.relationship.trim(),
+          age: member.age.trim() ? Number(member.age) : null,
+          sex: member.sex || null,
+          contactNumber: member.contactNumber.trim(),
+        })),
+      };
+      await createEvacuationRegistration(payload);
+      await onCreated();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The household could not be added.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}>
+    <section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="add-evacuee-title">
+      <div className="modal-heading"><div><p className="eyebrow">CENTER MANAGEMENT</p><h2 id="add-evacuee-title">Add evacuee household</h2></div><button className="icon-button" onClick={onClose} disabled={saving} aria-label="Close">×</button></div>
+      {loadingOptions ? <div className="loading-state"><span className="loader" /><span>Loading centers and Resident accounts</span></div> : optionsError ? <InlineNotice tone="error">{optionsError}</InlineNotice> : <form className="form-grid" onSubmit={(event) => void submit(event)}>
+        {!centers.length && <div className="form-field-wide"><InlineNotice tone="error">There are no open evacuation centers with remaining capacity. Update a center before adding this household.</InlineNotice></div>}
+        <label className="form-field form-field-wide"><span>Assign to center *</span><select required value={centerId} onChange={(event) => setCenterId(event.target.value)}><option value="" disabled>Select a center</option>{centers.map((center) => <option key={center.id} value={center.id}>{center.name} · {Math.max(0, center.capacity - center.currentOccupancy)} spaces left</option>)}</select></label>
+        <label className="form-field form-field-wide"><span>Link Resident account (optional)</span><select value={residentUserId} onChange={(event) => setResidentUserId(event.target.value)}><option value="">Walk-in / no account</option>{residents.map((resident) => <option key={resident.id} value={resident.id}>{resident.name} · {resident.email}</option>)}</select></label>
+        <Field label="First name" value={firstName} onChange={setFirstName} required />
+        <Field label="Middle name" value={middleName} onChange={setMiddleName} />
+        <Field label="Last name" value={lastName} onChange={setLastName} required />
+        <Field label="Age" value={age} onChange={setAge} type="number" min="0" max="150" required />
+        <label className="form-field"><span>Sex *</span><select value={sex} onChange={(event) => setSex(event.target.value as typeof sex)}><option>Female</option><option>Male</option><option>Other</option></select></label>
+        <Field label="Contact number" value={contactNumber} onChange={setContactNumber} />
+        <Field label="Home address" value={address} onChange={setAddress} required wide />
+
+        <div className="form-field-wide household-form-heading">
+          <div><strong>Household members</strong><small>{members.length + 1} people in this household; added as registered until checked in.</small></div>
+          <button type="button" className="button-secondary" onClick={() => setMembers((current) => current.length < 20 ? [...current, { ...emptyMember }] : current)} disabled={members.length >= 20}><UserRoundPlus size={15} /> Add member</button>
+        </div>
+        {members.map((member, index) => <div className="form-field-wide household-member-form" key={index}>
+          <div className="household-member-title"><strong>Member {index + 1}</strong><button type="button" className="text-button" onClick={() => setMembers((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove household member ${index + 1}`}><Trash2 size={14} /> Remove</button></div>
+          <Field label="Full name" value={member.name} onChange={(name) => updateMember(index, { name })} required />
+          <Field label="Relationship" value={member.relationship} onChange={(relationship) => updateMember(index, { relationship })} placeholder="Child, spouse, parent" required />
+          <Field label="Age" value={member.age} onChange={(value) => updateMember(index, { age: value })} type="number" min="0" max="150" />
+          <label className="form-field"><span>Sex</span><select value={member.sex} onChange={(event) => updateMember(index, { sex: event.target.value as HouseholdDraft['sex'] })}><option value="">Not specified</option><option>Female</option><option>Male</option></select></label>
+          <Field label="Contact number" value={member.contactNumber} onChange={(contact) => updateMember(index, { contactNumber: contact })} />
+        </div>)}
+        <div className="form-field-wide"><InlineNotice>Registration is recorded at this center. It does not increase occupancy until center personnel mark the household checked in. The linked Resident, if selected, will receive the assignment status.</InlineNotice></div>
+        {error && <div className="form-field-wide"><InlineNotice tone="error">{error}</InlineNotice></div>}
+        <div className="modal-actions form-field-wide"><button type="button" className="button-secondary" onClick={onClose} disabled={saving}>Cancel</button><button type="submit" className="button-primary" disabled={saving || !centers.length}>{saving && <span className="button-spinner" />}Add household</button></div>
+      </form>}
+    </section>
+  </div>;
+}
+
+function Field({ label, value, onChange, required = false, type = 'text', min, max, wide = false, placeholder }: { label: string; value: string; onChange: (value: string) => void; required?: boolean; type?: string; min?: string; max?: string; wide?: boolean; placeholder?: string }) {
+  return <label className={`form-field ${wide ? 'form-field-wide' : ''}`}><span>{label}{required && <i> *</i>}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} min={min} max={max} placeholder={placeholder} /></label>;
 }
 
 function IncidentTable({ rows }: { rows: IncidentRecord[] }) {

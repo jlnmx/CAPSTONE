@@ -5,7 +5,7 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '@constants/colors';
 import { INCIDENT_STATUS_COLORS, INCIDENT_STATUS_LABELS } from '@constants/incidentStatus';
 import { useTheme } from '@hooks/useTheme';
-import { MapEvacuationCenter } from '@types/index';
+import { MapEvacuationCenter } from '@/types/index';
 import { LEAFLET_CSS, LEAFLET_JS } from '@services/map/leafletAssets';
 import { OFFLINE_TILE_SCRIPT } from '@services/map/offlineTiles';
 
@@ -346,11 +346,12 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             const occupancy = Math.max(0, Number(item.current_occupancy) || 0);
             const spaces = Math.max(0, capacity - occupancy);
             const accepting = item.status !== 'closed' && item.status !== 'full' && spaces > 0;
+            const availability = item.status === 'closed' ? 'Closed' : accepting ? 'Spaces available' : 'At capacity';
             infoPanel.style.display = 'block';
-            infoPanel.innerHTML = '<strong>' + escapeHtml(item.name) + '</strong><span class="center-name">' + escapeHtml(item.location || 'Location not provided') + '</span><span class="muted">Capacity: ' + occupancy + ' of ' + capacity + ' · ' + spaces + ' spaces' + (distance == null ? '' : ' · ' + distance.toFixed(1) + ' km straight-line') + '</span><span class="muted" style="color:' + (accepting ? '#218B25' : '#B42318') + ';font-weight:700">' + (accepting ? 'Accepting registrations' : 'Not accepting registrations') + '</span><button id="navigate-button" class="secondary">Navigate</button><button id="select-center-button" ' + (accepting ? '' : 'disabled') + '>' + (accepting ? 'Select center' : 'Unavailable') + '</button>';
+            infoPanel.innerHTML = '<strong>' + escapeHtml(item.name) + '</strong><span class="center-name">' + escapeHtml(item.location || 'Location not provided') + '</span><span class="muted">Capacity: ' + occupancy + ' of ' + capacity + ' · ' + spaces + ' spaces' + (distance == null ? '' : ' · ' + distance.toFixed(1) + ' km straight-line') + '</span><span class="muted" style="color:' + (accepting ? '#218B25' : '#B42318') + ';font-weight:700">' + availability + '</span><button id="navigate-button" class="secondary">Navigate</button><button id="select-center-button">View details</button>';
             infoPanel.querySelector('#navigate-button').onclick = () => startNavigation(item);
             infoPanel.querySelector('#select-center-button').onclick = () => {
-              if (accepting) window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'select-center', centerId: item.id }));
+              window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'select-center', centerId: item.id }));
             };
             clearRoute();
           }

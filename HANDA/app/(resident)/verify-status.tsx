@@ -1,22 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
-import { ThemedText as Text } from '@components/ThemedText';
-import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { ThemedText as Text } from '@components/ThemedText';
+import { AnimatedPressable } from '@components/Buttons';
+import { GradientHeader, Reveal, kitFonts } from '@components/ScreenKit';
 import { Colors } from '@constants/colors';
+import { useTheme } from '@hooks/useTheme';
 import { authenticatedFetch } from '@services/apiClient';
-import { GradientHeader, Reveal } from '@components/ScreenKit';
-import { PulseDot } from '@components/IncidentCardKit';
 
 const GREEN = '#218B25';
-
-type HouseholdMember = {
-  id: string;
-  name: string;
-  relationship: string;
-  status: string;
-};
 
 type EvacuationStatus = {
   resident: { id: string; name: string; status: string };
@@ -28,340 +21,200 @@ type EvacuationStatus = {
   checkedInBy: string | null;
   householdCount: number;
   evacuee: { name: string; age: number; sex: string; contactNumber: string; address: string } | null;
-  members: HouseholdMember[];
-};
-
-type EvacuationCenter = {
-  id: string;
-  name: string;
-  location: string;
-  capacity: number;
-  current_occupancy: number;
-  status: string;
+  members: Array<{ id: string; name: string; relationship: string; status: string }>;
 };
 
 export default function VerifyStatusScreen() {
   const router = useRouter();
+  const { palette } = useTheme();
   const [status, setStatus] = useState<EvacuationStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [centers, setCenters] = useState<EvacuationCenter[]>([]);
-  const [selectedCenterId, setSelectedCenterId] = useState('');
-  const [isCenterEditorOpen, setIsCenterEditorOpen] = useState(false);
-  const [isLoadingCenters, setIsLoadingCenters] = useState(false);
-  const [isSavingCenter, setIsSavingCenter] = useState(false);
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
-  const [actionError, setActionError] = useState('');
-  const [actionMessage, setActionMessage] = useState('');
 
-  const loadStatus = useCallback(async () => {
+  const loadStatus = useCallback(async (refresh = false) => {
+    if (refresh) setIsRefreshing(true);
     try {
       const response = await authenticatedFetch('/api/v1/resident/evacuation-status');
-      if (!response.ok) throw new Error('Status could not be loaded from the server.');
+      if (!response.ok) throw new Error('Evacuation status could not be loaded.');
       setStatus(await response.json() as EvacuationStatus);
       setError('');
-    } catch {
-      setError('Live evacuation status is unavailable. Check your connection and try again.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Live evacuation status is unavailable.');
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     void loadStatus();
-    const refresh = setInterval(() => void loadStatus(), 15000);
+    const refresh = setInterval(() => void loadStatus(), 15_000);
     return () => clearInterval(refresh);
-  }, [loadStatus]);
+  }, [loadStatus]));
 
-  const isRegistered = !!status?.registrationId;
-  const statusLabel = status?.status === 'checked_in' ? 'CHECKED IN' : status?.status === 'evacuated' ? 'EVACUATED' : 'AWAITING CHECK-IN';
-  const statusDescription = status?.status === 'checked_in'
-    ? `Verified by ${status.checkedInBy || 'an evacuation responder'}`
+  const assigned = !!status?.registrationId;
+  const statusLabel = status?.status === 'checked_in'
+    ? 'Checked in'
     : status?.status === 'evacuated'
-      ? 'Your household evacuation was verified by a responder.'
-      : 'A responder must confirm your household’s arrival at the center.';
-
-  const openCenterEditor = async () => {
-    setIsCenterEditorOpen(true);
-    setIsLoadingCenters(true);
-    setActionError('');
-    setSelectedCenterId(status?.center?.id || '');
-    try {
-      const response = await authenticatedFetch('/api/v1/centers');
-      if (!response.ok) throw new Error('Evacuation centers could not be loaded.');
-      const result = await response.json() as EvacuationCenter[];
-      setCenters(result.filter((center) => center.id === status?.center?.id || (center.status !== 'closed' && center.status !== 'full' && center.current_occupancy < center.capacity)));
-    } catch (loadError) {
-      setActionError(loadError instanceof Error ? loadError.message : 'Evacuation centers could not be loaded.');
-    } finally {
-      setIsLoadingCenters(false);
-    }
-  };
-
-  const saveCenter = async () => {
-    if (!status?.registrationId || !selectedCenterId || selectedCenterId === status.center?.id) return;
-    setIsSavingCenter(true);
-    setActionError('');
-    try {
-      const response = await authenticatedFetch(`/api/v1/resident/evacuation-registrations/${encodeURIComponent(status.registrationId)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ centerId: selectedCenterId }),
-      });
-      const result = await response.json() as { detail?: unknown };
-      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'The evacuation center could not be changed.');
-      setIsCenterEditorOpen(false);
-      setActionMessage('Your pending registration has been moved to the selected center.');
-      await loadStatus();
-    } catch (saveError) {
-      setActionError(saveError instanceof Error ? saveError.message : 'The evacuation center could not be changed.');
-    } finally {
-      setIsSavingCenter(false);
-    }
-  };
-
-  const cancelRegistration = async () => {
-    if (!status?.registrationId) return;
-    setIsCancelling(true);
-    setActionError('');
-    try {
-      const response = await authenticatedFetch(`/api/v1/resident/evacuation-registrations/${encodeURIComponent(status.registrationId)}`, { method: 'DELETE' });
-      const result = await response.json() as { detail?: unknown };
-      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'The pending registration could not be canceled.');
-      setIsCancelDialogOpen(false);
-      setActionMessage('Your pending registration was canceled. You can register again when you are ready.');
-      await loadStatus();
-    } catch (cancelError) {
-      setActionError(cancelError instanceof Error ? cancelError.message : 'The pending registration could not be canceled.');
-    } finally {
-      setIsCancelling(false);
-    }
-  };
+      ? 'Evacuated'
+      : status?.status === 'released'
+        ? 'Released'
+        : 'Registered';
+  const statusTone = status?.status === 'checked_in' ? GREEN : status?.status === 'evacuated' ? '#9A6700' : '#56705A';
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <GradientHeader title="Verify Status" subtitle="Live evacuation check-in" icon="shield-check" right={
-          <TouchableOpacity onPress={() => { setIsLoading(true); void loadStatus(); }} accessibilityRole="button" accessibilityLabel="Refresh evacuation status" style={styles.refreshButton}>
-            <MaterialCommunityIcons name="refresh" size={22} color={Colors.white} />
-          </TouchableOpacity>
-        } />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void loadStatus(true)} tintColor={GREEN} colors={[GREEN]} />}
+      >
+        <GradientHeader title="My evacuation status" subtitle="Updates from evacuation personnel" icon="shield-check" />
 
         {isLoading && !status ? (
-          <View style={styles.centerState}><ActivityIndicator color={GREEN} /><Text style={styles.stateText}>Loading live evacuation status...</Text></View>
+          <View style={styles.state}><ActivityIndicator color={GREEN} /><Text style={[styles.stateText, { color: palette.textMuted }]}>Loading your latest status...</Text></View>
         ) : error && !status ? (
-          <View style={styles.centerState}>
-            <MaterialCommunityIcons name="alert-circle-outline" size={32} color="#A34545" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => { setIsLoading(true); void loadStatus(); }}><Text style={styles.retryText}>Try again</Text></TouchableOpacity>
+          <View style={[styles.stateCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+            <MaterialCommunityIcons name="clock-alert-outline" size={30} color={Colors.emergency} />
+            <Text style={[styles.stateTitle, { color: palette.text }]}>Status unavailable</Text>
+            <Text style={[styles.stateText, { color: palette.textMuted }]}>{error}</Text>
+            <AnimatedPressable style={styles.primaryButton} onPress={() => void loadStatus(true)} accessibilityRole="button">
+              <MaterialCommunityIcons name="refresh" size={17} color={Colors.white} /><Text style={styles.primaryText}>Try again</Text>
+            </AnimatedPressable>
           </View>
-        ) : !isRegistered ? (
-          <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="clipboard-text-outline" size={34} color={GREEN} />
-            <Text style={styles.emptyTitle}>No evacuation registration</Text>
-            <Text style={styles.emptyText}>Register your household at an available barangay center to see its status here.</Text>
-            {!!actionMessage && <Text style={styles.actionMessage}>{actionMessage}</Text>}
-            <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/(resident)/register-evacuee')}><Text style={styles.primaryText}>Register household</Text></TouchableOpacity>
-          </View>
+        ) : !assigned ? (
+          <Reveal index={0}>
+            <View style={[styles.guidanceCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+              <View style={styles.guidanceIcon}><MaterialCommunityIcons name="account-clock-outline" size={27} color={GREEN} /></View>
+              <Text style={[styles.guidanceTitle, { color: palette.text }]}>No center assignment yet</Text>
+              <Text style={[styles.guidanceText, { color: palette.textMuted }]}>
+                You do not need to register or choose a center in the app. City Social Welfare and Development personnel manage evacuation records and center assignments. Follow responder directions during an evacuation.
+              </Text>
+              <View style={[styles.guidanceNote, { backgroundColor: palette.background }]}>
+                <MaterialCommunityIcons name="bell-outline" size={18} color={GREEN} />
+                <Text style={[styles.guidanceNoteText, { color: palette.textMuted }]}>If an assigned center becomes full, responders will provide updated instructions.</Text>
+              </View>
+            </View>
+          </Reveal>
         ) : status ? (
           <>
-            <Reveal index={0}><View style={styles.personCard}>
-              <View style={styles.avatar}><MaterialCommunityIcons name="account" size={26} color={GREEN} /></View>
-              <View style={styles.personCopy}>
-                <Text style={styles.personName}>{status.evacuee?.name || status.resident.name}</Text>
-                <Text style={styles.personDetails}>{status.registrationId} · {status.evacuee?.address || 'Address not provided'}</Text>
-              </View>
-            </View></Reveal>
-
-            <Reveal index={1}><View style={[styles.statusCard, status.status === 'checked_in' || status.status === 'evacuated' ? styles.statusCardOk : styles.statusCardPending]}>
-              <View style={styles.cardHeading}>
-                <View style={styles.headingTitle}><MaterialCommunityIcons name="check-decagram-outline" size={18} color={GREEN} /><Text style={styles.sectionTitle}>Verified status</Text></View>
-                <View style={styles.livePill}><PulseDot color={GREEN} /><Text style={styles.liveTag}>LIVE</Text></View>
-              </View>
-              <View style={styles.statusContent}>
-                <View style={[styles.statusIcon, status.status === 'checked_in' ? styles.statusConfirmed : styles.statusPending]}>
-                  <MaterialCommunityIcons name={status.status === 'checked_in' || status.status === 'evacuated' ? 'check' : 'clock-outline'} size={28} color={Colors.white} />
+            <Reveal index={0}>
+              <View style={[styles.statusCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+                <View style={styles.statusHeading}>
+                  <View style={styles.statusIcon}><MaterialCommunityIcons name="home-city-outline" size={23} color={GREEN} /></View>
+                  <View style={styles.statusCopy}>
+                    <Text style={[styles.cardEyebrow, { color: palette.textMuted }]}>CURRENT ASSIGNMENT</Text>
+                    <Text style={[styles.centerName, { color: palette.text }]}>{status.center?.name || 'Evacuation center'}</Text>
+                  </View>
+                  <View style={[styles.statusPill, { backgroundColor: `${statusTone}18` }]}>
+                    <View style={[styles.statusDot, { backgroundColor: statusTone }]} />
+                    <Text style={[styles.statusLabel, { color: statusTone }]}>{statusLabel}</Text>
+                  </View>
                 </View>
-                <View style={styles.statusCopy}>
-                  <Text style={styles.statusLabel}>{statusLabel}</Text>
-                  <Text style={styles.statusDescription}>{statusDescription}</Text>
-                  {status.checkedInAt && <Text style={styles.timestamp}>{new Date(status.checkedInAt).toLocaleString()}</Text>}
+                <View style={[styles.divider, { backgroundColor: palette.border }]} />
+                <InfoRow icon="map-marker-outline" label="LOCATION" value={status.center?.location || 'Location not provided'} palette={palette} />
+                <InfoRow icon="account-group-outline" label="HOUSEHOLD" value={`${Math.max(1, status.householdCount)} ${status.householdCount === 1 ? 'person' : 'people'}`} palette={palette} />
+                <InfoRow icon="calendar-clock-outline" label="RECORDED" value={formatDate(status.registeredAt)} palette={palette} />
+                {status.checkedInAt && <InfoRow icon="check-circle-outline" label="CHECKED IN" value={`${formatDate(status.checkedInAt)}${status.checkedInBy ? ` · ${status.checkedInBy}` : ''}`} palette={palette} />}
+              </View>
+            </Reveal>
+
+            {status.evacuee && (
+              <Reveal index={1}>
+                <View style={[styles.householdCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+                  <Text style={[styles.sectionTitle, { color: palette.text }]}>Household record</Text>
+                  <PersonRow name={status.evacuee.name} relationship="Household lead" palette={palette} />
+                  {status.members.map((member) => <PersonRow key={member.id} name={member.name} relationship={member.relationship} palette={palette} />)}
                 </View>
-              </View>
-            </View></Reveal>
-
-            <Reveal index={2}><View style={styles.assignmentCard}>
-              <View style={styles.cardHeading}>
-                <Text style={styles.sectionTitle}>Evacuation assignment</Text>
-                <Text style={styles.memberCount}>{status.householdCount} {status.householdCount === 1 ? 'MEMBER' : 'MEMBERS'}</Text>
-              </View>
-              <Detail icon="map-marker-outline" label="CENTER ASSIGNED" value={status.center?.name || 'Not available'} />
-              <Detail icon="map-outline" label="LOCATION" value={status.center?.location || 'Not available'} />
-              <Detail icon="account-check-outline" label="CHECK-IN VERIFIED BY" value={status.checkedInBy || 'Awaiting responder'} />
-            </View></Reveal>
-
-            {status.status === 'registered' && <Reveal index={3}><View style={styles.registrationActions}>
-              <TouchableOpacity style={styles.changeCenterButton} onPress={() => void openCenterEditor()} accessibilityRole="button">
-                <MaterialCommunityIcons name="map-marker-edit-outline" size={18} color={GREEN} />
-                <Text style={styles.changeCenterText}>Change center</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelRegistrationButton} onPress={() => { setActionError(''); setIsCancelDialogOpen(true); }} accessibilityRole="button">
-                <MaterialCommunityIcons name="close-circle-outline" size={18} color="#A34545" />
-                <Text style={styles.cancelRegistrationText}>Cancel registration</Text>
-              </TouchableOpacity>
-            </View></Reveal>}
-            {!!actionMessage && isRegistered && <Text style={styles.actionMessage}>{actionMessage}</Text>}
-            {!!actionError && !isCenterEditorOpen && <Text style={styles.staleError}>{actionError}</Text>}
-
-            <Reveal index={4}><View style={styles.householdCard}>
-              <View style={styles.cardHeading}>
-                <Text style={styles.sectionTitle}>Household members</Text>
-                <Text style={styles.memberCount}>{status.members.length + 1} TOTAL</Text>
-              </View>
-              <HouseholdRow name={status.evacuee?.name || status.resident.name} relationship="Evacuee" status={status.status} primary />
-              {status.members.map((member) => <HouseholdRow key={member.id} name={member.name} relationship={member.relationship} status={member.status} />)}
-              {status.members.length === 0 && <Text style={styles.noMembers}>No additional household members were registered.</Text>}
-            </View></Reveal>
+              </Reveal>
+            )}
           </>
         ) : null}
-        {!!error && status && <Text style={styles.staleError}>{error}</Text>}
+
+        <Reveal index={assigned ? 2 : 1}>
+          <AnimatedPressable style={[styles.directoryButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={() => router.push('/(resident)/center-status')} accessibilityRole="button">
+            <View style={styles.directoryIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={20} color={GREEN} /></View>
+            <View style={styles.directoryCopy}>
+              <Text style={[styles.directoryTitle, { color: palette.text }]}>View center availability</Text>
+              <Text style={[styles.directorySubtitle, { color: palette.textMuted }]}>See live capacity information for local centers</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textMuted} />
+          </AnimatedPressable>
+        </Reveal>
       </ScrollView>
-      <Modal transparent visible={isCenterEditorOpen} animationType="fade" onRequestClose={() => setIsCenterEditorOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setIsCenterEditorOpen(false)}>
-          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.modalTitle}>Change evacuation center</Text>
-            <Text style={styles.modalDescription}>Choose a center that is accepting registrations. Your household is still awaiting check-in.</Text>
-            {isLoadingCenters ? <ActivityIndicator style={styles.modalLoading} color={GREEN} /> : <ScrollView style={styles.centerOptions} showsVerticalScrollIndicator={false}>
-              {centers.map((center) => <Pressable key={center.id} style={[styles.centerOption, selectedCenterId === center.id && styles.centerOptionSelected]} onPress={() => setSelectedCenterId(center.id)} accessibilityRole="radio" accessibilityState={{ selected: selectedCenterId === center.id }}>
-                <View style={styles.centerOptionCopy}><Text style={styles.centerOptionName}>{center.name}</Text><Text style={styles.centerOptionLocation}>{center.location} · {Math.max(0, center.capacity - center.current_occupancy)} spaces</Text></View>
-                {selectedCenterId === center.id && <MaterialCommunityIcons name="check-circle" size={19} color={GREEN} />}
-              </Pressable>)}
-              {centers.length === 0 && <Text style={styles.modalDescription}>No other centers are currently accepting registrations.</Text>}
-            </ScrollView>}
-            {!!actionError && <Text style={styles.errorText}>{actionError}</Text>}
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setIsCenterEditorOpen(false)} disabled={isSavingCenter}><Text style={styles.modalCancelText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.modalSaveButton, (!selectedCenterId || selectedCenterId === status?.center?.id || isSavingCenter) && styles.buttonDisabled]} onPress={() => void saveCenter()} disabled={!selectedCenterId || selectedCenterId === status?.center?.id || isSavingCenter} accessibilityRole="button">
-                {isSavingCenter ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.modalSaveText}>Save center</Text>}
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-      <Modal transparent visible={isCancelDialogOpen} animationType="fade" onRequestClose={() => setIsCancelDialogOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setIsCancelDialogOpen(false)}>
-          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.modalTitle}>Cancel pending registration?</Text>
-            <Text style={styles.modalDescription}>This removes your household’s pending center registration. You can register again later or choose a different center.</Text>
-            {!!actionError && <Text style={styles.errorText}>{actionError}</Text>}
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancelButton} onPress={() => setIsCancelDialogOpen(false)} disabled={isCancelling}><Text style={styles.modalCancelText}>Keep registration</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.modalDeleteButton, isCancelling && styles.buttonDisabled]} onPress={() => void cancelRegistration()} disabled={isCancelling} accessibilityRole="button">
-                {isCancelling ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.modalSaveText}>Cancel registration</Text>}
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </SafeAreaView>
   );
 }
 
-function Detail({ icon, label, value }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }) {
+function InfoRow({ icon, label, value, palette }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string; palette: ReturnType<typeof useTheme>['palette'] }) {
   return (
-    <View style={styles.detailRow}>
-      <MaterialCommunityIcons name={icon} size={16} color={GREEN} />
-      <View style={styles.detailCopy}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></View>
+    <View style={styles.infoRow}>
+      <MaterialCommunityIcons name={icon} size={17} color={GREEN} />
+      <View style={styles.infoCopy}>
+        <Text style={[styles.cardEyebrow, { color: palette.textMuted }]}>{label}</Text>
+        <Text style={[styles.infoValue, { color: palette.text }]}>{value}</Text>
+      </View>
     </View>
   );
 }
 
-function HouseholdRow({ name, relationship, status, primary = false }: { name: string; relationship: string; status: string; primary?: boolean }) {
-  const label = status.replace('_', ' ').toUpperCase();
+function PersonRow({ name, relationship, palette }: { name: string; relationship: string; palette: ReturnType<typeof useTheme>['palette'] }) {
   return (
-    <View style={styles.memberRow}>
-      <View style={styles.memberAvatar}><MaterialCommunityIcons name={primary ? 'account' : 'account-outline'} size={21} color={GREEN} /></View>
-      <View style={styles.memberCopy}><Text style={styles.memberName}>{name}</Text><Text style={styles.memberRelationship}>{relationship}</Text></View>
-      <Text style={[styles.memberStatus, status === 'checked_in' && styles.memberStatusConfirmed]}>{label}</Text>
+    <View style={[styles.personRow, { borderBottomColor: palette.border }]}>
+      <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={18} color={GREEN} /></View>
+      <View style={styles.personCopy}>
+        <Text style={[styles.personName, { color: palette.text }]}>{name}</Text>
+        <Text style={[styles.personRelation, { color: palette.textMuted }]}>{relationship}</Text>
+      </View>
     </View>
   );
+}
+
+function formatDate(value: string | null) {
+  if (!value) return 'Not recorded';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.surfaceMuted },
-  content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 20 },
-  refreshButton: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.18)' },
-  centerState: { flex: 1, minHeight: 240, alignItems: 'center', justifyContent: 'center', padding: 26, gap: 12 },
-  stateText: { color: Colors.textMuted, fontSize: 13 },
-  errorText: { color: '#A34545', fontSize: 13, textAlign: 'center' },
-  retryButton: { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 5, backgroundColor: GREEN },
-  retryText: { color: Colors.white, fontWeight: '700' },
-  emptyState: { margin: 16, minHeight: 250, alignItems: 'center', justifyContent: 'center', padding: 24, borderWidth: 1, borderColor: '#B5D4B5', borderRadius: 7, backgroundColor: Colors.surface },
-  emptyTitle: { marginTop: 12, color: '#1E5322', fontSize: 16, fontWeight: '800', textAlign: 'center' },
-  emptyText: { marginTop: 7, color: Colors.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
-  primaryButton: { marginTop: 18, paddingHorizontal: 18, paddingVertical: 11, borderRadius: 5, backgroundColor: GREEN },
-  primaryText: { color: Colors.white, fontSize: 12, fontWeight: '700' },
-  personCard: { minHeight: 80, marginHorizontal: 14, marginTop: 16, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', borderWidth: 1, borderColor: '#E0EAE0', borderRadius: 20, backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E4F1E4' },
-  personCopy: { flex: 1, marginLeft: 12 },
-  personName: { color: Colors.text, fontFamily: 'Sora_700Bold', fontSize: 15 },
-  personDetails: { marginTop: 4, color: Colors.textMuted, fontSize: 11 },
-  statusCard: { marginHorizontal: 14, marginTop: 12, padding: 16, borderWidth: 1, borderColor: '#E0EAE0', borderLeftWidth: 6, borderRadius: 20, backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
-  statusCardOk: { borderLeftColor: GREEN },
-  statusCardPending: { borderLeftColor: '#E0A02E' },
-  livePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, backgroundColor: '#E4F1E4' },
-  cardHeading: { minHeight: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
-  headingTitle: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionTitle: { color: Colors.text, fontFamily: 'Sora_700Bold', fontSize: 14 },
-  liveTag: { color: GREEN, fontSize: 10, fontWeight: '800' },
-  statusContent: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  statusIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  statusConfirmed: { backgroundColor: GREEN },
-  statusPending: { backgroundColor: '#E0A02E' },
+  safeArea: { flex: 1 },
+  content: { flexGrow: 1, width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 28 },
+  state: { alignItems: 'center', justifyContent: 'center', gap: 9, padding: 28 },
+  stateCard: { alignItems: 'center', margin: 16, padding: 22, borderWidth: 1, borderRadius: 20 },
+  stateTitle: { fontFamily: kitFonts.heading, fontSize: 17, marginTop: 10 },
+  stateText: { fontFamily: kitFonts.medium, fontSize: 12, textAlign: 'center', lineHeight: 18 },
+  guidanceCard: { alignItems: 'center', margin: 16, padding: 21, borderWidth: 1, borderRadius: 21 },
+  guidanceIcon: { width: 58, height: 58, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
+  guidanceTitle: { fontFamily: kitFonts.heading, fontSize: 19, marginTop: 13, textAlign: 'center' },
+  guidanceText: { fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 19, textAlign: 'center', marginTop: 7 },
+  guidanceNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 11, borderRadius: 13, marginTop: 15 },
+  guidanceNoteText: { flex: 1, fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 16 },
+  statusCard: { margin: 16, padding: 16, borderWidth: 1, borderRadius: 20 },
+  statusHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusIcon: { width: 43, height: 43, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
   statusCopy: { flex: 1 },
-  statusLabel: { color: Colors.text, fontFamily: 'Sora_700Bold', fontSize: 16 },
-  statusDescription: { marginTop: 4, color: Colors.textMuted, fontSize: 12, lineHeight: 17 },
-  timestamp: { marginTop: 4, color: Colors.textMuted, fontSize: 10 },
-  assignmentCard: { marginHorizontal: 14, marginTop: 12, padding: 16, borderWidth: 1, borderColor: '#E0EAE0', borderRadius: 20, backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
-  memberCount: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 10, backgroundColor: '#E4F1E4', color: GREEN, fontSize: 10, fontWeight: '700', overflow: 'hidden' },
-  detailRow: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, borderTopWidth: 1, borderTopColor: '#EDF2ED' },
-  detailCopy: { flex: 1 },
-  detailLabel: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
-  detailValue: { marginTop: 2, color: Colors.text, fontSize: 13, fontWeight: '600' },
-  householdCard: { marginHorizontal: 14, marginTop: 12, padding: 16, borderWidth: 1, borderColor: '#E0EAE0', borderRadius: 20, backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
-  memberRow: { minHeight: 56, marginTop: 8, paddingHorizontal: 10, alignItems: 'center', flexDirection: 'row', gap: 10, borderRadius: 14, backgroundColor: '#F4F9F4' },
-  memberAvatar: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: Colors.surface },
-  memberCopy: { flex: 1 },
-  memberName: { color: Colors.text, fontSize: 13, fontWeight: '800' },
-  memberRelationship: { marginTop: 2, color: Colors.textMuted, fontSize: 11 },
-  memberStatus: { maxWidth: 100, overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, backgroundColor: '#E4EBE4', color: Colors.textMuted, fontSize: 8, fontWeight: '800', textAlign: 'center' },
-  memberStatusConfirmed: { backgroundColor: '#78AE78', color: Colors.white },
-  noMembers: { paddingVertical: 12, color: Colors.textMuted, fontSize: 10 },
-  staleError: { margin: 12, color: '#A34545', fontSize: 10 },
-  registrationActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginHorizontal: 14, marginTop: 12 },
-  changeCenterButton: { minHeight: 48, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 10, borderWidth: 1.5, borderColor: GREEN, borderRadius: 16, backgroundColor: Colors.surface },
-  changeCenterText: { color: GREEN, fontSize: 13, fontWeight: '700' },
-  cancelRegistrationButton: { minHeight: 48, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 10, borderWidth: 1.5, borderColor: '#D5A5A5', borderRadius: 16, backgroundColor: Colors.surface },
-  cancelRegistrationText: { color: '#A34545', fontSize: 13, fontWeight: '700' },
-  actionMessage: { marginHorizontal: 14, marginTop: 10, color: GREEN, fontSize: 12, lineHeight: 17, textAlign: 'center' },
-  modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalCard: { width: '100%', maxWidth: 440, maxHeight: '90%', padding: 18, borderRadius: 8, backgroundColor: Colors.surface },
-  modalTitle: { color: Colors.text, fontSize: 17, fontWeight: '800' },
-  modalDescription: { marginTop: 6, color: Colors.textMuted, fontSize: 12, lineHeight: 18 },
-  modalLoading: { marginVertical: 24 },
-  centerOptions: { flexShrink: 1, marginTop: 10 },
-  centerOption: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: '#E8EFE8' },
-  centerOptionSelected: { backgroundColor: '#F1F7F1' },
-  centerOptionCopy: { flex: 1 },
-  centerOptionName: { color: Colors.text, fontSize: 13, fontWeight: '700' },
-  centerOptionLocation: { marginTop: 3, color: Colors.textMuted, fontSize: 10 },
-  errorText: { marginTop: 10, color: '#A34545', fontSize: 12 },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 16 },
-  modalCancelButton: { minHeight: 42, justifyContent: 'center', paddingHorizontal: 12 },
-  modalCancelText: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
-  modalSaveButton: { minWidth: 118, minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 5, backgroundColor: GREEN },
-  modalDeleteButton: { minWidth: 142, minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, borderRadius: 5, backgroundColor: '#A34545' },
-  modalSaveText: { color: Colors.white, fontSize: 12, fontWeight: '700', textAlign: 'center' },
-  buttonDisabled: { opacity: 0.55 },
+  cardEyebrow: { fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 0.8 },
+  centerName: { fontFamily: kitFonts.heading, fontSize: 15, marginTop: 4 },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 10 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusLabel: { fontFamily: kitFonts.bold, fontSize: 9 },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 13 },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 11 },
+  infoCopy: { flex: 1 },
+  infoValue: { fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  householdCard: { marginHorizontal: 16, marginBottom: 15, padding: 16, borderWidth: 1, borderRadius: 20 },
+  sectionTitle: { fontFamily: kitFonts.heading, fontSize: 16, marginBottom: 7 },
+  personRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  personIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
+  personCopy: { flex: 1 },
+  personName: { fontFamily: kitFonts.semibold, fontSize: 12 },
+  personRelation: { fontFamily: kitFonts.medium, fontSize: 10, marginTop: 2 },
+  directoryButton: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 11, marginHorizontal: 16, padding: 12, borderWidth: 1, borderRadius: 17 },
+  directoryIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
+  directoryCopy: { flex: 1 },
+  directoryTitle: { fontFamily: kitFonts.semibold, fontSize: 13 },
+  directorySubtitle: { fontFamily: kitFonts.medium, fontSize: 10, marginTop: 4 },
+  primaryButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 14, borderRadius: 12, backgroundColor: GREEN, marginTop: 13 },
+  primaryText: { color: Colors.white, fontFamily: kitFonts.bold, fontSize: 12 },
 });

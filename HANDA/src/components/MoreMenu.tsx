@@ -1,119 +1,167 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
-import { ThemedText as Text } from '@components/ThemedText';
-import { AnimatedPressable as TouchableOpacity } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@hooks/useAuth';
-import { Colors, BorderRadius, Spacing } from '@constants/colors';
-import { useTheme } from '@hooks/useTheme';
-import AppBackArrow from '@components/AppBackArrow';
+import { AnimatedPressable } from '@components/Buttons';
+import { ThemedText as Text } from '@components/ThemedText';
 import Avatar from '@components/Avatar';
+import { Reveal, kitFonts } from '@components/IncidentCardKit';
+import { Colors } from '@constants/colors';
+import { useAuth } from '@hooks/useAuth';
+import { useTheme } from '@hooks/useTheme';
 
 interface MoreMenuProps {
   roleLabel: string;
 }
 
+type MenuItem = {
+  title: string;
+  description: string;
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  onPress: () => void;
+};
+
 export function MoreMenu({ roleLabel }: MoreMenuProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const { palette } = useTheme();
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const { palette } = useTheme();
   const displayName = user?.name || 'HANDA User';
 
-  const openSettings = () => {
-    router.push('/settings');
-  };
-
-  const openAccount = () => {
-    router.push('/account');
-  };
-
-  const confirmLogout = () => {
-    setIsLogoutDialogOpen(true);
-  };
+  const menuItems: MenuItem[] = [
+    { title: 'Settings', description: 'Personalize your app experience', icon: 'cog-outline', onPress: () => router.push('/settings') },
+    { title: 'Account', description: 'Manage your profile and details', icon: 'account-outline', onPress: () => router.push('/account') },
+    {
+      title: 'HANDA Support',
+      description: 'Get help with preparedness and response',
+      icon: 'lifebuoy',
+      onPress: () => router.push(roleLabel === 'Resident' ? '/(resident)/chatbot' : '/(responder)/chatbot'),
+    },
+    { title: 'Developer details', description: 'Learn about the team behind HANDA', icon: 'code-braces', onPress: () => router.push('/developers') },
+  ];
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
-      if (await logout()) router.replace('/(auth)/login');
+      if (await logout()) {
+        setIsLogoutDialogOpen(false);
+        router.replace('/(auth)/login');
+      }
     } catch (error) {
       console.error('Logout failed:', error);
+      Alert.alert('Unable to log out', 'Please try again.');
     } finally {
       setIsLoggingOut(false);
-      setIsLogoutDialogOpen(false);
     }
   };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
-      <ScrollView style={[styles.container, { backgroundColor: palette.background }]} contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <AppBackArrow />
-          <Text style={styles.headerTitle}>MORE</Text>
-        </View>
+      <ScrollView
+        style={{ backgroundColor: palette.background }}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <LinearGradient colors={['#218B25', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+          <View style={styles.heroDecoration} />
+          <Text style={styles.eyebrow}>YOUR HANDA SPACE</Text>
+          <Text style={styles.heroTitle}>More</Text>
+          <Text style={styles.heroSubtitle}>Your profile, preferences, and support.</Text>
+          <View style={[styles.profileCard, { backgroundColor: palette.surface }]}>
+            <Avatar uri={user?.profilePicture} name={displayName} size={58} />
+            <View style={styles.profileCopy}>
+              <Text numberOfLines={1} style={[styles.name, { color: palette.text }]}>{displayName}</Text>
+              <View style={styles.roleRow}>
+                <MaterialCommunityIcons name={roleLabel === 'Responder' ? 'shield-check' : 'account-heart-outline'} size={15} color="#218B25" />
+                <Text style={styles.role}>{roleLabel}</Text>
+              </View>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={23} color={palette.textMuted} />
+          </View>
+        </LinearGradient>
 
-        <View style={styles.profile}>
-          <Avatar uri={user?.profilePicture} name={displayName} size={68} />
-          <View style={styles.profileCopy}>
-            <Text style={[styles.name, { color: palette.text }]}>{displayName}</Text>
-            <Text style={styles.role}>{roleLabel}</Text>
+        <View style={styles.sectionHeading}>
+          <View>
+            <Text style={[styles.sectionTitle, { color: palette.text }]}>Quick access</Text>
+            <Text style={[styles.sectionCaption, { color: palette.textMuted }]}>Everything you need, in one place</Text>
+          </View>
+          <View style={styles.sectionIcon}>
+            <MaterialCommunityIcons name="view-grid-outline" size={18} color="#218B25" />
           </View>
         </View>
 
         <View style={styles.menu}>
-          <TouchableOpacity style={[styles.menuButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={openSettings} activeOpacity={0.8}>
-            <MaterialCommunityIcons name="cog-outline" size={46} color="#218B25" />
-            <Text style={styles.menuLabel}>SETTINGS</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={openAccount} activeOpacity={0.8}>
-            <MaterialCommunityIcons name="account-outline" size={46} color="#218B25" />
-            <Text style={styles.menuLabel}>ACCOUNT</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={() => router.push(roleLabel === 'Resident' ? '/(resident)/chatbot' : '/(responder)/chatbot')} activeOpacity={0.8}>
-            <MaterialCommunityIcons name="robot-outline" size={46} color="#218B25" />
-            <Text style={styles.menuLabel}>HANDA SUPPORT</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={() => router.push('/developers')} activeOpacity={0.8}>
-            <MaterialCommunityIcons name="code-braces" size={46} color="#218B25" />
-            <Text style={styles.menuLabel}>DEVELOPER DETAILS</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.menuButton, styles.logoutButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={confirmLogout} activeOpacity={0.8}>
-            <MaterialCommunityIcons name="logout" size={42} color={Colors.emergency} />
-            <Text style={[styles.menuLabel, styles.logoutLabel]}>LOG OUT</Text>
-          </TouchableOpacity>
+          {menuItems.map((item, index) => (
+            <Reveal key={item.title} index={index}>
+              <AnimatedPressable
+                style={[styles.menuButton, { backgroundColor: palette.surface, borderColor: palette.border }]}
+                onPress={item.onPress}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.title}. ${item.description}`}
+              >
+                <View style={styles.menuIcon}>
+                  <MaterialCommunityIcons name={item.icon} size={23} color="#218B25" />
+                </View>
+                <View style={styles.menuCopy}>
+                  <Text style={[styles.menuLabel, { color: palette.text }]}>{item.title}</Text>
+                  <Text style={[styles.menuDescription, { color: palette.textMuted }]}>{item.description}</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={21} color={palette.textMuted} />
+              </AnimatedPressable>
+            </Reveal>
+          ))}
         </View>
+
+        <Reveal index={4}>
+          <AnimatedPressable
+            style={[styles.logoutButton, { backgroundColor: palette.surface, borderColor: palette.border }]}
+            onPress={() => setIsLogoutDialogOpen(true)}
+            accessibilityRole="button"
+          >
+            <View style={styles.logoutIcon}>
+              <MaterialCommunityIcons name="logout" size={20} color={Colors.emergency} />
+            </View>
+            <View style={styles.menuCopy}>
+              <Text style={styles.logoutLabel}>Log out</Text>
+              <Text style={[styles.menuDescription, { color: palette.textMuted }]}>Sign out of this device</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={21} color={palette.textMuted} />
+          </AnimatedPressable>
+        </Reveal>
+        <Text style={[styles.footer, { color: palette.textMuted }]}>HANDA - Here to help keep you safe</Text>
       </ScrollView>
 
-      <Modal
-        visible={isLogoutDialogOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsLogoutDialogOpen(false)}
-      >
-        <Pressable style={styles.modalBackdrop} onPress={() => setIsLogoutDialogOpen(false)}>
-          <Pressable style={styles.logoutDialog} onPress={(event) => event.stopPropagation()}>
+      <Modal visible={isLogoutDialogOpen} transparent animationType="fade" onRequestClose={() => setIsLogoutDialogOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => !isLoggingOut && setIsLogoutDialogOpen(false)}>
+          <Pressable
+            style={[styles.logoutDialog, { backgroundColor: palette.surface }]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={styles.dialogIcon}>
+              <MaterialCommunityIcons name="logout" size={23} color={Colors.emergency} />
+            </View>
             <Text style={[styles.dialogTitle, { color: palette.text }]}>Log out?</Text>
             <Text style={[styles.dialogMessage, { color: palette.textMuted }]}>Are you sure you want to log out of your account?</Text>
             <View style={styles.dialogActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
+              <AnimatedPressable
+                style={[styles.cancelButton, { borderColor: palette.border }]}
                 onPress={() => setIsLogoutDialogOpen(false)}
                 disabled={isLoggingOut}
                 accessibilityRole="button"
               >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+                <Text style={[styles.cancelButtonText, { color: palette.text }]}>Cancel</Text>
+              </AnimatedPressable>
+              <AnimatedPressable
                 style={styles.confirmButton}
                 onPress={() => void handleLogout()}
                 disabled={isLoggingOut}
                 accessibilityRole="button"
               >
                 {isLoggingOut ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.confirmButtonText}>Log out</Text>}
-              </TouchableOpacity>
+              </AnimatedPressable>
             </View>
           </Pressable>
         </Pressable>
@@ -123,151 +171,40 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-  },
-  content: {
-    flexGrow: 1,
-    width: '100%',
-    maxWidth: 900,
-    alignSelf: 'center',
-    paddingBottom: 26,
-  },
-  header: {
-    height: 87,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    backgroundColor: '#218B25',
-  },
-  headerTitle: {
-    color: Colors.white,
-    fontSize: 31,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  profile: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 22,
-    paddingVertical: 18,
-  },
-  avatar: {
-    width: 68,
-    height: 68,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#218B25',
-    borderRadius: 34,
-    backgroundColor: Colors.surfaceMuted,
-  },
-  profileCopy: {
-    flex: 1,
-    marginLeft: 19,
-  },
-  name: {
-    flexShrink: 1,
-    color: Colors.text,
-    fontSize: 21,
-    fontWeight: '800',
-  },
-  role: {
-    color: '#218B25',
-    fontSize: 13,
-    marginTop: 3,
-  },
-  menu: {
-    paddingHorizontal: 16,
-    gap: 15,
-  },
-  menuButton: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#218B25',
-    borderRadius: 4,
-    backgroundColor: Colors.surface,
-  },
-  logoutButton: {
-    borderColor: Colors.emergency,
-  },
-  menuLabel: {
-    marginLeft: 16,
-    color: Colors.text,
-    fontSize: 21,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  logoutLabel: {
-    color: Colors.emergency,
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-  },
-  logoutDialog: {
-    width: '100%',
-    maxWidth: 360,
-    padding: 20,
-    borderRadius: 8,
-    backgroundColor: Colors.surface,
-  },
-  dialogTitle: {
-    color: Colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  dialogMessage: {
-    color: Colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 8,
-  },
-  dialogActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 22,
-  },
-  cancelButton: {
-    minWidth: 88,
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 5,
-  },
-  cancelButtonText: {
-    color: Colors.text,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  confirmButton: {
-    minWidth: 88,
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    borderRadius: 5,
-    backgroundColor: Colors.emergency,
-  },
-  confirmButtonText: {
-    color: Colors.white,
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  safeArea: { flex: 1 },
+  content: { flexGrow: 1, width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 26 },
+  hero: { paddingHorizontal: 22, paddingTop: 24, paddingBottom: 20, overflow: 'hidden' },
+  heroDecoration: { position: 'absolute', width: 210, height: 210, borderRadius: 105, right: -85, top: -110, backgroundColor: 'rgba(255,255,255,0.09)' },
+  eyebrow: { color: 'rgba(255,255,255,0.76)', fontFamily: kitFonts.bold, fontSize: 10, letterSpacing: 1.8 },
+  heroTitle: { color: Colors.white, fontFamily: kitFonts.heading, fontSize: 34, marginTop: 5 },
+  heroSubtitle: { color: 'rgba(255,255,255,0.82)', fontFamily: kitFonts.medium, fontSize: 14, marginTop: 2 },
+  profileCard: { flexDirection: 'row', alignItems: 'center', padding: 14, marginTop: 22, borderRadius: 18, backgroundColor: '#FFFFFF' },
+  profileCopy: { flex: 1, marginLeft: 13, marginRight: 8 },
+  name: { fontFamily: kitFonts.bold, fontSize: 17 },
+  roleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
+  role: { color: '#218B25', fontFamily: kitFonts.semibold, fontSize: 12 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginTop: 25, marginBottom: 13 },
+  sectionTitle: { fontFamily: kitFonts.heading, fontSize: 19 },
+  sectionCaption: { fontFamily: kitFonts.medium, fontSize: 12, marginTop: 3 },
+  sectionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(33,139,37,0.1)', alignItems: 'center', justifyContent: 'center' },
+  menu: { paddingHorizontal: 16, gap: 10 },
+  menuButton: { minHeight: 76, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 11, borderWidth: 1, borderRadius: 16 },
+  menuIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(33,139,37,0.1)' },
+  menuCopy: { flex: 1, marginLeft: 13 },
+  menuLabel: { fontFamily: kitFonts.semibold, fontSize: 15 },
+  menuDescription: { fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  logoutButton: { minHeight: 74, flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 16, paddingHorizontal: 13, borderWidth: 1, borderRadius: 16 },
+  logoutIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: 'rgba(217,45,32,0.1)' },
+  logoutLabel: { color: Colors.emergency, fontFamily: kitFonts.semibold, fontSize: 15 },
+  footer: { textAlign: 'center', fontFamily: kitFonts.medium, fontSize: 11, marginTop: 25, paddingHorizontal: 16 },
+  modalBackdrop: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: 'rgba(0,0,0,0.48)' },
+  logoutDialog: { width: '100%', maxWidth: 360, padding: 22, borderRadius: 20 },
+  dialogIcon: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: 'rgba(217,45,32,0.1)', marginBottom: 15 },
+  dialogTitle: { fontFamily: kitFonts.heading, fontSize: 20 },
+  dialogMessage: { fontFamily: kitFonts.medium, fontSize: 14, lineHeight: 21, marginTop: 7 },
+  dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 22 },
+  cancelButton: { minWidth: 88, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1, borderRadius: 12 },
+  cancelButtonText: { fontFamily: kitFonts.semibold, fontSize: 14 },
+  confirmButton: { minWidth: 96, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, borderRadius: 12, backgroundColor: Colors.emergency },
+  confirmButtonText: { color: Colors.white, fontFamily: kitFonts.bold, fontSize: 14 },
 });

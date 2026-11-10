@@ -1,14 +1,15 @@
 import React, { useEffect } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { Colors, BorderRadius, Spacing } from '@constants/colors';
+import { Colors, Spacing } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { useTheme } from '@hooks/useTheme';
-import AppBackArrow from '@components/AppBackArrow';
 import Avatar from '@components/Avatar';
+import { AnimatedPressable } from '@components/Buttons';
+import { GradientHeader, Reveal, kitFonts } from '@components/ScreenKit';
 
 const accountSections = [
   { path: 'contact-number', title: 'Contact number', detail: 'Keep your phone number current', icon: 'phone-outline' as const },
@@ -32,21 +33,34 @@ export default function AccountHub() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
-        <View style={[styles.header, { marginHorizontal: -gutter }]}>
-          <AppBackArrow />
-          <View><Text style={styles.eyebrow}>YOUR PROFILE</Text><Text style={styles.title}>Account</Text></View>
+        <View style={{ marginHorizontal: -gutter }}>
+          <GradientHeader title="Account" subtitle="Your profile and account security" icon="account-cog-outline" />
         </View>
 
-        <View style={[styles.profileCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-          <Avatar uri={user?.profilePicture} name={user?.name} size={58} />
-          <View style={styles.profileCopy}>
-            <Text style={[styles.name, { color: palette.text }]}>{user?.name || 'HANDA User'}</Text>
-            <Text style={[styles.email, { color: palette.textMuted }]}>{user?.email || 'No email available'}</Text>
+        <Reveal index={0}>
+          <View style={[styles.profileCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+            <View style={styles.avatarRing}>
+              <Avatar uri={user?.profilePicture} name={user?.name} size={58} />
+            </View>
+            <View style={styles.profileCopy}>
+              <Text numberOfLines={1} style={[styles.name, { color: palette.text }]}>{user?.name || 'HANDA User'}</Text>
+              <Text numberOfLines={1} style={[styles.email, { color: palette.textMuted }]}>{user?.email || 'No email available'}</Text>
+              <View style={styles.verifiedRow}>
+                <MaterialCommunityIcons name="shield-check" size={14} color="#218B25" />
+                <Text style={styles.verifiedText}>Account profile</Text>
+              </View>
+            </View>
           </View>
-        </View>
+        </Reveal>
 
-        <Text style={[styles.sectionHeading, { color: palette.text }]}>Account settings</Text>
-        <View style={[styles.sectionList, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={[styles.sectionHeading, { color: palette.text }]}>Account settings</Text>
+            <Text style={[styles.sectionCaption, { color: palette.textMuted }]}>Manage your information and sign-in security</Text>
+          </View>
+          <View style={styles.sectionBadge}><MaterialCommunityIcons name="account-edit-outline" size={18} color="#218B25" /></View>
+        </View>
+        <View style={styles.sectionList}>
           {accountSections.map((section, index) => {
             const value = section.path === 'contact-number'
               ? user?.mobileNumber || 'Not set'
@@ -56,20 +70,24 @@ export default function AccountHub() {
                   ? [user?.birthday, user?.sex, user?.currentAddress].filter(Boolean).join(' · ') || 'Review your details'
                   : 'Update your password';
             return (
-              <Pressable
-                key={section.path}
-                onPress={() => router.push(`/account/${section.path}`)}
-                style={({ pressed }) => [styles.sectionRow, index < accountSections.length - 1 && styles.sectionDivider, pressed && styles.pressed]}
-                accessibilityRole="button"
-              >
-                <View style={styles.sectionIcon}><MaterialCommunityIcons name={section.icon} size={20} color={Colors.success} /></View>
-                <View style={styles.sectionCopy}>
-                  <Text style={[styles.sectionTitle, { color: palette.text }]}>{section.title}</Text>
-                  <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>{section.detail}</Text>
-                  <Text style={styles.sectionValue} numberOfLines={1}>{value}</Text>
-                </View>
-                <MaterialCommunityIcons name="chevron-right" size={21} color={palette.textMuted} />
-              </Pressable>
+              <Reveal key={section.path} index={index + 1}>
+                <AnimatedPressable
+                  onPress={() => router.push(`/account/${section.path}`)}
+                  style={[styles.sectionRow, { backgroundColor: palette.surface, borderColor: palette.border }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${section.title}. ${section.detail}. ${value}`}
+                >
+                  <View style={styles.sectionIcon}><MaterialCommunityIcons name={section.icon} size={21} color="#218B25" /></View>
+                  <View style={styles.sectionCopy}>
+                    <Text style={[styles.sectionTitle, { color: palette.text }]}>{section.title}</Text>
+                    <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>{section.detail}</Text>
+                    <Text style={styles.sectionValue} numberOfLines={1}>{value}</Text>
+                  </View>
+                  <View style={[styles.chevron, { backgroundColor: palette.background }]}>
+                    <MaterialCommunityIcons name="chevron-right" size={19} color={palette.textMuted} />
+                  </View>
+                </AnimatedPressable>
+              </Reveal>
             );
           })}
         </View>
@@ -82,22 +100,23 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: Spacing['3xl'] },
-  header: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  eyebrow: { color: '#D8F0D8', fontSize: 10, fontWeight: '800' },
-  title: { marginTop: 2, color: Colors.white, fontSize: 27, fontWeight: '800' },
-  profileCard: { marginTop: Spacing.lg, marginBottom: Spacing.xl, padding: Spacing.lg, borderWidth: 1, borderRadius: BorderRadius.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  avatar: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8F2E8' },
-  profileCopy: { flex: 1 },
-  name: { fontSize: 18, fontWeight: '800' },
-  email: { marginTop: 4, fontSize: 13 },
-  sectionHeading: { marginBottom: Spacing.sm, fontSize: 16, fontWeight: '800' },
-  sectionList: { borderWidth: 1, borderRadius: BorderRadius.md, overflow: 'hidden' },
-  sectionRow: { minHeight: 88, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  sectionDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
-  sectionIcon: { width: 40, height: 40, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E8F2E8' },
-  sectionCopy: { flex: 1 },
-  sectionTitle: { fontSize: 14, fontWeight: '800' },
-  sectionDetail: { marginTop: 2, fontSize: 12, lineHeight: 17 },
-  sectionValue: { marginTop: 4, color: '#218B25', fontSize: 12, fontWeight: '700' },
-  pressed: { opacity: 0.7 },
+  profileCard: { marginTop: 18, marginBottom: 24, padding: 16, borderWidth: 1, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 13 },
+  avatarRing: { padding: 3, borderWidth: 1, borderColor: 'rgba(33,139,37,0.25)', borderRadius: 33 },
+  profileCopy: { flex: 1, minWidth: 0 },
+  name: { fontFamily: kitFonts.heading, fontSize: 17 },
+  email: { marginTop: 4, fontFamily: kitFonts.medium, fontSize: 12 },
+  verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 7 },
+  verifiedText: { color: '#218B25', fontFamily: kitFonts.semibold, fontSize: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  sectionHeading: { fontFamily: kitFonts.heading, fontSize: 18 },
+  sectionCaption: { marginTop: 4, fontFamily: kitFonts.medium, fontSize: 11 },
+  sectionBadge: { width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
+  sectionList: { gap: 9 },
+  sectionRow: { minHeight: 88, paddingHorizontal: 13, paddingVertical: 13, borderWidth: 1, borderRadius: 17, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  sectionIcon: { width: 43, height: 43, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
+  sectionCopy: { flex: 1, minWidth: 0 },
+  sectionTitle: { fontFamily: kitFonts.semibold, fontSize: 14 },
+  sectionDetail: { marginTop: 3, fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 16 },
+  sectionValue: { marginTop: 5, color: '#218B25', fontFamily: kitFonts.semibold, fontSize: 11 },
+  chevron: { width: 30, height: 30, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
 });

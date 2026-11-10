@@ -56,6 +56,31 @@ export interface CenterRecord {
   longitude?: number | null;
 }
 
+export interface EvacuationHouseholdMemberInput {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  name?: string;
+  relationship: string;
+  age?: number | null;
+  sex?: 'Male' | 'Female' | null;
+  contactNumber?: string;
+}
+
+export interface EvacuationRegistrationInput {
+  residentUserId?: string | null;
+  centerId: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  age: number;
+  sex: 'Female' | 'Male' | 'Other';
+  contactNumber?: string | null;
+  address: string;
+  householdSize: number;
+  members: EvacuationHouseholdMemberInput[];
+}
+
 export interface AdminSnapshot {
   incidents: IncidentRecord[];
   evacuees: EvacueeRecord[];

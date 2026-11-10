@@ -7,8 +7,8 @@ import psycopg
 from fastapi import HTTPException
 
 from app.db import CONNECT_ATTEMPTS, get_connection
-from app.main import BINAN_CENTERS_FILE, cancel_resident_evacuation_registration, create_center, create_incident, database_readiness, evacuation_center_status, health, lifespan, register_resident_at_center, resident_evacuation_status, seed_binan_evacuation_centers, update_current_profile, update_evacuee_status, update_resident_evacuation_registration, write_evacuee
-from app.schemas import CenterCreate, EvacuationRegistrationCenterUpdate, EvacuationRegistrationCreate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, SelfProfileUpdate
+from app.main import BINAN_CENTERS_FILE, create_center, create_evacuation_registration, create_incident, database_readiness, evacuation_center_status, health, lifespan, resident_evacuation_status, seed_binan_evacuation_centers, update_center_details, update_current_profile, update_evacuee_status, write_evacuee
+from app.schemas import AdminEvacuationRegistrationCreate, CenterCreate, CenterDetailsUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, SelfProfileUpdate
 
 
 class DatabaseDependencyTests(unittest.TestCase):
@@ -26,82 +26,105 @@ class DatabaseDependencyTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_registered")
         self.assertIn("status <> 'released'", connection.execute.call_args_list[0].args[0])
 
-    def test_resident_can_change_center_for_pending_registration(self):
+    def test_admin_can_create_walk_in_household_without_occupancy_update(self):
         connection = MagicMock()
-        connection.execute.return_value.fetchone.side_effect = [
-            {"id": "registration-1", "status": "registered"},
-            {"id": "center-2", "capacity": 100, "current_occupancy": 20, "status": "available"},
-        ]
-
-        result = update_resident_evacuation_registration(
-            "registration-1",
-            EvacuationRegistrationCenterUpdate(centerId="center-2"),
-            MagicMock(id="resident-1"),
-            connection,
-        )
-
-        self.assertEqual(result, {"id": "registration-1", "status": "registered", "centerId": "center-2"})
-        self.assertEqual(connection.execute.call_args_list[2].args[1], ("center-2", "registration-1"))
-        connection.commit.assert_called_once()
-
-    def test_resident_cannot_change_center_after_check_in(self):
-        connection = MagicMock()
-        connection.execute.return_value.fetchone.return_value = {"id": "registration-1", "status": "checked_in"}
-
-        with self.assertRaises(HTTPException) as error:
-            update_resident_evacuation_registration(
-                "registration-1",
-                EvacuationRegistrationCenterUpdate(centerId="center-2"),
-                MagicMock(id="resident-1"),
-                connection,
-            )
-
-        self.assertEqual(error.exception.status_code, 409)
-        connection.commit.assert_not_called()
-
-    def test_resident_cannot_create_duplicate_active_registration(self):
-        connection = MagicMock()
-        center_query = MagicMock()
-        registration_query = MagicMock()
-        center_query.fetchone.return_value = {"id": "center-1", "capacity": 100, "current_occupancy": 20, "status": "available"}
-        registration_query.fetchone.return_value = {"id": "registration-1"}
-        connection.execute.side_effect = [center_query, registration_query]
-        registration = EvacuationRegistrationCreate(
+        connection.execute.return_value.fetchone.return_value = {
+            "id": "center-1", "name": "Community Hall", "capacity": 100,
+            "current_occupancy": 20, "status": "available",
+        }
+        registration = AdminEvacuationRegistrationCreate(
             centerId="center-1",
             firstName="Alex",
             lastName="Rivera",
             age=30,
             sex="Female",
-            contactNumber="09171234567",
+            contactNumber=None,
+            address="Poblacion",
+            householdSize=2,
+            members=[{"name": "Jamie Rivera", "relationship": "Child"}],
+        )
+
+        result = create_evacuation_registration(registration, connection, MagicMock(id="admin-1"))
+
+        self.assertEqual(result["status"], "registered")
+        self.assertIsNone(result["residentUserId"])
+        registration_insert = next(call for call in connection.execute.call_args_list if "INSERT INTO evacuation_registrations" in call.args[0])
+        self.assertIsNone(registration_insert.args[1][1])
+        self.assertTrue(any("INSERT INTO evacuation_household_members" in call.args[0] for call in connection.execute.call_args_list))
+        self.assertFalse(any("UPDATE evacuation_centers SET current_occupancy" in call.args[0] for call in connection.execute.call_args_list))
+        connection.commit.assert_called_once()
+
+    @patch("app.main.enqueue_evacuation_status")
+    def test_admin_can_link_household_to_resident_and_notify_them(self, enqueue_status):
+        connection = MagicMock()
+        query_results = [
+            {"id": "resident-1", "name": "Alex Rivera"},
+            None,
+            {"id": "center-1", "name": "Community Hall", "capacity": 100, "current_occupancy": 20, "status": "available"},
+        ]
+        connection.execute.return_value.fetchone.side_effect = query_results
+        registration = AdminEvacuationRegistrationCreate(
+            residentUserId="resident-1",
+            centerId="center-1",
+            firstName="Alex",
+            lastName="Rivera",
+            age=30,
+            sex="Female",
+            address="Poblacion",
+            householdSize=1,
+        )
+
+        result = create_evacuation_registration(registration, connection, MagicMock(id="admin-1"))
+
+        self.assertEqual(result["residentUserId"], "resident-1")
+        enqueue_status.assert_called_once()
+        self.assertEqual(enqueue_status.call_args.args[1], "resident-1")
+        self.assertIn("Community Hall", enqueue_status.call_args.args[3])
+        connection.commit.assert_called_once()
+
+    def test_admin_cannot_register_at_full_center(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {
+            "id": "center-1", "name": "Community Hall", "capacity": 10,
+            "current_occupancy": 10, "status": "full",
+        }
+        registration = AdminEvacuationRegistrationCreate(
+            centerId="center-1",
+            firstName="Alex",
+            lastName="Rivera",
+            age=30,
+            sex="Female",
             address="Poblacion",
             householdSize=1,
         )
 
         with self.assertRaises(HTTPException) as error:
-            register_resident_at_center(registration, MagicMock(id="resident-1"), connection)
+            create_evacuation_registration(registration, connection, MagicMock(id="admin-1"))
 
         self.assertEqual(error.exception.status_code, 409)
         connection.commit.assert_not_called()
 
-    def test_resident_can_cancel_pending_registration(self):
+    def test_admin_can_update_center_details_and_close_it(self):
         connection = MagicMock()
-        connection.execute.return_value.fetchone.return_value = {"id": "registration-1", "status": "registered"}
+        connection.execute.return_value.fetchone.side_effect = [
+            {"current_occupancy": 3},
+            {"id": "center-1", "status": "closed"},
+        ]
+        update = CenterDetailsUpdate(
+            name="Community Hall",
+            location="Poblacion, Biñan",
+            capacity=100,
+            status="closed",
+            coordinatorName="Ana Santos",
+            contactNumber="09171234567",
+            notes="Accessible entrance",
+        )
 
-        result = cancel_resident_evacuation_registration("registration-1", MagicMock(id="resident-1"), connection)
+        result = update_center_details("center-1", update, connection, MagicMock(id="admin-1"))
 
-        self.assertEqual(result, {"id": "registration-1", "status": "cancelled"})
-        self.assertEqual(connection.execute.call_args_list[1].args[0], "DELETE FROM evacuation_registrations WHERE id = %s")
+        self.assertEqual(result["status"], "closed")
+        self.assertEqual(connection.execute.call_args_list[1].args[1][3], "closed")
         connection.commit.assert_called_once()
-
-    def test_resident_cannot_cancel_checked_in_registration(self):
-        connection = MagicMock()
-        connection.execute.return_value.fetchone.return_value = {"id": "registration-1", "status": "checked_in"}
-
-        with self.assertRaises(HTTPException) as error:
-            cancel_resident_evacuation_registration("registration-1", MagicMock(id="resident-1"), connection)
-
-        self.assertEqual(error.exception.status_code, 409)
-        connection.commit.assert_not_called()
 
     @patch("app.db.time.sleep")
     @patch("app.db.random.uniform", return_value=0.5)

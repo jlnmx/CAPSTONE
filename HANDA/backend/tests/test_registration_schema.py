@@ -2,7 +2,7 @@ import unittest
 
 from pydantic import ValidationError
 
-from app.schemas import CenterCreate, EvacuationRegistrationCreate, ResidentProfileUpdate, UserRegistration
+from app.schemas import AdminEvacuationRegistrationCreate, CenterCreate, CenterDetailsUpdate, EvacuationRegistrationCreate, ResidentProfileUpdate, UserRegistration
 
 
 class UserRegistrationSchemaTests(unittest.TestCase):
@@ -119,6 +119,46 @@ class EvacuationRegistrationSchemaTests(unittest.TestCase):
                 "address": "12 Main Street, Biñan",
                 "householdSize": 22,
             })
+
+    def test_admin_can_create_walk_in_household_and_optionally_link_resident(self):
+        registration = AdminEvacuationRegistrationCreate.model_validate({
+            "centerId": "center-poblacion",
+            "residentUserId": "resident-123",
+            "firstName": "Ana",
+            "lastName": "Santos",
+            "age": 32,
+            "sex": "Female",
+            "address": "12 Main Street, Biñan",
+            "householdSize": 2,
+            "members": [{"name": "Luis Santos", "relationship": "Son"}],
+        })
+
+        self.assertEqual(registration.residentUserId, "resident-123")
+        self.assertEqual(registration.members[0].name, "Luis Santos")
+
+    def test_admin_household_size_must_match_entered_members(self):
+        with self.assertRaises(ValidationError):
+            AdminEvacuationRegistrationCreate.model_validate({
+                "centerId": "center-poblacion",
+                "firstName": "Ana",
+                "lastName": "Santos",
+                "age": 32,
+                "sex": "Female",
+                "address": "12 Main Street, Biñan",
+                "householdSize": 2,
+            })
+
+    def test_center_details_accept_closed_status_and_location(self):
+        center = CenterDetailsUpdate.model_validate({
+            "name": "Community Hall",
+            "location": "Biñan, Laguna",
+            "capacity": 120,
+            "status": "closed",
+            "notes": "Ground-floor access",
+        })
+
+        self.assertEqual(center.status, "closed")
+        self.assertEqual(center.location, "Biñan, Laguna")
 
 
 if __name__ == "__main__":

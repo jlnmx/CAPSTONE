@@ -17,12 +17,11 @@ import { TyphoonCard } from '@components/TyphoonCard';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
-import type { LiveTyphoon } from '@types/weather';
-import type { ResidentHouseholdMember } from '@types/index';
+import type { LiveTyphoon } from '@/types/weather';
+import type { ResidentHouseholdMember } from '@/types/index';
 
 const actions: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; mark: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; route: string; tone: 'forest' | 'teal' | 'sand' | 'clay' }[] = [
-  { icon: 'account-plus-outline', mark: 'account-group-outline', label: 'Register Evacuee', route: '/(resident)/register-evacuee', tone: 'forest' },
-  { icon: 'checkbox-marked-outline', mark: 'map-marker-check-outline', label: 'Verify Check-in', route: '/(resident)/verify-status', tone: 'teal' },
+  { icon: 'information-outline', mark: 'home-heart', label: 'Evacuation guidance', route: '/(resident)/register-evacuee', tone: 'forest' },
   { icon: 'alert-circle-outline', mark: 'alert-octagon-outline', label: 'Report incident', route: '/(resident)/report', tone: 'clay' },
   { icon: 'home-city-outline', mark: 'home-city-outline', label: 'Center status', route: '/(resident)/center-status', tone: 'sand' },
 ];
@@ -166,6 +165,7 @@ export default function ResidentDashboard() {
             mark="shield-outline"
             title="MY STATUS"
             detail={getResidentStatusLabel(evacuationStatusUnavailable, evacuationStatus)}
+            onPress={() => router.push('/(resident)/verify-status')}
           />
           <StatusTile
             tone="sand"
@@ -204,7 +204,7 @@ export default function ResidentDashboard() {
 
 function getResidentStatusLabel(unavailable: boolean, status: ResidentEvacuationStatus | null): string {
   if (unavailable) return 'Unavailable';
-  if (!status || status.status === 'not_registered') return 'SAFE';
+  if (!status || status.status === 'not_registered') return 'NO ASSIGNMENT';
   return status.status === 'checked_in' ? 'CHECKED-IN' : status.status.toUpperCase();
 }
 

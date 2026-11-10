@@ -67,12 +67,12 @@ class PushDeviceTests(unittest.TestCase):
                 cursor.fetchone.return_value = {"type": "Fire", "location_text": "Biñan"}
             return cursor
         connection.execute.side_effect = execute
-        user = CurrentUser("responder-1", "r@example.com", "Responder", "responder", 0)
+        user = CurrentUser("admin-1", "admin@example.com", "Admin", "admin", 0)
         with patch("app.main.deliver_incident_alert"), patch("app.main.resolve_response_details", side_effect=lambda _c, _u, update: update):
             main.update_incident_status("incident-1", IncidentStatusUpdate(status="acknowledged"), connection, user)
         call = next(c for c in connection.execute.call_args_list if "INSERT INTO push_deliveries" in c.args[0])
         self.assertEqual(call.args[1][-1], "resident-1")
-        self.assertEqual(call.args[1][1], "Fire report: ACKNOWLEDGED. Updated by Responder Responder.")
+        self.assertEqual(call.args[1][1], "Fire report: ACKNOWLEDGED. Updated by Administrator Admin.")
         connection.commit.assert_called_once()
 
     def test_evacuation_status_changes_notify_registration_owner(self):
@@ -117,6 +117,29 @@ class PushDeviceTests(unittest.TestCase):
             )
         self.assertFalse(any("INSERT INTO push_deliveries" in call.args[0] for call in connection.execute.call_args_list))
         connection.commit.assert_not_called()
+
+    def test_walk_in_evacuation_status_change_does_not_send_resident_notification(self):
+        connection = MagicMock()
+        def execute(sql, params=None):
+            cursor = MagicMock()
+            if "SELECT id, center_id, status" in sql:
+                cursor.fetchone.return_value = {
+                    "id": "registration-1", "center_id": "center-1", "status": "registered",
+                    "household_size": 2, "resident_user_id": None,
+                }
+            elif "SELECT capacity" in sql:
+                cursor.fetchone.return_value = {"capacity": 10, "current_occupancy": 0, "status": "available"}
+            return cursor
+        connection.execute.side_effect = execute
+        user = CurrentUser("admin-1", "a@example.com", "Admin", "admin", 0)
+
+        result = main.update_evacuation_registration_status(
+            "registration-1", EvacuationRegistrationStatusUpdate(status="checked_in"), user, connection,
+        )
+
+        self.assertEqual(result["status"], "checked_in")
+        self.assertFalse(any("INSERT INTO push_deliveries" in call.args[0] for call in connection.execute.call_args_list))
+        connection.commit.assert_called_once()
 
 
 class PushDeliveryTests(unittest.TestCase):

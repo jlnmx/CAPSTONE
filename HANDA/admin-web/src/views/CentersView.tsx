@@ -1,19 +1,44 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Building2, MapPin, Pencil, Plus, Users } from 'lucide-react';
-import { createCenter, getCenters, updateCenterCapacity } from '../api';
+import { createCenter, getCenters, updateCenter } from '../api';
 import type { CenterRecord } from '../types';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
 
-const blankForm = { name: '', address: '', barangay: '', capacity: '', coordinatorName: '', contactNumber: '', notes: '', latitude: '', longitude: '' };
+type CenterForm = {
+  name: string;
+  location: string;
+  capacity: string;
+  status: CenterRecord['status'];
+  coordinatorName: string;
+  contactNumber: string;
+  notes: string;
+  latitude: string;
+  longitude: string;
+};
+
+const blankForm: CenterForm = { name: '', location: '', capacity: '', status: 'available', coordinatorName: '', contactNumber: '', notes: '', latitude: '', longitude: '' };
+
+function formForCenter(center: CenterRecord): CenterForm {
+  return {
+    name: center.name,
+    location: center.location,
+    capacity: String(center.capacity),
+    status: center.status,
+    coordinatorName: center.coordinatorName,
+    contactNumber: center.contactNumber,
+    notes: center.notes,
+    latitude: center.latitude == null ? '' : String(center.latitude),
+    longitude: center.longitude == null ? '' : String(center.longitude),
+  };
+}
 
 export default function CentersView() {
   const [centers, setCenters] = useState<CenterRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
-  const [editingCapacity, setEditingCapacity] = useState<CenterRecord | null>(null);
-  const [capacityValue, setCapacityValue] = useState('');
-  const [form, setForm] = useState(blankForm);
+  const [editingCenter, setEditingCenter] = useState<CenterRecord | null>(null);
+  const [form, setForm] = useState<CenterForm>(blankForm);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState('');
 
@@ -24,6 +49,20 @@ export default function CentersView() {
     finally { setLoading(false); }
   }
   useEffect(() => { void refresh(); }, []);
+
+  function openCreateForm() {
+    setActionError('');
+    setEditingCenter(null);
+    setForm(blankForm);
+    setFormOpen(true);
+  }
+
+  function openEditForm(center: CenterRecord) {
+    setActionError('');
+    setEditingCenter(center);
+    setForm(formForCenter(center));
+    setFormOpen(true);
+  }
 
   async function submitCenter(event: FormEvent) {
     event.preventDefault();
@@ -37,34 +76,35 @@ export default function CentersView() {
       if (hasLatitude !== hasLongitude) throw new Error('Enter both map coordinates, or leave both blank.');
       const latitude = hasLatitude ? Number(form.latitude) : null;
       const longitude = hasLongitude ? Number(form.longitude) : null;
-      if (latitude !== null && (latitude < -90 || latitude > 90 || longitude! < -180 || longitude! > 180)) throw new Error('Enter valid latitude and longitude values.');
-      await createCenter({ name: form.name.trim(), location: `${form.address.trim()}, ${form.barangay.trim()}`, capacity, coordinatorName: form.coordinatorName.trim(), contactNumber: form.contactNumber.trim(), notes: form.notes.trim(), latitude, longitude });
-      setForm(blankForm);
+      if (latitude !== null && (!Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude! < -180 || longitude! > 180)) {
+        throw new Error('Enter valid latitude and longitude values.');
+      }
+      const input = {
+        name: form.name.trim(),
+        location: form.location.trim(),
+        capacity,
+        coordinatorName: form.coordinatorName.trim(),
+        contactNumber: form.contactNumber.trim(),
+        notes: form.notes.trim(),
+        latitude,
+        longitude,
+      };
+      if (!input.name) throw new Error('Enter a center name.');
+      if (editingCenter) {
+        await updateCenter(editingCenter.id, { ...input, status: form.status });
+      } else {
+        await createCenter(input);
+      }
       setFormOpen(false);
       await refresh();
     } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'The center could not be saved.'); }
     finally { setSaving(false); }
   }
 
-  async function saveCapacity(event: FormEvent) {
-    event.preventDefault();
-    if (!editingCapacity) return;
-    setSaving(true);
-    setActionError('');
-    try {
-      const capacity = Number(capacityValue);
-      if (!Number.isInteger(capacity) || capacity < 1) throw new Error('Enter a whole-number capacity greater than zero.');
-      await updateCenterCapacity(editingCapacity.id, capacity);
-      setEditingCapacity(null);
-      await refresh();
-    } catch (cause) { setActionError(cause instanceof Error ? cause.message : 'Capacity could not be updated.'); }
-    finally { setSaving(false); }
-  }
-
   return <div className="page-content">
-    <PageHeading eyebrow="FIELD RESOURCES" title="Evacuation centers" description="Monitor shelter availability and make capacity changes as the situation evolves." action={<button className="button-primary" onClick={() => { setActionError(''); setFormOpen(true); }}><Plus size={17} /> Add center</button>} />
+    <PageHeading eyebrow="FIELD RESOURCES" title="Evacuation centers" description="Manage center locations, capacity, facilities, contacts, and operating status." action={<button className="button-primary" onClick={openCreateForm}><Plus size={17} /> Add center</button>} />
     {error && <InlineNotice onRetry={() => void refresh()}>{error}</InlineNotice>}
-    {loading ? <LoadingState label="Loading center capacity" /> : centers.length === 0 ? <section className="surface-panel"><EmptyState title="No centers registered" detail="Add an evacuation center to begin tracking available shelter capacity." /><button className="button-primary empty-action" onClick={() => setFormOpen(true)}><Plus size={16} /> Add first center</button></section> : <div className="center-grid">{centers.map((center) => {
+    {loading ? <LoadingState label="Loading center capacity" /> : centers.length === 0 ? <section className="surface-panel"><EmptyState title="No centers registered" detail="Add an evacuation center to begin tracking available shelter capacity." /><button className="button-primary empty-action" onClick={openCreateForm}><Plus size={16} /> Add first center</button></section> : <div className="center-grid">{centers.map((center) => {
       const occupancy = center.capacity > 0 ? Math.min(center.currentOccupancy / center.capacity, 1) : 0;
       const fillTone = occupancy >= 0.9 ? 'capacity-danger' : occupancy >= 0.7 ? 'capacity-warning' : 'capacity-good';
       return <article className="center-card" key={center.id}>
@@ -72,34 +112,29 @@ export default function CentersView() {
         <h2>{center.name}</h2><p className="center-location"><MapPin size={14} />{center.location || 'Location unavailable'}</p>
         <div className="capacity-numbers"><span>Current occupancy</span><strong>{center.currentOccupancy.toLocaleString()} <small>/ {center.capacity.toLocaleString()}</small></strong></div>
         <div className="capacity-track"><span className={fillTone} style={{ width: `${occupancy * 100}%` }} /></div>
-        <div className="capacity-foot"><span>{Math.max(0, center.capacity - center.currentOccupancy).toLocaleString()} spaces remaining</span><button className="text-button" onClick={() => { setActionError(''); setCapacityValue(String(center.capacity)); setEditingCapacity(center); }}><Pencil size={14} /> Edit capacity</button></div>
+        <div className="capacity-foot"><span>{Math.max(0, center.capacity - center.currentOccupancy).toLocaleString()} spaces remaining</span><button className="text-button" onClick={() => openEditForm(center)}><Pencil size={14} /> Edit center</button></div>
         {(center.coordinatorName || center.contactNumber) && <div className="center-contact"><Users size={14} /><span>{center.coordinatorName || 'Coordinator not set'}</span><span>{center.contactNumber}</span></div>}
+        {center.notes && <p className="center-location">{center.notes}</p>}
       </article>;
     })}</div>}
-    {formOpen && <Modal title="Add evacuation center" eyebrow="FIELD RESOURCES" onClose={() => setFormOpen(false)}><form className="form-grid" onSubmit={(event) => void submitCenter(event)}>
+    {formOpen && <Modal title={editingCenter ? 'Edit evacuation center' : 'Add evacuation center'} eyebrow="FIELD RESOURCES" onClose={() => setFormOpen(false)}><form className="form-grid" onSubmit={(event) => void submitCenter(event)}>
       <Field label="Center name" value={form.name} onChange={(name) => setForm({ ...form, name })} placeholder="Barangay covered court" required />
-      <Field label="Complete address" value={form.address} onChange={(address) => setForm({ ...form, address })} placeholder="Street, city" required />
-      <Field label="Barangay / city" value={form.barangay} onChange={(barangay) => setForm({ ...form, barangay })} placeholder="Barangay Poblacion" required />
+      <Field label="Complete address / location" value={form.location} onChange={(location) => setForm({ ...form, location })} placeholder="Street, barangay, city" required />
       <Field label="Maximum capacity" value={form.capacity} onChange={(capacity) => setForm({ ...form, capacity })} placeholder="0" type="number" required />
       <Field label="Map latitude" value={form.latitude} onChange={(latitude) => setForm({ ...form, latitude })} placeholder="14.3036" type="number" />
       <Field label="Map longitude" value={form.longitude} onChange={(longitude) => setForm({ ...form, longitude })} placeholder="121.0781" type="number" />
       <Field label="Center coordinator" value={form.coordinatorName} onChange={(coordinatorName) => setForm({ ...form, coordinatorName })} placeholder="Full name" />
       <Field label="Contact number" value={form.contactNumber} onChange={(contactNumber) => setForm({ ...form, contactNumber })} placeholder="09XXXXXXXXX" />
-      <Field label="Notes" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Facilities or access instructions" wide />
+      {editingCenter && <label className="form-field"><span>Operating status</span><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as CenterRecord['status'] })}>{(['available', 'limited', 'full', 'closed'] as const).map((status) => <option key={status} value={status}>{status}</option>)}</select></label>}
+      <Field label="Facilities and details" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Facilities, access instructions, or other important information" wide />
       {actionError && <InlineNotice tone="error">{actionError}</InlineNotice>}
-      <ModalActions onCancel={() => setFormOpen(false)} saving={saving} label="Save center" />
-    </form></Modal>}
-    {editingCapacity && <Modal title="Update capacity" eyebrow="CENTER MANAGEMENT" onClose={() => setEditingCapacity(null)}><form className="form-grid" onSubmit={(event) => void saveCapacity(event)}>
-      <div className="field-note">Update the maximum number of people for <strong>{editingCapacity.name}</strong>.</div>
-      <Field label="Maximum capacity" value={capacityValue} onChange={setCapacityValue} type="number" required />
-      {actionError && <InlineNotice tone="error">{actionError}</InlineNotice>}
-      <ModalActions onCancel={() => setEditingCapacity(null)} saving={saving} label="Save capacity" />
+      <ModalActions onCancel={() => setFormOpen(false)} saving={saving} label={editingCenter ? 'Save changes' : 'Add center'} />
     </form></Modal>}
   </div>;
 }
 
 function Field({ label, value, onChange, placeholder, type = 'text', required = false, wide = false }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; type?: string; required?: boolean; wide?: boolean }) {
-  return <label className={`form-field ${wide ? 'form-field-wide' : ''}`}><span>{label}{required && <i> *</i>}</span>{type === 'textarea' ? <textarea value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} rows={3} /> : <input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} min={type === 'number' ? 1 : undefined} />}</label>;
+  return <label className={`form-field ${wide ? 'form-field-wide' : ''}`}><span>{label}{required && <i> *</i>}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} required={required} min={type === 'number' ? 1 : undefined} /></label>;
 }
 
 function Modal({ title, eyebrow, onClose, children }: { title: string; eyebrow: string; onClose: () => void; children: React.ReactNode }) {

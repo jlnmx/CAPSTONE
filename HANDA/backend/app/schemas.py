@@ -280,6 +280,26 @@ class EvacuationRegistrationCreate(BaseModel):
     members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
 
 
+class AdminEvacuationRegistrationCreate(BaseModel):
+    residentUserId: str | None = Field(default=None, max_length=160)
+    centerId: str = Field(min_length=1, max_length=160)
+    firstName: str = Field(min_length=1, max_length=120)
+    middleName: str | None = Field(default=None, max_length=120)
+    lastName: str = Field(min_length=1, max_length=120)
+    age: int = Field(ge=0, le=150)
+    sex: Literal["Female", "Male", "Other"]
+    contactNumber: str | None = Field(default=None, max_length=40)
+    address: str = Field(min_length=1, max_length=500)
+    householdSize: int = Field(ge=1, le=21)
+    members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def household_size_matches_members(self):
+        if self.householdSize != len(self.members) + 1:
+            raise ValueError("Household size must match the evacuee and listed household members.")
+        return self
+
+
 class EvacuationRegistrationStatusUpdate(BaseModel):
     status: Literal['checked_in', 'evacuated', 'released']
 
@@ -303,3 +323,15 @@ class CenterCreate(BaseModel):
 
 class CenterCapacityUpdate(BaseModel):
     capacity: int = Field(ge=1)
+
+
+class CenterDetailsUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    location: str = Field(default='', max_length=255)
+    capacity: int = Field(ge=1)
+    status: Literal['available', 'limited', 'full', 'closed']
+    coordinatorName: str = Field(default='', max_length=160)
+    contactNumber: str = Field(default='', max_length=40)
+    notes: str = Field(default='', max_length=2000)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
