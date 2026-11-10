@@ -1,5 +1,5 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Download, Plus, Search, SlidersHorizontal, Trash2, UserRoundPlus } from 'lucide-react';
+import { ArrowDownUp, Check, Download, Mail, MapPin, Phone, Plus, Search, SlidersHorizontal, Trash2, UserRoundPlus } from 'lucide-react';
 import { createEvacuationRegistration, getAdminSnapshot, getCenters, getUsers } from '../api';
 import type { AdminSnapshot, CenterRecord, EvacuationHouseholdMemberInput, EvacuationRegistrationInput, EvacueeRecord, IncidentRecord, UserRecord } from '../types';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
@@ -69,6 +69,12 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [error, setError] = useState('');
   const [centerId, setCenterId] = useState('');
   const [residentUserId, setResidentUserId] = useState('');
+  const [centerQuery, setCenterQuery] = useState('');
+  const [centerFilter, setCenterFilter] = useState<'all' | 'many-spaces' | 'few-spaces'>('all');
+  const [centerSort, setCenterSort] = useState<'name' | 'spaces'>('name');
+  const [residentQuery, setResidentQuery] = useState('');
+  const [residentFilter, setResidentFilter] = useState<'all' | 'email' | 'phone'>('all');
+  const [residentSort, setResidentSort] = useState<'name' | 'email'>('name');
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -95,6 +101,24 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
       .finally(() => { if (active) setLoadingOptions(false); });
     return () => { active = false; };
   }, []);
+
+  const filteredCenters = useMemo(() => centers
+    .filter((center) => `${center.name} ${center.location}`.toLowerCase().includes(centerQuery.trim().toLowerCase()))
+    .filter((center) => {
+      const spaces = Math.max(0, center.capacity - center.currentOccupancy);
+      return centerFilter === 'all' || (centerFilter === 'many-spaces' ? spaces >= 20 : spaces < 20);
+    })
+    .sort((left, right) => centerSort === 'name'
+      ? left.name.localeCompare(right.name)
+      : (right.capacity - right.currentOccupancy) - (left.capacity - left.currentOccupancy)), [centers, centerQuery, centerFilter, centerSort]);
+
+  const filteredResidents = useMemo(() => residents
+    .filter((resident) => `${resident.name} ${resident.email} ${resident.mobileNumber ?? ''} ${resident.currentAddress ?? ''}`.toLowerCase().includes(residentQuery.trim().toLowerCase()))
+    .filter((resident) => residentFilter === 'all'
+      || (residentFilter === 'email' ? Boolean(resident.email) : Boolean(resident.mobileNumber)))
+    .sort((left, right) => residentSort === 'name'
+      ? left.name.localeCompare(right.name)
+      : left.email.localeCompare(right.email)), [residents, residentQuery, residentFilter, residentSort]);
 
   const updateMember = (index: number, patch: Partial<HouseholdDraft>) => {
     setMembers((current) => current.map((member, memberIndex) => memberIndex === index ? { ...member, ...patch } : member));
@@ -145,8 +169,47 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
       <div className="modal-heading"><div><p className="eyebrow">CENTER MANAGEMENT</p><h2 id="add-evacuee-title">Add evacuee household</h2></div><button className="icon-button" onClick={onClose} disabled={saving} aria-label="Close">×</button></div>
       {loadingOptions ? <div className="loading-state"><span className="loader" /><span>Loading centers and Resident accounts</span></div> : optionsError ? <InlineNotice tone="error">{optionsError}</InlineNotice> : <form className="form-grid" onSubmit={(event) => void submit(event)}>
         {!centers.length && <div className="form-field-wide"><InlineNotice tone="error">There are no open evacuation centers with remaining capacity. Update a center before adding this household.</InlineNotice></div>}
-        <label className="form-field form-field-wide"><span>Assign to center *</span><select required value={centerId} onChange={(event) => setCenterId(event.target.value)}><option value="" disabled>Select a center</option>{centers.map((center) => <option key={center.id} value={center.id}>{center.name} · {Math.max(0, center.capacity - center.currentOccupancy)} spaces left</option>)}</select></label>
-        <label className="form-field form-field-wide"><span>Link Resident account (optional)</span><select value={residentUserId} onChange={(event) => setResidentUserId(event.target.value)}><option value="">Walk-in / no account</option>{residents.map((resident) => <option key={resident.id} value={resident.id}>{resident.name} · {resident.email}</option>)}</select></label>
+        <div className="form-field form-field-wide"><span>Assign to center *</span>
+          {centerId && <div className="picker-selection"><MapPin size={16} /><span><strong>{centers.find((center) => center.id === centerId)?.name}</strong><small>{Math.max(0, (centers.find((center) => center.id === centerId)?.capacity ?? 0) - (centers.find((center) => center.id === centerId)?.currentOccupancy ?? 0))} spaces currently available</small></span><Check size={16} /></div>}
+          <div className="option-picker-toolbar">
+            <label className="option-search"><Search size={15} /><input value={centerQuery} onChange={(event) => setCenterQuery(event.target.value)} placeholder="Search center name or location" aria-label="Search evacuation centers" /></label>
+            <label className="option-control"><SlidersHorizontal size={14} /><select value={centerFilter} onChange={(event) => setCenterFilter(event.target.value as typeof centerFilter)} aria-label="Filter centers"><option value="all">Any capacity</option><option value="many-spaces">20+ spaces</option><option value="few-spaces">Under 20</option></select></label>
+            <label className="option-control"><ArrowDownUp size={14} /><select value={centerSort} onChange={(event) => setCenterSort(event.target.value as typeof centerSort)} aria-label="Sort centers"><option value="name">Name A–Z</option><option value="spaces">Most spaces</option></select></label>
+          </div>
+          <div className="option-picker-list" role="listbox" aria-label="Available evacuation centers">
+            {filteredCenters.map((center) => {
+              const spaces = Math.max(0, center.capacity - center.currentOccupancy);
+              const selected = centerId === center.id;
+              return <button type="button" key={center.id} role="option" aria-selected={selected} className={`option-picker-item ${selected ? 'option-picker-item-selected' : ''}`} onClick={() => setCenterId(center.id)}>
+                <MapPin size={17} /><span><strong>{center.name}</strong><small>{center.location || 'Location not specified'}</small></span><span className="option-capacity">{spaces} {spaces === 1 ? 'space' : 'spaces'}</span>{selected && <Check size={16} />}
+              </button>;
+            })}
+            {!filteredCenters.length && <div className="option-empty">No centers match these search and filter options.</div>}
+          </div>
+          <small className="option-result-count">Showing {filteredCenters.length} of {centers.length} available centers</small>
+        </div>
+        <div className="form-field form-field-wide"><span>Link Resident account <small>(optional)</small></span>
+          <button type="button" className={`resident-link-choice ${!residentUserId ? 'resident-link-choice-selected' : ''}`} onClick={() => setResidentUserId('')} aria-pressed={!residentUserId}>
+            <UserRoundPlus size={17} /><span><strong>Walk-in / no account</strong><small>Record this household without linking a HANDA account</small></span>{!residentUserId && <Check size={16} />}
+          </button>
+          <div className="option-picker-toolbar">
+            <label className="option-search"><Search size={15} /><input value={residentQuery} onChange={(event) => setResidentQuery(event.target.value)} placeholder="Search resident name, email, phone, or address" aria-label="Search Resident accounts" /></label>
+            <label className="option-control"><SlidersHorizontal size={14} /><select value={residentFilter} onChange={(event) => setResidentFilter(event.target.value as typeof residentFilter)} aria-label="Filter Resident accounts"><option value="all">All accounts</option><option value="email">Has email</option><option value="phone">Has phone</option></select></label>
+            <label className="option-control"><ArrowDownUp size={14} /><select value={residentSort} onChange={(event) => setResidentSort(event.target.value as typeof residentSort)} aria-label="Sort Resident accounts"><option value="name">Name A–Z</option><option value="email">Email A–Z</option></select></label>
+          </div>
+          <div className="option-picker-list resident-option-list" role="listbox" aria-label="Active Resident accounts">
+            {filteredResidents.map((resident) => {
+              const selected = residentUserId === resident.id;
+              return <button type="button" key={resident.id} role="option" aria-selected={selected} className={`option-picker-item ${selected ? 'option-picker-item-selected' : ''}`} onClick={() => setResidentUserId(resident.id)}>
+                <span className="resident-option-avatar">{resident.name.trim().charAt(0).toUpperCase() || 'R'}</span>
+                <span><strong>{resident.name}</strong><small><Mail size={12} /> {resident.email || 'No email'}{resident.mobileNumber && <><span className="option-meta-separator">·</span><Phone size={12} /> {resident.mobileNumber}</>}</small></span>
+                {selected && <Check size={16} />}
+              </button>;
+            })}
+            {!filteredResidents.length && <div className="option-empty">No active Resident accounts match these search and filter options.</div>}
+          </div>
+          <small className="option-result-count">Showing {filteredResidents.length} of {residents.length} active Resident accounts</small>
+        </div>
         <Field label="First name" value={firstName} onChange={setFirstName} required />
         <Field label="Middle name" value={middleName} onChange={setMiddleName} />
         <Field label="Last name" value={lastName} onChange={setLastName} required />

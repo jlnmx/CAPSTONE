@@ -482,3 +482,41 @@ button:disabled { cursor: not-allowed; opacity: .64; }
   .dispatch-roster-footer { align-items: flex-start; flex-direction: column; }
   .dispatch-roster-footer .button-primary { width: 100%; }
 }
+
+.option-picker-toolbar { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto; gap: 7px; margin: 8px 0; }
+.option-search { display: flex; min-width: 0; min-height: 37px; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--muted); background: var(--surface); }
+.option-search:focus-within { border-color: #85b683; box-shadow: 0 0 0 3px rgb(33 139 37 / 9%); }
+.option-search input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 10px; }
+.option-search input::placeholder { color: var(--faint); }
+.option-control { display: flex; min-width: 0; min-height: 37px; align-items: center; gap: 5px; padding: 0 7px; border: 1px solid var(--line-strong); border-radius: 6px; color: var(--muted); background: var(--surface); }
+.option-control select { min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 9px; cursor: pointer; }
+.picker-selection, .resident-link-choice { display: flex; width: 100%; min-height: 54px; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid #b8d8b6; border-radius: 8px; color: var(--green-deep); background: #f4faf3; }
+.picker-selection > span, .resident-link-choice > span { display: grid; min-width: 0; flex: 1; gap: 3px; text-align: left; }
+.picker-selection strong, .resident-link-choice strong { overflow: hidden; color: var(--ink); font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.picker-selection small, .resident-link-choice small { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.resident-link-choice { margin-top: 6px; text-align: left; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.resident-link-choice:hover { border-color: #92c290; background: #eef7ed; }
+.resident-link-choice-selected { border-color: #b8d8b6; background: #f4faf3; }
+.option-picker-list { max-height: 188px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); scrollbar-color: #c9d8ca transparent; scrollbar-width: thin; }
+.resident-option-list { max-height: 172px; }
+.option-picker-item { display: flex; width: 100%; min-height: 51px; align-items: center; gap: 9px; padding: 8px 10px; border: 0; border-bottom: 1px solid var(--line); color: var(--muted); background: var(--surface); text-align: left; cursor: pointer; transition: background .14s ease; }
+.option-picker-item:last-child { border-bottom: 0; }
+.option-picker-item:hover { background: var(--surface-soft); }
+.option-picker-item-selected { background: #f3faf2; }
+.option-picker-item > span:nth-of-type(1) { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.option-picker-item strong { overflow: hidden; color: var(--ink); font-size: 10px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.option-picker-item small { display: flex; min-width: 0; align-items: center; gap: 4px; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.option-picker-item small svg { flex: 0 0 auto; }
+.option-capacity { flex: 0 0 auto; padding: 4px 6px; border-radius: 4px; color: var(--green-deep); background: var(--green-pale); font-size: 8px; font-weight: 800; }
+.option-result-count { display: block; padding: 6px 1px 0; color: var(--muted); font-size: 9px; }
+.option-empty { padding: 17px 12px; color: var(--muted); font-size: 10px; text-align: center; }
+.resident-option-avatar { display: grid; width: 31px; height: 31px; flex: 0 0 31px; place-items: center; border-radius: 50%; color: var(--green-deep); background: var(--green-pale); font-size: 11px; font-weight: 850; }
+.option-meta-separator { padding: 0 2px; color: var(--faint); }
+:root[data-theme='dark'] .option-search, :root[data-theme='dark'] .option-control, :root[data-theme='dark'] .option-picker-list, :root[data-theme='dark'] .option-picker-item { color: var(--ink); background: var(--surface); }
+:root[data-theme='dark'] .option-picker-item-selected, :root[data-theme='dark'] .picker-selection, :root[data-theme='dark'] .resident-link-choice-selected { background: #26382a; }
+:root[data-theme='dark'] .option-search input, :root[data-theme='dark'] .option-control select { color: var(--ink); }
+@media (max-width: 600px) {
+  .option-picker-toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .option-search { grid-column: 1 / -1; }
+  .option-control select { width: 100%; }
+}
