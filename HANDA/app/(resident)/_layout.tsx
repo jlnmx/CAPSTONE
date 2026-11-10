@@ -43,7 +43,14 @@ function SosTabIcon({ active, size }: { active: boolean; size: number }) {
     return () => animation.stop();
   }, [active, pulse]);
 
-  return <Animated.View style={[styles.sosTab, { width: size + (Platform.OS === 'web' ? 18 : 12), height: size + (Platform.OS === 'web' ? 18 : 12), transform: [{ scale: pulse }] }]}><Text style={styles.sosTabText}>SOS</Text></Animated.View>;
+  return (
+    <Animated.View style={[styles.sosTabShell, { transform: [{ scale: pulse }] }]}>
+      <View style={[styles.sosTab, { width: size + (Platform.OS === 'web' ? 20 : 14), height: size + (Platform.OS === 'web' ? 20 : 14) }]}>
+        <MaterialCommunityIcons name="alarm-light-outline" size={size * 0.48} color="#FFFFFF" />
+        <Text style={styles.sosTabText}>SOS</Text>
+      </View>
+    </Animated.View>
+  );
 }
 
 export default function ResidentLayout() {
@@ -140,6 +147,7 @@ export default function ResidentLayout() {
 }
 
 const styles = StyleSheet.create({
-  sosTab: { marginTop: Platform.OS === 'web' ? -4 : 6, borderRadius: 999, borderWidth: 2, borderColor: '#E33E48', backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
-  sosTabText: { color: '#E33E48', fontSize: 13, fontWeight: '900' },
+  sosTabShell: { marginTop: Platform.OS === 'web' ? -10 : -1, borderRadius: 999, padding: 3, backgroundColor: '#FCE1E1', shadowColor: '#A51D27', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 6 },
+  sosTab: { borderRadius: 999, borderWidth: 2, borderColor: '#FFFFFF', backgroundColor: '#D62828', alignItems: 'center', justifyContent: 'center', gap: 0 },
+  sosTabText: { color: '#FFFFFF', fontSize: 11, lineHeight: 13, fontWeight: '900', letterSpacing: 0.7 },
 });

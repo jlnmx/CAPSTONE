@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
 import AdminShell from './components/AdminShell';
@@ -17,6 +18,11 @@ function ProtectedLayout() {
   return <AdminShell><Outlet /></AdminShell>;
 }
 
+function SuperAdminOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  return user?.isSuperAdmin ? <>{children}</> : <Navigate to="/" replace />;
+}
+
 export default function App() {
   const { user } = useAuth();
   return (
@@ -31,7 +37,7 @@ export default function App() {
         <Route path="centers" element={<CentersView />} />
         <Route path="disasters" element={<DisastersView />} />
         <Route path="analytics" element={<AnalyticsView />} />
-        <Route path="users" element={<UsersView />} />
+        <Route path="users" element={<SuperAdminOnly><UsersView /></SuperAdminOnly>} />
         <Route path="logs" element={<LogsView />} />
         <Route path="system" element={<SystemView />} />
         <Route path="settings" element={<SettingsView />} />

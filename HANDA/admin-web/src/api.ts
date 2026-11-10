@@ -154,7 +154,7 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
     records<Record<string, any>>('/api/v1/evacuees'),
     records<Record<string, any>>('/api/v1/evacuation-registrations'),
     records<Record<string, any>>('/api/v1/centers'),
-    records<Record<string, any>>('/api/v1/users'),
+    records<ActiveResponderRecord>('/api/v1/responders/active'),
   ]);
   const reporters = await getReporterContacts();
   const value = <T,>(index: number): T[] => results[index].status === 'fulfilled' ? results[index].value as T[] : [];
@@ -182,12 +182,11 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
     })) : [];
     return [head, ...members];
   });
-  const users = value<Record<string, any>>(4);
   return {
     incidents: value<Record<string, any>>(0).map((record) => withReporter(normalizeIncident(record), reporters)),
     evacuees: [...value<Record<string, any>>(1).map(normalizeEvacuee), ...registeredPeople],
     centers: value<Record<string, any>>(3).map(normalizeCenter),
-    activePersonnel: users.filter((user) => user.role === 'Responder' && user.status === 'Active').length,
+    activePersonnel: value<ActiveResponderRecord>(4).length,
     source: results.every((result) => result.status === 'fulfilled') ? 'remote' : 'unavailable',
   };
 }
@@ -224,6 +223,7 @@ export async function getUsers() {
   const users = await records<Record<string, any>>('/api/v1/users');
   return users.map((user): UserRecord => ({
     id: String(user.id), name: user.name, email: user.email, role: user.role, status: user.status,
+    isSuperAdmin: Boolean(user.is_superadmin ?? user.isSuperAdmin),
     responderType: user.responder_type ?? user.responderType ?? null,
     hasVerificationDocument: Boolean(user.has_verification_document ?? user.hasVerificationDocument),
     birthday: user.birthday, mobileNumber: user.mobile_number ?? user.mobileNumber,

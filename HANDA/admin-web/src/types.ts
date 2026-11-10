@@ -5,6 +5,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  isSuperAdmin: boolean;
 }
 
 export interface IncidentRecord {
@@ -111,6 +112,7 @@ export interface UserRecord {
   email: string;
   role: 'Responder' | 'Resident' | 'Administrator';
   status: 'Active' | 'Inactive' | 'Pending';
+  isSuperAdmin?: boolean;
   responderType?: 'Official' | 'Volunteer' | null;
   hasVerificationDocument?: boolean;
   birthday?: string;

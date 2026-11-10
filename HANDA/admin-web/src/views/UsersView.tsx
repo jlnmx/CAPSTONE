@@ -4,6 +4,7 @@ import { createUser, deleteUser, getResponderVerificationDocument, getUsers, rev
 import type { UserInput, UserRecord } from '../types';
 import type { ResponderVerificationDocument } from '../api';
 import { EmptyState, InlineNotice, LoadingState, MetricCard, PageHeading } from '../components/UI';
+import { useAuth } from '../auth';
 
 const blankUser: UserInput = { name: '', email: '', role: 'Responder', status: 'Active', birthday: '', mobileNumber: '', currentAddress: '', password: '' };
 const roles: UserRecord['role'][] = ['Responder', 'Resident', 'Administrator'];
@@ -22,6 +23,7 @@ function strongPassword(value: string) {
 }
 
 export default function UsersView() {
+  const { user: activeUser } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -29,6 +31,7 @@ export default function UsersView() {
   const [roleFilter, setRoleFilter] = useState('All roles');
   const [statusFilter, setStatusFilter] = useState('All statuses');
   const [editing, setEditing] = useState<UserRecord | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [reviewTarget, setReviewTarget] = useState<UserRecord | null>(null);
   const [reviewDocument, setReviewDocument] = useState<ResponderVerificationDocument | null>(null);
@@ -55,12 +58,14 @@ export default function UsersView() {
   const responders = users.filter((user) => user.role === 'Responder').length;
   const pending = users.filter((user) => user.status === 'Pending').length;
 
-  function openCreate() { setEditing(null); setForm(blankUser); setFormError(''); }
+  function openCreate() { setEditing(null); setForm(blankUser); setFormError(''); setFormOpen(true); }
   function openEdit(user: UserRecord) {
     setEditing(user);
+    setFormOpen(true);
     setForm({ name: user.name, email: user.email, role: user.role, status: user.status, birthday: user.birthday?.slice(0, 10) || '', mobileNumber: user.mobileNumber || '', currentAddress: user.currentAddress || '', password: '' });
     setFormError('');
   }
+  function closeForm() { setFormOpen(false); setEditing(null); }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -85,7 +90,7 @@ export default function UsersView() {
         if (!Object.keys(changes).length) { setFormError('No account details have changed.'); return; }
         await updateUser(editing.id, changes);
       } else await createUser(payload);
-      setEditing(null);
+      closeForm();
       await refresh();
     } catch (cause) { setFormError(cause instanceof Error ? cause.message : 'The account could not be saved.'); }
     finally { setSaving(false); }
@@ -139,20 +144,42 @@ export default function UsersView() {
         <select className="select-control" aria-label="Filter status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>
         <span className="results-count">{visible.length} of {users.length}</span>
       </div>
-      {loading ? <LoadingState label="Loading user accounts" /> : visible.length === 0 ? <EmptyState title="No accounts found" detail="Adjust your filters or create a new account." /> : <div className="table-scroll"><table className="data-table user-table"><thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Created</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{visible.map((user) => <tr key={user.id}><td><div className="person-cell"><span className="avatar avatar-table" style={user.profilePicture ? { padding: 0, overflow: 'hidden' } : undefined}>{user.profilePicture ? <img src={user.profilePicture} alt={`${user.name} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{user.name}{user.id === users.find((candidate) => candidate.role === 'Administrator')?.id ? ' · You' : ''}</strong><small className="cell-subtitle">{user.email}</small></span></div></td><td>{user.role}</td><td><span className={`status-pill status-${user.status === 'Active' ? 'good' : user.status === 'Pending' ? 'pending' : 'neutral'}`}><i />{user.status}</span></td><td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</td><td><div className="row-actions">{user.role === 'Responder' && user.status === 'Pending' && user.hasVerificationDocument && <button className="button-secondary" onClick={() => void openResponderReview(user)}>Review ID</button>}<button className="icon-button action-edit" aria-label={`Edit ${user.name}`} onClick={() => openEdit(user)}><Pencil size={16} /></button>{user.role !== 'Administrator' && <button className="icon-button action-delete" aria-label={`Delete ${user.name}`} onClick={() => setDeleteTarget(user)}><Trash2 size={16} /></button>}</div></td></tr>)}</tbody></table></div>}
+      {loading ? <LoadingState label="Loading user accounts" /> : visible.length === 0 ? <EmptyState title="No accounts found" detail="Adjust your filters or create a new account." /> : (
+        <div className="table-scroll">
+          <table className="data-table user-table">
+            <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Created</th><th><span className="sr-only">Actions</span></th></tr></thead>
+            <tbody>{visible.map((user) => <tr key={user.id}>
+              <td><div className="person-cell">
+                <span className="avatar avatar-table" style={user.profilePicture ? { padding: 0, overflow: 'hidden' } : undefined}>
+                  {user.profilePicture ? <img src={user.profilePicture} alt={`${user.name} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : user.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}
+                </span>
+                <span><strong>{user.name}{user.id === activeUser?.id ? ' · You' : ''}{user.isSuperAdmin ? ' · Superadmin' : ''}</strong><small className="cell-subtitle">{user.email}</small></span>
+              </div></td>
+              <td>{user.role}</td>
+              <td><span className={`status-pill status-${user.status === 'Active' ? 'good' : user.status === 'Pending' ? 'pending' : 'neutral'}`}><i />{user.status}</span></td>
+              <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</td>
+              <td><div className="row-actions">
+                {user.role === 'Responder' && user.status === 'Pending' && user.hasVerificationDocument && <button className="button-secondary" onClick={() => void openResponderReview(user)}>Review ID</button>}
+                <button className="icon-button action-edit" aria-label={`Edit ${user.name}`} onClick={() => openEdit(user)} disabled={!!user.isSuperAdmin && user.id !== activeUser?.id}><Pencil size={16} /></button>
+                {!user.isSuperAdmin && user.id !== activeUser?.id && <button className="icon-button action-delete" aria-label={`Delete ${user.name}`} onClick={() => setDeleteTarget(user)}><Trash2 size={16} /></button>}
+              </div></td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      )}
     </section>
 
-    {editing !== null && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditing(null); }}><section className="modal-card modal-wide" role="dialog" aria-modal="true"><div className="modal-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h2>{editing ? 'Edit account' : 'Create account'}</h2></div><button className="icon-button" onClick={() => setEditing(null)} aria-label="Close">×</button></div><form className="form-grid" onSubmit={(event) => void submit(event)}>
+    {formOpen && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeForm(); }}><section className="modal-card modal-wide" role="dialog" aria-modal="true"><div className="modal-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h2>{editing ? 'Edit account' : 'Create account'}</h2></div><button className="icon-button" onClick={closeForm} aria-label="Close">×</button></div><form className="form-grid" onSubmit={(event) => void submit(event)}>
       <label className="form-field"><span>Full name *</span><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
       <label className="form-field"><span>Email address *</span><input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-      <label className="form-field"><span>Role *</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as UserInput['role'] })}>{roles.map((role) => <option key={role}>{role}</option>)}</select></label>
-      <label className="form-field"><span>Account status *</span><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as UserInput['status'] })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
+      <label className="form-field"><span>Role *</span><select disabled={editing?.id === activeUser?.id || editing?.isSuperAdmin} value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as UserInput['role'] })}>{roles.map((role) => <option key={role}>{role}</option>)}</select></label>
+      <label className="form-field"><span>Account status *</span><select disabled={editing?.id === activeUser?.id || editing?.isSuperAdmin} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as UserInput['status'] })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
       <label className="form-field"><span>Birthday</span><input type="date" value={form.birthday} onChange={(event) => setForm({ ...form, birthday: event.target.value })} /></label>
       <label className="form-field"><span>Mobile number</span><input value={form.mobileNumber} onChange={(event) => setForm({ ...form, mobileNumber: event.target.value })} placeholder="09XXXXXXXXX" /></label>
       <label className="form-field form-field-wide"><span>Current address</span><input value={form.currentAddress} onChange={(event) => setForm({ ...form, currentAddress: event.target.value })} /></label>
       <label className="form-field form-field-wide"><span>{editing ? 'New password (leave blank to keep current)' : 'Initial password *'}</span><input type="password" required={!editing} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} autoComplete="new-password" /></label>
       {formError && <InlineNotice tone="error">{formError}</InlineNotice>}
-      <div className="modal-actions form-field-wide"><button type="button" className="button-secondary" onClick={() => setEditing(null)}>Cancel</button><button type="submit" className="button-primary" disabled={saving}>{saving && <span className="button-spinner" />}{editing ? 'Save changes' : 'Create account'}</button></div>
+      <div className="modal-actions form-field-wide"><button type="button" className="button-secondary" onClick={closeForm}>Cancel</button><button type="submit" className="button-primary" disabled={saving}>{saving && <span className="button-spinner" />}{editing ? 'Save changes' : 'Create account'}</button></div>
     </form></section></div>}
 
     {reviewTarget && <div className="modal-backdrop"><section className="modal-card responder-review-modal" role="dialog" aria-modal="true" aria-labelledby="responder-review-title">

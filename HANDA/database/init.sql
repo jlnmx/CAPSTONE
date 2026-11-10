@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS users (
   locked_until TIMESTAMPTZ,
   role TEXT NOT NULL CHECK (role IN ('Responder', 'Resident', 'Administrator')),
   status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive', 'Pending')),
+  is_superadmin BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -112,6 +113,17 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_organization TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_barangay TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE UNIQUE INDEX IF NOT EXISTS users_one_superadmin_idx ON users (is_superadmin) WHERE is_superadmin;
+UPDATE users
+SET is_superadmin = TRUE
+WHERE id = (
+  SELECT id FROM users
+  WHERE role = 'Administrator' AND status = 'Active'
+  ORDER BY created_at ASC, id ASC
+  LIMIT 1
+)
+  AND NOT EXISTS (SELECT 1 FROM users WHERE is_superadmin = TRUE);
 
 CREATE TABLE IF NOT EXISTS responder_verification_documents (
   user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

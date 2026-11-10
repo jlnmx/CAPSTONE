@@ -52,7 +52,7 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
 
         <div className="sidebar-caption">RESPONSE</div>
         <nav className="primary-nav" aria-label="Command center">
-          {navigation.map(({ to, label, icon: Icon, end }) => (
+          {navigation.filter(({ to }) => to !== '/users' || user?.isSuperAdmin).map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
               <Icon size={18} strokeWidth={1.9} />
               <span>{label}</span>
@@ -81,7 +81,7 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
             <div className="account-wrap">
               <button className="account-button" onClick={() => setAccountOpen((open) => !open)} aria-expanded={accountOpen}>
                 <span className="avatar avatar-small">{initials}</span>
-                <span className="account-copy"><strong>{user?.name || 'Administrator'}</strong><small>Administrator</small></span>
+                <span className="account-copy"><strong>{user?.name || 'Administrator'}</strong><small>{user?.isSuperAdmin ? 'Superadmin' : 'Administrator'}</small></span>
                 <ChevronDown size={15} className={accountOpen ? 'chevron-open' : ''} />
               </button>
               {accountOpen && <div className="account-menu"><button onClick={() => { setAccountOpen(false); navigate('/settings'); }}><Settings size={16} /> Account settings</button><button onClick={() => void leave()}><LogOut size={16} /> Sign out</button></div>}

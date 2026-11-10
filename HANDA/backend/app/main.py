@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
+from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles, require_superadmin
 from .config import settings
 from .realtime import RealtimeNotConfigured, create_realtime_token
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
@@ -465,6 +465,8 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_barangay TEXT")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN NOT NULL DEFAULT FALSE")
+        connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_one_superadmin_idx ON users (is_superadmin) WHERE is_superadmin")
         connection.execute(INCIDENT_RESPONSE_SCHEMA_SQL)
         connection.execute(
             """
@@ -659,6 +661,19 @@ def ensure_default_users() -> None:
             ON CONFLICT (email) DO NOTHING
             """,
             ('resident-001', 'Maria Santos', 'resident@handa.local', '1990-01-01', '+639171234569', 'HANDA Development Environment', hash_password('resident123'), 'Resident'),
+        )
+        connection.execute(
+            """
+            UPDATE users
+            SET is_superadmin = TRUE
+            WHERE id = (
+              SELECT id FROM users
+              WHERE role = 'Administrator' AND status = 'Active'
+              ORDER BY created_at ASC, id ASC
+              LIMIT 1
+            )
+              AND NOT EXISTS (SELECT 1 FROM users WHERE is_superadmin = TRUE)
+            """,
         )
         connection.commit()
 
@@ -1770,15 +1785,15 @@ def update_evacuation_registration_status(
 
 
 @app.get("/api/v1/users")
-def list_users(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
+def list_users(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_superadmin)):
     rows = connection.execute(
-        "SELECT users.id, users.name, users.email, users.birthday, users.mobile_number, users.current_address, users.role, users.status, users.responder_type, users.responder_organization, users.responder_barangay, users.profile_picture, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
+        "SELECT users.id, users.name, users.email, users.birthday, users.mobile_number, users.current_address, users.role, users.status, users.is_superadmin, users.responder_type, users.responder_organization, users.responder_barangay, users.profile_picture, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
     ).fetchall()
     return rows
 
 
 @app.get("/api/v1/users/{user_id}/verification-document")
-def get_responder_verification_document(user_id: str, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
+def get_responder_verification_document(user_id: str, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_superadmin)):
     row = connection.execute(
         "SELECT document.file_name, document.mime_type, document.file_bytes, users.responder_type FROM responder_verification_documents AS document JOIN users ON users.id = document.user_id WHERE document.user_id = %s",
         (user_id,),
@@ -1797,7 +1812,7 @@ def get_responder_verification_document(user_id: str, connection: psycopg.Connec
 def review_responder_application(
     user_id: str,
     review: ResponderApplicationReview,
-    admin: CurrentUser = Depends(require_roles("admin")),
+    admin: CurrentUser = Depends(require_superadmin),
     connection: psycopg.Connection = Depends(get_connection),
 ):
     applicant = connection.execute(
@@ -1844,7 +1859,7 @@ def assert_unique_contact(connection: psycopg.Connection, email: str | None, mob
 
 
 @app.post("/api/v1/users", status_code=201)
-def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("admin"))):
+def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_superadmin)):
     validate_account_password(account.password)
     assert_unique_contact(connection, account.email, account.mobileNumber)
     user_id = f"user-{uuid4()}"
@@ -1877,12 +1892,17 @@ def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depen
 
 
 @app.patch("/api/v1/users/{user_id}")
-def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depends(require_roles("admin")), connection: psycopg.Connection = Depends(get_connection)):
+def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depends(require_superadmin), connection: psycopg.Connection = Depends(get_connection)):
     changes = {field: value for field, value in update.model_dump(exclude_unset=True).items() if value is not None}
     if not changes:
         raise HTTPException(status_code=400, detail="Provide at least one account field to update.")
     if user_id == user.id and any(field in changes for field in ("password", "role", "status")):
         raise HTTPException(status_code=400, detail="You cannot change your own password, role, or status here.")
+    target = connection.execute("SELECT is_superadmin FROM users WHERE id = %s FOR UPDATE", (user_id,)).fetchone()
+    if not target:
+        raise HTTPException(status_code=404, detail="User account not found.")
+    if target["is_superadmin"] and any(field in changes for field in ("role", "status")):
+        raise HTTPException(status_code=400, detail="The superadmin role and status cannot be changed here.")
 
     password = changes.pop("password", None)
     assert_unique_contact(connection, changes.get("email"), changes.get("mobileNumber"), user_id)
@@ -1922,9 +1942,14 @@ def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depen
 
 
 @app.delete("/api/v1/users/{user_id}", status_code=204)
-def delete_user(user_id: str, user: CurrentUser = Depends(require_roles("admin")), connection: psycopg.Connection = Depends(get_connection)):
+def delete_user(user_id: str, user: CurrentUser = Depends(require_superadmin), connection: psycopg.Connection = Depends(get_connection)):
     if user_id == user.id:
         raise HTTPException(status_code=400, detail="You cannot delete your own administrator account.")
+    target = connection.execute("SELECT is_superadmin FROM users WHERE id = %s FOR UPDATE", (user_id,)).fetchone()
+    if not target:
+        raise HTTPException(status_code=404, detail="User account not found.")
+    if target["is_superadmin"]:
+        raise HTTPException(status_code=400, detail="The superadmin account cannot be deleted.")
     cursor = connection.execute("DELETE FROM users WHERE id = %s", (user_id,))
     if cursor.rowcount == 0:
         raise HTTPException(status_code=404, detail="User account not found.")
@@ -2179,12 +2204,12 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
     mobile_candidates = mobile_login_candidates(credentials.email.strip())
     if mobile_candidates:
         rows = connection.execute(
-            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE regexp_replace(mobile_number, '[^0-9]', '', 'g') = ANY(%s) LIMIT 2",
+            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE regexp_replace(mobile_number, '[^0-9]', '', 'g') = ANY(%s) LIMIT 2",
             (mobile_candidates,),
         ).fetchall()
     else:
         rows = connection.execute(
-            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s) LIMIT 2",
+            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s) LIMIT 2",
             (credentials.email.strip(),),
         ).fetchall()
     if len(rows) != 1:
@@ -2217,16 +2242,19 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
     access_token, expires_in = create_access_token(row["id"], role, row["token_version"])
     profile = resident_profile_payload(row, household_members_for_user(connection, row["id"]))
     profile["role"] = role
+    profile["isSuperAdmin"] = bool(row.get("is_superadmin", False))
     return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "user": profile}
 
 
 @app.get("/api/v1/auth/me")
 def current_user(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, responder_type,         responder_organization, responder_barangay, profile_picture FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, responder_type,         responder_organization, responder_barangay, profile_picture, is_superadmin FROM users WHERE id = %s",
         (user.id,),
     ).fetchone()
-    return resident_profile_payload(row, household_members_for_user(connection, user.id))
+    profile = resident_profile_payload(row, household_members_for_user(connection, user.id))
+    profile["isSuperAdmin"] = user.is_superadmin
+    return profile
 
 
 @app.patch("/api/v1/auth/profile")

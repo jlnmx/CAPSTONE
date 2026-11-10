@@ -23,6 +23,7 @@ class CurrentUser:
     name: str
     role: str
     token_version: int
+    is_superadmin: bool = False
 
 
 def normalize_role(role: str) -> str:
@@ -80,13 +81,13 @@ def get_current_user(
 
     claims = decode_access_token(credentials.credentials)
     row = connection.execute(
-        "SELECT id, name, email, role, status, token_version FROM users WHERE id = %s",
+        "SELECT id, name, email, role, status, token_version, is_superadmin FROM users WHERE id = %s",
         (claims["sub"],),
     ).fetchone()
     if not row or row["status"] != "Active" or row["token_version"] != claims["ver"]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is no longer valid.", headers={"WWW-Authenticate": "Bearer"})
 
-    return CurrentUser(row["id"], row["email"], row["name"], normalize_role(row["role"]), row["token_version"])
+    return CurrentUser(row["id"], row["email"], row["name"], normalize_role(row["role"]), row["token_version"], bool(row.get("is_superadmin", False)))
 
 
 def require_roles(*roles: str) -> Callable:
@@ -98,3 +99,9 @@ def require_roles(*roles: str) -> Callable:
         return user
 
     return dependency
+
+
+def require_superadmin(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+    if user.role != "admin" or not user.is_superadmin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the superadmin can manage user accounts.")
+    return user

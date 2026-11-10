@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.auth import CurrentUser, create_access_token, get_current_user, require_roles
+from app.auth import CurrentUser, create_access_token, get_current_user, require_roles, require_superadmin
 from app.main import app, login_user, mobile_login_candidates
 from app.schemas import UserLogin
 
@@ -140,6 +140,32 @@ class AuthTests(unittest.TestCase):
             admin_guard(resident)
         self.assertEqual(error.exception.status_code, 403)
 
+    def test_only_superadmin_can_manage_user_accounts(self):
+        admin = CurrentUser("admin-1", "admin@example.com", "Admin", "admin", 0)
+        superadmin = CurrentUser("superadmin-1", "root@example.com", "Root", "admin", 0, True)
+
+        self.assertIs(require_superadmin(superadmin), superadmin)
+        with self.assertRaises(HTTPException) as error:
+            require_superadmin(admin)
+        self.assertEqual(error.exception.status_code, 403)
+
+    def test_authenticated_user_loads_superadmin_flag_from_database(self):
+        token, _ = create_access_token("root-1", "admin", 0)
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+        connection = FakeConnection({
+            "id": "root-1",
+            "email": "root@example.com",
+            "name": "Root",
+            "role": "Administrator",
+            "status": "Active",
+            "token_version": 0,
+            "is_superadmin": True,
+        })
+
+        user = get_current_user(credentials, connection)
+
+        self.assertTrue(user.is_superadmin)
+
     def test_only_login_and_registration_are_public_api_routes(self):
         public_routes = {
             ("POST", "/api/v1/auth/login"),
@@ -165,6 +191,29 @@ class AuthTests(unittest.TestCase):
                     self.assertIn(get_current_user, calls, endpoint)
 
         self.assertEqual(found_public_routes, public_routes)
+
+    def test_user_management_routes_require_superadmin(self):
+        protected_routes = {
+            ("GET", "/api/v1/users"),
+            ("GET", "/api/v1/users/{user_id}/verification-document"),
+            ("PATCH", "/api/v1/users/{user_id}/responder-application"),
+            ("POST", "/api/v1/users"),
+            ("PATCH", "/api/v1/users/{user_id}"),
+            ("DELETE", "/api/v1/users/{user_id}"),
+        }
+        found_routes = set()
+
+        for route in app.routes:
+            if not getattr(route, "path", "").startswith("/api/v1/users"):
+                continue
+            calls = tuple(dependency_calls(route.dependant))
+            for method in route.methods:
+                endpoint = (method, route.path)
+                if endpoint in protected_routes:
+                    found_routes.add(endpoint)
+                    self.assertIn(require_superadmin, calls, endpoint)
+
+        self.assertEqual(found_routes, protected_routes)
 
 
 if __name__ == "__main__":
