@@ -2,11 +2,12 @@
  * Responder Stack Layout
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { useWindowDimensions } from 'react-native';
+import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@constants/colors';
 import { AnimatedPressable } from '@components/Buttons';
@@ -26,13 +27,39 @@ function TabBarIcon({ name, color, size }: TabBarIconProps) {
   return <MaterialCommunityIcons name={name} size={size} color={color} />;
 }
 
-function ResponderPresenceHeartbeat() {
-  useResponderLive();
+function ResponderPresenceHeartbeat({ locationPermissionGranted }: { locationPermissionGranted: boolean }) {
+  const { status, publishLocation } = useResponderLive();
+
+  useEffect(() => {
+    if (!locationPermissionGranted || status !== 'SUBSCRIBED') return undefined;
+    let active = true;
+    let subscription: Location.LocationSubscription | null = null;
+    void Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
+      (position) => publishLocation(
+        position.coords.latitude,
+        position.coords.longitude,
+        position.coords.accuracy ?? undefined,
+      ),
+    ).then((watcher) => {
+      if (active) subscription = watcher;
+      else watcher.remove();
+    }).catch((error: unknown) => {
+      console.warn('Responder live location could not start.', error);
+    });
+
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, [locationPermissionGranted, publishLocation, status]);
+
   return null;
 }
 
 export default function ResponderLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const router = useRouter();
   const segments = useSegments();
   const { palette } = useTheme();
@@ -52,7 +79,7 @@ export default function ResponderLayout() {
 
   return (
     <>
-    {isAuthenticated && user?.role === 'responder' && <ResponderPresenceHeartbeat />}
+    {isAuthenticated && user?.role === 'responder' && <ResponderPresenceHeartbeat locationPermissionGranted={locationPermissionGranted} />}
     <Tabs
       screenOptions={{
         ...responsiveTabBar,
@@ -112,7 +139,7 @@ export default function ResponderLayout() {
       <Tabs.Screen name="chatbot" options={{ href: null }} />
       <Tabs.Screen name="weather" options={{ href: null }} />
     </Tabs>
-    <StartupLocationPermission />
+    <StartupLocationPermission onPermissionGranted={() => setLocationPermissionGranted(true)} />
     </>
   );
 }

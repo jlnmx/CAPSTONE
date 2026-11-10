@@ -48,33 +48,7 @@ export default function ResponderLiveMap() {
 
   useIncidentFeed(() => void loadData());
   useEvacuationCenterFeed(() => void loadData());
-  const { status: liveStatus, responders, publishLocation } = useResponderLive();
-  const publishLocationRef = useRef(publishLocation);
-  publishLocationRef.current = publishLocation;
-
-  useEffect(() => {
-    if (user?.role !== 'responder' || liveStatus !== 'SUBSCRIBED') return undefined;
-    let cancelled = false;
-    let subscription: Location.LocationSubscription | null = null;
-    void (async () => {
-      try {
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (!permission.granted || cancelled) return;
-        const watcher = await Location.watchPositionAsync(
-          { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
-          (position) => { publishLocationRef.current(position.coords.latitude, position.coords.longitude, position.coords.accuracy ?? undefined); },
-        );
-        if (cancelled) watcher.remove();
-        else subscription = watcher;
-      } catch {
-        // Location sharing is best-effort; the map still works without it.
-      }
-    })();
-    return () => {
-      cancelled = true;
-      subscription?.remove();
-    };
-  }, [user?.role, liveStatus]);
+  const { responders } = useResponderLive();
 
   useEffect(() => {
     if (!mapReady) return;

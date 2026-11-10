@@ -13,7 +13,7 @@ function publishWebLocationPermission(granted: boolean) {
   window.dispatchEvent(new Event('handa-location-permission-changed'));
 }
 
-export function StartupLocationPermission() {
+export function StartupLocationPermission({ onPermissionGranted }: { onPermissionGranted?: () => void }) {
   const { palette } = useTheme();
   const [visible, setVisible] = useState(true);
   const [permissionGranted, setPermissionGranted] = useState(false);
@@ -32,6 +32,7 @@ export function StartupLocationPermission() {
         setPermissionGranted(permission.granted);
         setCanAskAgain(permission.canAskAgain);
         publishWebLocationPermission(permission.granted);
+        if (permission.granted) onPermissionGranted?.();
       })
       .catch(() => {
         if (isMounted) {
@@ -67,7 +68,10 @@ export function StartupLocationPermission() {
       setPermissionGranted(permission.granted);
       setCanAskAgain(permission.canAskAgain);
       publishWebLocationPermission(permission.granted);
-      if (permission.granted) setVisible(false);
+      if (permission.granted) {
+        onPermissionGranted?.();
+        setVisible(false);
+      }
       else setMessage('Location is off. You can continue without GPS or allow access now.');
     } catch {
       setMessage('Location permission could not be requested. You can try again from this dialog.');
@@ -97,8 +101,8 @@ export function StartupLocationPermission() {
             {isChecking
               ? 'Checking this device’s location permission…'
               : permissionGranted
-                ? 'Your live position is ready for evacuation maps and navigation.'
-                : 'Allow HANDA to use GPS while you use the app so maps can show your position and guide you to evacuation centers.'}
+                ? 'Your live position is ready for responder dispatch, evacuation maps, and navigation.'
+                : 'Allow HANDA to use GPS while you use the app so admins can see your live position during dispatch and maps can guide you to evacuation centers.'}
           </Text>
           {!!message && <Text style={styles.message}>{message}</Text>}
           <AnimatedPressable

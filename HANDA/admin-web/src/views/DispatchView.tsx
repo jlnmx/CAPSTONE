@@ -22,8 +22,11 @@ function locationLabel(incident: IncidentRecord) {
   return incident.location || (incident.latitude != null && incident.longitude != null ? 'Pinned incident location' : 'Location unavailable');
 }
 
-function formatDistance(distance: number | null) {
-  return distance == null ? 'Location unavailable' : `${distance < 1 ? Math.round(distance * 1000) + ' m' : distance.toFixed(1) + ' km'} away`;
+function formatDistance(distance: number | null, live?: { location?: { latitude: number; longitude: number } }) {
+  if (distance != null) return `${distance < 1 ? Math.round(distance * 1000) + ' m' : distance.toFixed(1) + ' km'} away`;
+  if (!live) return 'Offline · no live GPS';
+  if (!live.location) return 'Online · waiting for GPS';
+  return 'Incident pin unavailable';
 }
 
 export default function DispatchView() {
@@ -182,7 +185,7 @@ export default function DispatchView() {
               </span>
               <span className="dispatch-responder-meta">
                 {alreadyAssigned ? <span className="dispatch-assigned-tag"><Check size={12} /> Assigned</span> : <span className={`dispatch-presence ${live ? 'is-online' : ''}`}>{live ? 'Online' : 'Offline'}</span>}
-                <small>{formatDistance(distance)}</small>
+                <small>{formatDistance(distance, live)}</small>
               </span>
             </label>;
           })}
@@ -217,6 +220,6 @@ export default function DispatchView() {
         </>}
       </section>
     </div>}
-    <div className="dispatch-footnote"><Radio size={14} /> Last roster refresh is automatic every 15 seconds. Live GPS is used only while responders are online.</div>
+    <div className="dispatch-footnote"><Radio size={14} /> Live GPS updates while responders are signed in, online, and have granted location permission. The roster refreshes every 15 seconds.</div>
   </div>;
 }
