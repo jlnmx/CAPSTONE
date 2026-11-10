@@ -1067,15 +1067,16 @@ def dispatch_incident_responders(
             (incident_id, dispatch.responderIds),
         ).fetchall()
     }
-    connection.executemany(
-        """
-        INSERT INTO incident_responder_assignments (incident_id, responder_id, assigned_by, status, assigned_at)
-        VALUES (%s, %s, %s, 'dispatched', NOW())
-        ON CONFLICT (incident_id, responder_id) DO UPDATE
-        SET assigned_by = EXCLUDED.assigned_by, status = 'dispatched', assigned_at = NOW()
-        """,
-        [(incident_id, responder_id, user.id) for responder_id in dispatch.responderIds],
-    )
+    with connection.cursor() as cursor:
+        cursor.executemany(
+            """
+            INSERT INTO incident_responder_assignments (incident_id, responder_id, assigned_by, status, assigned_at)
+            VALUES (%s, %s, %s, 'dispatched', NOW())
+            ON CONFLICT (incident_id, responder_id) DO UPDATE
+            SET assigned_by = EXCLUDED.assigned_by, status = 'dispatched', assigned_at = NOW()
+            """,
+            [(incident_id, responder_id, user.id) for responder_id in dispatch.responderIds],
+        )
 
     team = connection.execute(
         """

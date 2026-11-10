@@ -232,8 +232,9 @@ class IncidentDispatchTests(unittest.TestCase):
 
         self.assertEqual(result["status"], "acknowledged")
         self.assertEqual(result["responders"], [{"id": "responder-1", "name": "Ana Santos"}])
-        connection.executemany.assert_called_once()
-        self.assertEqual(connection.executemany.call_args.args[1], [("incident-1", "responder-1", "admin-1")])
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.executemany.assert_called_once()
+        self.assertEqual(cursor.executemany.call_args.args[1], [("incident-1", "responder-1", "admin-1")])
         incident_update = next(call for call in connection.execute.call_args_list if "UPDATE incidents" in call.args[0])
         self.assertIn("THEN 'acknowledged'", incident_update.args[0])
         self.assertTrue(any("'acknowledged'" in call.args[0] for call in connection.execute.call_args_list if "incident_status_events" in call.args[0]))
