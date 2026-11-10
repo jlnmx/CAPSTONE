@@ -10,15 +10,15 @@ Connect the `CAPSTONE` repository to Render and set the Blueprint file path to `
 - `handa-mobile-web`: Expo web export.
 - `handa-admin-web`: Vite admin console.
 
-The API uses the existing PostgreSQL database. During the initial Blueprint setup, provide `DATABASE_URL` from the database provider. For Supabase, use its Session pooler URL and preserve `sslmode=require`; see [backend/README.md](backend/README.md). Render generates `AUTH_SECRET` for the API.
+The API uses the existing PostgreSQL database. During the initial Blueprint setup, provide `DATABASE_URL` from the database provider. For Supabase, use its Session pooler URL and preserve `sslmode=require`; see [backend/README.md](backend/README.md). Render generates `AUTH_SECRET` for the API. Set `REALTIME_JWT_PRIVATE_KEY` on the API service to the private JWK matching the verification key configured in Supabase; the key is server-only and is never added to either frontend.
 
 The frontend services use `https://handa-api.onrender.com` as their API origin. If Render assigns a different service URL, update both frontend variables to that URL and redeploy:
 
 - `EXPO_PUBLIC_API_URL` for the resident/responder web app.
-- `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` for responder Online presence and live locations.
+- `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` for responder Online presence and live locations. The URL must be the project root (`https://<project-ref>.supabase.co`), not the REST endpoint (`/rest/v1`); the clients remove a trailing `/rest/v1` if one is pasted accidentally.
 - `EXPO_PUBLIC_MAPBOX_TOKEN` (optional) for Mapbox maps and directions. Without it, the app uses OpenStreetMap tiles and routing.
 - `VITE_API_URL` for the admin web app.
-- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the Command Center's online responder presence and live locations.
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the Command Center's online responder presence and live locations. Use the same project-root URL as the mobile app (`https://<project-ref>.supabase.co`), not a URL ending in `/rest/v1`.
 
 `CORS_ORIGIN_REGEX` allows only the configured `handa-mobile-web` and `handa-admin-web` Vercel project domains and their Vercel preview variants, plus the corresponding Render sites. Keep the Vercel project names aligned with those prefixes. `CORS_ORIGINS` includes the production admin origin and local development origins.
 

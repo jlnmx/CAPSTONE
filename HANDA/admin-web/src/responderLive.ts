@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
 import { apiRequest } from './api';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() || '';
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL?.trim() || '')
+  .replace(/\/rest\/v1\/?$/i, '')
+  .replace(/\/+$/, '');
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() || '';
 const LOCATION_STALE_MS = 60_000;
 

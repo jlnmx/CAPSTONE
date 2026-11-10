@@ -488,6 +488,9 @@ def ensure_operational_schema() -> None:
             )
             """
         )
+        connection.execute(
+            "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS incident_id TEXT REFERENCES incidents(id) ON DELETE CASCADE"
+        )
         connection.execute("CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications (user_id, created_at DESC)")
         connection.execute(PUSH_SCHEMA_SQL)
         connection.execute(

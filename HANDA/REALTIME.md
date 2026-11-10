@@ -27,7 +27,7 @@ Known limit: `user_id` in location/presence payloads is supplied by the sending 
 
 1. Review and run `database/migrations/20261106_realtime_broadcast.sql` in the Supabase SQL Editor.
 2. Dashboard > Realtime Settings: turn off **Allow public access** so only private channels work.
-3. Set `REALTIME_JWT_PRIVATE_KEY` (private JWK as one JSON line, including `kid`) on the API host.
+3. Set `REALTIME_JWT_PRIVATE_KEY` (private JWK as one JSON line, including `kid`) on the API host. The Render Blueprint declares this as a secret environment variable; enter it in the API service's environment settings and redeploy.
 4. Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (public/publishable key only) for the app build, e.g. EAS environment variables. Set the same public values as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the administrator web app to sort responders by live location.
 
 ## Client hooks (`src/hooks/useRealtime.ts`)

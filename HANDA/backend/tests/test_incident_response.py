@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 from pydantic import ValidationError
@@ -132,6 +132,20 @@ class IncidentStatusTransitionTests(unittest.TestCase):
 
 
 class IncidentDispatchTests(unittest.TestCase):
+    @patch("app.main.seed_binan_evacuation_centers")
+    @patch("app.main.psycopg.connect")
+    def test_startup_adds_incident_id_to_legacy_notifications_table(self, connect, _seed_centers):
+        connection = MagicMock()
+        connect.return_value.__enter__.return_value = connection
+
+        main.ensure_operational_schema()
+
+        statements = [call.args[0] for call in connection.execute.call_args_list]
+        self.assertIn(
+            "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS incident_id TEXT REFERENCES incidents(id) ON DELETE CASCADE",
+            statements,
+        )
+
     def test_dispatch_requires_unique_responder_ids(self):
         with self.assertRaises(ValidationError):
             IncidentDispatch(responderIds=["responder-1", "responder-1"])

@@ -14,6 +14,8 @@ services:
         sync: false
       - key: AUTH_SECRET
         generateValue: true
+      - key: REALTIME_JWT_PRIVATE_KEY
+        sync: false
       - key: CORS_ORIGINS
         value: http://localhost:8081,http://localhost:19006,https://handa-admin-web.vercel.app
       - key: CORS_ORIGIN_REGEX

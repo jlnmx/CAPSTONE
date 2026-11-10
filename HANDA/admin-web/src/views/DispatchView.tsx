@@ -131,7 +131,9 @@ export default function DispatchView() {
       ? 'Live locations are not configured'
       : realtimeStatus === 'AUTH_ERROR'
         ? 'Live location authorization unavailable'
-        : 'Connecting to live responder locations';
+        : ['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(realtimeStatus)
+          ? 'Live updates unavailable; the responder roster refreshes every 15 seconds'
+          : 'Connecting to live responder locations';
 
   return <div className="page-content dispatch-page">
     <PageHeading eyebrow="FIELD OPERATIONS" title="Dispatch responders" description="Select an active incident, then choose active responders to deploy. Responders are ordered by their latest live GPS position relative to the incident." action={<button className="button-secondary" onClick={() => void refresh(true)} disabled={loading || refreshing}><RefreshCw size={15} /> Refresh</button>} />

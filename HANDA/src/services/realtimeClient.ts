@@ -8,7 +8,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { authenticatedFetch } from './apiClient';
 import type { RealtimeClientLike } from './realtimeChannel';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const SUPABASE_URL = (process.env.EXPO_PUBLIC_SUPABASE_URL ?? '')
+  .trim()
+  .replace(/\/rest\/v1\/?$/i, '')
+  .replace(/\/+$/, '');
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
 const REFRESH_FRACTION = 0.75;
 
