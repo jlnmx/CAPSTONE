@@ -17,6 +17,7 @@ class SecurityHeadersTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers.get("strict-transport-security"), "max-age=31536000")
+        self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
 
     def test_hsts_is_set_on_cors_preflight_responses(self):
         response = self.client.options(
@@ -30,6 +31,7 @@ class SecurityHeadersTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers.get("access-control-allow-origin"), "https://handa-admin-web.vercel.app")
         self.assertEqual(response.headers.get("strict-transport-security"), "max-age=31536000")
+        self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
 
     def test_dispatch_post_allows_the_admin_origin(self):
         def unavailable_connection():
@@ -47,6 +49,7 @@ class SecurityHeadersTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.headers.get("access-control-allow-origin"), "https://handa-admin-web.vercel.app")
+        self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
 
     def test_cors_and_hsts_are_present_on_unhandled_api_errors(self):
         test_app = FastAPI()
@@ -70,6 +73,7 @@ class SecurityHeadersTests(unittest.TestCase):
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.headers.get("access-control-allow-origin"), "https://handa-admin-web.vercel.app")
         self.assertEqual(response.headers.get("strict-transport-security"), "max-age=31536000")
+        self.assertEqual(response.headers.get("x-content-type-options"), "nosniff")
 
 
 if __name__ == "__main__":

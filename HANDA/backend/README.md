@@ -67,7 +67,7 @@ Invoke-RestMethod http://localhost:8000/health/ready
 
 `/health` reports whether FastAPI is running and does not contact PostgreSQL. `/health/ready` performs a lightweight database query and returns `503` when the database cannot be reached.
 
-The API adds an HSTS header to normal responses and CORS preflight responses. The reverse-proxy/hosting layer must continue to serve the API over HTTPS for browsers to honor it.
+The API adds HSTS and `X-Content-Type-Options: nosniff` headers to normal responses, CORS preflight responses, and unhandled errors. The reverse-proxy/hosting layer must continue to serve the API over HTTPS for browsers to honor HSTS.
 
 ### Password reset delivery
 

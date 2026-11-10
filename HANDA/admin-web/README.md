@@ -15,4 +15,4 @@ npm run admin:web
 
 Create a production build with `npm run admin:build`. Set `VITE_API_URL` to the reachable HANDA API origin when it is not `http://localhost:8000`.
 
-The Vercel deployment uses `vercel.json` to add a restrictive Content Security Policy, clickjacking and MIME-sniffing protections, and a same-origin CORS value to the static app. Update the policy's API/Supabase host allowlist and CORS origin if the production domains change.
+The Vercel deployment uses `vercel.json` to add a restrictive Content Security Policy, clickjacking and MIME-sniffing protections, and a same-origin CORS value to the static app. Inline style elements are blocked; inline style attributes remain permitted for React's data-driven layout and Leaflet map positioning. Update the policy's API/Supabase host allowlist and CORS origin if the production domains change.

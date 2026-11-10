@@ -2328,6 +2328,7 @@ class SecurityHeadersMiddleware:
             if message["type"] == "http.response.start":
                 headers = MutableHeaders(scope=message)
                 headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+                headers.setdefault("X-Content-Type-Options", "nosniff")
             await send(message)
 
         await self.application(scope, receive, send_with_security_headers)
