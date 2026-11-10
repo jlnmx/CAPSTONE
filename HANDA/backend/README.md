@@ -40,7 +40,7 @@ Copy `backend/.env.example` to `backend/.env`, replace `[YOUR-PASSWORD]`, and st
 
 ```powershell
 Copy-Item .env.example .env
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:asgi_app --reload --host 0.0.0.0 --port 8000
 ```
 
 Binding to `0.0.0.0` lets Expo Go on a phone reach the API over the same local network. Keep the phone and development computer on the same Wi-Fi network.
@@ -66,6 +66,8 @@ Invoke-RestMethod http://localhost:8000/health/ready
 ```
 
 `/health` reports whether FastAPI is running and does not contact PostgreSQL. `/health/ready` performs a lightweight database query and returns `503` when the database cannot be reached.
+
+The API adds an HSTS header to normal responses and CORS preflight responses. The reverse-proxy/hosting layer must continue to serve the API over HTTPS for browsers to honor it.
 
 ### Password reset delivery
 

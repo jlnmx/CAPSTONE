@@ -13,6 +13,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { StartupLocationPermission } from '@components/StartupLocationPermission';
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
+import { useResponderLive } from '@hooks/useRealtime';
 import { getResponsiveTabBarOptions, getResponsiveTabIconSize } from '@utils/responsiveTabBar';
 
 interface TabBarIconProps {
@@ -23,6 +24,11 @@ interface TabBarIconProps {
 
 function TabBarIcon({ name, color, size }: TabBarIconProps) {
   return <MaterialCommunityIcons name={name} size={size} color={color} />;
+}
+
+function ResponderPresenceHeartbeat() {
+  useResponderLive();
+  return null;
 }
 
 export default function ResponderLayout() {
@@ -46,6 +52,7 @@ export default function ResponderLayout() {
 
   return (
     <>
+    {isAuthenticated && user?.role === 'responder' && <ResponderPresenceHeartbeat />}
     <Tabs
       screenOptions={{
         ...responsiveTabBar,

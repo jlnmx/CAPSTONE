@@ -18,6 +18,8 @@ from uuid import uuid4
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.datastructures import MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles
 from .config import settings
@@ -686,14 +688,6 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="HANDA API", version="0.1.0", lifespan=lifespan)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
-    allow_origin_regex=settings.cors_origin_regex or r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.get("/health")
@@ -2323,3 +2317,29 @@ def create_disaster(disaster: DisasterCreate, connection: psycopg.Connection = D
     )
     connection.commit()
     return {"id": disaster_id, "status": "accepted"}
+
+
+class SecurityHeadersMiddleware:
+    def __init__(self, application: ASGIApp):
+        self.application = application
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        async def send_with_security_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers.setdefault("Strict-Transport-Security", "max-age=31536000")
+            await send(message)
+
+        await self.application(scope, receive, send_with_security_headers)
+
+
+asgi_app = SecurityHeadersMiddleware(
+    CORSMiddleware(
+        app=app,
+        allow_origins=settings.cors_origin_list,
+        allow_origin_regex=settings.cors_origin_regex or r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+)

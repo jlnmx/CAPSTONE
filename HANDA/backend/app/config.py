@@ -9,7 +9,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
     database_url: str = "postgresql://handa:handa_dev_password@localhost:5432/handa"
-    cors_origins: str = "http://localhost:8081,http://localhost:19006"
+    cors_origins: str = "http://localhost:8081,http://localhost:19006,https://handa-admin-web.vercel.app"
     cors_origin_regex: str = ""
     auth_secret: str = "handa-development-auth-secret-change-me"
     access_token_minutes: int = 480
@@ -35,7 +35,9 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        origins = [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        admin_origin = "https://handa-admin-web.vercel.app"
+        return origins if admin_origin in origins else [*origins, admin_origin]
 
 
 settings = Settings()

@@ -15,7 +15,7 @@ services:
       - key: AUTH_SECRET
         generateValue: true
       - key: CORS_ORIGINS
-        value: http://localhost:8081,http://localhost:19006
+        value: http://localhost:8081,http://localhost:19006,https://handa-admin-web.vercel.app
       - key: CORS_ORIGIN_REGEX
         value: "^(?:https?://(?:localhost|127\\.0\\.0\\.1|192\\.168\\.\\d+\\.\\d+)(?::\\d+)?|https://handa-(?:mobile-web|admin-web)(?:-[a-z0-9-]+)?\\.vercel\\.app|https://handa-(?:mobile-web|admin-web)\\.onrender\\.com)$"
 
@@ -28,6 +28,10 @@ services:
       - key: EXPO_PUBLIC_API_URL
         value: https://handa-api.onrender.com
       - key: EXPO_PUBLIC_MAPBOX_TOKEN
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
         sync: false
     routes:
       - type: rewrite
@@ -42,6 +46,10 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://handa-api.onrender.com
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
     routes:
       - type: rewrite
         source: /*

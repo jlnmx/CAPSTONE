@@ -15,10 +15,12 @@ The API uses the existing PostgreSQL database. During the initial Blueprint setu
 The frontend services use `https://handa-api.onrender.com` as their API origin. If Render assigns a different service URL, update both frontend variables to that URL and redeploy:
 
 - `EXPO_PUBLIC_API_URL` for the resident/responder web app.
+- `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` for responder Online presence and live locations.
 - `EXPO_PUBLIC_MAPBOX_TOKEN` (optional) for Mapbox maps and directions. Without it, the app uses OpenStreetMap tiles and routing.
 - `VITE_API_URL` for the admin web app.
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` for the Command Center's online responder presence and live locations.
 
-`CORS_ORIGIN_REGEX` allows only the configured `handa-mobile-web` and `handa-admin-web` Vercel project domains and their Vercel preview variants, plus the corresponding Render sites. Keep the Vercel project names aligned with those prefixes. `CORS_ORIGINS` retains the local development origins.
+`CORS_ORIGIN_REGEX` allows only the configured `handa-mobile-web` and `handa-admin-web` Vercel project domains and their Vercel preview variants, plus the corresponding Render sites. Keep the Vercel project names aligned with those prefixes. `CORS_ORIGINS` includes the production admin origin and local development origins.
 
 ## Vercel
 
@@ -31,6 +33,7 @@ Create two separate Vercel projects from the same Git repository. For both, set 
 - Output directory: `dist`
 - Environment variable: `EXPO_PUBLIC_API_URL=https://handa-api.onrender.com`
 - Optional environment variable: `EXPO_PUBLIC_MAPBOX_TOKEN=<restricted-public-mapbox-token>`
+- `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (public Supabase project URL and anon/publishable key)
 - The resident Weather screen uses the keyless Open-Meteo API (`https://api.open-meteo.com/v1/forecast`); no environment variable is required.
 
 **Admin project**
@@ -39,6 +42,7 @@ Create two separate Vercel projects from the same Git repository. For both, set 
 - Build command: `npm run admin:build`
 - Output directory: `admin-web/dist`
 - Environment variable: `VITE_API_URL=https://handa-api.onrender.com`
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (public Supabase project URL and anon/publishable key)
 
 Set the API URL for both Preview and Production environments. If using Mapbox, set its optional token in both environments as well. Vite and Expo inline public values during the build, so redeploy after changing them. Restrict the Mapbox public token to the deployed site URLs in the Mapbox dashboard; never use a secret server token in a frontend build.
 

@@ -81,17 +81,23 @@ The HANDA system includes:
 to `localhost`. `.env.local` is Git-ignored and is **not** uploaded to EAS. A Mapbox token is
 optional: without it, the maps use OpenStreetMap tiles and public routing for
 directions. To use Mapbox tiles and directions, add its restricted public token
-as an EAS environment variable (never put a secret or service-role key in
-`EXPO_PUBLIC_*` variables):
+as an EAS environment variable. Responder Online presence and live locations
+also require `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in
+the EAS environment; the anon/publishable key is public, but never put a
+service-role key in `EXPO_PUBLIC_*` variables:
 
 ```powershell
 Set-Location HANDA
 npx eas-cli@latest login
 npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_MAPBOX_TOKEN --visibility plaintext
+npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_SUPABASE_URL --visibility plaintext
+npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_SUPABASE_ANON_KEY --visibility plaintext
 npx eas-cli@latest build --platform android --profile preview
 ```
 
-Use the `production` environment and `--profile production` for the `.aab`.
+Add the same Supabase variables to the `production` EAS environment and rebuild
+after changing them. Use the `production` environment and `--profile production`
+for the `.aab`.
 When EAS asks about the Android keystore, choose to let EAS generate and manage
 it; keep that keystore for all future updates. When the build finishes, open the
 build page link, download the `.apk`, copy it to the phone, and open it (allow
