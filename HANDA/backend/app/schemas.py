@@ -258,6 +258,8 @@ class IncidentDispatch(BaseModel):
 class IncidentResponsePhotoCreate(BaseModel):
     photoUri: str = Field(min_length=32, max_length=4_000_000)
     caption: str | None = Field(default=None, max_length=300)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class EvacueeStatusUpdate(BaseModel):

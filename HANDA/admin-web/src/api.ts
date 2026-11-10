@@ -125,7 +125,7 @@ export function dispatchIncident(incidentId: string, responderIds: string[]) {
   );
 }
 
-export function updateIncidentStatus(incidentId: string, status: 'resolved') {
+export function updateIncidentStatus(incidentId: string, status: 'acknowledged' | 'in_progress' | 'resolved') {
   return apiRequest<void>(`/api/v1/incidents/${encodeURIComponent(incidentId)}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

@@ -125,6 +125,21 @@ export default function DispatchView() {
     }
   };
 
+  const markIncidentInProgress = async () => {
+    if (!incident || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await updateIncidentStatus(incident.id, 'in_progress');
+      setNotice(`${incident.type} marked in progress.`);
+      await refresh(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Incident status could not be updated.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const realtimeMessage = realtimeStatus === 'SUBSCRIBED'
     ? 'Responder locations are live'
     : realtimeStatus === 'NOT_CONFIGURED'
@@ -181,7 +196,7 @@ export default function DispatchView() {
       </section>
 
       <section className="surface-panel dispatch-incident-panel">
-        <div className="panel-heading"><div><p className="eyebrow">INCIDENT CONTROL</p><h2>Select an incident</h2><p className="panel-subtitle">Deployment updates the incident to response in progress.</p></div><span className="dispatch-count"><Activity size={15} /> {incidents.length}</span></div>
+        <div className="panel-heading"><div><p className="eyebrow">INCIDENT CONTROL</p><h2>Select an incident</h2><p className="panel-subtitle">Dispatch acknowledges responders. Their first scene photo records arrival and moves the incident in progress.</p></div><span className="dispatch-count"><Activity size={15} /> {incidents.length}</span></div>
         {incidents.length === 0 ? <EmptyState title="No active incidents" detail="New reports will appear here for response planning." /> : <>
           <label className="form-field dispatch-incident-select"><span>Active incident</span><select value={selectedIncidentId} onChange={(event) => { setSelectedIncidentId(event.target.value); setSelectedResponderIds([]); setNotice(''); }}>
             {incidents.map((item) => <option value={item.id} key={item.id}>{item.type} · {item.status.replace(/_/g, ' ').toUpperCase()} · {locationLabel(item)}</option>)}
@@ -197,6 +212,7 @@ export default function DispatchView() {
             <div className="dispatch-assignment-heading"><strong>Currently dispatched</strong><span>{assigned.length}</span></div>
             {assigned.length ? assigned.map((assignment) => <div className="dispatch-assignment-row" key={assignment.responder_id}><span className="dispatch-assignment-mark"><Check size={13} /></span><span><strong>{assignment.name}</strong><small>{assignment.responder_organization || 'Responder'}</small></span><span className="dispatch-assignment-status">Deployed</span></div>) : <p className="dispatch-no-assignment">No responders deployed to this incident yet.</p>}
           </div>
+          {incident?.status === 'acknowledged' && assigned.length > 0 && <button className="button-secondary dispatch-resolve" onClick={() => void markIncidentInProgress()} disabled={busy}><Activity size={15} /> Mark in progress</button>}
           {incident?.status === 'in_progress' && <button className="button-danger dispatch-resolve" onClick={() => void resolveIncident()} disabled={busy}><Check size={15} /> Mark incident resolved</button>}
         </>}
       </section>

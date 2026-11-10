@@ -120,14 +120,16 @@ class IncidentStatusTransitionTests(unittest.TestCase):
                 self.assertEqual(connection.execute.call_count, 1)
                 connection.commit.assert_not_called()
 
-    def test_status_endpoint_is_admin_only(self):
+    def test_status_endpoint_allows_admin_and_responder_roles_only(self):
         route = next(route for route in main.app.routes if getattr(route, "path", "") == "/api/v1/incidents/{incident_id}/status")
         guard = next(dependency.call for dependency in route.dependant.dependencies if dependency.call.__name__ == "dependency")
-        responder = CurrentUser("responder-1", "r@example.com", "Responder", "responder", 0)
+
+        for role in ("admin", "responder"):
+            user = CurrentUser(f"{role}-1", f"{role}@example.com", role, role, 0)
+            self.assertIs(guard(user), user)
 
         with self.assertRaises(HTTPException) as error:
-            guard(responder)
-
+            guard(CurrentUser("resident-1", "resident@example.com", "Resident", "resident", 0))
         self.assertEqual(error.exception.status_code, 403)
 
 
@@ -228,10 +230,13 @@ class IncidentDispatchTests(unittest.TestCase):
             admin,
         )
 
-        self.assertEqual(result["status"], "in_progress")
+        self.assertEqual(result["status"], "acknowledged")
         self.assertEqual(result["responders"], [{"id": "responder-1", "name": "Ana Santos"}])
         connection.executemany.assert_called_once()
         self.assertEqual(connection.executemany.call_args.args[1], [("incident-1", "responder-1", "admin-1")])
+        incident_update = next(call for call in connection.execute.call_args_list if "UPDATE incidents" in call.args[0])
+        self.assertIn("THEN 'acknowledged'", incident_update.args[0])
+        self.assertTrue(any("'acknowledged'" in call.args[0] for call in connection.execute.call_args_list if "incident_status_events" in call.args[0]))
         notifications = [call for call in connection.execute.call_args_list if "INSERT INTO notifications" in call.args[0]]
         pushes = [call for call in connection.execute.call_args_list if "INSERT INTO push_deliveries" in call.args[0]]
         self.assertEqual(len(notifications), 1)
@@ -256,6 +261,74 @@ class ScenePhotoAssignmentTests(unittest.TestCase):
 
         self.assertEqual(error.exception.status_code, 403)
         self.assertEqual(connection.execute.call_count, 2)
+        connection.commit.assert_not_called()
+
+    @patch("app.main.notify_responders")
+    @patch("app.main.write_log")
+    def test_scene_photo_records_arrival_and_advances_acknowledged_incident(self, _write_log, _notify):
+        connection = MagicMock()
+        created_at = "2026-11-10T12:00:00Z"
+
+        def execute(sql, params=None):
+            cursor = MagicMock()
+            if "SELECT type, location_text, status, reporter_user_id" in sql:
+                cursor.fetchone.return_value = {
+                    "type": "Fire",
+                    "location_text": "Biñan",
+                    "status": "acknowledged",
+                    "reporter_user_id": None,
+                    "latitude": 14.3,
+                    "longitude": 121.1,
+                }
+            elif "SELECT 1 FROM incident_responder_assignments" in sql:
+                cursor.fetchone.return_value = {"exists": 1}
+            elif "SELECT COUNT(*) AS total" in sql:
+                cursor.fetchone.return_value = {"total": 0}
+            elif "INSERT INTO incident_response_photos" in sql:
+                cursor.fetchone.return_value = {"id": "photo-1", "created_at": created_at}
+            return cursor
+
+        connection.execute.side_effect = execute
+        responder = CurrentUser("responder-1", "r@example.com", "Ana", "responder", 0)
+        photo = IncidentResponsePhotoCreate(
+            photoUri="data:image/jpeg;base64," + "a" * 40,
+            latitude=14.31,
+            longitude=121.12,
+        )
+
+        result = main.add_incident_response_photo("incident-1", photo, connection, responder)
+
+        self.assertEqual(result["createdAt"], created_at)
+        incident_update = next(call for call in connection.execute.call_args_list if "UPDATE incidents" in call.args[0])
+        self.assertIn("THEN 'in_progress'", incident_update.args[0])
+        self.assertEqual(incident_update.args[1][:3], (created_at, 14.31, 121.12))
+        self.assertTrue(any("'in_progress'" in call.args[0] for call in connection.execute.call_args_list if "incident_status_events" in call.args[0]))
+        connection.commit.assert_called_once()
+
+    def test_responder_cannot_manually_acknowledge_or_start_response(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {"status": "acknowledged"}
+        responder = CurrentUser("responder-1", "r@example.com", "Ana", "responder", 0)
+
+        with self.assertRaises(HTTPException) as error:
+            main.update_incident_status("incident-1", IncidentStatusUpdate(status="in_progress"), connection, responder)
+
+        self.assertEqual(error.exception.status_code, 403)
+        connection.execute.assert_called_once()
+        connection.commit.assert_not_called()
+
+    def test_only_dispatched_responder_can_resolve_incident(self):
+        connection = MagicMock()
+        connection.execute.side_effect = [
+            MagicMock(fetchone=MagicMock(return_value={"status": "in_progress"})),
+            MagicMock(fetchone=MagicMock(return_value=None)),
+        ]
+        responder = CurrentUser("responder-1", "r@example.com", "Ana", "responder", 0)
+
+        with self.assertRaises(HTTPException) as error:
+            main.update_incident_status("incident-1", IncidentStatusUpdate(status="resolved"), connection, responder)
+
+        self.assertEqual(error.exception.status_code, 403)
         connection.commit.assert_not_called()
 
 

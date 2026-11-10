@@ -3,6 +3,7 @@ import { PhotoGallery } from '@components/PhotoGallery';
 import { Colors } from '@constants/colors';
 import { Alert, Linking, Modal, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
@@ -107,6 +108,7 @@ export default function ResponderIncidentQueue() {
 
   const takeScenePhoto = async (incident: ResponderIncident) => {
     if (photoBusyId) return;
+    setPhotoBusyId(incident.id);
     try {
       if (Platform.OS !== 'web') {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -122,14 +124,41 @@ export default function ResponderIncidentQueue() {
         Alert.alert('Photo not ready', 'The photo could not be prepared. Please try again.');
         return;
       }
-      setPhotoBusyId(incident.id);
-      await addIncidentResponsePhoto(incident.id, `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`);
-      Alert.alert('Photo sent', 'The photo was sent to the command center and is now visible on the incident.');
+      let coordinates: { latitude: number; longitude: number } | undefined;
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Location unavailable', 'The photo will still be sent and the incident will move in progress, but your arrival coordinates will not be recorded.');
+        } else {
+          const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+          coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        }
+      } catch (error) {
+        Alert.alert('Location unavailable', error instanceof Error ? error.message : 'Your photo will still be sent, but arrival coordinates could not be read.');
+      }
+      await addIncidentResponsePhoto(incident.id, `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`, coordinates);
+      Alert.alert('Arrival recorded', coordinates
+        ? 'Your scene photo and GPS location were sent. This incident is now in progress.'
+        : 'Your scene photo was sent and this incident is now in progress. Arrival GPS was unavailable.');
       await load();
     } catch (error) {
       Alert.alert('Photo not sent', error instanceof Error ? error.message : 'Check your connection and try again.');
     } finally {
       setPhotoBusyId(null);
+    }
+  };
+
+  const resolveAssignedIncident = async (incident: ResponderIncident) => {
+    if (incident.status !== 'in_progress' || updatingId) return;
+    setUpdatingId(incident.id);
+    try {
+      await updateIncidentStatus(incident.id, 'resolved');
+      setIncidents((current) => current.filter((item) => item.id !== incident.id));
+      Alert.alert('Incident resolved', 'The resolution time has been recorded in your response history.');
+    } catch (error) {
+      Alert.alert('Update failed', error instanceof Error ? error.message : 'The incident could not be resolved.');
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -249,6 +278,10 @@ export default function ResponderIncidentQueue() {
         <MaterialCommunityIcons name="camera-outline" size={18} color={GREEN} />
         <Text style={styles.contactText}>{photoBusyId === incident.id ? 'Sending photo...' : 'Take scene photo'}</Text>
       </AnimatedPressable>}
+      {user?.role === 'responder' && incident.status === 'in_progress' && <AnimatedPressable style={styles.resolveButton} onPress={() => void resolveAssignedIncident(incident)} disabled={updatingId === incident.id} accessibilityRole="button" accessibilityLabel="Mark this incident resolved">
+        <MaterialCommunityIcons name="check-circle-outline" size={18} color="#FFFFFF" />
+        <Text style={styles.resolveButtonText}>{updatingId === incident.id ? 'Saving resolution...' : 'Incident Resolved'}</Text>
+      </AnimatedPressable>}
       {user?.role === 'admin' && <View style={styles.actions}>{STATUSES.map((status) => {
         const canTransition = canTransitionStatus(incident.status, status, incident, user?.id, user?.role);
         const isCurrent = incident.status === status;
@@ -316,6 +349,8 @@ const styles = StyleSheet.create({
   photos: { marginTop: 6 },
   photoLabel: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 0.8, marginTop: 12 },
   photoButton: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', minHeight: 40, marginTop: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 20, backgroundColor: Colors.surfaceMuted },
+  resolveButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 46, marginTop: 12, paddingHorizontal: 18, borderRadius: 14, backgroundColor: '#218B25' },
+  resolveButtonText: { color: '#FFFFFF', fontFamily: kitFonts.bold, fontSize: 13 },
   contact: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', minHeight: 38, marginTop: 10, paddingHorizontal: 10, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 20, backgroundColor: Colors.surfaceMuted },
   contactText: { color: GREEN, fontFamily: kitFonts.semibold, fontSize: 11 },
   photo: { width: 72, height: 72, marginRight: 6, borderRadius: 12, backgroundColor: Colors.surfaceMuted },

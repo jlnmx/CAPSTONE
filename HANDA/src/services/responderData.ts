@@ -18,6 +18,10 @@ export type ResponderIncident = {
   responseEtaMinutes?: number;
   responseNotes: string;
   createdAt: string;
+  arrivedAt?: string;
+  arrivalLatitude?: number;
+  arrivalLongitude?: number;
+  resolvedAt?: string;
   verifiedBy?: string;
 };
 
@@ -90,6 +94,10 @@ function normalizeIncident(record: Record<string, any>): ResponderIncident {
     responseEtaMinutes: record.responseEtaMinutes ?? record.response_eta_minutes ?? undefined,
     responseNotes: record.responseNotes ?? record.response_notes ?? '',
     createdAt: record.createdAt ?? record.created_at,
+    arrivedAt: record.arrivedAt ?? record.arrived_at ?? undefined,
+    arrivalLatitude: record.arrivalLatitude ?? record.arrival_latitude ?? undefined,
+    arrivalLongitude: record.arrivalLongitude ?? record.arrival_longitude ?? undefined,
+    resolvedAt: record.resolvedAt ?? record.resolved_at ?? undefined,
     verifiedBy: record.verifiedBy ?? record.verified_by ?? undefined,
   };
 }
@@ -224,6 +232,10 @@ export type ResponseHistoryEntry = {
   responseEtaMinutes?: number;
   responseNotes: string;
   createdAt: string;
+  arrivedAt?: string;
+  arrivalLatitude?: number;
+  arrivalLongitude?: number;
+  resolvedAt?: string;
   timeline: { status: IncidentStatus; at: string }[];
   photoUris: string[];
 };
@@ -244,16 +256,24 @@ export async function getResponseHistory(): Promise<ResponseHistoryEntry[]> {
     responseEtaMinutes: record.response_eta_minutes ?? undefined,
     responseNotes: record.response_notes ?? '',
     createdAt: record.created_at,
+    arrivedAt: record.arrived_at ?? undefined,
+    arrivalLatitude: record.arrival_latitude ?? undefined,
+    arrivalLongitude: record.arrival_longitude ?? undefined,
+    resolvedAt: record.resolved_at ?? undefined,
     timeline: (record.timeline ?? []).map((event: { status: IncidentStatus; at: string }) => ({ status: event.status, at: event.at })),
     photoUris: record.photoUris ?? [],
   }));
 }
 
-export async function addIncidentResponsePhoto(incidentId: string, photoUri: string): Promise<void> {
+export async function addIncidentResponsePhoto(
+  incidentId: string,
+  photoUri: string,
+  location?: { latitude: number; longitude: number },
+): Promise<void> {
   const response = await authenticatedFetch(`/api/v1/incidents/${encodeURIComponent(incidentId)}/response-photos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ photoUri }),
+    body: JSON.stringify({ photoUri, ...location }),
   });
   if (!response.ok) {
     const result = await response.json().catch(() => null) as { detail?: string } | null;
