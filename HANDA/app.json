@@ -58,7 +58,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow HANDA to photograph responder IDs for administrator verification."
+          "cameraPermission": "Allow HANDA to photograph responder IDs and capture a face photo for superadmin verification."
         }
       ],
       "@maplibre/maplibre-react-native",

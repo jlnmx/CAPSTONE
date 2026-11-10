@@ -8,14 +8,16 @@ import { useAuth } from '@hooks/useAuth';
 import { API_BASE_URL, SLOW_NETWORK_TIMEOUT_MS, fetchWithRetry } from '@services/apiClient';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { AuthUser, ResidentHouseholdMember } from '@types/index';
+import { AuthUser, ResidentHouseholdMember } from '@/types/index';
 import { BINAN_BARANGAYS, RESPONDER_ORGANIZATIONS } from '@constants/responderOrganizations';
 import * as ImagePicker from 'expo-image-picker';
 import AppBackArrow from '@components/AppBackArrow';
 import { HandaLogoBadge } from '@components/HandaLogo';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { HouseholdMemberFields, EMPTY_MEMBER_DRAFT, HouseholdMemberDraft, draftToMember, memberToDraft, memberSummary, validateMemberDraft, isMemberComplete } from '@components/HouseholdMemberFields';
 import Avatar from '@components/Avatar';
 import { pickProfilePicture } from '@services/profilePicture';
+import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
@@ -24,6 +26,12 @@ type ResponderType = 'Official' | 'Volunteer';
 type VerificationDocument = {
   base64: string;
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+  name: string;
+  previewUri: string;
+};
+type FacePhoto = {
+  base64: string;
+  mimeType: 'image/jpeg';
   name: string;
   previewUri: string;
 };
@@ -58,6 +66,8 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [householdMembers, setHouseholdMembers] = useState<ResidentHouseholdMember[]>([]);
   const [verificationDocument, setVerificationDocument] = useState<VerificationDocument | null>(null);
+  const [facePhoto, setFacePhoto] = useState<FacePhoto | null>(null);
+  const [faceConsent, setFaceConsent] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const chooseProfilePicture = async () => {
     try {
@@ -69,8 +79,11 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     }
   };
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isFaceCameraOpen, setIsFaceCameraOpen] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturingId, setIsCapturingId] = useState(false);
+  const [isFaceCameraReady, setIsFaceCameraReady] = useState(false);
+  const [isCapturingFace, setIsCapturingFace] = useState(false);
   const [cameraBounds, setCameraBounds] = useState({ width: 0, height: 0 });
   const cameraRef = useRef<CameraView>(null);
   const webIdInputRef = useRef<HTMLInputElement>(null);
@@ -268,6 +281,84 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     }
   };
 
+  const openFaceCamera = async () => {
+    if (Platform.OS === 'web') {
+      setValidationErrors((current) => ({ ...current, facePhoto: 'Responder applications must be completed in the HANDA mobile app.' }));
+      return;
+    }
+    if (!faceConsent) {
+      setValidationErrors((current) => ({ ...current, faceConsent: 'Review and accept the face-photo notice before capturing.' }));
+      return;
+    }
+    try {
+      const permission = await Camera.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        setValidationErrors((current) => ({
+          ...current,
+          facePhoto: permission.canAskAgain
+            ? 'Allow camera access to capture your face photo.'
+            : 'Camera access is disabled. Enable it in device settings to continue your responder application.',
+        }));
+        return;
+      }
+      setIsFaceCameraReady(false);
+      setIsFaceCameraOpen(true);
+    } catch (error) {
+      setValidationErrors((current) => ({
+        ...current,
+        facePhoto: error instanceof Error ? error.message : 'The face camera could not be opened.',
+      }));
+    }
+  };
+
+  const captureResponderFace = async () => {
+    if (!cameraRef.current || !isFaceCameraReady || isCapturingFace) return;
+    if (Platform.OS === 'web') {
+      setValidationErrors((current) => ({ ...current, facePhoto: 'Responder face detection is available in the HANDA mobile app.' }));
+      return;
+    }
+    setIsCapturingFace(true);
+    setValidationErrors((current) => ({ ...current, facePhoto: '' }));
+    try {
+      const picture = await cameraRef.current.takePictureAsync({ quality: 0.85 });
+      if (!picture?.uri || !picture.width) throw new Error('The camera did not return a usable face photo.');
+      const FaceDetector = await import('expo-face-detector');
+      const detection = await FaceDetector.detectFacesAsync(picture.uri, {
+        mode: FaceDetector.FaceDetectorMode.accurate,
+        detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
+        runClassifications: FaceDetector.FaceDetectorClassifications.none,
+      });
+      if (detection.faces.length === 0) throw new Error('No face was detected. Center your face in the guide and try again.');
+      if (detection.faces.length > 1) throw new Error('Only one person should be visible. Ask others to step out of frame and try again.');
+
+      const prepared = await manipulateAsync(
+        picture.uri,
+        [{ resize: { width: Math.min(960, picture.width) } }],
+        { compress: 0.78, format: SaveFormat.JPEG, base64: true },
+      );
+      if (!prepared.base64) throw new Error('The face photo could not be prepared for secure upload.');
+      if (Math.ceil(prepared.base64.length * 3 / 4) > 4 * 1024 * 1024) throw new Error('The face photo is too large. Retake it in better lighting.');
+      setFacePhoto({
+        base64: prepared.base64,
+        mimeType: 'image/jpeg',
+        name: 'responder-face.jpg',
+        previewUri: prepared.uri,
+      });
+      setIsFaceCameraOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      const detectorUnavailable = /not available|unavailability/i.test(message);
+      setValidationErrors((current) => ({
+        ...current,
+        facePhoto: detectorUnavailable
+          ? 'Face detection is not included in this app build. Install the latest HANDA iOS or Android app and try again.'
+          : message || 'The face photo could not be checked. Please try again.',
+      }));
+    } finally {
+      setIsCapturingFace(false);
+    }
+  };
+
   const openMemberDialog = (index: number | null = null) => {
     setEditingMemberIndex(index);
     setMemberDraft(memberToDraft(index == null ? undefined : householdMembers[index]));
@@ -311,6 +402,8 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     else if (password !== confirmPassword) errors.confirmPassword = 'Passwords do not match.';
     if (!isResponder && householdMembers.some((member) => !isMemberComplete(member))) errors.householdMembers = 'Complete or remove each household member.';
     if (isResponder && (!responderType || !verificationDocument)) errors.verificationDocument = 'Upload your responder ID to submit this application.';
+    if (isResponder && !faceConsent) errors.faceConsent = 'Consent is required to submit a responder face photo.';
+    if (isResponder && !facePhoto) errors.facePhoto = 'Capture a face photo with one clearly detected face.';
     if (isResponder && !responderOrganization) errors.responderOrganization = 'Choose your organization.';
     if (isResponder && responderOrganization === 'Barangay Responder' && !responderBarangay) errors.responderBarangay = 'Choose the barangay you serve.';
 
@@ -344,6 +437,10 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
               verificationDocumentBase64: verificationDocument?.base64,
               verificationDocumentMimeType: verificationDocument?.mimeType,
               verificationDocumentName: verificationDocument?.name,
+              facePhotoBase64: facePhoto?.base64,
+              facePhotoMimeType: facePhoto?.mimeType,
+              facePhotoName: facePhoto?.name,
+              faceConsent,
             }
             : { members: householdMembers.map((member) => draftToMember(memberToDraft(member))) }),
         }),
@@ -399,7 +496,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             <Text style={styles.headerSubtitle}>{isResponder ? 'Apply to support your community.' : 'A few details will get you ready for emergencies.'}</Text>
           </View>
         </View>
-        <View style={styles.form}>
+        <Animated.View key={currentStep} entering={FadeInDown.duration(240)} style={styles.form}>
           <View style={styles.stepper} accessibilityRole="progressbar" accessibilityLabel={`Step ${currentStep + 1} of ${stepLabels.length}`}>
             {stepLabels.map((label, index) => (
               <React.Fragment key={label}>
@@ -526,10 +623,15 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           <Text style={styles.passwordHint}>At least 8 characters, including uppercase, lowercase, a number, and a symbol.</Text>
           </>}
 
-          {currentStep === 2 && isResponder && <View style={styles.stepPanel}>
+          {currentStep === 2 && isResponder && Platform.OS === 'web' && <View style={styles.mobileOnlyNotice}>
+            <View style={styles.mobileOnlyIcon}><MaterialCommunityIcons name="cellphone" size={23} color={GREEN} /></View>
+            <Text style={styles.mobileOnlyTitle}>Continue in the HANDA mobile app</Text>
+            <Text style={styles.mobileOnlyCopy}>Responder applications require a camera-verified face photo. Please open HANDA on an iOS or Android device to complete your application.</Text>
+          </View>}
+          {currentStep === 2 && isResponder && Platform.OS !== 'web' && <View style={styles.stepPanel}>
           <View style={styles.verificationSection}>
             <Text style={styles.householdLabel}>ORGANIZATION</Text>
-            <Text style={styles.householdEmpty}>Tell us which agency or group you respond with. It is shared with residents when you acknowledge an incident.</Text>
+            <Text style={styles.householdEmpty}>Tell us which agency or group you respond with. It is shared with residents when you are dispatched to an incident.</Text>
             <FormField label="Organization" error={validationErrors.responderOrganization}>
               <TouchableOpacity style={styles.selectInput} onPress={() => setResponderPicker('organization')} accessibilityRole="button" accessibilityLabel="Choose organization">
                 <Text style={responderOrganization ? styles.selectValue : styles.selectPlaceholder}>{responderOrganization || 'PNP, BFP, POSO, BCDRRMO, or Barangay Responder'}</Text>
@@ -543,7 +645,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </View>
           <View style={styles.verificationSection}>
             <Text style={styles.householdLabel}>{responderType?.toUpperCase() ?? 'RESPONDER'} ID</Text>
-            <Text style={styles.householdEmpty}>{Platform.OS === 'web' ? 'Take a photo with your device camera or choose an image. The browser camera/photo chooser is used on web, and the image is automatically cropped to ID-card proportions.' : 'Take a photo and align your ID inside the guide for automatic card-size cropping, or choose an existing JPEG, PNG, or WebP image.'} Admins will review it with your application.</Text>
+            <Text style={styles.householdEmpty}>Take a photo and align your ID inside the guide for automatic card-size cropping, or choose an existing JPEG, PNG, or WebP image. Superadmins will review it with your application.</Text>
             <View style={styles.idPhotoActions}>
               <TouchableOpacity style={styles.idPhotoButton} onPress={() => void openIdCamera()} disabled={isCapturingId} accessibilityRole="button" accessibilityLabel="Take and automatically crop a responder ID photo">
                 {isCapturingId ? <ActivityIndicator size="small" color={GREEN} /> : <MaterialCommunityIcons name="camera-outline" size={19} color={GREEN} />}<Text style={styles.idPhotoButtonText}>{isCapturingId ? 'Cropping ID…' : 'Take ID photo'}</Text>
@@ -561,6 +663,48 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
               <MaterialCommunityIcons name="check-circle" size={21} color={GREEN} />
             </View>}
             {!!validationErrors.verificationDocument && <Text style={styles.fieldError}>{validationErrors.verificationDocument}</Text>}
+          </View>
+          <View style={styles.verificationSection}>
+            <Text style={styles.householdLabel}>FACE PHOTO</Text>
+            <Text style={styles.householdEmpty}>Use the front camera and center yourself in the guide. HANDA checks that exactly one face is visible; it does not identify you or compare faces.</Text>
+            <TouchableOpacity
+              style={styles.faceConsentRow}
+              onPress={() => {
+                if (faceConsent) setFacePhoto(null);
+                setFaceConsent(!faceConsent);
+                setValidationErrors((current) => ({ ...current, faceConsent: '', facePhoto: '' }));
+              }}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: faceConsent }}
+            >
+              <MaterialCommunityIcons name={faceConsent ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} color={faceConsent ? GREEN : TEXT_MUTED} />
+              <Text style={styles.faceConsentText}>I consent to provide a face photo for responder application review. It is visible only to superadmins and will be deleted when my application is approved or rejected.</Text>
+            </TouchableOpacity>
+            {!!validationErrors.faceConsent && <Text style={styles.fieldError}>{validationErrors.faceConsent}</Text>}
+            <View style={styles.idPhotoActions}>
+              <TouchableOpacity
+                style={[styles.idPhotoButton, !faceConsent && styles.addMemberButtonDisabled]}
+                onPress={() => void openFaceCamera()}
+                disabled={!faceConsent || isCapturingFace}
+                accessibilityRole="button"
+                accessibilityLabel="Capture face photo and check for one visible face"
+              >
+                {isCapturingFace ? <ActivityIndicator size="small" color={GREEN} /> : <MaterialCommunityIcons name="face-recognition" size={19} color={GREEN} />}
+                <Text style={styles.idPhotoButtonText}>{facePhoto ? 'Retake face photo' : 'Capture face photo'}</Text>
+              </TouchableOpacity>
+              {facePhoto && <TouchableOpacity style={styles.idPhotoButton} onPress={() => setFacePhoto(null)} accessibilityRole="button" accessibilityLabel="Remove face photo">
+                <MaterialCommunityIcons name="trash-can-outline" size={18} color="#B42318" /><Text style={styles.removePhotoText}>Remove</Text>
+              </TouchableOpacity>}
+            </View>
+            {facePhoto && <View style={styles.facePhotoPreview}>
+              <Image source={{ uri: facePhoto.previewUri }} style={styles.facePhotoThumbnail} resizeMode="cover" accessibilityLabel="Responder face photo preview" />
+              <View style={styles.idPhotoPreviewCopy}>
+                <Text style={styles.idPhotoPreviewTitle}>One face detected</Text>
+                <Text style={styles.householdEmpty}>Ready for secure administrator review.</Text>
+              </View>
+              <MaterialCommunityIcons name="check-circle" size={21} color={GREEN} />
+            </View>}
+            {!!validationErrors.facePhoto && <Text style={styles.fieldError}>{validationErrors.facePhoto}</Text>}
           </View>
           </View>}
           {currentStep === 2 && !isResponder && <View style={styles.householdSection}>
@@ -597,11 +741,11 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             </TouchableOpacity> : <View />}
             {currentStep < 2 ? <TouchableOpacity style={styles.nextButton} onPress={continueToNextStep} accessibilityRole="button">
               <Text style={styles.submitText}>Continue</Text><MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" />
-            </TouchableOpacity> : <TouchableOpacity style={styles.submitButton} onPress={handleRegister} disabled={isSubmitting} accessibilityRole="button">
-              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>{isResponder ? 'Submit application' : 'Create account'}</Text>}
+            </TouchableOpacity> : <TouchableOpacity style={[styles.submitButton, isResponder && Platform.OS === 'web' && styles.addMemberButtonDisabled]} onPress={handleRegister} disabled={isSubmitting || (isResponder && Platform.OS === 'web')} accessibilityRole="button">
+              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>{isResponder && Platform.OS === 'web' ? 'Mobile app required' : isResponder ? 'Submit application' : 'Create account'}</Text>}
             </TouchableOpacity>}
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
       <Modal transparent visible={responderPicker !== null} animationType="fade" onRequestClose={() => setResponderPicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setResponderPicker(null)}>
@@ -650,7 +794,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </Pressable>
         </Pressable>
       </Modal>
-      <Modal visible={isCameraOpen} animationType="slide" onRequestClose={() => setIsCameraOpen(false)}>
+      {isCameraOpen && <Modal visible animationType="slide" onRequestClose={() => setIsCameraOpen(false)}>
         <View style={styles.cameraModal} onLayout={(event) => setCameraBounds({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
           <CameraView
             ref={cameraRef}
@@ -696,7 +840,47 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </View>
           {!isCameraReady && <View style={styles.cameraLoading}><ActivityIndicator color="#FFFFFF" /><Text style={styles.cameraInstruction}>Starting camera…</Text></View>}
         </View>
-      </Modal>
+      </Modal>}
+      {isFaceCameraOpen && <Modal visible animationType="slide" onRequestClose={() => setIsFaceCameraOpen(false)}>
+        <View style={styles.cameraModal}>
+          <CameraView
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
+            facing="front"
+            onCameraReady={() => setIsFaceCameraReady(true)}
+            onMountError={(event) => {
+              setIsFaceCameraOpen(false);
+              setValidationErrors((current) => ({ ...current, facePhoto: `The face camera could not start: ${event.message}` }));
+            }}
+          />
+          <View style={styles.cameraTopBar}>
+            <TouchableOpacity style={styles.cameraCloseButton} onPress={() => setIsFaceCameraOpen(false)} accessibilityRole="button" accessibilityLabel="Close face camera">
+              <MaterialCommunityIcons name="close" size={23} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.cameraTitle}>Face photo check</Text>
+            <View style={styles.cameraCloseButton} />
+          </View>
+          <View style={styles.faceGuideArea} pointerEvents="none">
+            <View style={styles.faceGuideFrame}>
+              <MaterialCommunityIcons name="face-recognition" size={33} color="rgba(255,255,255,0.82)" />
+            </View>
+            <Text style={styles.faceGuideLabel}>CENTER ONE FACE</Text>
+          </View>
+          <View style={styles.cameraBottomBar}>
+            <Text style={styles.cameraInstruction}>Use even lighting, look at the camera, and keep only yourself in frame.</Text>
+            <TouchableOpacity
+              style={[styles.captureButton, (!isFaceCameraReady || isCapturingFace) && styles.addMemberButtonDisabled]}
+              onPress={() => void captureResponderFace()}
+              disabled={!isFaceCameraReady || isCapturingFace}
+              accessibilityRole="button"
+              accessibilityLabel="Capture and detect face"
+            >
+              {isCapturingFace ? <ActivityIndicator color={GREEN} /> : <View style={styles.captureButtonInner} />}
+            </TouchableOpacity>
+          </View>
+          {!isFaceCameraReady && <View style={styles.cameraLoading}><ActivityIndicator color="#FFFFFF" /><Text style={styles.cameraInstruction}>Starting camera…</Text></View>}
+        </View>
+      </Modal>}
       {Platform.OS === 'web' && React.createElement('input', {
         ref: webIdInputRef,
         type: 'file',
@@ -781,17 +965,17 @@ const TEXT_MUTED = '#475467';
 const BORDER = '#D7E2EA';
 const PLACEHOLDER_COLOR = '#667085';
 const GREEN = '#218B25';
-const FONT_FAMILY = Platform.select({ ios: 'Avenir Next', android: 'sans-serif', web: 'Segoe UI' });
+const FONT_FAMILY = AppFontFamily;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PAGE_BACKGROUND },
   contentContainer: { flexGrow: 1, width: '100%', maxWidth: 620, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 32 },
-  header: { minHeight: 124, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 16, borderRadius: 10, backgroundColor: GREEN },
+  header: { minHeight: 124, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 18, borderRadius: 22, backgroundColor: GREEN, shadowColor: '#0E4B20', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 16, elevation: 4 },
   headerCopy: { flex: 1 },
-  headerEyebrow: { color: '#DFF1DF', fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800' },
-  headerTitle: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 25, fontWeight: '800', marginTop: 5 },
+  headerEyebrow: { color: '#DFF1DF', fontFamily: AppBoldFontFamily, fontSize: 10, fontWeight: '800' },
+  headerTitle: { color: '#FFFFFF', fontFamily: AppHeadingFontFamily, fontSize: 25, fontWeight: '800', marginTop: 5 },
   headerSubtitle: { color: '#E7F4E7', fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginTop: 4 },
-  form: { marginTop: 12, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 18, borderWidth: 1, borderColor: BORDER, borderRadius: 10, backgroundColor: SURFACE },
+  form: { marginTop: 16, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 20, borderWidth: 1, borderColor: '#E1E9E3', borderRadius: 22, backgroundColor: SURFACE, shadowColor: '#173A24', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.07, shadowRadius: 18, elevation: 2 },
   formIntro: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginBottom: 12 },
   stepper: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   stepItem: { flex: 1, minWidth: 0, alignItems: 'center', gap: 5 },
@@ -801,12 +985,12 @@ const styles = StyleSheet.create({
   stepNumberText: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '700' },
   stepNumberTextCurrent: { color: GREEN },
   stepLabel: { maxWidth: '100%', color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 10, textAlign: 'center' },
-  stepLabelCurrent: { color: GREEN, fontWeight: '800' },
+  stepLabelCurrent: { color: GREEN, fontFamily: AppBoldFontFamily, fontWeight: '800' },
   stepConnector: { height: 2, flex: 0.6, marginHorizontal: 5, marginBottom: 15, backgroundColor: BORDER },
   stepConnectorComplete: { backgroundColor: GREEN },
   stepHeading: { marginBottom: 17 },
-  stepCount: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 10, fontWeight: '800' },
-  sectionTitle: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 21, fontWeight: '800', marginTop: 3 },
+  stepCount: { color: GREEN, fontFamily: AppBoldFontFamily, fontSize: 10, fontWeight: '800' },
+  sectionTitle: { color: TEXT, fontFamily: AppHeadingFontFamily, fontSize: 23, fontWeight: '800', marginTop: 4, letterSpacing: -0.3 },
   avatarPicker: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
   avatarActions: { flex: 1, alignItems: 'flex-start', gap: 6 },
   avatarButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, backgroundColor: '#E8F5E9' },
@@ -817,17 +1001,17 @@ const styles = StyleSheet.create({
   stepPanel: { gap: 2 },
   field: { flex: 1, minWidth: 0, marginBottom: 12 },
   fieldStacked: { flex: 0, width: '100%' },
-  label: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700', marginBottom: 6 },
+  label: { color: TEXT, fontFamily: AppSemiboldFontFamily, fontSize: 12, fontWeight: '700', marginBottom: 6 },
   optional: { fontStyle: 'italic' },
   required: { color: '#D33A3A' },
-  input: { height: 48, paddingHorizontal: 14, paddingVertical: 0, borderWidth: 1, borderColor: BORDER, borderRadius: 6, backgroundColor: SURFACE, color: TEXT, fontFamily: FONT_FAMILY, fontSize: 15 },
+  input: { height: 52, paddingHorizontal: 15, paddingVertical: 0, borderWidth: 1, borderColor: '#D5E0D8', borderRadius: 13, backgroundColor: '#FBFDFC', color: TEXT, fontFamily: FONT_FAMILY, fontSize: 15 },
   passwordInput: { position: 'relative', justifyContent: 'center' },
   passwordField: { paddingRight: 52 },
   passwordToggle: { position: 'absolute', right: 3, width: 44, height: 42, alignItems: 'center', justifyContent: 'center' },
   passwordHint: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, lineHeight: 16, marginTop: -4, marginBottom: 8 },
   row: { flexDirection: 'row', columnGap: 18 },
   rowStacked: { flexDirection: 'column', columnGap: 0 },
-  selectInput: { height: 48, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1, borderColor: BORDER, borderRadius: 6, backgroundColor: SURFACE },
+  selectInput: { height: 52, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: '#D5E0D8', borderRadius: 13, backgroundColor: '#FBFDFC' },
   selectPlaceholder: { color: PLACEHOLDER_COLOR, fontFamily: FONT_FAMILY, fontSize: 12 },
   selectValue: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 14 },
   fieldError: { color: '#D62828', fontFamily: FONT_FAMILY, fontSize: 11, marginTop: 3 },
@@ -835,31 +1019,43 @@ const styles = StyleSheet.create({
   navigationActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 13 },
   backButton: { minWidth: 88, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 12, borderWidth: 1, borderColor: BORDER, borderRadius: 6, backgroundColor: SURFACE },
   backButtonText: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
-  nextButton: { minHeight: 48, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 14, borderRadius: 6, backgroundColor: GREEN },
-  submitButton: { minHeight: 48, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, borderRadius: 6, backgroundColor: GREEN },
-  submitText: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 14, fontWeight: '800' },
+  nextButton: { minHeight: 52, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 16, borderRadius: 14, backgroundColor: GREEN },
+  submitButton: { minHeight: 52, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 14, backgroundColor: GREEN },
+  submitText: { color: '#FFFFFF', fontFamily: AppBoldFontFamily, fontSize: 14, fontWeight: '800' },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
   sexOptions: { width: '100%', maxWidth: 300, padding: 18, borderRadius: 10, backgroundColor: SURFACE },
   pickerList: { maxHeight: 360 },
   sexTitle: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '600', marginBottom: 8 },
   sexOption: { minHeight: 44, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: '#E5E5E5' },
   sexOptionText: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 15 },
-  householdSection: { marginTop: 16, paddingTop: 13, borderTopWidth: 1, borderTopColor: '#E2ECE2' },
-  verificationSection: { marginTop: 16, paddingTop: 13, borderTopWidth: 1, borderTopColor: '#E2ECE2' },
+  householdSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E2ECE2' },
+  verificationSection: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E2ECE2' },
   householdHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 },
   householdHeaderCopy: { flex: 1 },
   householdLabel: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
   householdCount: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, marginTop: 2 },
   householdLimit: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, marginTop: 1 },
-  addMemberButton: { width: '100%', minHeight: 52, justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 9, backgroundColor: SURFACE_MUTED },
+  addMemberButton: { width: '100%', minHeight: 52, justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 13, backgroundColor: SURFACE_MUTED },
   addMemberButtonDisabled: { opacity: 0.55 },
   idPhotoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  idPhotoButton: { minHeight: 46, flexGrow: 1, flexBasis: 140, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 8, backgroundColor: SURFACE_MUTED },
+  idPhotoButton: { minHeight: 48, flexGrow: 1, flexBasis: 140, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 13, backgroundColor: SURFACE_MUTED },
   idPhotoButtonText: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700' },
-  idPhotoPreview: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 9, borderWidth: 1, borderColor: '#CDE5CD', borderRadius: 8, backgroundColor: '#F6FBF6' },
+  idPhotoPreview: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 10, borderWidth: 1, borderColor: '#CDE5CD', borderRadius: 13, backgroundColor: '#F6FBF6' },
   idPhotoThumbnail: { width: 96, height: 62, borderRadius: 4, backgroundColor: '#E8ECEF' },
   idPhotoPreviewCopy: { flex: 1 },
   idPhotoPreviewTitle: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '700' },
+  faceConsentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, marginTop: 14, padding: 12, borderWidth: 1, borderColor: '#D9E7DB', borderRadius: 13, backgroundColor: '#F7FBF7' },
+  faceConsentText: { flex: 1, color: TEXT, fontFamily: FONT_FAMILY, fontSize: 11, lineHeight: 17 },
+  facePhotoPreview: { flexDirection: 'row', alignItems: 'center', gap: 11, marginTop: 10, padding: 10, borderWidth: 1, borderColor: '#CDE5CD', borderRadius: 13, backgroundColor: '#F6FBF6' },
+  facePhotoThumbnail: { width: 58, height: 68, borderRadius: 10, backgroundColor: '#E8ECEF' },
+  faceGuideArea: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 18 },
+  faceGuideFrame: { width: 230, height: 300, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderStyle: 'dashed', borderColor: '#FFFFFF', borderRadius: 120, backgroundColor: 'rgba(255,255,255,0.06)' },
+  faceGuideLabel: { color: '#FFFFFF', fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textShadowColor: '#000000', textShadowRadius: 4 },
+  removePhotoText: { color: '#B42318', fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700' },
+  mobileOnlyNotice: { alignItems: 'center', marginTop: 12, padding: 22, borderWidth: 1, borderColor: '#CDE5CD', borderRadius: 18, backgroundColor: '#F5FBF5' },
+  mobileOnlyIcon: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, backgroundColor: '#E4F2E5' },
+  mobileOnlyTitle: { marginTop: 12, color: TEXT, fontFamily: FONT_FAMILY, fontSize: 17, fontWeight: '800', textAlign: 'center' },
+  mobileOnlyCopy: { marginTop: 7, color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, textAlign: 'center' },
   cameraModal: { flex: 1, backgroundColor: '#101418' },
   cameraTopBar: { minHeight: 66, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8 },
   cameraCloseButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },

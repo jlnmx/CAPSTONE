@@ -37,7 +37,8 @@ export default function UsersView() {
   const [reviewDocument, setReviewDocument] = useState<ResponderVerificationDocument | null>(null);
   const [reviewError, setReviewError] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
-  const [reviewImageLoaded, setReviewImageLoaded] = useState(false);
+  const [reviewIdLoaded, setReviewIdLoaded] = useState(false);
+  const [reviewFaceLoaded, setReviewFaceLoaded] = useState(false);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [form, setForm] = useState<UserInput>(blankUser);
   const [formError, setFormError] = useState('');
@@ -112,7 +113,8 @@ export default function UsersView() {
   async function openResponderReview(user: UserRecord) {
     setReviewTarget(user);
     setReviewDocument(null);
-    setReviewImageLoaded(false);
+    setReviewIdLoaded(false);
+    setReviewFaceLoaded(false);
     setReviewError('');
     setReviewLoading(true);
     try { setReviewDocument(await getResponderVerificationDocument(user.id)); }
@@ -121,7 +123,7 @@ export default function UsersView() {
   }
 
   async function decideResponderApplication(decision: 'approved' | 'rejected') {
-    if (!reviewTarget || !reviewDocument || !reviewImageLoaded) return;
+    if (!reviewTarget || !reviewDocument || !reviewIdLoaded || (reviewDocument.faceBase64 && !reviewFaceLoaded)) return;
     setReviewSaving(true);
     setReviewError('');
     try {
@@ -159,7 +161,7 @@ export default function UsersView() {
               <td><span className={`status-pill status-${user.status === 'Active' ? 'good' : user.status === 'Pending' ? 'pending' : 'neutral'}`}><i />{user.status}</span></td>
               <td>{user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}</td>
               <td><div className="row-actions">
-                {user.role === 'Responder' && user.status === 'Pending' && user.hasVerificationDocument && <button className="button-secondary" onClick={() => void openResponderReview(user)}>Review ID</button>}
+                {user.role === 'Responder' && user.status === 'Pending' && user.hasVerificationDocument && <button className="button-secondary" onClick={() => void openResponderReview(user)}>Review ID &amp; face</button>}
                 <button className="icon-button action-edit" aria-label={`Edit ${user.name}`} onClick={() => openEdit(user)} disabled={!!user.isSuperAdmin && user.id !== activeUser?.id}><Pencil size={16} /></button>
                 {!user.isSuperAdmin && user.id !== activeUser?.id && <button className="icon-button action-delete" aria-label={`Delete ${user.name}`} onClick={() => setDeleteTarget(user)}><Trash2 size={16} /></button>}
               </div></td>
@@ -183,19 +185,32 @@ export default function UsersView() {
     </form></section></div>}
 
     {reviewTarget && <div className="modal-backdrop"><section className="modal-card responder-review-modal" role="dialog" aria-modal="true" aria-labelledby="responder-review-title">
-      <div className="modal-heading"><div><p className="eyebrow">RESPONDER APPLICATION</p><h2 id="responder-review-title">Review {reviewTarget.responderType || 'responder'} ID</h2><p className="modal-copy">{reviewTarget.name} · {reviewTarget.email}</p></div><button className="icon-button" onClick={() => setReviewTarget(null)} aria-label="Close review">×</button></div>
-      {reviewLoading ? <LoadingState label="Loading submitted ID" /> : reviewDocument ? <div className="responder-review-content">
-        <img
-          src={`data:${reviewDocument.mimeType};base64,${reviewDocument.base64}`}
-          alt={`Identification document submitted by ${reviewTarget.name}`}
-          onLoad={() => setReviewImageLoaded(true)}
-          onError={() => { setReviewImageLoaded(false); setReviewError('The responder ID image could not be displayed.'); }}
-        />
-        <p className="cell-subtitle">{reviewDocument.fileName}</p>
-        <p className="modal-copy">Check that the identification is legible and matches the applicant before deciding.</p>
+      <div className="modal-heading"><div><p className="eyebrow">RESPONDER APPLICATION</p><h2 id="responder-review-title">Review ID &amp; face photo</h2><p className="modal-copy">{reviewTarget.name} · {reviewTarget.email}</p></div><button className="icon-button" onClick={() => setReviewTarget(null)} aria-label="Close review">×</button></div>
+      {reviewLoading ? <LoadingState label="Loading responder documents" /> : reviewDocument ? <div className="responder-review-content">
+        <article className="responder-review-document">
+          <h3>Responder ID</h3>
+          <img
+            src={`data:${reviewDocument.mimeType};base64,${reviewDocument.base64}`}
+            alt={`Identification document submitted by ${reviewTarget.name}`}
+            onLoad={() => setReviewIdLoaded(true)}
+            onError={() => { setReviewIdLoaded(false); setReviewError('The responder ID image could not be displayed.'); }}
+          />
+          <p className="cell-subtitle">{reviewDocument.fileName}</p>
+        </article>
+        {reviewDocument.faceBase64 && reviewDocument.faceMimeType ? <article className="responder-review-document">
+          <h3>Face photo</h3>
+          <img
+            src={`data:${reviewDocument.faceMimeType};base64,${reviewDocument.faceBase64}`}
+            alt={`Face photo submitted by ${reviewTarget.name}`}
+            onLoad={() => setReviewFaceLoaded(true)}
+            onError={() => { setReviewFaceLoaded(false); setReviewError('The responder face photo could not be displayed.'); }}
+          />
+          <p className="cell-subtitle">{reviewDocument.faceFileName}</p>
+        </article> : <div className="responder-review-legacy"><strong>Face photo not available</strong><p className="modal-copy">This application predates the face-photo requirement. Review the submitted ID before deciding.</p></div>}
+        <p className="modal-copy responder-review-guidance">Check that the ID is legible and that the face photo is suitable for manual review. Face detection only checks for a visible face; it does not identify or match a person.</p>
       </div> : !reviewError && <p className="modal-copy">The applicant has not submitted an ID document.</p>}
       {reviewError && <InlineNotice tone="error">{reviewError}</InlineNotice>}
-      <div className="modal-actions"><button className="button-secondary" onClick={() => setReviewTarget(null)} disabled={reviewSaving}>Close</button><button className="button-danger" onClick={() => void decideResponderApplication('rejected')} disabled={!reviewImageLoaded || reviewSaving}>{reviewSaving ? 'Saving…' : 'Reject'}</button><button className="button-primary" onClick={() => void decideResponderApplication('approved')} disabled={!reviewImageLoaded || reviewSaving}>{reviewSaving ? 'Saving…' : 'Approve'}</button></div>
+      <div className="modal-actions"><button className="button-secondary" onClick={() => setReviewTarget(null)} disabled={reviewSaving}>Close</button><button className="button-danger" onClick={() => void decideResponderApplication('rejected')} disabled={!reviewDocument || !reviewIdLoaded || (!!reviewDocument.faceBase64 && !reviewFaceLoaded) || reviewSaving}>{reviewSaving ? 'Saving…' : 'Reject'}</button><button className="button-primary" onClick={() => void decideResponderApplication('approved')} disabled={!reviewDocument || !reviewIdLoaded || (!!reviewDocument.faceBase64 && !reviewFaceLoaded) || reviewSaving}>{reviewSaving ? 'Saving…' : 'Approve'}</button></div>
     </section></div>}
 
     {deleteTarget && <div className="modal-backdrop"><section className="modal-card confirm-modal" role="alertdialog" aria-modal="true"><p className="eyebrow">REMOVE ACCESS</p><h2>Delete this account?</h2><p className="modal-copy"><strong>{deleteTarget.name}</strong> will immediately lose access to HANDA. This action cannot be undone.</p>{error && <InlineNotice tone="error">{error}</InlineNotice>}<div className="modal-actions"><button className="button-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button><button className="button-danger" onClick={() => void confirmDelete()} disabled={saving}>{saving ? 'Deleting…' : 'Delete account'}</button></div></section></div>}

@@ -134,7 +134,19 @@ CREATE TABLE IF NOT EXISTS responder_verification_documents (
   reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
   reviewed_at TIMESTAMPTZ,
   decision TEXT CHECK (decision IS NULL OR decision IN ('approved', 'rejected')),
-  review_note TEXT NOT NULL DEFAULT ''
+  review_note TEXT NOT NULL DEFAULT '',
+  face_file_name TEXT,
+  face_mime_type TEXT,
+  face_file_bytes BYTEA,
+  face_consent_at TIMESTAMPTZ,
+  CONSTRAINT responder_verification_face_consent_check
+    CHECK (face_file_bytes IS NULL OR face_consent_at IS NOT NULL),
+  CONSTRAINT responder_verification_face_mime_check
+    CHECK (face_mime_type IS NULL OR face_mime_type IN ('image/jpeg', 'image/png', 'image/webp')),
+  CONSTRAINT responder_verification_face_fields_check CHECK (
+    (face_file_name IS NULL AND face_mime_type IS NULL AND face_file_bytes IS NULL)
+    OR (face_file_name IS NOT NULL AND face_mime_type IS NOT NULL AND face_file_bytes IS NOT NULL)
+  )
 );
 
 CREATE TABLE IF NOT EXISTS resident_household_members (

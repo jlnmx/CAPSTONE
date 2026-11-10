@@ -237,6 +237,9 @@ export type ResponderVerificationDocument = {
   fileName: string;
   mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
   base64: string;
+  faceFileName: string | null;
+  faceMimeType: 'image/jpeg' | 'image/png' | 'image/webp' | null;
+  faceBase64: string | null;
   responderType: 'Official' | 'Volunteer' | null;
 };
 

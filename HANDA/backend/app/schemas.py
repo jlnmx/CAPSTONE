@@ -99,6 +99,10 @@ class UserRegistration(BaseModel):
     verificationDocumentBase64: str | None = Field(default=None, max_length=5_600_000)
     verificationDocumentMimeType: Literal["image/jpeg", "image/png", "image/webp"] | None = None
     verificationDocumentName: str | None = Field(default=None, max_length=255)
+    facePhotoBase64: str | None = Field(default=None, max_length=5_600_000)
+    facePhotoMimeType: Literal["image/jpeg", "image/png", "image/webp"] | None = None
+    facePhotoName: str | None = Field(default=None, max_length=255)
+    faceConsent: bool = False
     profilePicture: str | None = Field(default=None, max_length=PROFILE_PICTURE_MAX_CHARS)
     members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
 

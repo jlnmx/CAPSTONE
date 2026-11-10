@@ -479,8 +479,56 @@ def ensure_operational_schema() -> None:
                 reviewed_by TEXT REFERENCES users(id) ON DELETE SET NULL,
                 reviewed_at TIMESTAMPTZ,
                 decision TEXT CHECK (decision IS NULL OR decision IN ('approved', 'rejected')),
-                review_note TEXT NOT NULL DEFAULT ''
+                review_note TEXT NOT NULL DEFAULT '',
+                face_file_name TEXT,
+                face_mime_type TEXT,
+                face_file_bytes BYTEA,
+                face_consent_at TIMESTAMPTZ,
+                CONSTRAINT responder_verification_face_consent_check
+                    CHECK (face_file_bytes IS NULL OR face_consent_at IS NOT NULL),
+                CONSTRAINT responder_verification_face_fields_check CHECK (
+                    (face_file_name IS NULL AND face_mime_type IS NULL AND face_file_bytes IS NULL)
+                    OR (face_file_name IS NOT NULL AND face_mime_type IS NOT NULL AND face_file_bytes IS NOT NULL)
+                )
             )
+            """
+        )
+        connection.execute("ALTER TABLE responder_verification_documents ADD COLUMN IF NOT EXISTS face_file_name TEXT")
+        connection.execute("ALTER TABLE responder_verification_documents ADD COLUMN IF NOT EXISTS face_mime_type TEXT")
+        connection.execute("ALTER TABLE responder_verification_documents ADD COLUMN IF NOT EXISTS face_file_bytes BYTEA")
+        connection.execute("ALTER TABLE responder_verification_documents ADD COLUMN IF NOT EXISTS face_consent_at TIMESTAMPTZ")
+        connection.execute(
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'responder_verification_face_mime_check'
+                ) THEN
+                    ALTER TABLE responder_verification_documents
+                    ADD CONSTRAINT responder_verification_face_mime_check
+                    CHECK (face_mime_type IS NULL OR face_mime_type IN ('image/jpeg', 'image/png', 'image/webp'));
+                END IF;
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'responder_verification_face_fields_check'
+                ) THEN
+                    ALTER TABLE responder_verification_documents
+                    ADD CONSTRAINT responder_verification_face_fields_check
+                    CHECK (
+                        (face_file_name IS NULL AND face_mime_type IS NULL AND face_file_bytes IS NULL)
+                        OR (face_file_name IS NOT NULL AND face_mime_type IS NOT NULL AND face_file_bytes IS NOT NULL)
+                    );
+                END IF;
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint
+                    WHERE conname = 'responder_verification_face_consent_check'
+                ) THEN
+                    ALTER TABLE responder_verification_documents
+                    ADD CONSTRAINT responder_verification_face_consent_check
+                    CHECK (face_file_bytes IS NULL OR face_consent_at IS NOT NULL);
+                END IF;
+            END $$;
             """
         )
         connection.execute(
@@ -1795,7 +1843,7 @@ def list_users(connection: psycopg.Connection = Depends(get_connection), _: Curr
 @app.get("/api/v1/users/{user_id}/verification-document")
 def get_responder_verification_document(user_id: str, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_superadmin)):
     row = connection.execute(
-        "SELECT document.file_name, document.mime_type, document.file_bytes, users.responder_type FROM responder_verification_documents AS document JOIN users ON users.id = document.user_id WHERE document.user_id = %s",
+        "SELECT document.file_name, document.mime_type, document.file_bytes, document.face_file_name, document.face_mime_type, document.face_file_bytes, users.responder_type FROM responder_verification_documents AS document JOIN users ON users.id = document.user_id WHERE document.user_id = %s",
         (user_id,),
     ).fetchone()
     if not row:
@@ -1804,6 +1852,9 @@ def get_responder_verification_document(user_id: str, connection: psycopg.Connec
         "fileName": row["file_name"],
         "mimeType": row["mime_type"],
         "base64": base64.b64encode(bytes(row["file_bytes"])).decode("ascii"),
+        "faceFileName": row["face_file_name"],
+        "faceMimeType": row["face_mime_type"],
+        "faceBase64": base64.b64encode(bytes(row["face_file_bytes"])).decode("ascii") if row["face_file_bytes"] else None,
         "responderType": row["responder_type"],
     }
 
@@ -1830,7 +1881,7 @@ def review_responder_application(
         (new_status, user_id),
     )
     connection.execute(
-        "UPDATE responder_verification_documents SET decision = %s, reviewed_by = %s, reviewed_at = NOW(), review_note = %s WHERE user_id = %s",
+        "UPDATE responder_verification_documents SET decision = %s, reviewed_by = %s, reviewed_at = NOW(), review_note = %s, face_file_name = NULL, face_mime_type = NULL, face_file_bytes = NULL WHERE user_id = %s",
         (review.decision, admin.id, review.note.strip(), user_id),
     )
     write_log(connection, "audit", review.decision, admin.id, "responder_application", user_id, f"{review.decision.title()} {applicant['responder_type']} responder application.")
@@ -2034,28 +2085,47 @@ def delete_profile_picture(
     return {"profilePicture": None}
 
 
+def decode_verification_image(encoded: str, mime_type: str, image_label: str) -> bytes:
+    try:
+        image_bytes = base64.b64decode(encoded, validate=True)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=f"The uploaded {image_label} image is invalid.") from error
+    if not image_bytes or len(image_bytes) > 4 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"Responder {image_label} images must be 4 MB or smaller.")
+    signatures = {
+        "image/jpeg": image_bytes.startswith(b"\xff\xd8\xff"),
+        "image/png": image_bytes.startswith(b"\x89PNG\r\n\x1a\n"),
+        "image/webp": image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP",
+    }
+    if not signatures.get(mime_type, False):
+        raise HTTPException(status_code=422, detail=f"Upload a valid JPEG, PNG, or WebP {image_label} image.")
+    return image_bytes
+
+
 @app.post("/api/v1/users/register", status_code=201)
 def register_user(registration: UserRegistration, connection: psycopg.Connection = Depends(get_connection)):
     if not any((char.isupper() for char in registration.password)) or not any((char.islower() for char in registration.password)) or not any((char.isdigit() for char in registration.password)) or not any((not char.isalnum() for char in registration.password)):
         raise HTTPException(status_code=422, detail="Password must include uppercase, lowercase, number, and symbol.")
 
     document_bytes = None
+    face_photo_bytes = None
     if registration.role == "Responder":
         if not registration.responderType or not registration.verificationDocumentBase64 or not registration.verificationDocumentMimeType or not registration.verificationDocumentName:
             raise HTTPException(status_code=422, detail="Choose Official or Volunteer and upload a responder ID.")
-        try:
-            document_bytes = base64.b64decode(registration.verificationDocumentBase64, validate=True)
-        except ValueError as error:
-            raise HTTPException(status_code=422, detail="The uploaded responder ID is invalid.") from error
-        if not document_bytes or len(document_bytes) > 4 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="Responder ID images must be 4 MB or smaller.")
-        signatures = {
-            "image/jpeg": document_bytes.startswith(b"\xff\xd8\xff"),
-            "image/png": document_bytes.startswith(b"\x89PNG\r\n\x1a\n"),
-            "image/webp": document_bytes.startswith(b"RIFF") and document_bytes[8:12] == b"WEBP",
-        }
-        if not signatures.get(registration.verificationDocumentMimeType, False):
-            raise HTTPException(status_code=422, detail="Upload a valid JPEG, PNG, or WebP responder ID image.")
+        if not registration.faceConsent:
+            raise HTTPException(status_code=422, detail="Consent to face-photo collection is required for responder applications.")
+        if not registration.facePhotoBase64 or not registration.facePhotoMimeType or not registration.facePhotoName:
+            raise HTTPException(status_code=422, detail="Capture a face photo to submit the responder application.")
+        document_bytes = decode_verification_image(
+            registration.verificationDocumentBase64,
+            registration.verificationDocumentMimeType,
+            "ID",
+        )
+        face_photo_bytes = decode_verification_image(
+            registration.facePhotoBase64,
+            registration.facePhotoMimeType,
+            "face",
+        )
 
     user_id = f"user-{uuid4()}"
     assert_unique_contact(connection, registration.email, registration.mobileNumber)
@@ -2093,8 +2163,20 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         )
         if is_responder:
             connection.execute(
-                "INSERT INTO responder_verification_documents (user_id, file_name, mime_type, file_bytes) VALUES (%s, %s, %s, %s)",
-                (user_id, registration.verificationDocumentName, registration.verificationDocumentMimeType, document_bytes),
+                """
+                INSERT INTO responder_verification_documents
+                  (user_id, file_name, mime_type, file_bytes, face_file_name, face_mime_type, face_file_bytes, face_consent_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                """,
+                (
+                    user_id,
+                    registration.verificationDocumentName,
+                    registration.verificationDocumentMimeType,
+                    document_bytes,
+                    registration.facePhotoName,
+                    registration.facePhotoMimeType,
+                    face_photo_bytes,
+                ),
             )
         else:
             for member in registration.members:
