@@ -1,13 +1,12 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { ColorValue, SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useWeather } from '@hooks/useWeather';
 import { WeatherWidget } from '@components/WeatherWidget';
-import { Colors, getReadableColor } from '@constants/colors';
-import { useTheme } from '@hooks/useTheme';
+import { Colors } from '@constants/colors';
 import { NotificationBell } from '@components/NotificationBell';
 import AppBackArrow from '@components/AppBackArrow';
 import { HandaLogoBadge } from '@components/HandaLogo';
@@ -24,6 +23,7 @@ const actions: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name
   { icon: 'information-outline', mark: 'home-heart', label: 'Evacuation guidance', route: '/(resident)/register-evacuee', tone: 'forest' },
   { icon: 'alert-circle-outline', mark: 'alert-octagon-outline', label: 'Report incident', route: '/(resident)/report', tone: 'clay' },
   { icon: 'home-city-outline', mark: 'home-city-outline', label: 'Center status', route: '/(resident)/center-status', tone: 'sand' },
+  { icon: 'account-multiple-outline', mark: 'home-group', label: 'Household', route: '/(resident)/household', tone: 'sand' },
 ];
 
 type ActiveDisaster = {
@@ -42,10 +42,7 @@ type ResidentEvacuationStatus = {
   members?: ResidentHouseholdMember[];
 };
 
-type ResidentStatusStyle = { backgroundColor: ColorValue; iconColor: ColorValue; textColor: ColorValue };
-
 export default function ResidentDashboard() {
-  const { resolvedTheme } = useTheme();
   const { user } = useAuth();
   const [activeDisaster, setActiveDisaster] = useState<ActiveDisaster | null>(null);
   const [disasterError, setDisasterError] = useState(false);
@@ -158,24 +155,12 @@ export default function ResidentDashboard() {
         )}
         {liveTyphoons.map((typhoon) => <TyphoonCard key={typhoon.id} typhoon={typhoon} />)}
 
-        <View style={styles.statusRow}>
-          <StatusTile
-            tone="forest"
-            icon="shield-check-outline"
-            mark="shield-outline"
-            title="MY STATUS"
-            detail={getResidentStatusLabel(evacuationStatusUnavailable, evacuationStatus)}
-            onPress={() => router.push('/(resident)/verify-status')}
-          />
-          <StatusTile
-            tone="sand"
-            icon="account-multiple-outline"
-            mark="home-group"
-            title="HOUSEHOLD"
-            detail={evacuationStatusUnavailable ? 'Unavailable' : !evacuationStatus ? 'Loading...' : `${evacuationStatus.householdCount} ${evacuationStatus.householdCount === 1 ? 'member' : 'members'}`}
-            onPress={() => router.push('/(resident)/household')}
-          />
-        </View>
+        <StatusTile
+          unavailable={evacuationStatusUnavailable}
+          status={evacuationStatus}
+          loading={!evacuationStatusUnavailable && !evacuationStatus}
+          onPress={() => router.push('/(resident)/verify-status')}
+        />
 
         <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
         <View style={styles.actionGrid}>{actions.map((action) => <DashTile key={action.label} tone={action.tone} icon={action.icon} mark={action.mark} title={action.label} onPress={() => router.push(action.route)} style={styles.actionButton} />)}</View>
@@ -202,27 +187,16 @@ export default function ResidentDashboard() {
   );
 }
 
-function getResidentStatusLabel(unavailable: boolean, status: ResidentEvacuationStatus | null): string {
-  if (unavailable) return 'Unavailable';
-  if (!status || status.status === 'not_registered') return 'NO ASSIGNMENT';
-  return status.status === 'checked_in' ? 'CHECKED-IN' : status.status.toUpperCase();
-}
+type StatusPresentation = { label: string; detail: string; tone: keyof typeof TONES; icon: IconName; mark: IconName };
 
-function getResidentStatusStyle(unavailable: boolean, status: ResidentEvacuationStatus | null, theme: 'light' | 'dark'): ResidentStatusStyle {
-  const selected = unavailable
-    ? ['#A34545', '#8D3C3C']
-    : !status || status.status === 'not_registered'
-      ? ['#218B25', '#176B1D']
-      : status.status === 'checked_in'
-        ? ['#1769AA', '#175384']
-        : status.status === 'evacuated'
-          ? ['#B36E00', '#8A5700']
-          : ['#667085', '#52606D'];
-  return {
-    backgroundColor: Colors.surfaceMuted,
-    iconColor: getReadableColor(selected[0], theme),
-    textColor: selected[1],
-  };
+function getResidentStatusPresentation(unavailable: boolean, loading: boolean, status: ResidentEvacuationStatus | null): StatusPresentation {
+  if (unavailable) return { label: 'UNAVAILABLE', detail: 'Could not load your latest evacuation status', tone: 'clay', icon: 'clock-alert-outline', mark: 'alert-circle-outline' };
+  if (loading) return { label: 'LOADING', detail: 'Checking your latest evacuation status', tone: 'teal', icon: 'progress-clock', mark: 'shield-outline' };
+  if (!status || status.status === 'not_registered') return { label: 'SAFE', detail: 'No active evacuation registration', tone: 'forest', icon: 'shield-check-outline', mark: 'shield-outline' };
+  if (status.status === 'registered') return { label: 'REGISTERED', detail: 'Evacuation registration recorded', tone: 'teal', icon: 'clipboard-check-outline', mark: 'clipboard-check-outline' };
+  if (status.status === 'checked_in') return { label: 'CHECKED IN', detail: 'Your household is checked in at an evacuation center', tone: 'teal', icon: 'home-city-outline', mark: 'home-city-outline' };
+  if (status.status === 'evacuated') return { label: 'EVACUATED', detail: 'Your household has left the evacuation center', tone: 'sand', icon: 'exit-run', mark: 'home-outline' };
+  return { label: 'RELEASED', detail: 'Your evacuation registration is complete', tone: 'sand', icon: 'check-decagram-outline', mark: 'check-decagram-outline' };
 }
 
 type TileTone = { bg: string; fg: string; badgeBg: string; badgeFg: string; mark: string };
@@ -260,8 +234,31 @@ function DashTile({ tone, icon, mark, title, detail, onPress, compact, row, styl
     : <View style={base} accessibilityRole="text">{body}</View>;
 }
 
-function StatusTile({ icon, mark, title, detail, onPress, tone }: { icon: IconName; mark: IconName; title: string; detail: string; onPress?: () => void; tone: keyof typeof TONES }) {
-  return <DashTile compact tone={tone} icon={icon} mark={mark} title={title} detail={detail} onPress={onPress} style={styles.statusTile} />;
+function StatusTile({ status, unavailable, loading, onPress }: { status: ResidentEvacuationStatus | null; unavailable: boolean; loading: boolean; onPress: () => void }) {
+  const hover = useHoverLift();
+  const presentation = getResidentStatusPresentation(unavailable, loading, status);
+  const tone = TONES[presentation.tone];
+  return (
+    <AnimatedPressable
+      style={[styles.statusTile, { backgroundColor: tone.bg, transform: hover.transform }]}
+      onPress={onPress}
+      onHoverIn={hover.onHoverIn}
+      onHoverOut={hover.onHoverOut}
+      accessibilityRole="button"
+      accessibilityLabel={`My status: ${presentation.label}. ${presentation.detail}`}
+    >
+      <MaterialCommunityIcons name={presentation.mark} size={104} color={tone.mark} style={styles.statusMark} />
+      <View style={[styles.statusBadge, { backgroundColor: tone.badgeBg }]}>
+        <MaterialCommunityIcons name={presentation.icon} size={22} color={tone.badgeFg} />
+      </View>
+      <View style={styles.statusCopy}>
+        <Text style={[styles.statusEyebrow, { color: tone.fg }]}>MY STATUS</Text>
+        <Text style={[styles.statusLabel, { color: tone.fg }]}>{presentation.label}</Text>
+        <Text style={[styles.statusDetail, { color: tone.fg }]} numberOfLines={2}>{presentation.detail}</Text>
+      </View>
+      <MaterialCommunityIcons name="chevron-right" size={21} color={tone.fg} />
+    </AnimatedPressable>
+  );
 }
 
 function ResourceButton({ icon, mark, title, detail, onPress, tone }: { icon: IconName; mark: IconName; title: string; detail: string; onPress: () => void; tone: keyof typeof TONES }) {
@@ -310,8 +307,13 @@ const styles = StyleSheet.create({
   disasterNameActive: { fontSize: 18, fontWeight: '700' },
   disasterStatus: { color: Colors.white, fontSize: 9, marginTop: 2 },
   disasterStatusActive: { fontSize: 12 },
-  statusRow: { flexDirection: 'row', gap: 9, marginHorizontal: 18, marginBottom: 14 },
-  statusTile: { flex: 1 },
+  statusTile: { minHeight: 104, marginHorizontal: 18, marginTop: 6, marginBottom: 14, paddingHorizontal: 15, paddingVertical: 13, borderRadius: 22, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3 },
+  statusMark: { position: 'absolute', right: 12, bottom: -19 },
+  statusBadge: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  statusCopy: { flex: 1, minWidth: 0, gap: 2 },
+  statusEyebrow: { opacity: 0.78, fontSize: 9, fontWeight: '800', letterSpacing: 0.9 },
+  statusLabel: { fontSize: 17, fontWeight: '800' },
+  statusDetail: { opacity: 0.9, fontSize: 10, fontWeight: '600', lineHeight: 14 },
   tile: { minHeight: 112, padding: 14, borderRadius: 22, overflow: 'hidden', justifyContent: 'space-between', shadowColor: '#000000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3 },
   tileCompact: { minHeight: 96, borderRadius: 20 },
   tileMark: { position: 'absolute', right: -14, bottom: -14 },
