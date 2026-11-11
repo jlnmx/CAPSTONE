@@ -47,7 +47,7 @@ export default function ResidentDashboard() {
   const { user } = useAuth();
   const [activeDisaster, setActiveDisaster] = useState<ActiveDisaster | null>(null);
   const [disasterError, setDisasterError] = useState(false);
-  const { weather, weatherEvents, environmentalRisk, airQualityUnavailable, presentation, isLoading: isWeatherLoading, isUnavailable: weatherError, now } = useWeather();
+  const { weather, weatherEvents, environmentalRisk, airQualityUnavailable, presentation, isLoading: isWeatherLoading, isUnavailable: weatherError, errorMessage: weatherErrorMessage, now } = useWeather();
   const [liveTyphoons, setLiveTyphoons] = useState<LiveTyphoon[]>([]);
   const [evacuationStatus, setEvacuationStatus] = useState<ResidentEvacuationStatus | null>(null);
   const [evacuationStatusUnavailable, setEvacuationStatusUnavailable] = useState(false);
@@ -145,7 +145,7 @@ export default function ResidentDashboard() {
           </View>
         </View>
 
-        <WeatherWidget weather={weather} weatherEvents={weatherEvents} environmentalRisk={environmentalRisk} airQualityUnavailable={airQualityUnavailable} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} time={now} disasterActive={disasterIsActive} showForecast={false} onPress={() => router.push('/(resident)/weather')} />
+        <WeatherWidget weather={weather} weatherEvents={weatherEvents} environmentalRisk={environmentalRisk} airQualityUnavailable={airQualityUnavailable} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} errorMessage={weatherErrorMessage} time={now} disasterActive={disasterIsActive} showForecast={false} onPress={() => router.push('/(resident)/weather')} />
 
         {disasterIsActive && activeDisaster && (
           <ActiveDisasterCard

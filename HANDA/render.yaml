@@ -18,6 +18,8 @@ services:
         sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
+      - key: GOOGLE_WEATHER_API_KEY
+        sync: false
       - key: CORS_ORIGINS
         value: http://localhost:8081,http://localhost:19006,https://handa-admin-web.vercel.app
       - key: CORS_ORIGIN_REGEX

@@ -12,7 +12,7 @@ Connect the `CAPSTONE` repository to Render and set the Blueprint file path to `
 
 The API uses the existing PostgreSQL database. During the initial Blueprint setup, provide `DATABASE_URL` from the database provider. For Supabase, use its Session pooler URL and preserve `sslmode=require`; see [backend/README.md](backend/README.md). Render generates `AUTH_SECRET` for the API. Set `REALTIME_JWT_PRIVATE_KEY` on the API service to the private JWK matching the verification key configured in Supabase; the key is server-only and is never added to either frontend.
 
-Set `GOOGLE_WEATHER_API_KEY` on the `handa-api` Render service for the resident and responder weather forecast. Use a separate server-side key restricted to the Google Weather API and Air Quality API; never expose it in Expo or Vite environment variables. The API proxies and caches provider responses.
+The Render Blueprint declares `GOOGLE_WEATHER_API_KEY` as a secret for the `handa-api` service. Set its value in Render to enable Resident and Responder weather forecasts. Use a separate server-side key restricted to the Google Weather API and Air Quality API; never expose it in Expo or Vite environment variables. The API proxies and caches provider responses.
 
 The frontend services use `https://handa-api.onrender.com` as their API origin. If Render assigns a different service URL, update both frontend variables to that URL and redeploy:
 

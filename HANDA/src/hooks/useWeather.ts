@@ -12,8 +12,8 @@ const WEATHER_DEFAULT: WeatherSnapshot = {
   feelsLike: 32,
   humidity: 78,
   windSpeed: 8,
-  conditionType: 'RAIN',
-  conditionDescription: 'Rain',
+  conditionType: 'CLOUDY',
+  conditionDescription: 'Forecast unavailable',
   isDay: true,
 };
 
@@ -89,6 +89,7 @@ export function useWeather() {
   const [forecast, setForecast] = useState<Awaited<ReturnType<typeof fetchGoogleWeatherForecast>> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUnavailable, setIsUnavailable] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -105,8 +106,12 @@ export function useWeather() {
         if (!mounted) return;
         setForecast(result);
         setIsUnavailable(false);
-      } catch {
-        if (mounted) setIsUnavailable(true);
+        setErrorMessage(null);
+      } catch (error) {
+        if (mounted) {
+          setIsUnavailable(true);
+          setErrorMessage(error instanceof Error ? error.message : 'Weather service is unavailable.');
+        }
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -132,6 +137,7 @@ export function useWeather() {
     presentation,
     isLoading,
     isUnavailable,
+    errorMessage,
     now,
   };
 }
