@@ -8,6 +8,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors, getReadableColor } from '@constants/colors';
+import { AppBoldFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 import { useTheme } from '@hooks/useTheme';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
@@ -183,7 +184,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 86,
     paddingHorizontal: 16,
-    backgroundColor: '#218B25',
+    backgroundColor: '#176B3A',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.16)',
+    shadowColor: '#0C4225',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
+    elevation: 2,
   },
   headerBrand: {
     flexDirection: 'row',
@@ -192,9 +200,9 @@ const styles = StyleSheet.create({
   },
   headerLogo: {
     color: Colors.white,
-    fontSize: 32,
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontFamily: AppHeadingFontFamily,
+    fontSize: 31,
+    letterSpacing: 0.2,
   },
   greeting: {
     minHeight: 55,
@@ -206,14 +214,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   greetingTitle: {
-    color: '#218B25',
-    fontSize: 15,
-    fontWeight: '800',
+    color: '#176B3A',
+    fontFamily: AppBoldFontFamily,
+    fontSize: 16,
   },
   greetingDate: {
-    color: '#218B25',
-    fontSize: 9,
-    fontWeight: '600',
+    color: '#60766A',
+    fontFamily: AppMediumFontFamily,
+    fontSize: 10,
     marginTop: 4,
   },
   weatherIcon: {
@@ -295,12 +303,12 @@ const styles = StyleSheet.create({
   statFooter: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, marginTop: 10 },
   statCopy: { flex: 1 },
   statValue: {
+    fontFamily: AppBoldFontFamily,
     fontSize: 20,
-    fontWeight: '800',
   },
   statLabel: {
+    fontFamily: AppSemiboldFontFamily,
     fontSize: 10,
-    fontWeight: '700',
   },
   pendingTile: {
     height: 51,
@@ -330,9 +338,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 18,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#218B25',
+    fontFamily: AppHeadingFontFamily,
+    fontSize: 16,
+    letterSpacing: 0.65,
+    color: '#176B3A',
     marginBottom: 7,
   },
 });
