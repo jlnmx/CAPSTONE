@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
-import { fetchOpenMeteoForecast, OPEN_METEO_FORECAST_URL, OpenMeteoForecast } from '@services/openMeteoForecast';
+import { fetchGoogleWeatherForecast } from '@services/googleWeather';
+import type { GoogleWeatherSnapshot } from '@/types/weather';
+import { getWeatherPresentation } from '@utils/weatherPresentation';
 
 function parseLocalDate(value: string): Date {
   const [year, month, day] = value.slice(0, 10).split('-').map(Number);
@@ -28,7 +30,7 @@ function formatTemperature(value: number): string {
 
 export default function WeatherForecastScreen() {
   const { palette } = useTheme();
-  const [forecast, setForecast] = useState<OpenMeteoForecast | null>(null);
+  const [forecast, setForecast] = useState<GoogleWeatherSnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function WeatherForecastScreen() {
   const loadForecast = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
     try {
-      const result = await fetchOpenMeteoForecast(signal);
+      const result = await fetchGoogleWeatherForecast(signal);
       if (signal?.aborted) return;
       setForecast(result);
       setError(null);
@@ -55,7 +57,7 @@ export default function WeatherForecastScreen() {
   }, [loadForecast]);
 
   const today = forecast?.daily[0];
-  const presentation = forecast?.current.presentation;
+  const presentation = forecast && getWeatherPresentation(forecast.current.conditionType, forecast.current.temperature, forecast.current.isDay, forecast.current.conditionDescription);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
@@ -73,7 +75,7 @@ export default function WeatherForecastScreen() {
             <MaterialCommunityIcons name="alert-circle-outline" size={32} color={Colors.emergency} />
             <Text style={styles.errorTitle}>Forecast unavailable</Text>
             <Text style={styles.errorText}>{error}</Text>
-            <Text style={styles.errorText}>Source: {OPEN_METEO_FORECAST_URL}</Text>
+            <Text style={styles.errorText}>Check the HANDA server's Google Weather API configuration and try again.</Text>
             <Pressable onPress={() => void loadForecast()} style={styles.retryButton}><Text darkText style={styles.retryText}>Retry</Text></Pressable>
           </View>
         )}
@@ -92,13 +94,24 @@ export default function WeatherForecastScreen() {
               <Text darkText style={styles.todayMeta}>Humidity {Math.round(forecast.current.humidity)}%  ·  Wind {Math.round(forecast.current.windSpeed)} km/h</Text>
             </LinearGradient>
 
+            {forecast.environmentalRisk
+              ? <View style={[styles.riskCard, [styles.riskLevel0, styles.riskLevel1, styles.riskLevel2, styles.riskLevel3, styles.riskLevel4][forecast.environmentalRisk.level]]}>
+                <View style={styles.riskHeading}><MaterialCommunityIcons name="leaf" size={19} color={Colors.primary} /><Text style={styles.riskTitle}>Environmental risk · {forecast.environmentalRisk.label}</Text></View>
+                <Text style={styles.riskDetail}>Air-quality factor: {forecast.environmentalRisk.airQualityFactor}  ·  Weather factor: {forecast.environmentalRisk.weatherFactor}</Text>
+                <Text style={styles.riskDetail}>{forecast.environmentalRisk.basis}</Text>
+                <Text style={styles.riskDisclaimer}>Planning indicator only—not an official warning. Follow PAGASA and local authority advisories.</Text>
+              </View>
+              : forecast.airQualityAvailable
+                ? null
+                : <View style={styles.riskUnavailable}><MaterialCommunityIcons name="information-outline" size={18} color={Colors.warning} /><Text style={styles.riskDetail}>Air-quality data is unavailable, so the combined environmental risk indicator could not be calculated.</Text></View>}
+
             <View style={styles.hourlyCard}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyContent}>
                 {forecast.hourly.map((hour) => (
                   <View key={hour.time} style={styles.hourItem}>
-                    <Text style={styles.hourRain}>{hour.precipitationProbability}%</Text>
+                    <Text style={styles.hourRain}>{hour.precipitationProbability == null ? '--' : `${hour.precipitationProbability}%`}</Text>
                     <Text style={styles.hourTime}>{displayHour(hour.time)}</Text>
-                    <MaterialCommunityIcons name={hour.presentation.icon} size={26} color={Colors.secondary} />
+                    <MaterialCommunityIcons name={getWeatherPresentation(hour.conditionType, hour.temperature, hour.isDay, hour.conditionDescription).icon} size={26} color={Colors.secondary} />
                     <Text style={styles.hourTemperature}>{formatTemperature(hour.temperature)}</Text>
                   </View>
                 ))}
@@ -109,6 +122,7 @@ export default function WeatherForecastScreen() {
               <Text style={styles.sectionTitle}>Next 7 days</Text>
               {forecast.daily.map((day) => {
                 const expanded = expandedDate === day.date;
+                const dayPresentation = getWeatherPresentation(day.conditionType, day.maxTemperature, true, day.conditionDescription);
                 return (
                   <Pressable
                     key={day.date}
@@ -123,14 +137,14 @@ export default function WeatherForecastScreen() {
                         <Text style={styles.dayDate}>{displayDate(day.date)}</Text>
                         <Text style={styles.dayMeta}>Day: {formatTemperature(day.maxTemperature)}, Night: {formatTemperature(day.minTemperature)}</Text>
                       </View>
-                      <MaterialCommunityIcons name={day.presentation.icon} size={28} color={Colors.secondary} />
+                      <MaterialCommunityIcons name={dayPresentation.icon} size={28} color={Colors.secondary} />
                       <MaterialCommunityIcons name={expanded ? 'chevron-up' : 'chevron-down'} size={22} color={Colors.textMuted} />
                     </View>
                     {expanded && (
                       <View style={styles.dayDetails}>
-                        <Text style={styles.dayDetail}>{day.presentation.description}</Text>
-                        <Text style={styles.dayDetail}>Chance of rain: {day.precipitationProbability}%  ·  Rainfall: {day.precipitationSum.toFixed(1)} mm</Text>
-                        <Text style={styles.dayDetail}>Max wind: {Math.round(day.windSpeedMax)} km/h</Text>
+                        <Text style={styles.dayDetail}>{dayPresentation.description}</Text>
+                        <Text style={styles.dayDetail}>Chance of rain: {day.precipitationProbability == null ? 'Unavailable' : `${day.precipitationProbability}%`}  ·  Rainfall: {day.precipitationSum == null ? 'Unavailable' : `${day.precipitationSum.toFixed(1)} mm`}</Text>
+                        <Text style={styles.dayDetail}>Max wind: {day.windSpeedMax == null ? 'Unavailable' : `${Math.round(day.windSpeedMax)} km/h`}</Text>
                       </View>
                     )}
                   </Pressable>
@@ -138,10 +152,7 @@ export default function WeatherForecastScreen() {
               })}
             </View>
             <View style={styles.attribution}>
-              <Text style={styles.source}>Weather data by </Text>
-              <Pressable onPress={() => void Linking.openURL('https://open-meteo.com/')} accessibilityRole="link"><Text style={styles.sourceLink}>Open-Meteo.com</Text></Pressable>
-              <Text style={styles.source}> · </Text>
-              <Pressable onPress={() => void Linking.openURL('https://open-meteo.com/en/licence')} accessibilityRole="link"><Text style={styles.sourceLink}>CC BY 4.0</Text></Pressable>
+              <Text style={styles.googleAttribution}>Google Maps</Text>
             </View>
             <Text style={styles.source}>Not an official warning. Check PAGASA advisories.</Text>
           </>
@@ -187,6 +198,18 @@ const styles = StyleSheet.create({
   dayMeta: { color: Colors.textMuted, fontSize: 10, marginTop: 4 },
   dayDetails: { marginTop: 10, gap: 4 },
   dayDetail: { color: Colors.textMuted, fontSize: 11 },
+  riskCard: { marginTop: 14, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  riskLevel0: { borderLeftWidth: 4, borderLeftColor: '#218B25' },
+  riskLevel1: { borderLeftWidth: 4, borderLeftColor: '#B58A12' },
+  riskLevel2: { borderLeftWidth: 4, borderLeftColor: '#D97725' },
+  riskLevel3: { borderLeftWidth: 4, borderLeftColor: '#C9573F' },
+  riskLevel4: { borderLeftWidth: 4, borderLeftColor: '#8E2630' },
+  riskHeading: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  riskTitle: { color: Colors.text, fontSize: 13, fontWeight: '800' },
+  riskDetail: { color: Colors.textMuted, fontSize: 10, lineHeight: 15, marginTop: 7 },
+  riskDisclaimer: { color: Colors.textMuted, fontSize: 9, lineHeight: 14, marginTop: 8 },
+  riskUnavailable: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 14, padding: 12, borderRadius: 10, backgroundColor: Colors.surface },
+  googleAttribution: { color: '#5E5E5E', fontSize: 12, fontWeight: '400' },
   attribution: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', marginTop: 14 },
   source: { color: Colors.textMuted, fontSize: 10, lineHeight: 15, textAlign: 'center' },
   sourceLink: { color: Colors.secondary, fontSize: 10, lineHeight: 15, textDecorationLine: 'underline' },

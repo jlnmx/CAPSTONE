@@ -12,6 +12,8 @@ Connect the `CAPSTONE` repository to Render and set the Blueprint file path to `
 
 The API uses the existing PostgreSQL database. During the initial Blueprint setup, provide `DATABASE_URL` from the database provider. For Supabase, use its Session pooler URL and preserve `sslmode=require`; see [backend/README.md](backend/README.md). Render generates `AUTH_SECRET` for the API. Set `REALTIME_JWT_PRIVATE_KEY` on the API service to the private JWK matching the verification key configured in Supabase; the key is server-only and is never added to either frontend.
 
+Set `GOOGLE_WEATHER_API_KEY` on the `handa-api` Render service for the resident and responder weather forecast. Use a separate server-side key restricted to the Google Weather API and Air Quality API; never expose it in Expo or Vite environment variables. The API proxies and caches provider responses.
+
 The frontend services use `https://handa-api.onrender.com` as their API origin. If Render assigns a different service URL, update both frontend variables to that URL and redeploy:
 
 - `EXPO_PUBLIC_API_URL` for the resident/responder web app.
@@ -34,7 +36,7 @@ Create two separate Vercel projects from the same Git repository. For both, set 
 - Environment variable: `EXPO_PUBLIC_API_URL=https://handa-api.onrender.com`
 - Optional environment variable: `EXPO_PUBLIC_MAPBOX_TOKEN=<restricted-public-mapbox-token>`
 - `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` (public Supabase project URL and anon/publishable key)
-- The resident Weather screen uses the keyless Open-Meteo API (`https://api.open-meteo.com/v1/forecast`); no environment variable is required.
+- Weather data is requested from the authenticated Render API; do not add a Google Weather key to Vercel.
 
 **Admin project**
 

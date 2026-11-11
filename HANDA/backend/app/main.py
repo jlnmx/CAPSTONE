@@ -34,6 +34,7 @@ from .schemas import PushDeviceInput
 from .schemas import MapPlaceSearch, MapRouteRequest
 from .maps import compute_routes, search_places
 from .push import PUSH_SCHEMA_SQL, enqueue_evacuation_status, enqueue_responders, enqueue_user, process_one
+from .weather import get_google_weather_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -861,6 +862,13 @@ def calculate_map_routes(request: MapRouteRequest, _: CurrentUser = Depends(requ
     if not settings.google_maps_api_key:
         raise HTTPException(status_code=503, detail="Google Maps routing is not configured on the server.")
     return compute_routes(request, settings.google_maps_api_key)
+
+
+@app.get("/api/v1/weather")
+def get_weather_forecast(_: CurrentUser = Depends(require_roles("resident", "responder"))):
+    if not settings.google_weather_api_key:
+        raise HTTPException(status_code=503, detail="Google Weather is not configured on the server.")
+    return get_google_weather_snapshot(settings.google_weather_api_key)
 
 
 @app.post("/api/v1/incidents", status_code=201)

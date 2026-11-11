@@ -1,7 +1,7 @@
 import { authenticatedFetch } from '@services/apiClient';
-import { BINAN_WEATHER_LOCATION } from '@hooks/useWeather';
+import { fetchGoogleWeatherForecast } from '@services/googleWeather';
 import { getWeatherPresentation } from '@utils/weatherPresentation';
-import type { LiveTyphoon } from '@types/weather';
+import type { LiveTyphoon } from '@/types/weather';
 
 type AdminDisaster = {
   name: string;
@@ -9,26 +9,6 @@ type AdminDisaster = {
   severity: string;
   status: string;
   affected_areas: number;
-};
-
-type WeatherResponse = {
-  current?: {
-    temperature_2m: number;
-    apparent_temperature: number;
-    relative_humidity_2m: number;
-    weather_code: number;
-    wind_speed_10m: number;
-    is_day: number;
-  };
-  hourly?: {
-    time: string[];
-    precipitation_probability: number[];
-    precipitation: number[];
-    weather_code: number[];
-    wind_speed_10m: number[];
-    wind_gusts_10m: number[];
-    temperature_2m: number[];
-  };
 };
 
 class SessionExpiredError extends Error {}
@@ -53,7 +33,7 @@ async function fetchLiveTyphoons(): Promise<LiveTyphoon[]> {
 }
 
 function formatLiveTyphoon(typhoon: LiveTyphoon): string {
-  const details = [typhoon.par_status];
+  const details: string[] = [typhoon.par_status];
   if (typhoon.max_wind_kmh !== null) details.push(`max sustained wind ${typhoon.max_wind_kmh} km/h`);
   if (typhoon.gust_speed_kmh !== null) details.push(`gusts ${typhoon.gust_speed_kmh} km/h`);
   if (typhoon.signal_no !== null) details.push(`PAGASA Signal No. ${typhoon.signal_no}`);
@@ -123,42 +103,31 @@ async function answerDisasterQuestion(): Promise<string> {
 }
 
 async function answerWeatherQuestion(question: string): Promise<string> {
-  const query = new URLSearchParams({
-    latitude: String(BINAN_WEATHER_LOCATION.latitude),
-    longitude: String(BINAN_WEATHER_LOCATION.longitude),
-    current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day',
-    hourly: 'precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,temperature_2m',
-    forecast_hours: '24',
-    timezone: 'auto',
-  });
-  const response = await fetch(`https://api.open-meteo.com/v1/forecast?${query.toString()}`);
-  if (!response.ok) throw new Error('Biñan weather data is unavailable right now.');
-  const result = await response.json() as WeatherResponse;
-  if (!result.current || !result.hourly) throw new Error('Biñan weather data is incomplete right now.');
-
-  const current = result.current;
-  const presentation = getWeatherPresentation(current.weather_code, current.temperature_2m, current.is_day === 1);
-  const hourly = result.hourly;
-  const hours = hourly.time.map((time, index) => ({
-    time: time.slice(11, 16),
-    code: hourly.weather_code[index] ?? 0,
-    rainProbability: hourly.precipitation_probability[index] ?? 0,
-    precipitation: hourly.precipitation[index] ?? 0,
-    wind: hourly.wind_speed_10m[index] ?? 0,
-    gust: hourly.wind_gusts_10m[index] ?? 0,
-    temperature: hourly.temperature_2m[index] ?? 0,
+  const forecast = await fetchGoogleWeatherForecast();
+  const current = forecast.current;
+  const presentation = getWeatherPresentation(current.conditionType, current.temperature, current.isDay, current.conditionDescription);
+  const hours = forecast.hourly.map((hour) => ({
+    time: hour.time.slice(11, 16),
+    conditionType: hour.conditionType,
+    rainProbability: hour.precipitationProbability ?? 0,
+    precipitation: hour.precipitation ?? 0,
+    wind: hour.windSpeed ?? 0,
+    gust: hour.windGust ?? 0,
+    temperature: hour.temperature,
+    thunderstormProbability: hour.thunderstormProbability ?? 0,
   }));
-  const statements = [`Right now in Biñan: ${presentation.description}, ${Math.round(current.temperature_2m)}°C (feels like ${Math.round(current.apparent_temperature)}°C), humidity ${current.relative_humidity_2m}%, wind ${Math.round(current.wind_speed_10m)} km/h.`];
+  const statements = [`Right now in Biñan: ${presentation.description}, ${Math.round(current.temperature)}°C (feels like ${Math.round(current.feelsLike)}°C), humidity ${current.humidity}%, wind ${Math.round(current.windSpeed)} km/h.`];
   const asksRain = hasAny(question, ['rain', 'shower', 'drizzle', 'flood']);
   const asksStorm = hasAny(question, ['thunder', 'lightning']);
   const asksWind = hasAny(question, ['wind', 'gust']);
   const asksHeat = hasAny(question, ['heat', 'hot', 'temperature']);
   const asksForecast = hasAny(question, ['forecast', 'upcoming', 'today', 'tomorrow', 'next', 'event', 'active']);
   const asksSky = hasAny(question, ['sunny', 'sunshine', 'clear sky', 'cloud', 'overcast']);
+  const asksAirQuality = hasAny(question, ['air quality', 'pollution', 'environmental risk']);
 
   if (asksForecast) {
-    const rainHours = hours.filter((hour) => [51, 53, 55, 61, 63, 65, 80, 81, 82].includes(hour.code) || hour.rainProbability >= 50).slice(0, 3);
-    const stormHours = hours.filter((hour) => [95, 96, 99].includes(hour.code)).slice(0, 3);
+    const rainHours = hours.filter((hour) => /RAIN|SHOWERS/.test(hour.conditionType) || hour.rainProbability >= 50).slice(0, 3);
+    const stormHours = hours.filter((hour) => /THUNDER|HAIL/.test(hour.conditionType) || hour.thunderstormProbability >= 50).slice(0, 3);
     const windHours = hours.filter((hour) => hour.gust >= 50 || hour.wind >= 40).slice(0, 3);
     const heatHours = hours.filter((hour) => hour.temperature >= 35).slice(0, 3);
     const forecastEvents = [
@@ -168,19 +137,19 @@ async function answerWeatherQuestion(question: string): Promise<string> {
       heatHours.length ? `high heat around ${heatHours.map((hour) => `${hour.time} (${Math.round(hour.temperature)}°C)`).join(', ')}` : '',
     ].filter(Boolean);
     if (forecastEvents.length) {
-      statements.push(`Upcoming Biñan model outlook: ${forecastEvents.join('; ')}.`);
+      statements.push(`Upcoming Biñan forecast: ${forecastEvents.join('; ')}.`);
     } else {
       statements.push('There are no significant rain, thunderstorm, strong-wind, or high-heat events forecast for Biñan in the next 24 hours. Keep a charged phone, check PAGASA before traveling, and avoid flooded roads if conditions change.');
     }
   } else {
     if (asksRain) {
-      const rainHours = hours.filter((hour) => [51, 53, 55, 61, 63, 65, 80, 81, 82].includes(hour.code) || hour.rainProbability >= 50).slice(0, 4);
+      const rainHours = hours.filter((hour) => /RAIN|SHOWERS/.test(hour.conditionType) || hour.rainProbability >= 50).slice(0, 4);
       statements.push(rainHours.length
         ? `Rain or a significant rain chance appears around ${rainHours.map((hour) => `${hour.time} (${hour.rainProbability}%)`).join(', ')}.`
         : 'There is no significant rain forecast for Biñan in the next 24 hours. Carry water, check PAGASA updates before traveling, and avoid flooded roads if rain develops.');
     }
     if (asksStorm) {
-      const stormHours = hours.filter((hour) => [95, 96, 99].includes(hour.code)).slice(0, 4);
+      const stormHours = hours.filter((hour) => /THUNDER|HAIL/.test(hour.conditionType) || hour.thunderstormProbability >= 50).slice(0, 4);
       statements.push(stormHours.length
         ? `Thunderstorm conditions appear around ${stormHours.map((hour) => hour.time).join(', ')}.`
         : 'There are no thunderstorms forecast for Biñan in the next 24 hours. If lightning develops, go indoors and avoid exposed areas.');
@@ -193,16 +162,23 @@ async function answerWeatherQuestion(question: string): Promise<string> {
     }
   }
   if (asksHeat || asksForecast) {
-    const hottest = hours.reduce((maximum, hour) => hour.temperature > maximum.temperature ? hour : maximum, hours[0]);
+    const hottest = hours.length
+      ? hours.reduce((maximum, hour) => hour.temperature > maximum.temperature ? hour : maximum, hours[0])
+      : undefined;
     if (hottest) statements.push(`The forecast high for the next 24 hours is about ${Math.round(hottest.temperature)}°C around ${hottest.time}.`);
   }
   if (asksSky) {
-    const skyHours = hours.filter((hour) => hour.code <= 3).slice(0, 4);
+    const skyHours = hours.filter((hour) => /CLEAR|CLOUDY/.test(hour.conditionType)).slice(0, 4);
     statements.push(skyHours.length
-      ? `Clear or cloudy conditions are modeled around ${skyHours.map((hour) => hour.time).join(', ')}.`
-      : 'The hourly model does not show clear or cloudy sky codes in the next 24 hours.');
+      ? `Clear or cloudy conditions are forecast around ${skyHours.map((hour) => hour.time).join(', ')}.`
+      : 'The forecast does not report clear or cloudy conditions in the next 24 hours.');
   }
-  statements.push('This is a model outlook, not an official warning. Check PAGASA for advisories.');
+  if (asksAirQuality) {
+    statements.push(forecast.environmentalRisk
+      ? `The combined environmental risk indicator is ${forecast.environmentalRisk.label.toLowerCase()} (air-quality factor: ${forecast.environmentalRisk.airQualityFactor.toLowerCase()}; weather factor: ${forecast.environmentalRisk.weatherFactor.toLowerCase()}). This is a planning indicator, not an official warning.`
+      : 'Air-quality data is unavailable, so HANDA could not calculate the combined environmental risk indicator. Check official local advisories.');
+  }
+  statements.push('This is a forecast, not an official warning. Check PAGASA for advisories.');
   return statements.join(' ');
 }
 
@@ -211,7 +187,7 @@ export async function answerQuestion(question: string): Promise<string> {
   if (hasAny(normalized, ['typhoon', 'tropical cyclone', 'cyclone'])) {
     return answerTyphoonQuestion(normalized);
   }
-  if (hasAny(normalized, ['weather', 'rain', 'shower', 'drizzle', 'thunder', 'lightning', 'wind', 'gust', 'temperature', 'forecast', 'heat', 'sunny', 'sunshine', 'clear sky', 'cloud', 'overcast', 'humid', 'conditions'])) {
+  if (hasAny(normalized, ['weather', 'rain', 'shower', 'drizzle', 'thunder', 'lightning', 'wind', 'gust', 'temperature', 'forecast', 'heat', 'sunny', 'sunshine', 'clear sky', 'cloud', 'overcast', 'humid', 'conditions', 'air quality', 'pollution', 'environmental risk'])) {
     try {
       return await answerWeatherQuestion(normalized);
     } catch (error) {
@@ -260,9 +236,6 @@ export type ChatbotTurn = { role: 'user' | 'assistant'; content: string };
 export async function getLiveQuestionContext(question: string): Promise<string> {
   const normalized = question.toLowerCase();
   if (hasAny(normalized, ['typhoon', 'tropical cyclone', 'cyclone'])) return answerTyphoonQuestion(normalized);
-  if (hasAny(normalized, ['weather', 'rain', 'shower', 'drizzle', 'thunder', 'lightning', 'wind', 'gust', 'temperature', 'forecast', 'heat', 'sunny', 'sunshine', 'clear sky', 'cloud', 'overcast', 'humid', 'conditions'])) {
-    return answerWeatherQuestion(normalized);
-  }
   if (hasAny(normalized, ['disaster', 'alert', 'active event'])) return answerDisasterQuestion();
   return '';
 }

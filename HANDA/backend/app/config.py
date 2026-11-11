@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     chatbot_model: str = Field(default="openai/gpt-oss-120b", validation_alias=AliasChoices("GROQ_MODEL", "CHATBOT_MODEL"))
     chatbot_timeout_seconds: int = 25
     google_maps_api_key: str = ""
+    google_weather_api_key: str = ""
 
     model_config = SettingsConfigDict(env_file=(BACKEND_DIR / ".env", BACKEND_DIR / ".env.groq"), extra="ignore")
 

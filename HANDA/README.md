@@ -99,6 +99,12 @@ rerouting when the user leaves the selected path. In-app route guidance requires
 an internet connection and location permission; offline maps remain markers-only.
 The Command Center map is for monitoring and does not provide navigation.
 
+Resident and responder weather forecasts and the combined environmental risk
+indicator use the Render API. Set a separate server-only `GOOGLE_WEATHER_API_KEY`
+restricted to the Google Weather API and Air Quality API; configure it on Render
+and in `backend/.env` for local development. Do not expose it through Expo or
+Vite client variables.
+
 Create the mobile keys in each EAS environment, without putting their values in
 the repository:
 

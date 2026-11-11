@@ -1,27 +1,26 @@
 import { useEffect, useState } from 'react';
+import { fetchGoogleWeatherForecast } from '@services/googleWeather';
+import type { EnvironmentalRisk, WeatherCurrent, WeatherHour } from '@/types/weather';
 import { getWeatherPresentation, WeatherPresentation } from '@utils/weatherPresentation';
 
-export const BINAN_WEATHER_LOCATION = { latitude: 14.3036, longitude: 121.0781 };
-export type WeatherSnapshot = { temperature: number; feelsLike: number; humidity: number; windSpeed: number; weatherCode: number; isDay: boolean };
+export type WeatherSnapshot = WeatherCurrent;
 export type WeatherEventType = 'thunderstorms' | 'heavy-rain' | 'rain' | 'rain-chance' | 'strong-winds' | 'high-heat';
 export type WeatherEvent = { id: string; type: WeatherEventType; title: string; window: string; detail: string };
-const WEATHER_DEFAULT: WeatherSnapshot = { temperature: 29, feelsLike: 32, humidity: 78, windSpeed: 8, weatherCode: 61, isDay: true };
-
-type HourlyForecast = {
-  time: string[];
-  temperature_2m: number[];
-  precipitation_probability: number[];
-  precipitation: number[];
-  weather_code: number[];
-  wind_speed_10m: number[];
-  wind_gusts_10m: number[];
+const WEATHER_DEFAULT: WeatherSnapshot = {
+  time: '',
+  temperature: 29,
+  feelsLike: 32,
+  humidity: 78,
+  windSpeed: 8,
+  conditionType: 'RAIN',
+  conditionDescription: 'Rain',
+  isDay: true,
 };
 
 function formatForecastTime(value: string): string {
   const hour = Number(value.slice(11, 13));
-  const minute = value.slice(14, 16);
   const suffix = hour >= 12 ? 'PM' : 'AM';
-  return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${suffix}`;
+  return `${hour % 12 || 12}:00 ${suffix}`;
 }
 
 function formatForecastDate(value: string): string {
@@ -40,18 +39,18 @@ function formatForecastWindow(start: string, end: string): string {
     : `${startDate}, ${startTime} to ${endDate}, ${endTime}`;
 }
 
-function buildWeatherEvents(hourly: HourlyForecast | undefined): WeatherEvent[] {
-  if (!hourly?.time?.length) return [];
-  const isRainCode = (index: number) => [51, 53, 55, 61, 63, 65, 80, 81, 82].includes(hourly.weather_code[index] ?? -1);
-  const isThunderstormCode = (index: number) => [95, 96, 99].includes(hourly.weather_code[index] ?? -1);
-  const maximum = (values: number[], start: number, end: number) => Math.max(0, ...values.slice(start, end + 1));
-  const hazards: { type: WeatherEventType; title: string; matches: (index: number) => boolean; detail: (start: number, end: number) => string }[] = [
-    { type: 'thunderstorms', title: 'Thunderstorms', matches: isThunderstormCode, detail: () => 'Lightning may occur. Stay indoors and avoid exposed areas.' },
-    { type: 'heavy-rain', title: 'Heavy rain', matches: (index) => (hourly.precipitation[index] ?? 0) >= 7.5, detail: (start, end) => `Hourly rainfall may reach ${maximum(hourly.precipitation, start, end).toFixed(1)} mm. Watch for localized flooding.` },
-    { type: 'rain', title: 'Rain', matches: (index) => isRainCode(index) && (hourly.precipitation[index] ?? 0) < 7.5, detail: (start, end) => `Rain is forecast; hourly precipitation chance peaks at ${maximum(hourly.precipitation_probability, start, end)}%.` },
-    { type: 'rain-chance', title: 'Rain chance', matches: (index) => !isRainCode(index) && !isThunderstormCode(index) && (hourly.precipitation[index] ?? 0) < 7.5 && (hourly.precipitation_probability[index] ?? 0) >= 50, detail: (start, end) => `Precipitation chance reaches ${maximum(hourly.precipitation_probability, start, end)}% in this period.` },
-    { type: 'strong-winds', title: 'Strong winds', matches: (index) => (hourly.wind_gusts_10m[index] ?? 0) >= 50 || (hourly.wind_speed_10m[index] ?? 0) >= 40, detail: (start, end) => `Forecast wind gusts may reach ${maximum(hourly.wind_gusts_10m, start, end)} km/h. Secure loose outdoor items.` },
-    { type: 'high-heat', title: 'High heat', matches: (index) => (hourly.temperature_2m[index] ?? 0) >= 35, detail: (start, end) => `Temperature may reach ${maximum(hourly.temperature_2m, start, end)}°C. Limit midday exposure and stay hydrated.` },
+function buildWeatherEvents(hourly: WeatherHour[]) {
+  if (!hourly.length) return [];
+  const isRain = (hour: WeatherHour) => /RAIN|SHOWERS/.test(hour.conditionType);
+  const isThunderstorm = (hour: WeatherHour) => /THUNDER|HAIL/.test(hour.conditionType) || (hour.thunderstormProbability ?? 0) >= 50;
+  const maximum = (values: Array<number | null>, start: number, end: number) => Math.max(0, ...values.slice(start, end + 1).map((value) => value ?? 0));
+  const hazards: { type: WeatherEventType; title: string; matches: (hour: WeatherHour) => boolean; detail: (start: number, end: number) => string }[] = [
+    { type: 'thunderstorms', title: 'Thunderstorms', matches: isThunderstorm, detail: () => 'Lightning may occur. Stay indoors and avoid exposed areas.' },
+    { type: 'heavy-rain', title: 'Heavy rain', matches: (hour) => /HEAVY/.test(hour.conditionType) && isRain(hour) || (hour.precipitation ?? 0) >= 7.5, detail: (start, end) => `Hourly rainfall may reach ${maximum(hourly.map((hour) => hour.precipitation), start, end).toFixed(1)} mm. Watch for localized flooding.` },
+    { type: 'rain', title: 'Rain', matches: (hour) => isRain(hour) && (hour.precipitation ?? 0) < 7.5 && !/HEAVY/.test(hour.conditionType), detail: (start, end) => `Rain is forecast; hourly precipitation chance peaks at ${maximum(hourly.map((hour) => hour.precipitationProbability), start, end)}%.` },
+    { type: 'rain-chance', title: 'Rain chance', matches: (hour) => !isRain(hour) && !isThunderstorm(hour) && (hour.precipitationProbability ?? 0) >= 50, detail: (start, end) => `Precipitation chance reaches ${maximum(hourly.map((hour) => hour.precipitationProbability), start, end)}% in this period.` },
+    { type: 'strong-winds', title: 'Strong winds', matches: (hour) => (hour.windGust ?? 0) >= 50 || (hour.windSpeed ?? 0) >= 40 || hour.conditionType === 'WINDY', detail: (start, end) => `Forecast wind gusts may reach ${maximum(hourly.map((hour) => hour.windGust), start, end)} km/h. Secure loose outdoor items.` },
+    { type: 'high-heat', title: 'High heat', matches: (hour) => hour.temperature >= 35, detail: (start, end) => `Temperature may reach ${maximum(hourly.map((hour) => hour.temperature), start, end)}°C. Limit midday exposure and stay hydrated.` },
   ];
   const events: { event: WeatherEvent; start: string }[] = [];
 
@@ -59,36 +58,35 @@ function buildWeatherEvents(hourly: HourlyForecast | undefined): WeatherEvent[] 
     let start = -1;
     const addEvent = (end: number) => {
       if (start < 0) return;
-      const lastHour = Math.min(end, hourly.time.length - 1);
+      const lastHour = Math.min(end, hourly.length - 1);
       events.push({
-        start: hourly.time[start],
+        start: hourly[start].time,
         event: {
           id: `${hazard.type}-${start}`,
           type: hazard.type,
           title: hazard.title,
-          window: formatForecastWindow(hourly.time[start], hourly.time[lastHour]),
+          window: formatForecastWindow(hourly[start].time, hourly[lastHour].time),
           detail: hazard.detail(start, lastHour),
         },
       });
       start = -1;
     };
 
-    for (let index = 0; index < hourly.time.length; index += 1) {
-      if (hazard.matches(index)) {
+    for (let index = 0; index < hourly.length; index += 1) {
+      if (hazard.matches(hourly[index])) {
         if (start < 0) start = index;
       } else {
         addEvent(index - 1);
       }
     }
-    addEvent(hourly.time.length - 1);
+    addEvent(hourly.length - 1);
   });
 
   return events.sort((left, right) => left.start.localeCompare(right.start)).map(({ event }) => event);
 }
 
 export function useWeather() {
-  const [weather, setWeather] = useState<WeatherSnapshot>(WEATHER_DEFAULT);
-  const [weatherEvents, setWeatherEvents] = useState<WeatherEvent[]>([]);
+  const [forecast, setForecast] = useState<Awaited<ReturnType<typeof fetchGoogleWeatherForecast>> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUnavailable, setIsUnavailable] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -100,16 +98,12 @@ export function useWeather() {
 
   useEffect(() => {
     let mounted = true;
+    const controller = new AbortController();
     const loadWeather = async () => {
       try {
-        const query = new URLSearchParams({ latitude: String(BINAN_WEATHER_LOCATION.latitude), longitude: String(BINAN_WEATHER_LOCATION.longitude), current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,is_day', hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m', forecast_hours: '24', timezone: 'auto' });
-        const response = await fetch(`https://api.open-meteo.com/v1/forecast?${query.toString()}`);
-        if (!response.ok) throw new Error('Weather request failed');
-        const result = await response.json() as { current?: Record<string, number>; hourly?: HourlyForecast };
-        if (!result.current) throw new Error('Weather data was empty');
+        const result = await fetchGoogleWeatherForecast(controller.signal);
         if (!mounted) return;
-        setWeather({ temperature: result.current.temperature_2m, feelsLike: result.current.apparent_temperature, humidity: result.current.relative_humidity_2m, windSpeed: result.current.wind_speed_10m, weatherCode: result.current.weather_code, isDay: result.current.is_day === 1 });
-        setWeatherEvents(buildWeatherEvents(result.hourly));
+        setForecast(result);
         setIsUnavailable(false);
       } catch {
         if (mounted) setIsUnavailable(true);
@@ -118,10 +112,26 @@ export function useWeather() {
       }
     };
     void loadWeather();
-    const refresh = setInterval(() => void loadWeather(), 10 * 60 * 1000);
-    return () => { mounted = false; clearInterval(refresh); };
+    const refresh = setInterval(() => void loadWeather(), 15 * 60 * 1000);
+    return () => {
+      mounted = false;
+      controller.abort();
+      clearInterval(refresh);
+    };
   }, []);
 
-  const presentation: WeatherPresentation = getWeatherPresentation(weather.weatherCode, weather.temperature, weather.isDay);
-  return { weather, weatherEvents, presentation, isLoading, isUnavailable, now };
+  const weather = forecast?.current ?? WEATHER_DEFAULT;
+  const weatherEvents = forecast ? buildWeatherEvents(forecast.hourly) : [];
+  const presentation: WeatherPresentation = getWeatherPresentation(weather.conditionType, weather.temperature, weather.isDay, weather.conditionDescription);
+  const environmentalRisk: EnvironmentalRisk | null = forecast?.environmentalRisk ?? null;
+  return {
+    weather,
+    weatherEvents,
+    environmentalRisk,
+    airQualityUnavailable: Boolean(forecast && !forecast.airQualityAvailable),
+    presentation,
+    isLoading,
+    isUnavailable,
+    now,
+  };
 }

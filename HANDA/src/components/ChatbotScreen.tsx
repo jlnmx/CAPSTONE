@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Linking, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
@@ -11,8 +11,9 @@ const QUICK_PROMPTS = ['Any typhoons right now?', 'Will it rain in Biñan today?
 
 type ChatMessage = { id: string; role: 'assistant' | 'user'; text: string; weatherAttribution?: boolean };
 
-function isWeatherQuestion(question: string) {
-  return /weather|rain|typhoon|storm|wind|flood|forecast|temperature|heat/i.test(question);
+function isGoogleWeatherQuestion(question: string) {
+  return /weather|rain|storm|wind|flood|forecast|temperature|heat|air quality|pollution|environmental risk/i.test(question)
+    && !/typhoon|tropical cyclone|cyclone/i.test(question);
 }
 
 export default function ChatbotScreen() {
@@ -30,6 +31,12 @@ export default function ChatbotScreen() {
     setInput('');
     setIsTyping(true);
     try {
+      if (isGoogleWeatherQuestion(question)) {
+        const answer = await answerQuestion(question);
+        setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: answer, weatherAttribution: true }]);
+        return;
+      }
+
       const recentTurns: ChatbotTurn[] = [
         ...messages.slice(-9).map(({ role, text: content }) => ({ role, content })),
         { role: 'user', content: question },
@@ -41,7 +48,7 @@ export default function ChatbotScreen() {
         context = 'Live HANDA data could not be retrieved for this question. Do not invent current conditions or incident data.';
       }
       const answer = await requestModelAnswer(recentTurns, context);
-      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: answer, weatherAttribution: isWeatherQuestion(question) }]);
+      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: answer }]);
     } catch {
       let fallback: string;
       try {
@@ -53,7 +60,7 @@ export default function ChatbotScreen() {
       const status = hasSpecificFallback
         ? `${fallback}\n\nHANDA Support's AI is offline right now, so this is built-in guidance.`
         : 'HANDA Support could not reach its AI service. Please check your connection and try again in a moment. For emergencies, call BCDRRMO (049) 513-9111.';
-      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: status, weatherAttribution: isWeatherQuestion(question) }]);
+      setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: status, weatherAttribution: isGoogleWeatherQuestion(question) }]);
     } finally {
       setIsTyping(false);
     }
@@ -81,10 +88,7 @@ export default function ChatbotScreen() {
             <View key={message.id} style={[styles.bubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
               <Text style={[styles.messageText, message.role === 'user' && styles.userText]}>{message.text}</Text>
               {message.weatherAttribution && <View style={styles.attribution}>
-                <Text style={styles.attributionText}>Weather data: </Text>
-                <Pressable onPress={() => void Linking.openURL('https://open-meteo.com/')} accessibilityRole="link"><Text style={styles.attributionLink}>Open-Meteo.com</Text></Pressable>
-                <Text style={styles.attributionText}> · </Text>
-                <Pressable onPress={() => void Linking.openURL('https://open-meteo.com/en/licence')} accessibilityRole="link"><Text style={styles.attributionLink}>CC BY 4.0</Text></Pressable>
+                <Text style={styles.googleAttribution}>Google Maps</Text>
               </View>}
             </View>
           ))}
@@ -138,8 +142,7 @@ const styles = StyleSheet.create({
   messageText: { color: Colors.text, fontSize: 13, lineHeight: 19 },
   userText: { color: '#FFFFFF' },
   attribution: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', marginTop: 6 },
-  attributionText: { color: Colors.textMuted, fontSize: 10, lineHeight: 14 },
-  attributionLink: { color: GREEN, fontSize: 10, lineHeight: 14, textDecorationLine: 'underline' },
+  googleAttribution: { color: '#5E5E5E', fontSize: 12, fontWeight: '400', lineHeight: 16 },
   typingBubble: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   typingLabel: { color: Colors.textMuted, fontSize: 11, fontStyle: 'italic' },
   typingDots: { flexDirection: 'row', alignItems: 'center', gap: 3 },
