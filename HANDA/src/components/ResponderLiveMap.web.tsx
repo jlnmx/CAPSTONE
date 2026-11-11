@@ -3,9 +3,10 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
+import { incidentStatusColor } from '@constants/incidentStatus';
 import { useAuth } from '@hooks/useAuth';
 import { useEvacuationCenterFeed, useIncidentFeed, useResponderLive } from '@hooks/useRealtime';
-import { getIncidentResponders, getResponderData, ResponderDataSnapshot } from '@services/responderData';
+import { getResponderData, ResponderDataSnapshot } from '@services/responderData';
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import { loadGoogleMapsApi } from '@services/map/googleMapsWeb';
 import OfflineMapCanvas from './OfflineMapCanvas';
@@ -39,18 +40,15 @@ export default function ResponderLiveMap() {
 
   const loadData = useCallback(async () => {
     try {
-      const [snapshot, crew] = await Promise.all([getResponderData(), getIncidentResponders()]);
-      const incidents = user?.role === 'responder'
-        ? snapshot.incidents.filter((incident) => crew[incident.id]?.some((responder) => responder.id === user.id))
-        : snapshot.incidents;
-      setData({ ...snapshot, incidents });
+      const snapshot = await getResponderData();
+      setData(snapshot);
       setError(snapshot.unavailableSources.length ? 'Some live map information could not be refreshed.' : '');
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Map data could not be loaded.');
     } finally {
       setLoading(false);
     }
-  }, [user?.id, user?.role]);
+  }, []);
   useIncidentFeed(() => void loadData());
   useEvacuationCenterFeed(() => void loadData());
 
@@ -91,7 +89,7 @@ export default function ResponderLiveMap() {
     ...data.centers.flatMap((center) => center.latitude == null || center.longitude == null
       ? []
       : [{ id: `center-${center.id}`, title: center.name, subtitle: `${center.location} · ${center.status}`, latitude: center.latitude, longitude: center.longitude, kind: 'center' as const }]),
-    ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null || incident.status === 'resolved'
+    ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
       ? []
       : [{ id: `incident-${incident.id}`, title: incident.type, subtitle: `${incident.status.replace(/_/g, ' ')} · ${incident.location}`, latitude: incident.latitude, longitude: incident.longitude, kind: 'incident' as const }]),
   ], [data]);
@@ -133,12 +131,12 @@ export default function ResponderLiveMap() {
     });
 
     data.incidents.forEach((incident) => {
-      if (incident.latitude == null || incident.longitude == null || incident.status === 'resolved') return;
+      if (incident.latitude == null || incident.longitude == null) return;
       const marker = new google.maps.Marker({
         map,
         position: { lat: incident.latitude, lng: incident.longitude },
         title: incident.type,
-        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: incident.status === 'reported' ? '#D83B36' : '#F28C28', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: incident.status === 'reported' ? 10 : 8, fillColor: incidentStatusColor(incident.status), fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
       });
       const content = document.createElement('div');
       const title = document.createElement('strong');
@@ -290,7 +288,7 @@ function toOfflinePoints(data: ResponderDataSnapshot): OfflineMapPoint[] {
         longitude: center.longitude,
         color: center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#218B25',
       }]),
-    ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null || incident.status === 'resolved'
+    ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
       ? []
       : [{
         id: `incident-${incident.id}`,
@@ -298,7 +296,7 @@ function toOfflinePoints(data: ResponderDataSnapshot): OfflineMapPoint[] {
         description: `${incident.status.replace(/_/g, ' ')} · ${incident.location}`,
         latitude: incident.latitude,
         longitude: incident.longitude,
-        color: incident.status === 'reported' ? '#D83B36' : '#F28C2C',
+        color: incidentStatusColor(incident.status),
       }]),
   ];
 }

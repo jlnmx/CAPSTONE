@@ -121,49 +121,66 @@ function loadGoogleMaps(apiKey: string) {
 
 function popupContent(record: CenterRecord | IncidentRecord, center: boolean) {
   const popup = document.createElement('div');
+  popup.className = `map-info-popup ${center ? 'map-info-popup-center' : 'map-info-popup-incident'}`;
   const name = document.createElement('strong');
   name.textContent = center ? (record as CenterRecord).name : (record as IncidentRecord).type;
+  name.className = 'map-info-popup-title';
   popup.append(name);
   if (center) {
     const value = record as CenterRecord;
     const status = document.createElement('div');
-    status.textContent = `${labelStatus(value.status)} · ${value.currentOccupancy.toLocaleString()} / ${value.capacity.toLocaleString()} occupants`;
-    popup.append(status);
+    status.className = `map-info-popup-status status-${value.status}`;
+    status.textContent = labelStatus(value.status);
+    const occupancy = document.createElement('div');
+    occupancy.className = 'map-info-popup-detail';
+    occupancy.textContent = `${value.currentOccupancy.toLocaleString()} of ${value.capacity.toLocaleString()} occupants`;
+    popup.append(status, occupancy);
     return popup;
   }
   const incident = record as IncidentRecord;
+  const isSos = /sos/i.test(incident.type);
+  if (isSos) {
+    const alertLabel = document.createElement('span');
+    alertLabel.className = 'map-info-popup-sos-label';
+    alertLabel.textContent = 'SOS EMERGENCY';
+    popup.append(alertLabel);
+  }
   const state = document.createElement('div');
+  state.className = `map-info-popup-status status-${incident.status.toLowerCase()}`;
   state.textContent = `${labelStatus(incident.status.toLowerCase()).toUpperCase()} · ${incident.severity || 'medium'} severity`;
   const location = document.createElement('div');
+  location.className = 'map-info-popup-detail';
   location.textContent = incident.location || 'Location not provided';
   const detail = document.createElement('div');
+  detail.className = 'map-info-popup-detail map-info-popup-description';
   detail.textContent = incident.actionNotes || incident.responseNotes || incident.description;
   popup.append(state, location, detail);
   if (incident.reporterContact) {
     const reporter = document.createElement('div');
-    reporter.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #E3EAEE';
+    reporter.className = 'map-popup-reporter';
     const picture = incident.reporterPicture ?? '';
     const reporterName = incident.reporterName || 'Resident';
     if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(picture)) {
       const img = document.createElement('img');
       img.src = picture;
       img.alt = `${reporterName} profile picture`;
-      img.style.cssText = 'width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none';
+      img.className = 'map-popup-reporter-picture';
       reporter.append(img);
     } else {
       const initials = document.createElement('div');
       initials.textContent = reporterName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
-      initials.style.cssText = 'width:40px;height:40px;border-radius:50%;background:#DCEBDD;color:#1B6B2A;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none';
+      initials.className = 'map-popup-reporter-initials';
       reporter.append(initials);
     }
     const info = document.createElement('div');
     const label = document.createElement('div');
     label.textContent = 'Reported by';
-    label.style.cssText = 'font-size:10px;color:#768491';
+    label.className = 'map-popup-reporter-label';
     const strong = document.createElement('strong');
     strong.textContent = reporterName;
     const contact = document.createElement('div');
     contact.textContent = incident.reporterContact;
+    contact.className = 'map-popup-reporter-contact';
     info.append(label, strong, contact);
     reporter.append(info);
     popup.append(reporter);
@@ -173,14 +190,12 @@ function popupContent(record: CenterRecord | IncidentRecord, center: boolean) {
 
 export default function MapView() {
   const mapElement = useRef<HTMLDivElement | null>(null);
-  const placesSearchElement = useRef<HTMLDivElement | null>(null);
   const mapFrame = useRef<HTMLElement | null>(null);
   const mapRef = useRef<any>(null);
   const mapKind = useRef<'google' | 'offline' | null>(null);
   const incidentMarkers = useRef(new Map<string, any>());
   const centerMarkers = useRef<any[]>([]);
   const googleInfoWindow = useRef<any>(null);
-  const placeMarker = useRef<any>(null);
   const [cachedMapSnapshot] = useState(readCachedMapSnapshot);
   const [data, setData] = useState<MapSnapshot>(() => cachedMapSnapshot?.data ?? { incidents: [], centers: [] });
   const [loading, setLoading] = useState(() => navigator.onLine && !cachedMapSnapshot);
@@ -195,7 +210,6 @@ export default function MapView() {
   const [mapError, setMapError] = useState('');
   const [mapRetry, setMapRetry] = useState(0);
   const [isSatellite, setIsSatellite] = useState(false);
-  const [placesReady, setPlacesReady] = useState(false);
   const [focusedOfflineMarker, setFocusedOfflineMarker] = useState<string | null>(null);
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() || '';
 
@@ -290,7 +304,7 @@ export default function MapView() {
         });
         mapRef.current = map;
         mapKind.current = 'google';
-        googleInfoWindow.current = new google.InfoWindow();
+        googleInfoWindow.current = new google.InfoWindow({ maxWidth: 300 });
         setMapReady(true);
       } catch (cause) {
         if (!cancelled) setMapError(cause instanceof Error ? cause.message : 'Google Maps could not be initialized. Check the API configuration and retry.');
@@ -304,7 +318,6 @@ export default function MapView() {
       if (mapKind.current === 'google') {
         incidentMarkers.current.forEach((marker) => marker.setMap(null));
         centerMarkers.current.forEach((marker) => marker.setMap(null));
-        placeMarker.current?.setMap(null);
         googleInfoWindow.current?.close();
       }
       mapRef.current = null;
@@ -312,7 +325,6 @@ export default function MapView() {
       incidentMarkers.current.clear();
       centerMarkers.current = [];
       googleInfoWindow.current = null;
-      placeMarker.current = null;
     };
   }, [online, apiKey, mapRetry]);
 
@@ -352,67 +364,6 @@ export default function MapView() {
     if (!mapReady || mapKind.current !== 'google' || !mapRef.current) return;
     mapRef.current.setMapTypeId(isSatellite ? 'satellite' : 'roadmap');
   }, [isSatellite, mapReady]);
-
-  useEffect(() => {
-    if (!mapReady || mapKind.current !== 'google' || !placesSearchElement.current) {
-      setPlacesReady(false);
-      return undefined;
-    }
-    let cancelled = false;
-    let autocompleteElement: any;
-    const handlePlaceSelect = async (event: any) => {
-      try {
-        const prediction = event.placePrediction ?? event.detail?.placePrediction;
-        if (!prediction) {
-          setMapError('Places search did not return a suggestion. Select a place and try again.');
-          return;
-        }
-        const place = prediction.toPlace();
-        await place.fetchFields({ fields: ['displayName', 'formattedAddress', 'location', 'viewport'] });
-        if (cancelled) return;
-        if (!place.location) {
-          setMapError('No map location was returned for that search. Choose another suggested place and try again.');
-          return;
-        }
-        setMapError('');
-        if (place.viewport) mapRef.current.fitBounds(place.viewport);
-        else {
-          mapRef.current.setCenter(place.location);
-          mapRef.current.setZoom(16);
-        }
-        placeMarker.current?.setMap(null);
-        const google = (window as any).google.maps;
-        placeMarker.current = new google.Marker({
-          map: mapRef.current,
-          position: place.location,
-          title: place.displayName || place.formattedAddress || 'Searched place',
-        });
-      } catch {
-        if (!cancelled) setMapError('Places search failed while loading place details. Verify Places API is enabled for this restricted key, then try again.');
-      }
-    };
-    const initializePlaces = async () => {
-      try {
-        const google = (window as any).google.maps;
-        const placesLibrary = await google.importLibrary('places');
-        if (cancelled || !placesSearchElement.current) return;
-        autocompleteElement = new placesLibrary.PlaceAutocompleteElement({});
-        autocompleteElement.placeholder = 'Search places in Biñan…';
-        autocompleteElement.includedRegionCodes = ['ph'];
-        autocompleteElement.addEventListener('gmp-select', handlePlaceSelect);
-        placesSearchElement.current.appendChild(autocompleteElement);
-        setPlacesReady(true);
-      } catch {
-        if (!cancelled) setMapError('Places search could not be initialized. Verify Places API is enabled for this key and retry.');
-      }
-    };
-    void initializePlaces();
-    return () => {
-      cancelled = true;
-      autocompleteElement?.removeEventListener('gmp-select', handlePlaceSelect);
-      autocompleteElement?.remove();
-    };
-  }, [mapReady, mapRetry]);
 
   useEffect(() => {
     const prior = (window as any).gm_authFailure;
@@ -529,10 +480,7 @@ export default function MapView() {
             {focusedOfflineLocation.kind === 'center' ? <><span>{labelStatus(focusedOfflineLocation.record.status)}</span><span>{focusedOfflineLocation.record.currentOccupancy.toLocaleString()} / {focusedOfflineLocation.record.capacity.toLocaleString()} occupants</span></> : <><span>{labelStatus(focusedOfflineLocation.record.status).toUpperCase()} · {focusedOfflineLocation.record.severity || 'medium'} severity</span><span>{focusedOfflineLocation.record.location || 'Location not provided'}</span><span>{focusedOfflineLocation.record.actionNotes || focusedOfflineLocation.record.responseNotes || focusedOfflineLocation.record.description}</span></>}
           </div>}
         </div>}
-        {online && <div className="map-search-control">
-          <div ref={placesSearchElement} className={`map-places-autocomplete ${placesReady ? 'is-ready' : ''}`} aria-label="Search Google Maps places">
-            {!placesReady && <span className="map-places-placeholder">Loading Places search…</span>}
-          </div>
+        {online && <div className="map-maptype-control">
           <button type="button" className={`map-satellite-action ${isSatellite ? 'is-active' : ''}`} onClick={() => setIsSatellite((value) => !value)} disabled={!mapReady || mapKind.current !== 'google'} aria-pressed={isSatellite} title={isSatellite ? 'Switch to road map' : 'Switch to satellite map'}>
             <Satellite size={14} /><span>{isSatellite ? 'Road' : 'Satellite'}</span>
           </button>

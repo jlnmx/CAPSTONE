@@ -66,8 +66,7 @@ export default function ResponderIncidentQueue() {
   const load = async () => {
     try {
       const [snapshot, contacts, crew] = await Promise.all([getResponderData(), user?.role === 'responder' ? getIncidentReporterContacts().catch(() => null) : Promise.resolve(null), getIncidentResponders()]);
-      setIncidents(snapshot.incidents.filter((incident) => ACTIVE_STATUSES.includes(incident.status)
-        && (user?.role !== 'responder' || crew[incident.id]?.some((responder) => responder.id === user.id))));
+      setIncidents(snapshot.incidents.filter((incident) => ACTIVE_STATUSES.includes(incident.status)));
       setResponders(crew);
       if (user?.role !== 'responder') setReporters({});
       else if (contacts) setReporters(contacts);
@@ -250,14 +249,15 @@ export default function ResponderIncidentQueue() {
     {incidents.map((incident, index) => <Reveal index={index + 1} key={incident.id}><View style={styles.card}>
       <View style={[styles.accent, { backgroundColor: incidentStatusColor(incident.status) }]} />
       <View style={styles.cardHeader}><IncidentTypeBadge type={incident.type} status={incident.status} /><View style={styles.copy}><Text style={styles.name} numberOfLines={1}>{incident.type}</Text><Text style={styles.detail}>{formatReportedTime(incident.createdAt)}</Text></View><StatusPill status={incident.status} /></View>
-      {(responders[incident.id]?.length ?? 0) > 0 && <View style={styles.crew}>
-        <View style={styles.crewHeading}><MaterialCommunityIcons name="account-group-outline" size={14} color={GREEN} /><Text style={styles.crewLabel}>RESPONDING TEAM · {responders[incident.id].length}</Text></View>
-        {responders[incident.id].map((responder) => <View key={responder.id} style={styles.crewRow}>
+      <View style={styles.crew}>
+        <View style={styles.crewHeading}><MaterialCommunityIcons name="account-group-outline" size={14} color={GREEN} /><Text style={styles.crewLabel}>{(responders[incident.id]?.length ?? 0) > 0 ? `DEPLOYED RESPONDERS · ${responders[incident.id].length}` : 'DEPLOYMENT STATUS'}</Text></View>
+        {(responders[incident.id]?.length ?? 0) === 0 && <Text style={styles.unassignedText}>Awaiting responder deployment</Text>}
+        {(responders[incident.id] ?? []).map((responder) => <View key={responder.id} style={styles.crewRow}>
           <Avatar name={responder.name} size={26} />
           <View style={styles.crewCopy}><Text style={styles.crewName} numberOfLines={1}>{responder.id === user?.id ? `${responder.name} (You)` : responder.name}</Text>{!!responder.organization && <Text style={styles.crewOrg} numberOfLines={1}>{responder.organization}</Text>}</View>
-          <View style={[styles.crewTag, { backgroundColor: `${incidentStatusColor(responder.status)}1A` }]}><Text style={[styles.crewTagText, { color: incidentStatusColor(responder.status) }]}>{responder.status === 'in_progress' ? 'DISPATCHED' : 'ACKNOWLEDGED'}</Text></View>
+          <View style={[styles.crewTag, { backgroundColor: `${incidentStatusColor(responder.status)}1A` }]}><Text style={[styles.crewTagText, { color: incidentStatusColor(responder.status) }]}>{responder.id === user?.id ? 'YOU · DEPLOYED' : 'DEPLOYED'}</Text></View>
         </View>)}
-      </View>}
+      </View>
       <View style={styles.location}>
         <View style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></View>
         <View style={styles.locationCopy}>
@@ -338,6 +338,7 @@ const styles = StyleSheet.create({
   crewOrg: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 10, marginTop: 1 },
   crewTag: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999 },
   crewTagText: { fontFamily: kitFonts.bold, fontSize: 8, letterSpacing: 0.6 },
+  unassignedText: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 11 },
   location: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginTop: 12, padding: 10, borderRadius: 14, backgroundColor: '#F2F7F1' },
   locationIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: '#E1EFE0' },
   locationCopy: { flex: 1, minWidth: 0 },
