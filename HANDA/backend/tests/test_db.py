@@ -7,11 +7,29 @@ import psycopg
 from fastapi import HTTPException
 
 from app.db import CONNECT_ATTEMPTS, get_connection
-from app.main import BINAN_CENTERS_FILE, create_center, create_evacuation_registration, create_incident, database_readiness, evacuation_center_status, get_resident_active_sos, health, lifespan, resident_evacuation_status, seed_binan_evacuation_centers, update_center_details, update_current_profile, update_evacuee_status, write_evacuee
+from app.main import BINAN_CENTERS_FILE, create_center, create_evacuation_registration, create_incident, database_readiness, evacuation_center_status, get_resident_active_sos, health, lifespan, list_evacuation_registrations, resident_evacuation_status, seed_binan_evacuation_centers, update_center_details, update_current_profile, update_evacuee_status, write_evacuee
 from app.schemas import AdminEvacuationRegistrationCreate, CenterCreate, CenterDetailsUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, SelfProfileUpdate
 
 
 class DatabaseDependencyTests(unittest.TestCase):
+    def test_evacuation_registrations_can_be_scoped_to_one_center(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchall.return_value = []
+        admin = MagicMock(id="admin-1", role="admin")
+
+        result = list_evacuation_registrations(
+            include_released=True,
+            center_id="center-1",
+            connection=connection,
+            _=admin,
+        )
+
+        self.assertEqual(result, [])
+        query, parameters = connection.execute.call_args.args
+        self.assertIn("registration.center_id = %s", query)
+        self.assertNotIn("registration.status <> 'released'", query)
+        self.assertEqual(parameters, ["center-1"])
+
     def test_resident_active_sos_is_scoped_to_reporter_and_unresolved_sos(self):
         connection = MagicMock()
         connection.execute.return_value.fetchone.return_value = {

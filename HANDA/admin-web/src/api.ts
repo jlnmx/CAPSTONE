@@ -1,4 +1,4 @@
-import type { ActiveResponderRecord, AdminSnapshot, CenterRecord, DisasterRecord, EvacuationRegistrationInput, EvacueeRecord, IncidentAssignment, IncidentRecord, LogRecord, UserInput, UserRecord } from './types';
+import type { ActiveResponderRecord, AdminSnapshot, CenterRecord, DisasterRecord, EvacuationRegistrationInput, EvacuationRegistrationRecord, EvacueeRecord, IncidentAssignment, IncidentRecord, LogRecord, UserInput, UserRecord } from './types';
 
 const API_BASE = (import.meta.env.VITE_API_URL?.trim() || 'http://localhost:8000').replace(/\/$/, '');
 export const ACCESS_TOKEN_KEY = 'handa.accessToken';
@@ -216,6 +216,19 @@ export function updateCenter(id: string, input: Omit<CenterRecord, 'id' | 'curre
 export function createEvacuationRegistration(input: EvacuationRegistrationInput) {
   return apiRequest<{ id: string; status: string; centerId: string; residentUserId: string | null }>('/api/v1/evacuation-registrations', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+  });
+}
+
+export function getCenterEvacuationRegistrations(centerId: string) {
+  const query = new URLSearchParams({ center_id: centerId, include_released: 'true' });
+  return records<EvacuationRegistrationRecord>(`/api/v1/evacuation-registrations?${query.toString()}`);
+}
+
+export function updateEvacuationRegistrationStatus(registrationId: string, status: 'checked_in' | 'evacuated' | 'released') {
+  return apiRequest<void>(`/api/v1/evacuation-registrations/${encodeURIComponent(registrationId)}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
   });
 }
 

@@ -7,6 +7,7 @@ import DashboardView from './views/DashboardView';
 import MapView from './views/MapView';
 import RecordsView from './views/RecordsView';
 import CentersView from './views/CentersView';
+import CenterDetailView from './views/CenterDetailView';
 import UsersView from './views/UsersView';
 import DispatchView from './views/DispatchView';
 import { AnalyticsView, DisastersView, LogsView, SettingsView, SystemView } from './views/ManagementViews';
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="dispatch" element={<DispatchView />} />
         <Route path="evacuees" element={<RecordsView mode="evacuees" />} />
         <Route path="centers" element={<CentersView />} />
+        <Route path="centers/:centerId" element={<CenterDetailView />} />
         <Route path="disasters" element={<DisastersView />} />
         <Route path="analytics" element={<AnalyticsView />} />
         <Route path="users" element={<SuperAdminOnly><UsersView /></SuperAdminOnly>} />

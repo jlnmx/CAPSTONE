@@ -70,14 +70,14 @@ function getResidentAge(birthday?: string) {
   return age >= 0 && age <= 150 ? String(age) : '';
 }
 
-function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => Promise<void> }) {
+export function AddEvacueeModal({ onClose, onCreated, initialCenterId }: { onClose: () => void; onCreated: () => Promise<void>; initialCenterId?: string }) {
   const [centers, setCenters] = useState<CenterRecord[]>([]);
   const [residents, setResidents] = useState<UserRecord[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [optionsError, setOptionsError] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [centerId, setCenterId] = useState('');
+  const [centerId, setCenterId] = useState(initialCenterId ?? '');
   const [residentUserId, setResidentUserId] = useState('');
   const [centerQuery, setCenterQuery] = useState('');
   const [centerFilter, setCenterFilter] = useState<'all' | 'many-spaces' | 'few-spaces'>('all');
@@ -101,7 +101,7 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
         if (!active) return;
         const activeCenters = centerRows.filter((center) => center.status !== 'closed' && center.status !== 'full' && center.currentOccupancy < center.capacity);
         setCenters(activeCenters);
-        setCenterId(activeCenters[0]?.id ?? '');
+        setCenterId(activeCenters.find((center) => center.id === initialCenterId)?.id ?? activeCenters[0]?.id ?? '');
         setResidents(userRows.filter((user) => user.role === 'Resident' && user.status === 'Active'));
         setOptionsError('');
       })
@@ -110,9 +110,10 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
       })
       .finally(() => { if (active) setLoadingOptions(false); });
     return () => { active = false; };
-  }, []);
+  }, [initialCenterId]);
 
   const filteredCenters = useMemo(() => centers
+    .filter((center) => !initialCenterId || center.id === initialCenterId)
     .filter((center) => `${center.name} ${center.location}`.toLowerCase().includes(centerQuery.trim().toLowerCase()))
     .filter((center) => {
       const spaces = Math.max(0, center.capacity - center.currentOccupancy);
@@ -214,6 +215,7 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
         {!centers.length && <div className="form-field-wide"><InlineNotice tone="error">There are no open evacuation centers with remaining capacity. Update a center before adding this household.</InlineNotice></div>}
         <div className="form-field form-field-wide"><span>Assign to center *</span>
           {centerId && <div className="picker-selection"><MapPin size={16} /><span><strong>{centers.find((center) => center.id === centerId)?.name}</strong><small>{Math.max(0, (centers.find((center) => center.id === centerId)?.capacity ?? 0) - (centers.find((center) => center.id === centerId)?.currentOccupancy ?? 0))} spaces currently available</small></span><Check size={16} /></div>}
+          {!initialCenterId && <>
           <div className="option-picker-toolbar">
             <label className="option-search"><Search size={15} /><input value={centerQuery} onChange={(event) => setCenterQuery(event.target.value)} placeholder="Search center name or location" aria-label="Search evacuation centers" /></label>
             <label className="option-control"><SlidersHorizontal size={14} /><select value={centerFilter} onChange={(event) => setCenterFilter(event.target.value as typeof centerFilter)} aria-label="Filter centers"><option value="all">Any capacity</option><option value="many-spaces">20+ spaces</option><option value="few-spaces">Under 20</option></select></label>
@@ -230,6 +232,7 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
             {!filteredCenters.length && <div className="option-empty">No centers match these search and filter options.</div>}
           </div>
           <small className="option-result-count">Showing {filteredCenters.length} of {centers.length} available centers</small>
+          </>}
         </div>
         <div className="form-field form-field-wide"><span>Link Resident account <small>(optional)</small></span>
           <button type="button" className={`resident-link-choice ${!residentUserId ? 'resident-link-choice-selected' : ''}`} onClick={selectWalkIn} aria-pressed={!residentUserId}>

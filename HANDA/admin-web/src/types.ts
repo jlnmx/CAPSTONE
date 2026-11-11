@@ -82,6 +82,37 @@ export interface EvacuationRegistrationInput {
   members: EvacuationHouseholdMemberInput[];
 }
 
+export interface EvacuationRegistrationMemberRecord {
+  id: string;
+  name: string;
+  relationship: string;
+  age: number | null;
+  sex: string;
+  contact_number: string;
+  status: string;
+}
+
+export interface EvacuationRegistrationRecord {
+  id: string;
+  center_id: string;
+  status: 'registered' | 'checked_in' | 'evacuated' | 'released';
+  registered_at: string;
+  checked_in_at: string | null;
+  first_name: string;
+  middle_name: string | null;
+  last_name: string;
+  age: number;
+  sex: string;
+  contact_number: string;
+  address: string;
+  household_size: number;
+  resident_name: string | null;
+  resident_profile_picture: string | null;
+  center_name: string;
+  center_location: string;
+  members: EvacuationRegistrationMemberRecord[];
+}
+
 export interface AdminSnapshot {
   incidents: IncidentRecord[];
   evacuees: EvacueeRecord[];

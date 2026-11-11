@@ -1788,26 +1788,35 @@ def create_evacuation_registration(
 @app.get("/api/v1/evacuation-registrations")
 def list_evacuation_registrations(
     include_released: bool = False,
+    center_id: str | None = None,
     connection: psycopg.Connection = Depends(get_connection),
     _: CurrentUser = Depends(require_roles("responder", "admin")),
 ):
-    status_filter = "" if include_released else "WHERE registration.status <> 'released'"
+    filters = []
+    parameters = []
+    if not include_released:
+        filters.append("registration.status <> 'released'")
+    if center_id:
+        filters.append("registration.center_id = %s")
+        parameters.append(center_id)
+    where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
     registrations = connection.execute(
         f"""
         SELECT registration.id, registration.status, registration.registered_at,
              registration.checked_in_at, registration.first_name,
              registration.middle_name, registration.last_name, registration.age,
              registration.sex, registration.contact_number, registration.address,
-             registration.household_size, resident.name AS resident_name,
+             registration.household_size, registration.center_id, resident.name AS resident_name,
              resident.profile_picture AS resident_profile_picture,
                center.name AS center_name, center.location_text AS center_location
         FROM evacuation_registrations AS registration
         LEFT JOIN users AS resident ON resident.id = registration.resident_user_id
         JOIN evacuation_centers AS center ON center.id = registration.center_id
-        {status_filter}
+        {where_clause}
         ORDER BY CASE WHEN registration.status = 'registered' THEN 0 ELSE 1 END,
                  registration.registered_at DESC
         """,
+        parameters,
     ).fetchall()
     result = []
     for registration in registrations:

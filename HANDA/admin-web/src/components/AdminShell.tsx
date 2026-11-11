@@ -32,7 +32,7 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const pageTitle = pageNames[location.pathname] || 'Command Center';
+  const pageTitle = location.pathname.startsWith('/centers/') ? 'Center management' : pageNames[location.pathname] || 'Command Center';
   const initials = (user?.name || 'HA').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
 
   const leave = async () => {

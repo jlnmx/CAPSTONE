@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Building2, MapPin, Pencil, Plus, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { createCenter, getCenters, updateCenter } from '../api';
 import type { CenterRecord } from '../types';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
@@ -33,6 +34,7 @@ function formForCenter(center: CenterRecord): CenterForm {
 }
 
 export default function CentersView() {
+  const navigate = useNavigate();
   const [centers, setCenters] = useState<CenterRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -107,12 +109,26 @@ export default function CentersView() {
     {loading ? <LoadingState label="Loading center capacity" /> : centers.length === 0 ? <section className="surface-panel"><EmptyState title="No centers registered" detail="Add an evacuation center to begin tracking available shelter capacity." /><button className="button-primary empty-action" onClick={openCreateForm}><Plus size={16} /> Add first center</button></section> : <div className="center-grid">{centers.map((center) => {
       const occupancy = center.capacity > 0 ? Math.min(center.currentOccupancy / center.capacity, 1) : 0;
       const fillTone = occupancy >= 0.9 ? 'capacity-danger' : occupancy >= 0.7 ? 'capacity-warning' : 'capacity-good';
-      return <article className="center-card" key={center.id}>
+      return <article
+        className="center-card center-card-clickable"
+        key={center.id}
+        role="link"
+        tabIndex={0}
+        aria-label={`Manage ${center.name}`}
+        onClick={() => navigate(`/centers/${encodeURIComponent(center.id)}`)}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            navigate(`/centers/${encodeURIComponent(center.id)}`);
+          }
+        }}
+      >
         <div className="center-card-head"><span className="center-emblem"><Building2 size={20} /></span><span className={`status-pill status-${center.status === 'full' || center.status === 'closed' ? 'danger' : center.status === 'limited' ? 'pending' : 'good'}`}><i />{center.status}</span></div>
         <h2>{center.name}</h2><p className="center-location"><MapPin size={14} />{center.location || 'Location unavailable'}</p>
         <div className="capacity-numbers"><span>Current occupancy</span><strong>{center.currentOccupancy.toLocaleString()} <small>/ {center.capacity.toLocaleString()}</small></strong></div>
         <div className="capacity-track"><span className={fillTone} style={{ width: `${occupancy * 100}%` }} /></div>
-        <div className="capacity-foot"><span>{Math.max(0, center.capacity - center.currentOccupancy).toLocaleString()} spaces remaining</span><button className="text-button" onClick={() => openEditForm(center)}><Pencil size={14} /> Edit center</button></div>
+        <div className="capacity-foot"><span>{Math.max(0, center.capacity - center.currentOccupancy).toLocaleString()} spaces remaining</span><button className="text-button" onClick={(event) => { event.stopPropagation(); openEditForm(center); }}><Pencil size={14} /> Edit center</button></div>
         {(center.coordinatorName || center.contactNumber) && <div className="center-contact"><Users size={14} /><span>{center.coordinatorName || 'Coordinator not set'}</span><span>{center.contactNumber}</span></div>}
         {center.notes && <p className="center-location">{center.notes}</p>}
       </article>;
