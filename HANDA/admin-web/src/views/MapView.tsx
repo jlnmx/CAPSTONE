@@ -418,7 +418,7 @@ export default function MapView() {
         autocompleteElement.placeholder = 'Search places in Biñan…';
         autocompleteElement.includedRegionCodes = ['ph'];
         autocompleteElement.addEventListener('gmp-select', handlePlaceSelect);
-        placesSearchElement.current.replaceChildren(autocompleteElement);
+        placesSearchElement.current.appendChild(autocompleteElement);
         setPlacesReady(true);
       } catch {
         if (!cancelled) setMapError('Places search could not be initialized. Verify Places API is enabled for this key and retry.');
