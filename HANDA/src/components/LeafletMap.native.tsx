@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Callout, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,11 +7,12 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import type { MapEvacuationCenter } from '@/types/index';
 import useMapConnectivity from '@services/map/useMapConnectivity';
-import { searchMapPlaces } from '@services/map/googleMaps';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
 import MapNavigation from './MapNavigation';
 import type { MapNavigationTarget } from './MapNavigation.types';
+import MapSearchBox from './MapSearchBox';
+import type { MapSearchSuggestion } from './MapSearchBox';
 
 const BINAN_REGION: Region = {
   latitude: 14.3036,
@@ -26,67 +27,60 @@ const MAPS_API_KEY = Platform.OS === 'ios'
 interface LeafletMapProps {
   centers?: MapEvacuationCenter[];
   onSelectCenter?: (centerId: string) => void;
+  navigationTarget?: MapNavigationTarget | null;
+  onNavigationTargetChange?: (target: MapNavigationTarget | null) => void;
 }
 
 function MapMessage({ children }: { children: string }) {
   return <View style={styles.message}><Text style={styles.messageText}>{children}</Text></View>;
 }
 
-export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapProps) {
+export default function LeafletMap({ centers = [], onSelectCenter, navigationTarget = null, onNavigationTargetChange }: LeafletMapProps) {
   const isOnline = useMapConnectivity();
   const mapRef = useRef<MapView>(null);
   const [query, setQuery] = useState('');
   const [show3d, setShow3d] = useState(false);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
-  const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
+  const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const validCenters = useMemo(() => centers.filter((center) => (
     center.latitude != null && center.longitude != null
       && Number.isFinite(Number(center.latitude)) && Number.isFinite(Number(center.longitude))
   )), [centers]);
+  const localSuggestions = useMemo<MapSearchSuggestion[]>(() => validCenters.map((center) => ({
+    id: `center-${center.id}`,
+    title: center.name,
+    subtitle: center.location || 'Evacuation center',
+    latitude: Number(center.latitude),
+    longitude: Number(center.longitude),
+    kind: 'center',
+  })), [validCenters]);
 
   useEffect(() => {
-    void Location.getForegroundPermissionsAsync().then((permission) => {
-      setHasLocationPermission(permission.granted);
+    let active = true;
+    void Location.requestForegroundPermissionsAsync().then(async (permission) => {
+      if (!active || !permission.granted) return;
+      setHasLocationPermission(true);
+      const subscription = await Location.watchPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        distanceInterval: 10,
+        timeInterval: 5000,
+      }, () => setHasLocationPermission(true));
+      if (active) locationSubscription.current = subscription;
+      else subscription.remove();
+    }).catch(() => {
+      if (active) setHasLocationPermission(false);
     });
+    return () => {
+      active = false;
+      locationSubscription.current?.remove();
+      locationSubscription.current = null;
+    };
   }, []);
 
   if (isOnline === null) return <MapMessage>Checking map connectivity...</MapMessage>;
   if (!isOnline) return <OfflineMapCanvas points={toOfflinePoints(centers)} onSelect={onSelectCenter} />;
   if (!MAPS_API_KEY) return <MapMessage>Google Maps is not configured. Add EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY to the app build environment.</MapMessage>;
-
-  const search = async () => {
-    const term = query.trim();
-    if (!term) return;
-    const normalized = term.toLocaleLowerCase();
-    const center = validCenters.find((item) => normalized.split(/\s+/).every((word) => `${item.name} ${item.location}`.toLocaleLowerCase().includes(word)));
-    if (center) {
-      mapRef.current?.animateToRegion({
-        latitude: Number(center.latitude),
-        longitude: Number(center.longitude),
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
-      });
-      onSelectCenter?.(center.id);
-      return;
-    }
-
-    try {
-      const [place] = await searchMapPlaces(term);
-      if (!place) {
-        Alert.alert('No results', 'No matching place was found. Check the search text or try a nearby landmark.');
-        return;
-      }
-      mapRef.current?.animateToRegion({
-        latitude: place.latitude,
-        longitude: place.longitude,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
-      });
-    } catch (error) {
-      Alert.alert('Search unavailable', error instanceof Error ? error.message : 'Google Maps search failed. Check your connection and try again.');
-    }
-  };
 
   const recenter = async () => {
     try {
@@ -95,6 +89,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         Alert.alert('Location permission needed', 'Allow location access to center the map on your position.');
         return;
       }
+      setHasLocationPermission(true);
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       mapRef.current?.animateToRegion({
         latitude: position.coords.latitude,
@@ -138,7 +133,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#218B25'}
             onPress={() => onSelectCenter?.(center.id)}
           >
-            <Callout onPress={() => setNavigationTarget({
+            <Callout onPress={() => onNavigationTargetChange?.({
               title: center.name,
               latitude: Number(center.latitude),
               longitude: Number(center.longitude),
@@ -146,28 +141,25 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
               <View style={styles.callout}>
                 <Text style={styles.calloutTitle}>{center.name}</Text>
                 <Text style={styles.calloutText}>{center.location || 'Evacuation center'}</Text>
-                <Text style={styles.calloutAction}>Tap for in-app routes and navigation</Text>
+                <View style={styles.calloutNavigate}><MaterialCommunityIcons name="navigation-variant" size={15} color={Colors.white} /><Text style={styles.calloutAction}>Navigate</Text></View>
               </View>
             </Callout>
           </Marker>
         ))}
       </MapView>
 
-      <View style={styles.searchBar}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={() => void search()}
-          placeholder="Search centers or places"
-          placeholderTextColor={Colors.textMuted}
-          returnKeyType="search"
-          accessibilityLabel="Search evacuation centers or places"
-          style={styles.searchInput}
-        />
-        <Pressable onPress={() => void search()} accessibilityRole="button" accessibilityLabel="Search map">
-          <MaterialCommunityIcons name="magnify" size={23} color={Colors.primary} />
-        </Pressable>
-      </View>
+      <MapSearchBox
+        query={query}
+        onChangeQuery={setQuery}
+        localSuggestions={localSuggestions}
+        onSelect={(suggestion) => {
+          mapRef.current?.animateToRegion({ latitude: suggestion.latitude, longitude: suggestion.longitude, latitudeDelta: 0.008, longitudeDelta: 0.008 });
+          if (suggestion.kind === 'center') onSelectCenter?.(suggestion.id.replace(/^center-/, ''));
+        }}
+        onNavigate={(suggestion) => onNavigationTargetChange?.({ title: suggestion.title, latitude: suggestion.latitude, longitude: suggestion.longitude })}
+        placeholder="Search evacuation centers or places"
+        accessibilityLabel="Search evacuation centers or places"
+      />
 
       <View style={styles.controls}>
         <Pressable onPress={() => void recenter()} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map">
@@ -177,7 +169,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           <Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text>
         </Pressable>
       </View>
-      {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
+      {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => onNavigationTargetChange?.(null)} />}
     </View>
   );
 }
@@ -186,8 +178,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden', backgroundColor: Colors.surfaceMuted },
   message: { flex: 1, padding: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted },
   messageText: { color: Colors.textMuted, fontSize: 13, textAlign: 'center' },
-  searchBar: { position: 'absolute', top: 12, left: 12, right: 12, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
-  searchInput: { flex: 1, color: Colors.text, fontSize: 14, paddingVertical: 10 },
   controls: { position: 'absolute', right: 12, bottom: 20, gap: 8 },
   control: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
   controlActive: { backgroundColor: '#E8F2E8' },
@@ -195,7 +185,8 @@ const styles = StyleSheet.create({
   callout: { width: 190, padding: 4 },
   calloutTitle: { color: Colors.text, fontSize: 14, fontWeight: '700' },
   calloutText: { color: Colors.textMuted, fontSize: 12, marginTop: 3 },
-  calloutAction: { color: Colors.primary, fontSize: 11, fontWeight: '700', marginTop: 8 },
+  calloutNavigate: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 9, paddingVertical: 7, borderRadius: 8, backgroundColor: Colors.primary },
+  calloutAction: { color: Colors.white, fontSize: 11, fontWeight: '800' },
 });
 
 function toOfflinePoints(centers: MapEvacuationCenter[]): OfflineMapPoint[] {

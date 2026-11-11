@@ -2,11 +2,14 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
-import { MapEvacuationCenter } from '@types/index';
+import type { MapEvacuationCenter } from '@/types/index';
+import type { MapNavigationTarget } from './MapNavigation.types';
 
 interface LeafletMapProps {
   centers?: MapEvacuationCenter[];
   onSelectCenter?: (centerId: string) => void;
+  navigationTarget?: MapNavigationTarget | null;
+  onNavigationTargetChange?: (target: MapNavigationTarget | null) => void;
 }
 
 export default function LeafletMap({ centers = [] }: LeafletMapProps) {

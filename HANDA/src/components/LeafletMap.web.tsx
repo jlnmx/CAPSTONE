@@ -1,37 +1,54 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import type { MapEvacuationCenter } from '@/types/index';
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import { loadGoogleMapsApi } from '@services/map/googleMapsWeb';
-import { searchMapPlaces } from '@services/map/googleMaps';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
 import MapNavigation from './MapNavigation';
 import type { MapNavigationTarget } from './MapNavigation.types';
+import MapSearchBox from './MapSearchBox';
+import type { MapSearchSuggestion } from './MapSearchBox';
 
 const BINAN = { lat: 14.3036, lng: 121.0781 };
 
 interface LeafletMapProps {
   centers?: MapEvacuationCenter[];
   onSelectCenter?: (centerId: string) => void;
+  navigationTarget?: MapNavigationTarget | null;
+  onNavigationTargetChange?: (target: MapNavigationTarget | null) => void;
 }
 
-export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapProps) {
+export default function LeafletMap({ centers = [], onSelectCenter, navigationTarget = null, onNavigationTargetChange }: LeafletMapProps) {
   const isOnline = useMapConnectivity();
   const mapElement = useRef<HTMLDivElement | null>(null);
   const [loadError, setLoadError] = useState('');
+  const [locationError, setLocationError] = useState('');
   const [query, setQuery] = useState('');
   const [show3d, setShow3d] = useState(false);
-  const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
+  const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const userMarkerRef = useRef<google.maps.Marker | null>(null);
+  const onSelectCenterRef = useRef(onSelectCenter);
+  const onNavigationTargetChangeRef = useRef(onNavigationTargetChange);
+  onSelectCenterRef.current = onSelectCenter;
+  onNavigationTargetChangeRef.current = onNavigationTargetChange;
   const validCenters = useMemo(() => centers.filter((center) => (
     center.latitude != null && center.longitude != null
       && Number.isFinite(Number(center.latitude)) && Number.isFinite(Number(center.longitude))
   )), [centers]);
+  const localSuggestions = useMemo<MapSearchSuggestion[]>(() => validCenters.map((center) => ({
+    id: `center-${center.id}`,
+    title: center.name,
+    subtitle: center.location || 'Evacuation center',
+    latitude: Number(center.latitude),
+    longitude: Number(center.longitude),
+    kind: 'center',
+  })), [validCenters]);
 
   useEffect(() => {
     if (isOnline === null || !isOnline || !mapElement.current) return undefined;
@@ -48,89 +65,122 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
         fullscreenControl: false,
       });
       mapRef.current = map;
-
-      markersRef.current = validCenters.map((center) => {
-        const marker = new google.maps.Marker({
-          map,
-          position: { lat: Number(center.latitude), lng: Number(center.longitude) },
-          title: center.name,
-          icon: center.status === 'closed' || center.status === 'full'
-            ? undefined
-            : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#218B25', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
-        });
-        const content = document.createElement('div');
-        const title = document.createElement('strong');
-        title.textContent = center.name;
-        const description = document.createElement('div');
-        description.textContent = center.location || 'Evacuation center';
-        const navigateButton = document.createElement('button');
-        navigateButton.type = 'button';
-        navigateButton.textContent = 'Navigate in app';
-        navigateButton.addEventListener('click', () => setNavigationTarget({
-          title: center.name,
-          latitude: Number(center.latitude),
-          longitude: Number(center.longitude),
-        }));
-        content.append(title, description, navigateButton);
-        const info = new google.maps.InfoWindow({ content });
-        marker.addListener('click', () => {
-          info.open({ map, anchor: marker });
-          onSelectCenter?.(center.id);
-        });
-        return marker;
-      });
-
+      setMapReady(true);
     }).catch((error: unknown) => {
       if (active) setLoadError(error instanceof Error ? error.message : 'Google Maps could not be loaded.');
     });
 
     return () => {
       active = false;
+      userMarkerRef.current?.setMap(null);
+      userMarkerRef.current = null;
+      mapRef.current = null;
+      setMapReady(false);
+    };
+  }, [isOnline]);
+
+  useEffect(() => {
+    const map = mapReady ? mapRef.current : null;
+    if (!map) return undefined;
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current = validCenters.map((center) => {
+      const marker = new google.maps.Marker({
+        map,
+        position: { lat: Number(center.latitude), lng: Number(center.longitude) },
+        title: center.name,
+        icon: center.status === 'closed' || center.status === 'full'
+          ? undefined
+          : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#218B25', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
+      });
+      const content = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = center.name;
+      const description = document.createElement('div');
+      description.textContent = center.location || 'Evacuation center';
+      const navigateButton = document.createElement('button');
+      navigateButton.type = 'button';
+      navigateButton.textContent = 'Navigate';
+      Object.assign(navigateButton.style, {
+        marginTop: '8px',
+        border: '0',
+        borderRadius: '8px',
+        padding: '7px 12px',
+        background: '#218B25',
+        color: '#ffffff',
+        fontWeight: '700',
+        cursor: 'pointer',
+      });
+      navigateButton.addEventListener('click', () => onNavigationTargetChangeRef.current?.({
+        title: center.name,
+        latitude: Number(center.latitude),
+        longitude: Number(center.longitude),
+      }));
+      content.append(title, description, navigateButton);
+      const info = new google.maps.InfoWindow({ content });
+      marker.addListener('click', () => {
+        info.open({ map, anchor: marker });
+        onSelectCenterRef.current?.(center.id);
+      });
+      return marker;
+    });
+    return () => {
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
-      mapRef.current = null;
     };
-  }, [isOnline, validCenters, onSelectCenter]);
+  }, [mapReady, validCenters]);
+
+  useEffect(() => {
+    if (!isOnline || !mapReady || !mapRef.current || !navigator.geolocation) return undefined;
+    const watchId = navigator.geolocation.watchPosition(({ coords }) => {
+      const position = { lat: coords.latitude, lng: coords.longitude };
+      setLocationError('');
+      if (!userMarkerRef.current) {
+        userMarkerRef.current = new google.maps.Marker({
+          map: mapRef.current,
+          position,
+          title: 'Your location',
+          zIndex: 1000,
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1769AA', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 3 },
+        });
+      } else {
+        userMarkerRef.current.setPosition(position);
+      }
+    }, () => {
+      setLocationError('Allow browser location access to show your current location.');
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      userMarkerRef.current?.setMap(null);
+      userMarkerRef.current = null;
+    };
+  }, [isOnline, mapReady]);
 
   if (isOnline === null) return <MapState label="Checking map connectivity..." />;
   if (!isOnline) return <OfflineMapCanvas points={toOfflinePoints(centers)} onSelect={onSelectCenter} />;
   if (loadError) return <MapState label={loadError} />;
 
-  const searchCenters = async () => {
-    const normalized = query.trim().toLocaleLowerCase();
-    if (!normalized) return;
-    const center = validCenters.find((item) => normalized.split(/\s+/).every((word) => `${item.name} ${item.location}`.toLocaleLowerCase().includes(word)));
-    if (center) {
-      mapRef.current?.panTo({ lat: Number(center.latitude), lng: Number(center.longitude) });
-      mapRef.current?.setZoom(16);
-      onSelectCenter?.(center.id);
-      return;
-    }
-    try {
-      setLoadError('');
-      const [place] = await searchMapPlaces(query.trim());
-      if (!place) {
-        setLoadError('No matching place was found. Check the search text or try a nearby landmark.');
-        return;
-      }
-      mapRef.current?.panTo({ lat: place.latitude, lng: place.longitude });
-      mapRef.current?.setZoom(16);
-    } catch (error) {
-      setLoadError(error instanceof Error ? error.message : 'Places search failed. Check the Places API configuration and try again.');
-    }
-  };
-
   const recenter = () => {
     if (!navigator.geolocation) {
-      setLoadError('Location access is unavailable in this browser.');
+      setLocationError('Location access is unavailable in this browser.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
+        setLocationError('');
+        const position = { lat: coords.latitude, lng: coords.longitude };
+        if (!userMarkerRef.current && mapRef.current) {
+          userMarkerRef.current = new google.maps.Marker({
+            map: mapRef.current,
+            position,
+            title: 'Your location',
+            zIndex: 1000,
+            icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1769AA', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 3 },
+          });
+        } else userMarkerRef.current?.setPosition(position);
         mapRef.current?.panTo({ lat: coords.latitude, lng: coords.longitude });
         mapRef.current?.setZoom(16);
       },
-      () => setLoadError('Could not access your location. Allow location access in browser settings and retry.'),
+      () => setLocationError('Could not access your location. Allow location access in browser settings and retry.'),
       { enableHighAccuracy: true, timeout: 10000 },
     );
   };
@@ -146,21 +196,19 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
   return (
     <View style={styles.container}>
       <View ref={mapElement as never} style={styles.map} />
-      <View style={styles.searchBar}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={() => void searchCenters()}
-          placeholder="Search centers or places"
-          placeholderTextColor={Colors.textMuted}
-          returnKeyType="search"
-          accessibilityLabel="Search evacuation centers or places"
-          style={styles.searchInput}
-        />
-        <Pressable onPress={() => void searchCenters()} accessibilityRole="button" accessibilityLabel="Search map">
-          <MaterialCommunityIcons name="magnify" size={23} color={Colors.primary} />
-        </Pressable>
-      </View>
+      <MapSearchBox
+        query={query}
+        onChangeQuery={setQuery}
+        localSuggestions={localSuggestions}
+        onSelect={(suggestion) => {
+          mapRef.current?.panTo({ lat: suggestion.latitude, lng: suggestion.longitude });
+          mapRef.current?.setZoom(16);
+          if (suggestion.kind === 'center') onSelectCenter?.(suggestion.id.replace(/^center-/, ''));
+        }}
+        onNavigate={(suggestion) => onNavigationTargetChange?.({ title: suggestion.title, latitude: suggestion.latitude, longitude: suggestion.longitude })}
+        placeholder="Search evacuation centers or places"
+        accessibilityLabel="Search evacuation centers or places"
+      />
       <View style={styles.controls}>
         <Pressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map">
           <MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} />
@@ -169,8 +217,8 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           <Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text>
         </Pressable>
       </View>
-      {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
-      {loadError ? <View style={styles.errorBanner}><Text style={styles.errorText}>{loadError}</Text></View> : null}
+      {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => onNavigationTargetChange?.(null)} />}
+      {locationError ? <View style={styles.errorBanner}><Text style={styles.errorText}>{locationError}</Text></View> : null}
     </View>
   );
 }
@@ -184,8 +232,6 @@ const styles = StyleSheet.create({
   map: { ...StyleSheet.absoluteFillObject, backgroundColor: Colors.surfaceMuted },
   state: { flex: 1, gap: 10, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: Colors.surfaceMuted },
   stateText: { color: Colors.textMuted, fontSize: 13, textAlign: 'center' },
-  searchBar: { position: 'absolute', top: 12, left: 12, right: 12, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
-  searchInput: { flex: 1, color: Colors.text, fontSize: 14, paddingVertical: 10 },
   controls: { position: 'absolute', right: 12, bottom: 20, gap: 8 },
   control: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
   controlLabel: { color: Colors.primary, fontSize: 13, fontWeight: '800' },

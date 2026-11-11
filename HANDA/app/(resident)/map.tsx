@@ -11,6 +11,7 @@ import { Colors } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
 import { fetchJsonWithCache } from '@services/offlineCache';
 import type { MapEvacuationCenter } from '@/types/index';
+import type { MapNavigationTarget } from '@components/MapNavigation.types';
 
 const GREEN = '#218B25';
 
@@ -18,6 +19,7 @@ export default function ResidentMapScreen() {
   const { palette } = useTheme();
   const [centers, setCenters] = useState<MapEvacuationCenter[]>([]);
   const [selectedCenter, setSelectedCenter] = useState<MapEvacuationCenter | null>(null);
+  const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -39,9 +41,9 @@ export default function ResidentMapScreen() {
     return () => clearInterval(refresh);
   }, [loadCenters]));
 
-  const selectCenter = (centerId: string) => {
+  const selectCenter = useCallback((centerId: string) => {
     setSelectedCenter(centers.find((center) => center.id === centerId) ?? null);
-  };
+  }, [centers]);
   const capacity = selectedCenter ? Math.max(0, Number(selectedCenter.capacity) || 0) : 0;
   const occupancy = selectedCenter ? Math.max(0, Number(selectedCenter.current_occupancy) || 0) : 0;
   const spaces = Math.max(0, capacity - occupancy);
@@ -79,14 +81,19 @@ export default function ResidentMapScreen() {
           {isLoading && centers.length === 0 ? (
             <View style={[styles.mapState, { backgroundColor: palette.surfaceMuted }]}><ActivityIndicator color={GREEN} /><Text style={[styles.stateText, { color: palette.textMuted }]}>Loading center locations...</Text></View>
           ) : (
-            <LeafletMap centers={centers} onSelectCenter={selectCenter} />
+            <LeafletMap
+              centers={centers}
+              onSelectCenter={selectCenter}
+              navigationTarget={navigationTarget}
+              onNavigationTargetChange={setNavigationTarget}
+            />
           )}
         </View>
         {!!error && <Text style={[styles.error, { color: palette.textMuted }]}>{error}</Text>}
 
         <View style={styles.footerRow}>
           <MaterialCommunityIcons name="gesture-tap" size={18} color={GREEN} />
-          <Text style={[styles.footerText, { color: palette.textMuted }]}>Tap a map marker to view center information. Contact a responder for evacuation directions.</Text>
+          <Text style={[styles.footerText, { color: palette.textMuted }]}>Search or tap an evacuation center, then choose Navigate for in-app routes and directions.</Text>
         </View>
       </ScrollView>
 
@@ -112,6 +119,23 @@ export default function ResidentMapScreen() {
                 <View style={[styles.stat, { backgroundColor: palette.background }]}><Text style={[styles.statValue, { color: palette.text }]}>{occupancy} / {capacity}</Text><Text style={[styles.statLabel, { color: palette.textMuted }]}>People at center</Text></View>
                 <View style={[styles.stat, { backgroundColor: palette.background }]}><Text style={[styles.statValue, { color: palette.text }]}>{spaces}</Text><Text style={[styles.statLabel, { color: palette.textMuted }]}>Spaces remaining</Text></View>
               </View>
+              {selectedCenter.latitude != null && selectedCenter.longitude != null ? (
+                <Pressable
+                  onPress={() => {
+                    setNavigationTarget({
+                      title: selectedCenter.name,
+                      latitude: Number(selectedCenter.latitude),
+                      longitude: Number(selectedCenter.longitude),
+                    });
+                    setSelectedCenter(null);
+                  }}
+                  style={styles.navigateButton}
+                  accessibilityRole="button"
+                >
+                  <MaterialCommunityIcons name="navigation-variant" size={18} color={Colors.white} />
+                  <Text style={styles.navigateButtonText}>Navigate</Text>
+                </Pressable>
+              ) : null}
               <Text style={[styles.assignmentNote, { color: palette.textMuted }]}>This information is for reference only. Responders and City Social Welfare and Development personnel coordinate center assignments.</Text>
             </Pressable>
           )}
@@ -133,7 +157,7 @@ const styles = StyleSheet.create({
   notice: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, margin: 15, padding: 13, borderRadius: 16, borderWidth: 1 },
   noticeIcon: { width: 32, height: 32, borderRadius: 11, backgroundColor: 'rgba(33,139,37,0.1)', alignItems: 'center', justifyContent: 'center' },
   noticeText: { flex: 1, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 18, paddingTop: 1 },
-  mapFrame: { height: 440, marginHorizontal: 15, overflow: 'hidden', borderWidth: 1, borderRadius: 20 },
+  mapFrame: { height: 560, marginHorizontal: 15, overflow: 'hidden', borderWidth: 1, borderRadius: 20 },
   mapState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   stateText: { fontFamily: kitFonts.medium, fontSize: 12 },
   error: { marginHorizontal: 18, marginTop: 8, fontFamily: kitFonts.medium, fontSize: 11 },
@@ -150,6 +174,8 @@ const styles = StyleSheet.create({
   availabilityDot: { width: 7, height: 7, borderRadius: 4 },
   availabilityText: { fontFamily: kitFonts.bold, fontSize: 11 },
   stats: { flexDirection: 'row', gap: 9, marginTop: 13 },
+  navigateButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, borderRadius: 13, backgroundColor: GREEN },
+  navigateButtonText: { color: Colors.white, fontFamily: kitFonts.bold, fontSize: 14 },
   stat: { flex: 1, padding: 12, borderRadius: 13 },
   statValue: { fontFamily: kitFonts.heading, fontSize: 17 },
   statLabel: { fontFamily: kitFonts.medium, fontSize: 10, marginTop: 3 },

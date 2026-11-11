@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
@@ -8,11 +8,12 @@ import { useEvacuationCenterFeed, useIncidentFeed, useResponderLive } from '@hoo
 import { getIncidentResponders, getResponderData, ResponderDataSnapshot } from '@services/responderData';
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import { loadGoogleMapsApi } from '@services/map/googleMapsWeb';
-import { searchMapPlaces } from '@services/map/googleMaps';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
 import MapNavigation from './MapNavigation';
 import type { MapNavigationTarget } from './MapNavigation.types';
+import MapSearchBox from './MapSearchBox';
+import type { MapSearchSuggestion } from './MapSearchBox';
 
 const CENTER = { lat: 14.3036, lng: 121.0781 };
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY ?? '';
@@ -24,10 +25,12 @@ export default function ResponderLiveMap() {
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const userMarkerRef = useRef<google.maps.Marker | null>(null);
   const [data, setData] = useState(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [locationError, setLocationError] = useState('');
   const [query, setQuery] = useState('');
   const [show3d, setShow3d] = useState(false);
   const [mapReady, setMapReady] = useState(false);
@@ -84,13 +87,13 @@ export default function ResponderLiveMap() {
     };
   }, [isOnline]);
 
-  const searchItems = useMemo(() => [
+  const localSuggestions = useMemo<MapSearchSuggestion[]>(() => [
     ...data.centers.flatMap((center) => center.latitude == null || center.longitude == null
       ? []
-      : [{ name: center.name, description: center.location, latitude: center.latitude, longitude: center.longitude }]),
+      : [{ id: `center-${center.id}`, title: center.name, subtitle: `${center.location} · ${center.status}`, latitude: center.latitude, longitude: center.longitude, kind: 'center' as const }]),
     ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null || incident.status === 'resolved'
       ? []
-      : [{ name: incident.type, description: incident.location, latitude: incident.latitude, longitude: incident.longitude }]),
+      : [{ id: `incident-${incident.id}`, title: incident.type, subtitle: `${incident.status.replace(/_/g, ' ')} · ${incident.location}`, latitude: incident.latitude, longitude: incident.longitude, kind: 'incident' as const }]),
   ], [data]);
 
   useEffect(() => {
@@ -116,7 +119,8 @@ export default function ResponderLiveMap() {
       details.textContent = `${center.location} · ${center.currentOccupancy}/${center.capacity}`;
       const navigateButton = document.createElement('button');
       navigateButton.type = 'button';
-      navigateButton.textContent = 'Navigate in app';
+      navigateButton.textContent = 'Navigate';
+      Object.assign(navigateButton.style, { marginTop: '8px', border: '0', borderRadius: '8px', padding: '7px 12px', background: '#218B25', color: '#ffffff', fontWeight: '700', cursor: 'pointer' });
       navigateButton.addEventListener('click', () => setNavigationTarget({
         title: center.name,
         latitude: center.latitude!,
@@ -143,7 +147,8 @@ export default function ResponderLiveMap() {
       details.textContent = `${incident.status.replace(/_/g, ' ')} · ${incident.location}`;
       const navigateButton = document.createElement('button');
       navigateButton.type = 'button';
-      navigateButton.textContent = 'Navigate in app';
+      navigateButton.textContent = 'Navigate';
+      Object.assign(navigateButton.style, { marginTop: '8px', border: '0', borderRadius: '8px', padding: '7px 12px', background: '#218B25', color: '#ffffff', fontWeight: '700', cursor: 'pointer' });
       navigateButton.addEventListener('click', () => setNavigationTarget({
         title: incident.type,
         latitude: incident.latitude!,
@@ -169,46 +174,58 @@ export default function ResponderLiveMap() {
     markersRef.current = markers;
   }, [data, responders, mapReady, user?.id]);
 
+  useEffect(() => {
+    if (isOnline !== true || !mapReady || !mapRef.current || !navigator.geolocation) return undefined;
+    const watchId = navigator.geolocation.watchPosition(({ coords }) => {
+      const position = { lat: coords.latitude, lng: coords.longitude };
+      setLocationError('');
+      if (!userMarkerRef.current) {
+        userMarkerRef.current = new google.maps.Marker({
+          map: mapRef.current,
+          position,
+          title: 'Your location',
+          zIndex: 1000,
+          icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1769AA', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 3 },
+        });
+      } else userMarkerRef.current.setPosition(position);
+    }, () => {
+      setLocationError('Allow browser location access to show your current location.');
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      userMarkerRef.current?.setMap(null);
+      userMarkerRef.current = null;
+    };
+  }, [isOnline, mapReady]);
+
   if (isOnline === null) return <MapState label="Checking map connectivity..." />;
   if (!isOnline && loading) return <MapState label="Loading saved map locations..." />;
   if (!isOnline) return <OfflineMapCanvas points={toOfflinePoints(data)} />;
   if (!API_KEY) return <MapState label="Google Maps is not configured. Add EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY to the app web environment." />;
   if (loadError) return <MapState label={loadError} />;
 
-  const search = async () => {
-    const term = query.trim().toLocaleLowerCase();
-    if (!term) return;
-    const match = searchItems.find((item) => term.split(/\s+/).every((word) => `${item.name} ${item.description}`.toLocaleLowerCase().includes(word)));
-    if (match) {
-      mapRef.current?.panTo({ lat: match.latitude, lng: match.longitude });
-      mapRef.current?.setZoom(16);
-      return;
-    }
-    try {
-      setLoadError('');
-      const [place] = await searchMapPlaces(query.trim());
-      if (!place) {
-        setLoadError('No matching place was found. Check the search text or try a nearby landmark.');
-        return;
-      }
-      mapRef.current?.panTo({ lat: place.latitude, lng: place.longitude });
-      mapRef.current?.setZoom(16);
-    } catch (searchError) {
-      setLoadError(searchError instanceof Error ? searchError.message : 'Places search failed. Check the Places API configuration and try again.');
-    }
-  };
-
   const recenter = () => {
     if (!navigator.geolocation) {
-      setLoadError('Location access is unavailable in this browser.');
+      setLocationError('Location access is unavailable in this browser.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
+        setLocationError('');
+        const position = { lat: coords.latitude, lng: coords.longitude };
+        if (!userMarkerRef.current && mapRef.current) {
+          userMarkerRef.current = new google.maps.Marker({
+            map: mapRef.current,
+            position,
+            title: 'Your location',
+            zIndex: 1000,
+            icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#1769AA', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 3 },
+          });
+        } else userMarkerRef.current?.setPosition(position);
         mapRef.current?.panTo({ lat: coords.latitude, lng: coords.longitude });
         mapRef.current?.setZoom(16);
       },
-      () => setLoadError('Could not access your location. Allow location access in browser settings and retry.'),
+      () => setLocationError('Could not access your location. Allow location access in browser settings and retry.'),
       { enableHighAccuracy: true, timeout: 10000 },
     );
   };
@@ -223,16 +240,24 @@ export default function ResponderLiveMap() {
   return (
     <View style={styles.container}>
       <View ref={mapElement as never} style={styles.map} />
-      <View style={styles.searchBar}>
-        <TextInput value={query} onChangeText={setQuery} onSubmitEditing={() => void search()} placeholder="Search incidents, centers, or places" placeholderTextColor={Colors.textMuted} returnKeyType="search" accessibilityLabel="Search map" style={styles.searchInput} />
-        <Pressable onPress={() => void search()} accessibilityRole="button" accessibilityLabel="Search map"><MaterialCommunityIcons name="magnify" size={23} color={Colors.primary} /></Pressable>
-      </View>
+      <MapSearchBox
+        query={query}
+        onChangeQuery={setQuery}
+        localSuggestions={localSuggestions}
+        onSelect={(suggestion) => {
+          mapRef.current?.panTo({ lat: suggestion.latitude, lng: suggestion.longitude });
+          mapRef.current?.setZoom(16);
+        }}
+        onNavigate={(suggestion) => setNavigationTarget({ title: suggestion.title, latitude: suggestion.latitude, longitude: suggestion.longitude })}
+        placeholder="Search incidents, centers, or places"
+        accessibilityLabel="Search incidents, centers, or places"
+      />
       <View style={styles.controls}>
         <Pressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map"><MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} /></Pressable>
         <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map"><Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text></Pressable>
       </View>
       {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
-      {(loading || error) && <View style={styles.status}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error}</Text></View>}
+      {(loading || error || locationError) && <View style={styles.status}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error || locationError}</Text></View>}
     </View>
   );
 }
@@ -246,8 +271,6 @@ const styles = StyleSheet.create({
   map: { ...StyleSheet.absoluteFillObject, backgroundColor: Colors.surfaceMuted },
   state: { flex: 1, gap: 10, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: Colors.surfaceMuted },
   stateText: { color: Colors.textMuted, fontSize: 13, textAlign: 'center' },
-  searchBar: { position: 'absolute', top: 12, left: 12, right: 12, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
-  searchInput: { flex: 1, color: Colors.text, fontSize: 13, paddingVertical: 10 },
   controls: { position: 'absolute', right: 12, bottom: 20, gap: 8 },
   control: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
   controlLabel: { color: Colors.primary, fontSize: 13, fontWeight: '800' },

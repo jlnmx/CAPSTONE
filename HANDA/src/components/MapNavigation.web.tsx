@@ -233,7 +233,7 @@ export default function MapNavigation({ target, onClose }: Props) {
           </View>
         </View>}
         <Pressable onPress={navigating ? () => setNavigating(false) : startNavigation} disabled={!selectedRoute || loading || !currentLocation} style={[styles.primaryButton, (!selectedRoute || loading || !currentLocation) && styles.buttonDisabled, navigating && styles.stopButton]} accessibilityRole="button">
-          <Text style={styles.primaryButtonText}>{navigating ? 'End navigation' : 'Start navigation'}</Text>
+          <Text style={styles.primaryButtonText}>{navigating ? 'End navigation' : 'Navigate'}</Text>
         </Pressable>
         <Text style={styles.disclaimer}>Routes need an internet connection and browser location access.</Text>
       </View>
@@ -253,30 +253,30 @@ function formatDuration(seconds: number) {
 const styles = StyleSheet.create({
   container: { ...StyleSheet.absoluteFillObject, zIndex: 50, backgroundColor: '#E8ECEA' },
   map: { ...StyleSheet.absoluteFillObject },
-  header: { position: 'absolute', top: 12, left: 12, right: 12, minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, borderRadius: 12, backgroundColor: Colors.white, elevation: 5 },
-  close: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  header: { position: 'absolute', top: 12, left: 12, right: 12, minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 16, backgroundColor: Colors.white, elevation: 7, shadowColor: '#142418', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
+  close: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#F1F4F1' },
   headerCopy: { flex: 1 },
-  eyebrow: { color: Colors.textMuted, fontSize: 9, fontWeight: '700', letterSpacing: 0.8 },
-  title: { color: Colors.text, fontSize: 14, fontWeight: '800' },
-  panel: { position: 'absolute', left: 10, right: 10, bottom: 12, maxHeight: '48%', gap: 10, padding: 14, borderRadius: 15, backgroundColor: Colors.white, elevation: 7 },
-  modeRow: { flexDirection: 'row', gap: 8 },
-  modeButton: { flex: 1, minHeight: 40, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 7, borderRadius: 9, backgroundColor: '#F3F6F2' },
-  modeButtonSelected: { backgroundColor: '#E6F3E5', borderWidth: 1, borderColor: '#9BCB99' },
+  eyebrow: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
+  title: { color: Colors.text, fontSize: 15, fontWeight: '800' },
+  panel: { position: 'absolute', left: 12, right: 12, bottom: 14, maxHeight: '54%', gap: 12, padding: 16, borderRadius: 19, backgroundColor: Colors.white, elevation: 9, shadowColor: '#142418', shadowOpacity: 0.2, shadowRadius: 18, shadowOffset: { width: 0, height: 7 } },
+  modeRow: { flexDirection: 'row', gap: 9 },
+  modeButton: { flex: 1, minHeight: 46, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, borderRadius: 12, backgroundColor: '#F3F6F2' },
+  modeButtonSelected: { backgroundColor: '#E7F4E7', borderWidth: 1, borderColor: '#9BCB99' },
   modeLabel: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
   modeLabelSelected: { color: Colors.primary },
   loading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8 },
   muted: { color: Colors.textMuted, fontSize: 11 },
   error: { color: '#A52D2D', fontSize: 11, textAlign: 'center' },
   routeList: { gap: 8, paddingVertical: 2 },
-  routeOption: { minWidth: 130, padding: 10, borderWidth: 1, borderColor: '#DDE5DD', borderRadius: 9, backgroundColor: '#FAFCFA' },
+  routeOption: { minWidth: 142, padding: 12, borderWidth: 1, borderColor: '#DDE5DD', borderRadius: 12, backgroundColor: '#FAFCFA' },
   routeOptionSelected: { borderColor: Colors.primary, backgroundColor: '#F0F8EF' },
   routeTime: { color: Colors.text, fontSize: 15, fontWeight: '800' },
   routeDistance: { marginTop: 3, color: Colors.textMuted, fontSize: 10 },
-  instruction: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 9, backgroundColor: '#F0F8EF' },
+  instruction: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: 13, backgroundColor: '#F0F8EF' },
   instructionCopy: { flex: 1, gap: 3 },
   instructionTitle: { color: Colors.text, fontSize: 13, fontWeight: '700' },
-  primaryButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: Colors.primary },
-  primaryButtonText: { color: Colors.white, fontSize: 13, fontWeight: '800' },
+  primaryButton: { minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: Colors.primary },
+  primaryButtonText: { color: Colors.white, fontSize: 14, fontWeight: '800' },
   stopButton: { backgroundColor: '#8E3131' },
   buttonDisabled: { opacity: 0.5 },
   disclaimer: { color: Colors.textMuted, fontSize: 9, textAlign: 'center' },

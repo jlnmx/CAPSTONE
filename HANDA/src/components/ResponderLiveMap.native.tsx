@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Callout, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,9 +11,10 @@ import { getIncidentResponders, getResponderData, ResponderDataSnapshot } from '
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
-import { searchMapPlaces } from '@services/map/googleMaps';
 import MapNavigation from './MapNavigation';
 import type { MapNavigationTarget } from './MapNavigation.types';
+import MapSearchBox from './MapSearchBox';
+import type { MapSearchSuggestion } from './MapSearchBox';
 
 const CENTER: Region = { latitude: 14.3036, longitude: 121.0781, latitudeDelta: 0.045, longitudeDelta: 0.045 };
 const MAPS_API_KEY = Platform.OS === 'ios'
@@ -31,6 +32,7 @@ export default function ResponderLiveMap() {
   const [show3d, setShow3d] = useState(false);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
+  const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const isOnline = useMapConnectivity();
   const { responders } = useResponderLive();
 
@@ -54,48 +56,41 @@ export default function ResponderLiveMap() {
   useEffect(() => {
     void loadData();
     const timer = setInterval(() => void loadData(), 15_000);
-    void Location.getForegroundPermissionsAsync().then((permission) => setHasLocationPermission(permission.granted));
-    return () => clearInterval(timer);
+    let active = true;
+    void Location.requestForegroundPermissionsAsync().then(async (permission) => {
+      if (!active || !permission.granted) return;
+      setHasLocationPermission(true);
+      const subscription = await Location.watchPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+        distanceInterval: 10,
+        timeInterval: 5000,
+      }, () => setHasLocationPermission(true));
+      if (active) locationSubscription.current = subscription;
+      else subscription.remove();
+    }).catch(() => {
+      if (active) setHasLocationPermission(false);
+    });
+    return () => {
+      active = false;
+      clearInterval(timer);
+      locationSubscription.current?.remove();
+      locationSubscription.current = null;
+    };
   }, [loadData]);
 
-  const mappedPlaces = useMemo(() => [
+  const localSuggestions = useMemo<MapSearchSuggestion[]>(() => [
     ...data.centers.flatMap((center) => center.latitude == null || center.longitude == null
       ? []
-      : [{ id: center.id, name: center.name, description: `${center.location} · ${center.status}`, latitude: center.latitude, longitude: center.longitude, type: 'center' as const }]),
+      : [{ id: `center-${center.id}`, title: center.name, subtitle: `${center.location} · ${center.status}`, latitude: center.latitude, longitude: center.longitude, kind: 'center' as const }]),
     ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null || incident.status === 'resolved'
       ? []
-      : [{ id: incident.id, name: incident.type, description: `${incident.status.replace(/_/g, ' ')} · ${incident.location}`, latitude: incident.latitude, longitude: incident.longitude, type: 'incident' as const }]),
+      : [{ id: `incident-${incident.id}`, title: incident.type, subtitle: `${incident.status.replace(/_/g, ' ')} · ${incident.location}`, latitude: incident.latitude, longitude: incident.longitude, kind: 'incident' as const }]),
   ], [data]);
 
   if (isOnline === null) return <MapMessage>Checking map connectivity...</MapMessage>;
   if (!isOnline && loading) return <MapMessage>Loading saved map locations...</MapMessage>;
   if (!isOnline) return <OfflineMapCanvas points={toOfflinePoints(data)} />;
   if (!MAPS_API_KEY) return <MapMessage>Google Maps is not configured. Add EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY to the app build environment.</MapMessage>;
-
-  const search = async () => {
-    const term = query.trim().toLocaleLowerCase();
-    if (!term) return;
-    const place = mappedPlaces.find((item) => term.split(/\s+/).every((word) => `${item.name} ${item.description}`.toLocaleLowerCase().includes(word)));
-    if (place) {
-      mapRef.current?.animateToRegion({ latitude: place.latitude, longitude: place.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
-      return;
-    }
-    try {
-      const [searchedPlace] = await searchMapPlaces(query.trim());
-      if (!searchedPlace) {
-        Alert.alert('No results', 'No matching place was found. Check the search text or try a nearby landmark.');
-        return;
-      }
-      mapRef.current?.animateToRegion({
-        latitude: searchedPlace.latitude,
-        longitude: searchedPlace.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      });
-    } catch (searchError) {
-      Alert.alert('Search unavailable', searchError instanceof Error ? searchError.message : 'Google Maps search failed. Check your connection and try again.');
-    }
-  };
 
   const recenter = async () => {
     try {
@@ -141,7 +136,7 @@ export default function ResponderLiveMap() {
             pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#218B25'}
           >
             <Callout onPress={() => setNavigationTarget({ title: center.name, latitude: center.latitude!, longitude: center.longitude! })}>
-              <View style={styles.callout}><Text style={styles.calloutTitle}>{center.name}</Text><Text style={styles.calloutBody}>{center.currentOccupancy}/{center.capacity} · {center.status}</Text><Text style={styles.calloutAction}>Tap for in-app routes</Text></View>
+              <View style={styles.callout}><Text style={styles.calloutTitle}>{center.name}</Text><Text style={styles.calloutBody}>{center.currentOccupancy}/{center.capacity} · {center.status}</Text><View style={styles.calloutNavigate}><MaterialCommunityIcons name="navigation-variant" size={15} color={Colors.white} /><Text style={styles.calloutAction}>Navigate</Text></View></View>
             </Callout>
           </Marker>
         ))}
@@ -154,7 +149,7 @@ export default function ResponderLiveMap() {
             pinColor={incident.status === 'reported' ? '#D83B36' : incident.status === 'acknowledged' ? '#F28C28' : '#267DA4'}
           >
             <Callout onPress={() => setNavigationTarget({ title: incident.type, latitude: incident.latitude!, longitude: incident.longitude! })}>
-              <View style={styles.callout}><Text style={styles.calloutTitle}>{incident.type}</Text><Text style={styles.calloutBody}>{incident.status.replace(/_/g, ' ')} · {incident.location}</Text><Text style={styles.calloutAction}>Tap for in-app routes</Text></View>
+              <View style={styles.callout}><Text style={styles.calloutTitle}>{incident.type}</Text><Text style={styles.calloutBody}>{incident.status.replace(/_/g, ' ')} · {incident.location}</Text><View style={styles.calloutNavigate}><MaterialCommunityIcons name="navigation-variant" size={15} color={Colors.white} /><Text style={styles.calloutAction}>Navigate</Text></View></View>
             </Callout>
           </Marker>
         ))}
@@ -166,10 +161,15 @@ export default function ResponderLiveMap() {
         })}
       </MapView>
 
-      <View style={styles.searchBar}>
-        <TextInput value={query} onChangeText={setQuery} onSubmitEditing={() => void search()} placeholder="Search incidents, centers, or places" placeholderTextColor={Colors.textMuted} returnKeyType="search" accessibilityLabel="Search map" style={styles.searchInput} />
-        <Pressable onPress={() => void search()} accessibilityRole="button" accessibilityLabel="Search map"><MaterialCommunityIcons name="magnify" size={23} color={Colors.primary} /></Pressable>
-      </View>
+      <MapSearchBox
+        query={query}
+        onChangeQuery={setQuery}
+        localSuggestions={localSuggestions}
+        onSelect={(suggestion) => mapRef.current?.animateToRegion({ latitude: suggestion.latitude, longitude: suggestion.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 })}
+        onNavigate={(suggestion) => setNavigationTarget({ title: suggestion.title, latitude: suggestion.latitude, longitude: suggestion.longitude })}
+        placeholder="Search incidents, centers, or places"
+        accessibilityLabel="Search incidents, centers, or places"
+      />
       <View style={styles.controls}>
         <Pressable onPress={() => void recenter()} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map"><MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} /></Pressable>
         <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map"><Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text></Pressable>
@@ -188,8 +188,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden', backgroundColor: Colors.surfaceMuted },
   message: { flex: 1, padding: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted },
   messageText: { color: Colors.textMuted, fontSize: 13, textAlign: 'center' },
-  searchBar: { position: 'absolute', top: 12, left: 12, right: 12, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
-  searchInput: { flex: 1, color: Colors.text, fontSize: 13, paddingVertical: 10 },
   controls: { position: 'absolute', right: 12, bottom: 20, gap: 8 },
   control: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
   controlLabel: { color: Colors.primary, fontSize: 13, fontWeight: '800' },
@@ -198,7 +196,8 @@ const styles = StyleSheet.create({
   callout: { width: 200, padding: 4 },
   calloutTitle: { color: Colors.text, fontSize: 14, fontWeight: '700' },
   calloutBody: { color: Colors.textMuted, fontSize: 12, marginTop: 3 },
-  calloutAction: { color: Colors.primary, fontSize: 11, fontWeight: '700', marginTop: 8 },
+  calloutNavigate: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 9, paddingVertical: 7, borderRadius: 8, backgroundColor: Colors.primary },
+  calloutAction: { color: Colors.white, fontSize: 11, fontWeight: '800' },
 });
 
 function toOfflinePoints(data: ResponderDataSnapshot): OfflineMapPoint[] {
