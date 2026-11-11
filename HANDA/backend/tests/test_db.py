@@ -31,7 +31,7 @@ class DatabaseDependencyTests(unittest.TestCase):
         self.assertEqual(result["status"], "in_progress")
         query, parameters = connection.execute.call_args.args
         self.assertIn("reporter_user_id = %s", query)
-        self.assertIn("type LIKE 'SOS - %'", query)
+        self.assertIn("type LIKE 'SOS - %%'", query)
         self.assertIn("status <> 'resolved'", query)
         self.assertEqual(parameters, ("resident-1",))
 

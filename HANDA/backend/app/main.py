@@ -946,7 +946,7 @@ def get_resident_active_sos(
                response_eta_minutes, created_at
         FROM incidents
         WHERE reporter_user_id = %s
-          AND type LIKE 'SOS - %'
+          AND type LIKE 'SOS - %%'
           AND status <> 'resolved'
         ORDER BY created_at DESC
         LIMIT 1
