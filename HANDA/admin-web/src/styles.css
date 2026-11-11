@@ -530,14 +530,20 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .option-picker-item:last-child { border-bottom: 0; }
 .option-picker-item:hover { background: var(--surface-soft); }
 .option-picker-item-selected { background: #f3faf2; }
-.option-picker-item > span:nth-of-type(1) { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.option-picker-item > span:not(.resident-option-avatar):not(.option-capacity) { display: grid; min-width: 0; flex: 1; gap: 3px; }
 .option-picker-item strong { overflow: hidden; color: var(--ink); font-size: 10px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
 .option-picker-item small { display: flex; min-width: 0; align-items: center; gap: 4px; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .option-picker-item small svg { flex: 0 0 auto; }
 .option-capacity { flex: 0 0 auto; padding: 4px 6px; border-radius: 4px; color: var(--green-deep); background: var(--green-pale); font-size: 8px; font-weight: 800; }
 .option-result-count { display: block; padding: 6px 1px 0; color: var(--muted); font-size: 9px; }
 .option-empty { padding: 17px 12px; color: var(--muted); font-size: 10px; text-align: center; }
-.resident-option-avatar { display: grid; width: 31px; height: 31px; flex: 0 0 31px; place-items: center; border-radius: 50%; color: var(--green-deep); background: var(--green-pale); font-size: 11px; font-weight: 850; }
+.resident-option-avatar { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; overflow: hidden; border: 1px solid var(--green-line); border-radius: 50%; color: var(--green-deep); background: var(--green-pale); font-size: 11px; font-weight: 850; }
+.resident-option-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.resident-linked-summary { display: flex; min-width: 0; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--green-line); border-radius: 8px; background: var(--green-pale); }
+.resident-linked-summary > span:nth-child(2) { display: grid; min-width: 0; flex: 1; gap: 3px; }
+.resident-linked-summary strong { overflow: hidden; color: var(--ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.resident-linked-summary small { color: var(--muted); font-size: 9px; line-height: 1.4; }
+.resident-linked-summary > svg:last-child { flex: 0 0 auto; color: var(--green-deep); }
 .option-meta-separator { padding: 0 2px; color: var(--faint); }
 :root[data-theme='dark'] .option-search, :root[data-theme='dark'] .option-control, :root[data-theme='dark'] .option-picker-list, :root[data-theme='dark'] .option-picker-item { color: var(--ink); background: var(--surface); }
 :root[data-theme='dark'] .option-picker-item-selected, :root[data-theme='dark'] .picker-selection, :root[data-theme='dark'] .resident-link-choice-selected { background: #26382a; }

@@ -226,7 +226,7 @@ export async function getUsers() {
     isSuperAdmin: Boolean(user.is_superadmin ?? user.isSuperAdmin),
     responderType: user.responder_type ?? user.responderType ?? null,
     hasVerificationDocument: Boolean(user.has_verification_document ?? user.hasVerificationDocument),
-    birthday: user.birthday, mobileNumber: user.mobile_number ?? user.mobileNumber,
+    birthday: user.birthday, sex: user.sex, mobileNumber: user.mobile_number ?? user.mobileNumber,
     currentAddress: user.current_address ?? user.currentAddress,
     profilePicture: user.profile_picture ?? null,
     createdAt: user.createdAt ?? user.created_at ?? '', updatedAt: user.updatedAt ?? user.updated_at ?? '',

@@ -116,6 +116,7 @@ export interface UserRecord {
   responderType?: 'Official' | 'Volunteer' | null;
   hasVerificationDocument?: boolean;
   birthday?: string;
+  sex?: 'Male' | 'Female' | 'Other' | null;
   mobileNumber?: string;
   currentAddress?: string;
   profilePicture?: string | null;

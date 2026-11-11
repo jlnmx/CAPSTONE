@@ -1883,7 +1883,7 @@ def update_evacuation_registration_status(
 @app.get("/api/v1/users")
 def list_users(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_superadmin)):
     rows = connection.execute(
-        "SELECT users.id, users.name, users.email, users.birthday, users.mobile_number, users.current_address, users.role, users.status, users.is_superadmin, users.responder_type, users.responder_organization, users.responder_barangay, users.profile_picture, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
+        "SELECT users.id, users.name, users.email, users.birthday, users.sex, users.mobile_number, users.current_address, users.role, users.status, users.is_superadmin, users.responder_type, users.responder_organization, users.responder_barangay, users.profile_picture, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
     ).fetchall()
     return rows
 

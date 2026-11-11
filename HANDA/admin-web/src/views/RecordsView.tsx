@@ -60,6 +60,16 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
 type HouseholdDraft = { name: string; relationship: string; age: string; sex: '' | 'Male' | 'Female'; contactNumber: string };
 const emptyMember: HouseholdDraft = { name: '', relationship: '', age: '', sex: '', contactNumber: '' };
 
+function getResidentAge(birthday?: string) {
+  if (!birthday) return '';
+  const date = new Date(`${birthday.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  const today = new Date();
+  let age = today.getFullYear() - date.getFullYear();
+  if (today.getMonth() < date.getMonth() || (today.getMonth() === date.getMonth() && today.getDate() < date.getDate())) age -= 1;
+  return age >= 0 && age <= 150 ? String(age) : '';
+}
+
 function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => Promise<void> }) {
   const [centers, setCenters] = useState<CenterRecord[]>([]);
   const [residents, setResidents] = useState<UserRecord[]>([]);
@@ -79,7 +89,7 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [age, setAge] = useState('');
-  const [sex, setSex] = useState<'Female' | 'Male' | 'Other'>('Female');
+  const [sex, setSex] = useState<'' | 'Female' | 'Male' | 'Other'>('Female');
   const [contactNumber, setContactNumber] = useState('');
   const [address, setAddress] = useState('');
   const [members, setMembers] = useState<HouseholdDraft[]>([]);
@@ -124,6 +134,38 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
     setMembers((current) => current.map((member, memberIndex) => memberIndex === index ? { ...member, ...patch } : member));
   };
 
+  const selectResident = (resident: UserRecord) => {
+    const nameParts = resident.name.trim().split(/\s+/).filter(Boolean);
+    setResidentUserId(resident.id);
+    setFirstName(nameParts[0] ?? '');
+    setMiddleName(nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '');
+    setLastName(nameParts.length > 1 ? nameParts[nameParts.length - 1] : '');
+    setAge(getResidentAge(resident.birthday));
+    setSex(resident.sex === 'Male' || resident.sex === 'Female' || resident.sex === 'Other' ? resident.sex : '');
+    setContactNumber(resident.mobileNumber ?? '');
+    setAddress(resident.currentAddress ?? '');
+  };
+
+  const selectWalkIn = () => {
+    setResidentUserId('');
+    setFirstName('');
+    setMiddleName('');
+    setLastName('');
+    setAge('');
+    setSex('Female');
+    setContactNumber('');
+    setAddress('');
+  };
+
+  const linkedResident = residents.find((resident) => resident.id === residentUserId);
+  const missingResidentFields = linkedResident ? [
+    !firstName.trim() ? 'first name' : '',
+    !lastName.trim() ? 'last name' : '',
+    !age.trim() ? 'age' : '',
+    !sex ? 'sex' : '',
+    !address.trim() ? 'home address' : '',
+  ].filter(Boolean) : [];
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
@@ -133,6 +175,7 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
       if (!firstName.trim() || !lastName.trim() || !address.trim()) throw new Error('Enter the evacuee’s name and address.');
       const parsedAge = Number(age);
       if (!Number.isInteger(parsedAge) || parsedAge < 0 || parsedAge > 150) throw new Error('Enter a valid age between 0 and 150.');
+      if (!sex) throw new Error('Choose a sex for the evacuee.');
       if (members.some((member) => !member.name.trim() || !member.relationship.trim())) {
         throw new Error('Enter a name and relationship for each household member.');
       }
@@ -189,7 +232,7 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <small className="option-result-count">Showing {filteredCenters.length} of {centers.length} available centers</small>
         </div>
         <div className="form-field form-field-wide"><span>Link Resident account <small>(optional)</small></span>
-          <button type="button" className={`resident-link-choice ${!residentUserId ? 'resident-link-choice-selected' : ''}`} onClick={() => setResidentUserId('')} aria-pressed={!residentUserId}>
+          <button type="button" className={`resident-link-choice ${!residentUserId ? 'resident-link-choice-selected' : ''}`} onClick={selectWalkIn} aria-pressed={!residentUserId}>
             <UserRoundPlus size={17} /><span><strong>Walk-in / no account</strong><small>Record this household without linking a HANDA account</small></span>{!residentUserId && <Check size={16} />}
           </button>
           <div className="option-picker-toolbar">
@@ -200,8 +243,8 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <div className="option-picker-list resident-option-list" role="listbox" aria-label="Active Resident accounts">
             {filteredResidents.map((resident) => {
               const selected = residentUserId === resident.id;
-              return <button type="button" key={resident.id} role="option" aria-selected={selected} className={`option-picker-item ${selected ? 'option-picker-item-selected' : ''}`} onClick={() => setResidentUserId(resident.id)}>
-                <span className="resident-option-avatar">{resident.name.trim().charAt(0).toUpperCase() || 'R'}</span>
+              return <button type="button" key={resident.id} role="option" aria-selected={selected} className={`option-picker-item ${selected ? 'option-picker-item-selected' : ''}`} onClick={() => selectResident(resident)}>
+                <ResidentOptionAvatar resident={resident} />
                 <span><strong>{resident.name}</strong><small><Mail size={12} /> {resident.email || 'No email'}{resident.mobileNumber && <><span className="option-meta-separator">·</span><Phone size={12} /> {resident.mobileNumber}</>}</small></span>
                 {selected && <Check size={16} />}
               </button>;
@@ -210,13 +253,21 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
           </div>
           <small className="option-result-count">Showing {filteredResidents.length} of {residents.length} active Resident accounts</small>
         </div>
-        <Field label="First name" value={firstName} onChange={setFirstName} required />
-        <Field label="Middle name" value={middleName} onChange={setMiddleName} />
-        <Field label="Last name" value={lastName} onChange={setLastName} required />
-        <Field label="Age" value={age} onChange={setAge} type="number" min="0" max="150" required />
-        <label className="form-field"><span>Sex *</span><select value={sex} onChange={(event) => setSex(event.target.value as typeof sex)}><option>Female</option><option>Male</option><option>Other</option></select></label>
-        <Field label="Contact number" value={contactNumber} onChange={setContactNumber} />
-        <Field label="Home address" value={address} onChange={setAddress} required wide />
+        {linkedResident && <div className="resident-linked-summary form-field-wide">
+          <ResidentOptionAvatar resident={linkedResident} />
+          <span><strong>{linkedResident.name}</strong><small>Resident account linked · registration details filled from profile</small></span>
+          <Check size={16} />
+        </div>}
+        {(!linkedResident || missingResidentFields.length > 0) && <>
+          {linkedResident && <div className="form-field-wide"><InlineNotice>Complete the missing details{missingResidentFields.length ? `: ${missingResidentFields.join(', ')}.` : '.'}</InlineNotice></div>}
+          {(!linkedResident || !firstName.trim()) && <Field label="First name" value={firstName} onChange={setFirstName} required />}
+          {!linkedResident && <Field label="Middle name" value={middleName} onChange={setMiddleName} />}
+          {(!linkedResident || !lastName.trim()) && <Field label="Last name" value={lastName} onChange={setLastName} required />}
+          {(!linkedResident || !age.trim()) && <Field label="Age" value={age} onChange={setAge} type="number" min="0" max="150" required />}
+          {(!linkedResident || !sex) && <label className="form-field"><span>Sex *</span><select value={sex} onChange={(event) => setSex(event.target.value as typeof sex)}><option value="">Select sex</option><option>Female</option><option>Male</option><option>Other</option></select></label>}
+          {!linkedResident && <Field label="Contact number" value={contactNumber} onChange={setContactNumber} />}
+          {(!linkedResident || !address.trim()) && <Field label="Home address" value={address} onChange={setAddress} required wide />}
+        </>}
 
         <div className="form-field-wide household-form-heading">
           <div><strong>Household members</strong><small>{members.length + 1} people in this household; added as registered until checked in.</small></div>
@@ -236,6 +287,16 @@ function AddEvacueeModal({ onClose, onCreated }: { onClose: () => void; onCreate
       </form>}
     </section>
   </div>;
+}
+
+function ResidentOptionAvatar({ resident }: { resident: UserRecord }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initials = resident.name.trim().split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'R';
+  return <span className="resident-option-avatar">
+    {resident.profilePicture && !imageFailed
+      ? <img src={resident.profilePicture} alt="" onError={() => setImageFailed(true)} />
+      : initials}
+  </span>;
 }
 
 function Field({ label, value, onChange, required = false, type = 'text', min, max, wide = false, placeholder }: { label: string; value: string; onChange: (value: string) => void; required?: boolean; type?: string; min?: string; max?: string; wide?: boolean; placeholder?: string }) {
