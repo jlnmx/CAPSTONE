@@ -31,6 +31,8 @@ from .schemas import AdminEvacuationRegistrationCreate, AdminUserCreate, AdminUs
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
+from .schemas import MapPlaceSearch, MapRouteRequest
+from .maps import compute_routes, search_places
 from .push import PUSH_SCHEMA_SQL, enqueue_evacuation_status, enqueue_responders, enqueue_user, process_one
 
 logger = logging.getLogger(__name__)
@@ -845,6 +847,20 @@ def chatbot_answer(request: ChatbotRequest, _: CurrentUser = Depends(get_current
     if not isinstance(answer, str) or not answer.strip():
         raise HTTPException(status_code=502, detail="The AI assistant returned an empty answer. Please try again.")
     return {"answer": answer.strip()}
+
+
+@app.post("/api/v1/map/places/search")
+def search_map_places(request: MapPlaceSearch, _: CurrentUser = Depends(require_roles("resident", "responder"))):
+    if not settings.google_maps_api_key:
+        raise HTTPException(status_code=503, detail="Google Maps search is not configured on the server.")
+    return search_places(request, settings.google_maps_api_key)
+
+
+@app.post("/api/v1/map/routes")
+def calculate_map_routes(request: MapRouteRequest, _: CurrentUser = Depends(require_roles("resident", "responder"))):
+    if not settings.google_maps_api_key:
+        raise HTTPException(status_code=503, detail="Google Maps routing is not configured on the server.")
+    return compute_routes(request, settings.google_maps_api_key)
 
 
 @app.post("/api/v1/incidents", status_code=201)

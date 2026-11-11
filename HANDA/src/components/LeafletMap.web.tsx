@@ -6,8 +6,11 @@ import { Colors } from '@constants/colors';
 import type { MapEvacuationCenter } from '@/types/index';
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import { loadGoogleMapsApi } from '@services/map/googleMapsWeb';
+import { searchMapPlaces } from '@services/map/googleMaps';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
+import MapNavigation from './MapNavigation';
+import type { MapNavigationTarget } from './MapNavigation.types';
 
 const BINAN = { lat: 14.3036, lng: 121.0781 };
 
@@ -22,6 +25,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
   const [loadError, setLoadError] = useState('');
   const [query, setQuery] = useState('');
   const [show3d, setShow3d] = useState(false);
+  const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const validCenters = useMemo(() => centers.filter((center) => (
@@ -54,18 +58,24 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             ? undefined
             : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#218B25', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
         });
-        const info = new google.maps.InfoWindow({
-          content: `<strong>${escapeHtml(center.name)}</strong><br>${escapeHtml(center.location || 'Evacuation center')}<br><small>Click for walking directions</small>`,
-        });
+        const content = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = center.name;
+        const description = document.createElement('div');
+        description.textContent = center.location || 'Evacuation center';
+        const navigateButton = document.createElement('button');
+        navigateButton.type = 'button';
+        navigateButton.textContent = 'Navigate in app';
+        navigateButton.addEventListener('click', () => setNavigationTarget({
+          title: center.name,
+          latitude: Number(center.latitude),
+          longitude: Number(center.longitude),
+        }));
+        content.append(title, description, navigateButton);
+        const info = new google.maps.InfoWindow({ content });
         marker.addListener('click', () => {
           info.open({ map, anchor: marker });
           onSelectCenter?.(center.id);
-        });
-        info.addListener('domready', () => {
-          const content = document.querySelector('.gm-style-iw');
-          content?.addEventListener('click', () => {
-            window.open(`https://www.google.com/maps/dir/?api=1&destination=${center.latitude},${center.longitude}&travelmode=walking`, '_blank', 'noopener,noreferrer');
-          }, { once: true });
         });
         return marker;
       });
@@ -89,7 +99,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
   const searchCenters = async () => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return;
-    const center = validCenters.find((item) => `${item.name} ${item.location}`.toLocaleLowerCase().includes(normalized));
+    const center = validCenters.find((item) => normalized.split(/\s+/).every((word) => `${item.name} ${item.location}`.toLocaleLowerCase().includes(word)));
     if (center) {
       mapRef.current?.panTo({ lat: Number(center.latitude), lng: Number(center.longitude) });
       mapRef.current?.setZoom(16);
@@ -98,18 +108,12 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     }
     try {
       setLoadError('');
-      const places = await google.maps.importLibrary('places') as google.maps.PlacesLibrary;
-      const result = await places.Place.searchByText({
-        textQuery: query.trim(),
-        fields: ['location', 'displayName'],
-        maxResultCount: 1,
-      });
-      const location = result.places[0]?.location;
-      if (!location) {
+      const [place] = await searchMapPlaces(query.trim());
+      if (!place) {
         setLoadError('No matching place was found. Check the search text or try a nearby landmark.');
         return;
       }
-      mapRef.current?.panTo(location);
+      mapRef.current?.panTo({ lat: place.latitude, lng: place.longitude });
       mapRef.current?.setZoom(16);
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : 'Places search failed. Check the Places API configuration and try again.');
@@ -165,6 +169,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           <Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text>
         </Pressable>
       </View>
+      {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
       {loadError ? <View style={styles.errorBanner}><Text style={styles.errorText}>{loadError}</Text></View> : null}
     </View>
   );
@@ -172,12 +177,6 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
 
 function MapState({ label }: { label: string }) {
   return <View style={styles.state}><ActivityIndicator color={Colors.primary} /><Text style={styles.stateText}>{label}</Text></View>;
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[character] ?? character));
 }
 
 const styles = StyleSheet.create({

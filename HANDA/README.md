@@ -83,12 +83,21 @@ to `localhost`. `.env.local` is Git-ignored and is **not** uploaded to EAS.
 Google Maps needs separate restricted keys: `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY`
 for the Android Maps SDK, `EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY` for the iOS SDK,
 and `EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY` for Expo web. Enable Maps SDK for
-Android, Maps SDK for iOS, Maps JavaScript API, and Places API (New) in the
-Google Cloud project. Restrict each key to its app or website and only the APIs it
-needs; Android restrictions must include package `com.handa.evacuation` and
+Android, Maps SDK for iOS, and Maps JavaScript API in the Google Cloud project.
+Restrict each key to its app or website and only the APIs it needs; Android restrictions must include package `com.handa.evacuation` and
 the signing certificate fingerprints used for development and release. The
 admin website uses its own `VITE_GOOGLE_MAPS_API_KEY` restricted to its deployed
 web origins; add it to the admin-web build/deployment environment.
+
+The Render API uses a separate server-only `GOOGLE_MAPS_API_KEY`, restricted to
+Places API (New) and Routes API. Configure it in the `handa-api` Render service
+environment (and `backend/.env` for local backend development). Never put this
+key in an Expo or Vite client variable. Resident and responder place search and
+route calculation use this authenticated backend proxy. Routes support driving
+and walking with alternate options, foreground location tracking, and automatic
+rerouting when the user leaves the selected path. In-app route guidance requires
+an internet connection and location permission; offline maps remain markers-only.
+The Command Center map is for monitoring and does not provide navigation.
 
 Create the mobile keys in each EAS environment, without putting their values in
 the repository:

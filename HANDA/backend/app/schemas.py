@@ -15,6 +15,29 @@ class PushDeviceInput(BaseModel):
     token: str = Field(min_length=10, max_length=255, pattern=r"^(ExpoPushToken|ExponentPushToken)\[[A-Za-z0-9_-]+\]$")
 
 
+class MapCoordinate(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+
+
+class MapPlaceSearch(BaseModel):
+    query: str = Field(min_length=2, max_length=160)
+
+    @field_validator("query")
+    @classmethod
+    def trim_search_query(cls, value: str) -> str:
+        normalized = value.strip()
+        if len(normalized) < 2:
+            raise ValueError("Enter at least two characters to search.")
+        return normalized
+
+
+class MapRouteRequest(BaseModel):
+    origin: MapCoordinate
+    destination: MapCoordinate
+    travelMode: Literal["DRIVE", "WALK"]
+
+
 class IncidentCreate(BaseModel):
     id: str | None = None
     type: str = Field(min_length=1, max_length=120)

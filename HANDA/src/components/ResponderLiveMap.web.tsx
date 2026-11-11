@@ -8,8 +8,11 @@ import { useEvacuationCenterFeed, useIncidentFeed, useResponderLive } from '@hoo
 import { getIncidentResponders, getResponderData, ResponderDataSnapshot } from '@services/responderData';
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import { loadGoogleMapsApi } from '@services/map/googleMapsWeb';
+import { searchMapPlaces } from '@services/map/googleMaps';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
+import MapNavigation from './MapNavigation';
+import type { MapNavigationTarget } from './MapNavigation.types';
 
 const CENTER = { lat: 14.3036, lng: 121.0781 };
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY ?? '';
@@ -28,6 +31,7 @@ export default function ResponderLiveMap() {
   const [query, setQuery] = useState('');
   const [show3d, setShow3d] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
   const { responders } = useResponderLive();
 
   const loadData = useCallback(async () => {
@@ -105,14 +109,22 @@ export default function ResponderLiveMap() {
           ? undefined
           : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#218B25', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
       });
-      const info = new google.maps.InfoWindow({
-        content: `<strong>${escapeHtml(center.name)}</strong><br>${escapeHtml(center.location)} · ${center.currentOccupancy}/${center.capacity}<br><button type="button">Directions</button>`,
-      });
+      const content = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = center.name;
+      const details = document.createElement('div');
+      details.textContent = `${center.location} · ${center.currentOccupancy}/${center.capacity}`;
+      const navigateButton = document.createElement('button');
+      navigateButton.type = 'button';
+      navigateButton.textContent = 'Navigate in app';
+      navigateButton.addEventListener('click', () => setNavigationTarget({
+        title: center.name,
+        latitude: center.latitude!,
+        longitude: center.longitude!,
+      }));
+      content.append(title, details, navigateButton);
+      const info = new google.maps.InfoWindow({ content });
       marker.addListener('click', () => info.open({ map, anchor: marker }));
-      info.addListener('domready', () => {
-        const button = document.querySelector('.gm-style-iw button[type="button"]');
-        button?.addEventListener('click', () => openDirections(center.latitude!, center.longitude!), { once: true });
-      });
       markers.push(marker);
     });
 
@@ -124,14 +136,22 @@ export default function ResponderLiveMap() {
         title: incident.type,
         icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: incident.status === 'reported' ? '#D83B36' : '#F28C28', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
       });
-      const info = new google.maps.InfoWindow({
-        content: `<strong>${escapeHtml(incident.type)}</strong><br>${escapeHtml(incident.status.replace(/_/g, ' '))} · ${escapeHtml(incident.location)}<br><button type="button">Directions</button>`,
-      });
+      const content = document.createElement('div');
+      const title = document.createElement('strong');
+      title.textContent = incident.type;
+      const details = document.createElement('div');
+      details.textContent = `${incident.status.replace(/_/g, ' ')} · ${incident.location}`;
+      const navigateButton = document.createElement('button');
+      navigateButton.type = 'button';
+      navigateButton.textContent = 'Navigate in app';
+      navigateButton.addEventListener('click', () => setNavigationTarget({
+        title: incident.type,
+        latitude: incident.latitude!,
+        longitude: incident.longitude!,
+      }));
+      content.append(title, details, navigateButton);
+      const info = new google.maps.InfoWindow({ content });
       marker.addListener('click', () => info.open({ map, anchor: marker }));
-      info.addListener('domready', () => {
-        const button = document.querySelector('.gm-style-iw button[type="button"]');
-        button?.addEventListener('click', () => openDirections(incident.latitude!, incident.longitude!), { once: true });
-      });
       markers.push(marker);
     });
 
@@ -158,7 +178,7 @@ export default function ResponderLiveMap() {
   const search = async () => {
     const term = query.trim().toLocaleLowerCase();
     if (!term) return;
-    const match = searchItems.find((item) => `${item.name} ${item.description}`.toLocaleLowerCase().includes(term));
+    const match = searchItems.find((item) => term.split(/\s+/).every((word) => `${item.name} ${item.description}`.toLocaleLowerCase().includes(word)));
     if (match) {
       mapRef.current?.panTo({ lat: match.latitude, lng: match.longitude });
       mapRef.current?.setZoom(16);
@@ -166,18 +186,12 @@ export default function ResponderLiveMap() {
     }
     try {
       setLoadError('');
-      const places = await google.maps.importLibrary('places') as google.maps.PlacesLibrary;
-      const result = await places.Place.searchByText({
-        textQuery: query.trim(),
-        fields: ['location', 'displayName'],
-        maxResultCount: 1,
-      });
-      const location = result.places[0]?.location;
-      if (!location) {
+      const [place] = await searchMapPlaces(query.trim());
+      if (!place) {
         setLoadError('No matching place was found. Check the search text or try a nearby landmark.');
         return;
       }
-      mapRef.current?.panTo(location);
+      mapRef.current?.panTo({ lat: place.latitude, lng: place.longitude });
       mapRef.current?.setZoom(16);
     } catch (searchError) {
       setLoadError(searchError instanceof Error ? searchError.message : 'Places search failed. Check the Places API configuration and try again.');
@@ -217,19 +231,10 @@ export default function ResponderLiveMap() {
         <Pressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map"><MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} /></Pressable>
         <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map"><Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text></Pressable>
       </View>
+      {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
       {(loading || error) && <View style={styles.status}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error}</Text></View>}
     </View>
   );
-}
-
-function openDirections(latitude: number, longitude: number) {
-  window.open(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`, '_blank', 'noopener,noreferrer');
-}
-
-function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (character) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[character] ?? character));
 }
 
 function MapState({ label }: { label: string }) {

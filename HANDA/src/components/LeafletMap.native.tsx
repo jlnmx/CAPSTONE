@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import MapView, { Callout, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,8 +7,11 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import type { MapEvacuationCenter } from '@/types/index';
 import useMapConnectivity from '@services/map/useMapConnectivity';
+import { searchMapPlaces } from '@services/map/googleMaps';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
+import MapNavigation from './MapNavigation';
+import type { MapNavigationTarget } from './MapNavigation.types';
 
 const BINAN_REGION: Region = {
   latitude: 14.3036,
@@ -36,6 +39,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
   const [show3d, setShow3d] = useState(false);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
   const validCenters = useMemo(() => centers.filter((center) => (
     center.latitude != null && center.longitude != null
       && Number.isFinite(Number(center.latitude)) && Number.isFinite(Number(center.longitude))
@@ -55,7 +59,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     const term = query.trim();
     if (!term) return;
     const normalized = term.toLocaleLowerCase();
-    const center = validCenters.find((item) => `${item.name} ${item.location}`.toLocaleLowerCase().includes(normalized));
+    const center = validCenters.find((item) => normalized.split(/\s+/).every((word) => `${item.name} ${item.location}`.toLocaleLowerCase().includes(word)));
     if (center) {
       mapRef.current?.animateToRegion({
         latitude: Number(center.latitude),
@@ -68,9 +72,19 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     }
 
     try {
-      await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(term)}`);
-    } catch {
-      Alert.alert('Search unavailable', 'Google Maps search could not be opened on this device.');
+      const [place] = await searchMapPlaces(term);
+      if (!place) {
+        Alert.alert('No results', 'No matching place was found. Check the search text or try a nearby landmark.');
+        return;
+      }
+      mapRef.current?.animateToRegion({
+        latitude: place.latitude,
+        longitude: place.longitude,
+        latitudeDelta: 0.008,
+        longitudeDelta: 0.008,
+      });
+    } catch (error) {
+      Alert.alert('Search unavailable', error instanceof Error ? error.message : 'Google Maps search failed. Check your connection and try again.');
     }
   };
 
@@ -100,15 +114,6 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
     mapRef.current?.animateCamera({ pitch: enabled ? 55 : 0, heading: 0, zoom: 16 }, { duration: 450 });
   };
 
-  const navigateTo = async (center: MapEvacuationCenter) => {
-    const destination = `${center.latitude},${center.longitude}`;
-    try {
-      await Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=walking`);
-    } catch {
-      Alert.alert('Navigation unavailable', 'Google Maps directions could not be opened.');
-    }
-  };
-
   return (
     <View style={styles.container}>
       <MapView
@@ -133,11 +138,15 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
             pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#218B25'}
             onPress={() => onSelectCenter?.(center.id)}
           >
-            <Callout onPress={() => void navigateTo(center)}>
+            <Callout onPress={() => setNavigationTarget({
+              title: center.name,
+              latitude: Number(center.latitude),
+              longitude: Number(center.longitude),
+            })}>
               <View style={styles.callout}>
                 <Text style={styles.calloutTitle}>{center.name}</Text>
                 <Text style={styles.calloutText}>{center.location || 'Evacuation center'}</Text>
-                <Text style={styles.calloutAction}>Tap for walking directions</Text>
+                <Text style={styles.calloutAction}>Tap for in-app routes and navigation</Text>
               </View>
             </Callout>
           </Marker>
@@ -168,6 +177,7 @@ export default function LeafletMap({ centers = [], onSelectCenter }: LeafletMapP
           <Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text>
         </Pressable>
       </View>
+      {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
     </View>
   );
 }

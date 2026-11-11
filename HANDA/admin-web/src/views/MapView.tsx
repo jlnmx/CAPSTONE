@@ -119,7 +119,7 @@ function loadGoogleMaps(apiKey: string) {
   return googleMapsLoad;
 }
 
-function popupContent(record: CenterRecord | IncidentRecord, center: boolean, onDirections?: () => void) {
+function popupContent(record: CenterRecord | IncidentRecord, center: boolean) {
   const popup = document.createElement('div');
   const name = document.createElement('strong');
   name.textContent = center ? (record as CenterRecord).name : (record as IncidentRecord).type;
@@ -129,7 +129,6 @@ function popupContent(record: CenterRecord | IncidentRecord, center: boolean, on
     const status = document.createElement('div');
     status.textContent = `${labelStatus(value.status)} · ${value.currentOccupancy.toLocaleString()} / ${value.capacity.toLocaleString()} occupants`;
     popup.append(status);
-    if (onDirections) appendDirectionsAction(popup, onDirections);
     return popup;
   }
   const incident = record as IncidentRecord;
@@ -169,17 +168,7 @@ function popupContent(record: CenterRecord | IncidentRecord, center: boolean, on
     reporter.append(info);
     popup.append(reporter);
   }
-  if (onDirections) appendDirectionsAction(popup, onDirections);
   return popup;
-}
-
-function appendDirectionsAction(popup: HTMLElement, onDirections: () => void) {
-  const action = document.createElement('button');
-  action.type = 'button';
-  action.textContent = 'Get directions from my location';
-  action.style.cssText = 'margin-top:8px;padding:7px 9px;border:0;border-radius:4px;color:#fff;background:#245f3c;font:600 11px Manrope, sans-serif;cursor:pointer';
-  action.addEventListener('click', onDirections);
-  popup.append(action);
 }
 
 export default function MapView() {
@@ -191,8 +180,6 @@ export default function MapView() {
   const incidentMarkers = useRef(new Map<string, any>());
   const centerMarkers = useRef<any[]>([]);
   const googleInfoWindow = useRef<any>(null);
-  const directionsService = useRef<any>(null);
-  const directionsRenderer = useRef<any>(null);
   const placeMarker = useRef<any>(null);
   const [cachedMapSnapshot] = useState(readCachedMapSnapshot);
   const [data, setData] = useState<MapSnapshot>(() => cachedMapSnapshot?.data ?? { incidents: [], centers: [] });
@@ -304,8 +291,6 @@ export default function MapView() {
         mapRef.current = map;
         mapKind.current = 'google';
         googleInfoWindow.current = new google.InfoWindow();
-        directionsService.current = new google.DirectionsService();
-        directionsRenderer.current = new google.DirectionsRenderer({ map, suppressMarkers: true, preserveViewport: false });
         setMapReady(true);
       } catch (cause) {
         if (!cancelled) setMapError(cause instanceof Error ? cause.message : 'Google Maps could not be initialized. Check the API configuration and retry.');
@@ -320,7 +305,6 @@ export default function MapView() {
         incidentMarkers.current.forEach((marker) => marker.setMap(null));
         centerMarkers.current.forEach((marker) => marker.setMap(null));
         placeMarker.current?.setMap(null);
-        directionsRenderer.current?.setMap(null);
         googleInfoWindow.current?.close();
       }
       mapRef.current = null;
@@ -328,8 +312,6 @@ export default function MapView() {
       incidentMarkers.current.clear();
       centerMarkers.current = [];
       googleInfoWindow.current = null;
-      directionsService.current = null;
-      directionsRenderer.current = null;
       placeMarker.current = null;
     };
   }, [online, apiKey, mapRetry]);
@@ -348,7 +330,7 @@ export default function MapView() {
       const marker = new google.Marker({ map: showCenters ? mapRef.current : null, position: { lat: center.latitude, lng: center.longitude },
         title: center.name, icon: { path: google.SymbolPath.CIRCLE, scale: 9, fillColor: color, fillOpacity: 0.97, strokeColor: '#fff', strokeWeight: 2 } });
       marker.addListener('click', () => {
-        googleInfoWindow.current.setContent(popupContent(center, true, () => requestDirections({ lat: center.latitude, lng: center.longitude })));
+        googleInfoWindow.current.setContent(popupContent(center, true));
         googleInfoWindow.current.open({ map: mapRef.current, anchor: marker });
       });
       centerMarkers.current.push(marker);
@@ -359,7 +341,7 @@ export default function MapView() {
       const marker = new google.Marker({ map: showIncidents ? mapRef.current : null, position: { lat: incident.latitude, lng: incident.longitude },
         title: incident.type, icon: { path: google.SymbolPath.CIRCLE, scale: status === 'reported' ? 10 : 8, fillColor: incidentColors[status] || '#737f78', fillOpacity: 0.96, strokeColor: '#fff', strokeWeight: 2 } });
       marker.addListener('click', () => {
-        googleInfoWindow.current.setContent(popupContent(incident, false, () => requestDirections({ lat: incident.latitude, lng: incident.longitude })));
+        googleInfoWindow.current.setContent(popupContent(incident, false));
         googleInfoWindow.current.open({ map: mapRef.current, anchor: marker });
       });
       incidentMarkers.current.set(incident.id, marker);
@@ -511,33 +493,8 @@ export default function MapView() {
     const position = marker.getPosition();
     mapRef.current.panTo(position);
     mapRef.current.setZoom(Math.max(mapRef.current.getZoom(), 16));
-    googleInfoWindow.current?.setContent(popupContent(data.incidents.find((item) => item.id === incident.id)!, false, () => requestDirections({ lat: incident.latitude!, lng: incident.longitude! })));
+    googleInfoWindow.current?.setContent(popupContent(data.incidents.find((item) => item.id === incident.id)!, false));
     googleInfoWindow.current?.open({ map: mapRef.current, anchor: marker });
-  }
-
-  function requestDirections(destination: { lat: number; lng: number }) {
-    if (mapKind.current !== 'google' || !directionsService.current || !directionsRenderer.current) return;
-    if (!navigator.geolocation) {
-      setMapError('Directions need device location, but geolocation is unavailable in this browser.');
-      return;
-    }
-    setMapError('');
-    navigator.geolocation.getCurrentPosition((position) => {
-      directionsService.current?.route({
-        origin: { lat: position.coords.latitude, lng: position.coords.longitude },
-        destination,
-        travelMode: (window as any).google.maps.TravelMode.DRIVING,
-      }, (result: any, status: string) => {
-        if (status === 'OK' && result) {
-          setMapError('');
-          directionsRenderer.current?.setDirections(result);
-        } else {
-          setMapError(`Directions request failed (${status}). Verify Directions API is enabled for the restricted Google Maps key, then retry.`);
-        }
-      });
-    }, (cause) => {
-      setMapError(`Could not get your location for directions (${cause.message}). Allow location access and retry.`);
-    }, { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 });
   }
 
   return <section className="command-map-view" ref={mapFrame} aria-label="Biñan City live operations map">

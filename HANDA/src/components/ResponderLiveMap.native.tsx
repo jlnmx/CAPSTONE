@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import MapView, { Callout, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,6 +11,9 @@ import { getIncidentResponders, getResponderData, ResponderDataSnapshot } from '
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
+import { searchMapPlaces } from '@services/map/googleMaps';
+import MapNavigation from './MapNavigation';
+import type { MapNavigationTarget } from './MapNavigation.types';
 
 const CENTER: Region = { latitude: 14.3036, longitude: 121.0781, latitudeDelta: 0.045, longitudeDelta: 0.045 };
 const MAPS_API_KEY = Platform.OS === 'ios'
@@ -27,6 +30,7 @@ export default function ResponderLiveMap() {
   const [query, setQuery] = useState('');
   const [show3d, setShow3d] = useState(false);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
   const isOnline = useMapConnectivity();
   const { responders } = useResponderLive();
 
@@ -71,15 +75,25 @@ export default function ResponderLiveMap() {
   const search = async () => {
     const term = query.trim().toLocaleLowerCase();
     if (!term) return;
-    const place = mappedPlaces.find((item) => `${item.name} ${item.description}`.toLocaleLowerCase().includes(term));
+    const place = mappedPlaces.find((item) => term.split(/\s+/).every((word) => `${item.name} ${item.description}`.toLocaleLowerCase().includes(word)));
     if (place) {
       mapRef.current?.animateToRegion({ latitude: place.latitude, longitude: place.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
       return;
     }
     try {
-      await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query.trim())}`);
-    } catch {
-      Alert.alert('Search unavailable', 'Google Maps search could not be opened.');
+      const [searchedPlace] = await searchMapPlaces(query.trim());
+      if (!searchedPlace) {
+        Alert.alert('No results', 'No matching place was found. Check the search text or try a nearby landmark.');
+        return;
+      }
+      mapRef.current?.animateToRegion({
+        latitude: searchedPlace.latitude,
+        longitude: searchedPlace.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+    } catch (searchError) {
+      Alert.alert('Search unavailable', searchError instanceof Error ? searchError.message : 'Google Maps search failed. Check your connection and try again.');
     }
   };
 
@@ -104,14 +118,6 @@ export default function ResponderLiveMap() {
     mapRef.current?.animateCamera({ pitch: enabled ? 55 : 0, heading: 0, zoom: 16 }, { duration: 450 });
   };
 
-  const navigate = async (latitude: number, longitude: number) => {
-    try {
-      await Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=driving`);
-    } catch {
-      Alert.alert('Navigation unavailable', 'Google Maps directions could not be opened.');
-    }
-  };
-
   return (
     <View style={styles.container}>
       <MapView
@@ -134,8 +140,8 @@ export default function ResponderLiveMap() {
             description={`${center.location} · ${center.currentOccupancy}/${center.capacity} · ${center.status}`}
             pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#218B25'}
           >
-            <Callout onPress={() => void navigate(center.latitude!, center.longitude!)}>
-              <View style={styles.callout}><Text style={styles.calloutTitle}>{center.name}</Text><Text style={styles.calloutBody}>{center.currentOccupancy}/{center.capacity} · {center.status}</Text><Text style={styles.calloutAction}>Tap for directions</Text></View>
+            <Callout onPress={() => setNavigationTarget({ title: center.name, latitude: center.latitude!, longitude: center.longitude! })}>
+              <View style={styles.callout}><Text style={styles.calloutTitle}>{center.name}</Text><Text style={styles.calloutBody}>{center.currentOccupancy}/{center.capacity} · {center.status}</Text><Text style={styles.calloutAction}>Tap for in-app routes</Text></View>
             </Callout>
           </Marker>
         ))}
@@ -147,8 +153,8 @@ export default function ResponderLiveMap() {
             description={`${incident.status.replace(/_/g, ' ')} · ${incident.location}`}
             pinColor={incident.status === 'reported' ? '#D83B36' : incident.status === 'acknowledged' ? '#F28C28' : '#267DA4'}
           >
-            <Callout onPress={() => void navigate(incident.latitude!, incident.longitude!)}>
-              <View style={styles.callout}><Text style={styles.calloutTitle}>{incident.type}</Text><Text style={styles.calloutBody}>{incident.status.replace(/_/g, ' ')} · {incident.location}</Text><Text style={styles.calloutAction}>Tap for directions</Text></View>
+            <Callout onPress={() => setNavigationTarget({ title: incident.type, latitude: incident.latitude!, longitude: incident.longitude! })}>
+              <View style={styles.callout}><Text style={styles.calloutTitle}>{incident.type}</Text><Text style={styles.calloutBody}>{incident.status.replace(/_/g, ' ')} · {incident.location}</Text><Text style={styles.calloutAction}>Tap for in-app routes</Text></View>
             </Callout>
           </Marker>
         ))}
@@ -169,6 +175,7 @@ export default function ResponderLiveMap() {
         <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map"><Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text></Pressable>
       </View>
       {(loading || error) && <View style={styles.status}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error}</Text></View>}
+      {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
     </View>
   );
 }

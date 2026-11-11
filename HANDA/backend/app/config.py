@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     chatbot_api_key: str = Field(default="", validation_alias=AliasChoices("GROQ_API_KEY", "CHATBOT_API_KEY"))
     chatbot_model: str = Field(default="openai/gpt-oss-120b", validation_alias=AliasChoices("GROQ_MODEL", "CHATBOT_MODEL"))
     chatbot_timeout_seconds: int = 25
+    google_maps_api_key: str = ""
 
     model_config = SettingsConfigDict(env_file=(BACKEND_DIR / ".env", BACKEND_DIR / ".env.groq"), extra="ignore")
 
