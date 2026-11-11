@@ -3,60 +3,7 @@ import { SafeAreaView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
-
-const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
-
-const leafletMapHtml = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-      html, body, #map {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        background: #e5efe8;
-      }
-      body {
-        font-family: Arial, sans-serif;
-      }
-      .leaflet-container {
-        background: #e5efe8;
-      }
-      .leaflet-popup-content-wrapper,
-      .leaflet-popup-tip {
-        background: #ffffff;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="map"></div>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-      const biñan = [14.3036, 121.0781];
-
-      const map = L.map('map', {
-        zoomControl: true,
-        attributionControl: true
-      }).setView(biñan, 13);
-
-      L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${mapboxToken}&tileSize=512', {
-        attribution: '&copy; Mapbox &copy; OpenStreetMap contributors',
-        maxZoom: 19
-      }).addTo(map);
-
-      const marker = L.marker(biñan).addTo(map);
-      marker.bindPopup('Biñan City, Laguna');
-
-      const bounds = [[14.2500, 121.0200], [14.3600, 121.1400]];
-      map.fitBounds(bounds);
-    </script>
-  </body>
-</html>
-`;
+import ResponderLiveMap from '@components/ResponderLiveMap';
 
 export default function MapScreen() {
   return (
@@ -67,13 +14,7 @@ export default function MapScreen() {
           <View style={styles.headerCopy}><Text style={styles.headerTitle}>MAP</Text><Text style={styles.headerSubtitle}>Biñan City, Laguna</Text></View>
         </View>
 
-        <View style={styles.webMap}>
-          <iframe
-            title="Binan City Map"
-            srcDoc={leafletMapHtml}
-            style={styles.mapFrame}
-          />
-        </View>
+        <View style={styles.webMap}><ResponderLiveMap /></View>
       </View>
     </SafeAreaView>
   );
@@ -87,5 +28,4 @@ const styles = StyleSheet.create({
   headerTitle: { color: Colors.white, fontSize: 28, fontWeight: '800' },
   headerSubtitle: { color: '#DFF1DF', fontSize: 12, marginTop: 2 },
   webMap: { flex: 1, margin: 14, borderWidth: 1, borderColor: '#218B25', borderRadius: 8, overflow: 'hidden', backgroundColor: Colors.surfaceMuted },
-  mapFrame: { width: '100%', height: '100%', borderWidth: 0 },
 });

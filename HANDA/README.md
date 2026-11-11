@@ -78,26 +78,46 @@ The HANDA system includes:
 
 `preview` and `production` set `EXPO_PUBLIC_API_URL=https://handa-api.onrender.com`
 (the Render API in [DEPLOYMENT.md](DEPLOYMENT.md)), so the APK never falls back
-to `localhost`. `.env.local` is Git-ignored and is **not** uploaded to EAS. A Mapbox token is
-optional: without it, the maps use OpenStreetMap tiles and public routing for
-directions. To use Mapbox tiles and directions, add its restricted public token
-as an EAS environment variable. Responder Online presence and live locations
-also require `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in
-the EAS environment; the anon/publishable key is public, but never put a
-service-role key in `EXPO_PUBLIC_*` variables:
+to `localhost`. `.env.local` is Git-ignored and is **not** uploaded to EAS.
+
+Google Maps needs separate restricted keys: `EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY`
+for the Android Maps SDK, `EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY` for the iOS SDK,
+and `EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY` for Expo web. Enable Maps SDK for
+Android, Maps SDK for iOS, Maps JavaScript API, and Places API (New) in the
+Google Cloud project. Restrict each key to its app or website and only the APIs it
+needs; Android restrictions must include package `com.handa.evacuation` and
+the signing certificate fingerprints used for development and release. The
+admin website uses its own `VITE_GOOGLE_MAPS_API_KEY` restricted to its deployed
+web origins; add it to the admin-web build/deployment environment.
+
+Create the mobile keys in each EAS environment, without putting their values in
+the repository:
 
 ```powershell
 Set-Location HANDA
 npx eas-cli@latest login
-npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_MAPBOX_TOKEN --visibility plaintext
+npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY --visibility plaintext
+npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY --visibility plaintext
+npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY --visibility plaintext
 npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_SUPABASE_URL --visibility plaintext
 npx eas-cli@latest env:create --environment preview --name EXPO_PUBLIC_SUPABASE_ANON_KEY --visibility plaintext
 npx eas-cli@latest build --platform android --profile preview
 ```
 
-Add the same Supabase variables to the `production` EAS environment and rebuild
-after changing them. Use the `production` environment and `--profile production`
-for the `.aab`.
+Use the corresponding development and production key restrictions and add the
+same variables to each EAS environment used for builds. The iOS config plugin
+adds the Google Maps pod and initializes the SDK during prebuild. Android's
+committed native project reads its key from the build environment. Also set
+`EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY` in the local `.env.local` when testing
+Expo web. The environment sample is [.env.maps.example](.env.maps.example).
+
+Responder Online presence and live locations also require `EXPO_PUBLIC_SUPABASE_URL`
+and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in EAS; the anon/publishable key is public,
+but never put a service-role key in `EXPO_PUBLIC_*` variables. Google Maps
+basemaps, place search, and routes do not work offline. Offline maps show
+cached location markers on a plain canvas; there is no offline basemap or
+cached Google tiles. Rebuild the native app after adding or changing native map keys.
+Use the `production` environment and `--profile production` for the `.aab`.
 When EAS asks about the Android keystore, choose to let EAS generate and manage
 it; keep that keystore for all future updates. When the build finishes, open the
 build page link, download the `.apk`, copy it to the phone, and open it (allow
