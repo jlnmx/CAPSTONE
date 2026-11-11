@@ -935,6 +935,38 @@ def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
     return rows
 
 
+@app.get("/api/v1/resident/sos")
+def get_resident_active_sos(
+    resident: CurrentUser = Depends(require_roles("resident")),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    incident = connection.execute(
+        """
+        SELECT id, type, status, location_text, latitude, longitude,
+               response_eta_minutes, created_at
+        FROM incidents
+        WHERE reporter_user_id = %s
+          AND type LIKE 'SOS - %'
+          AND status <> 'resolved'
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (resident.id,),
+    ).fetchone()
+    if not incident:
+        return None
+    return {
+        "id": incident["id"],
+        "type": incident["type"],
+        "status": incident["status"],
+        "location": incident["location_text"],
+        "latitude": incident["latitude"],
+        "longitude": incident["longitude"],
+        "responseEtaMinutes": incident["response_eta_minutes"],
+        "createdAt": incident["created_at"],
+    }
+
+
 @app.post("/api/v1/incidents/{incident_id}/response-photos", status_code=201)
 def add_incident_response_photo(incident_id: str, photo: IncidentResponsePhotoCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("responder", "admin"))):
     if not RESPONSE_PHOTO_PATTERN.match(photo.photoUri):

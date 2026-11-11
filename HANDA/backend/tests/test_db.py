@@ -7,11 +7,42 @@ import psycopg
 from fastapi import HTTPException
 
 from app.db import CONNECT_ATTEMPTS, get_connection
-from app.main import BINAN_CENTERS_FILE, create_center, create_evacuation_registration, create_incident, database_readiness, evacuation_center_status, health, lifespan, resident_evacuation_status, seed_binan_evacuation_centers, update_center_details, update_current_profile, update_evacuee_status, write_evacuee
+from app.main import BINAN_CENTERS_FILE, create_center, create_evacuation_registration, create_incident, database_readiness, evacuation_center_status, get_resident_active_sos, health, lifespan, resident_evacuation_status, seed_binan_evacuation_centers, update_center_details, update_current_profile, update_evacuee_status, write_evacuee
 from app.schemas import AdminEvacuationRegistrationCreate, CenterCreate, CenterDetailsUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, SelfProfileUpdate
 
 
 class DatabaseDependencyTests(unittest.TestCase):
+    def test_resident_active_sos_is_scoped_to_reporter_and_unresolved_sos(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {
+            "id": "sos-123",
+            "type": "SOS - Medical",
+            "status": "in_progress",
+            "location_text": "Biñan City",
+            "latitude": 14.33,
+            "longitude": 121.08,
+            "response_eta_minutes": 5,
+            "created_at": "2026-11-11T09:00:00Z",
+        }
+
+        result = get_resident_active_sos(MagicMock(id="resident-1"), connection)
+
+        self.assertEqual(result["id"], "sos-123")
+        self.assertEqual(result["status"], "in_progress")
+        query, parameters = connection.execute.call_args.args
+        self.assertIn("reporter_user_id = %s", query)
+        self.assertIn("type LIKE 'SOS - %'", query)
+        self.assertIn("status <> 'resolved'", query)
+        self.assertEqual(parameters, ("resident-1",))
+
+    def test_resident_active_sos_returns_none_when_no_open_alert_exists(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = None
+
+        result = get_resident_active_sos(MagicMock(id="resident-1"), connection)
+
+        self.assertIsNone(result)
+
     def test_released_registration_is_not_returned_as_resident_status(self):
         connection = MagicMock()
         registration_query = MagicMock()

@@ -29,7 +29,8 @@ export default function ResidentSosScreen() {
   const [isHolding, setIsHolding] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [incidentId, setIncidentId] = useState<string | null>(null);
+  const [isRestoring, setIsRestoring] = useState(true);
+  const [isStatusUnavailable, setIsStatusUnavailable] = useState(false);
   const [incidentStatus, setIncidentStatus] = useState<IncidentStatus>('reported');
   const [sentAt, setSentAt] = useState<Date | null>(null);
   const [locationLabel, setLocationLabel] = useState('Location unavailable');
@@ -37,6 +38,8 @@ export default function ResidentSosScreen() {
   const [feedback, setFeedback] = useState('');
   const progress = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(1)).current;
+  const hasActiveSos = useRef(false);
+  const sosRequestVersion = useRef(0);
   const progressWidth = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
   useEffect(() => {
@@ -99,11 +102,14 @@ export default function ResidentSosScreen() {
       const result = await response.json() as { id?: unknown; status?: unknown };
       if (typeof result.id !== 'string' || !result.id) throw new Error('The emergency service did not return an incident reference.');
       const nextStatus: IncidentStatus = result.status === 'resolved' || result.status === 'acknowledged' || result.status === 'in_progress' ? result.status : 'reported';
-      setIncidentId(result.id);
       setIncidentStatus(nextStatus);
       setSentAt(new Date());
       setLocationLabel(coordinate ? `${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}` : 'Location unavailable');
+      hasActiveSos.current = true;
+      sosRequestVersion.current += 1;
       setIsActivated(true);
+      setIsStatusUnavailable(false);
+      setIsRestoring(false);
       progress.setValue(1);
       setFeedback(coordinate
         ? 'SOS sent. Responders have been notified and your location was shared.'
@@ -117,21 +123,62 @@ export default function ResidentSosScreen() {
   };
 
   useEffect(() => {
-    if (!incidentId || incidentStatus === 'resolved') return undefined;
     let mounted = true;
     const refreshStatus = async () => {
+      const requestVersion = sosRequestVersion.current;
       try {
-        const response = await authenticatedFetch('/api/v1/incidents');
-        if (!response.ok) throw new Error(`Incident status request failed (${response.status}).`);
-        const incidents = await response.json() as Array<{ id?: unknown; status?: unknown; response_eta_minutes?: unknown }>;
-        const incident = incidents.find((item) => item.id === incidentId);
-        if (!mounted || !incident) return;
-        if (typeof incident.response_eta_minutes === 'number') setEtaMinutes(incident.response_eta_minutes);
-        if (incident.status === 'resolved' || incident.status === 'acknowledged' || incident.status === 'in_progress' || incident.status === 'reported') {
-          setIncidentStatus(incident.status);
+        const response = await authenticatedFetch('/api/v1/resident/sos');
+        if (!response.ok) throw new Error(`SOS status request failed (${response.status}).`);
+        const incident = await response.json() as {
+          id?: unknown;
+          type?: unknown;
+          status?: unknown;
+          location?: unknown;
+          latitude?: unknown;
+          longitude?: unknown;
+          responseEtaMinutes?: unknown;
+          createdAt?: unknown;
+        } | null;
+        if (!mounted || requestVersion !== sosRequestVersion.current) return;
+        if (incident === null) {
+          setIsStatusUnavailable(false);
+          setIsRestoring(false);
+          setFeedback('');
+          if (hasActiveSos.current) {
+            hasActiveSos.current = false;
+            setIncidentStatus('resolved');
+          }
+          return;
         }
+        if (
+          typeof incident.id !== 'string'
+          || typeof incident.type !== 'string'
+          || (incident.status !== 'reported' && incident.status !== 'acknowledged' && incident.status !== 'in_progress')
+        ) throw new Error('The emergency service returned an invalid SOS status.');
+
+        const nextStatus: IncidentStatus = incident.status;
+        const latitude = typeof incident.latitude === 'number' ? incident.latitude : null;
+        const longitude = typeof incident.longitude === 'number' ? incident.longitude : null;
+        const hasCoordinates = latitude !== null && longitude !== null;
+        const createdAt = typeof incident.createdAt === 'string' ? new Date(incident.createdAt) : null;
+        setSelectedType(incident.type.startsWith('SOS - ') ? incident.type.slice(6) : incident.type);
+        setIncidentStatus(nextStatus);
+        setLocationLabel(hasCoordinates ? `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` : typeof incident.location === 'string' ? incident.location : 'Location unavailable');
+        setEtaMinutes(typeof incident.responseEtaMinutes === 'number' ? incident.responseEtaMinutes : null);
+        setSentAt(createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt : null);
+        hasActiveSos.current = true;
+        setIsActivated(true);
+        setIsStatusUnavailable(false);
+        setIsRestoring(false);
+        setFeedback('');
+        progress.setValue(1);
       } catch {
-        // Keep the last confirmed status visible while the next refresh retries.
+        if (!mounted || requestVersion !== sosRequestVersion.current) return;
+        setIsStatusUnavailable(true);
+        setIsRestoring(false);
+        if (!hasActiveSos.current) {
+          setFeedback('Unable to verify your SOS status. Reconnect before sending another alert.');
+        }
       }
     };
     void refreshStatus();
@@ -140,10 +187,10 @@ export default function ResidentSosScreen() {
       mounted = false;
       clearInterval(refresh);
     };
-  }, [incidentId, incidentStatus]);
+  }, [progress]);
 
   const startHolding = () => {
-    if (isActivated || isSubmitting) return;
+    if (isActivated || isSubmitting || isRestoring || isStatusUnavailable) return;
     setFeedback('');
     setIsHolding(true);
     progress.setValue(0);
@@ -163,8 +210,8 @@ export default function ResidentSosScreen() {
   const sosButtonContents = (
     <>
       <MaterialCommunityIcons name={isActivated ? 'check-circle-outline' : isSubmitting ? 'upload' : 'alarm-light-outline'} size={43} color={Colors.white} />
-      <Text style={styles.sosLabel}>{isActivated ? 'SENT' : isSubmitting ? 'SENDING' : 'SOS'}</Text>
-      <Text style={styles.sosState}>{isActivated ? 'HELP IS ON THE WAY' : isSubmitting ? 'CONTACTING RESPONDERS...' : isHolding ? 'KEEP HOLDING...' : 'PRESS & HOLD 2 SEC'}</Text>
+      <Text style={styles.sosLabel}>{isActivated ? 'SENT' : isSubmitting ? 'SENDING' : isRestoring || isStatusUnavailable ? 'CHECKING' : 'SOS'}</Text>
+      <Text style={styles.sosState}>{isActivated ? 'HELP IS ON THE WAY' : isSubmitting ? 'CONTACTING RESPONDERS...' : isRestoring || isStatusUnavailable ? 'VERIFYING ALERT STATUS...' : isHolding ? 'KEEP HOLDING...' : 'PRESS & HOLD 2 SEC'}</Text>
       <View style={styles.progressTrack}><Animated.View style={[styles.progressFill, { width: progressWidth }]} /></View>
     </>
   );
@@ -172,7 +219,7 @@ export default function ResidentSosScreen() {
   const renderSosButton = () => Platform.OS === 'web'
     ? React.createElement('button', {
       type: 'button',
-      disabled: isActivated || isSubmitting,
+      disabled: isActivated || isSubmitting || isRestoring || isStatusUnavailable,
       'aria-label': 'Touch and hold for two seconds to send an emergency SOS',
       onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
         event.preventDefault();
@@ -198,7 +245,7 @@ export default function ResidentSosScreen() {
         padding: 0,
         touchAction: 'none',
         userSelect: 'none',
-        cursor: isActivated || isSubmitting ? 'default' : 'pointer',
+        cursor: isActivated || isSubmitting || isRestoring || isStatusUnavailable ? 'default' : 'pointer',
       },
     }, sosButtonContents)
     : (
@@ -206,7 +253,7 @@ export default function ResidentSosScreen() {
         style={({ pressed }) => [styles.sosButton, { width: sosButtonDiameter, height: sosButtonDiameter, borderRadius: sosButtonDiameter / 2 }, isHolding && styles.sosButtonHolding, isActivated && styles.sosButtonActivated, pressed && styles.sosButtonPressed]}
         onPressIn={startHolding}
         onPressOut={stopHolding}
-        disabled={isActivated || isSubmitting}
+        disabled={isActivated || isSubmitting || isRestoring || isStatusUnavailable}
         accessibilityRole="button"
         accessibilityLabel="Touch and hold for two seconds to send an emergency SOS"
       >

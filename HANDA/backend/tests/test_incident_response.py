@@ -133,6 +133,19 @@ class IncidentStatusTransitionTests(unittest.TestCase):
         self.assertEqual(error.exception.status_code, 403)
 
 
+class ResidentSosStatusAccessTests(unittest.TestCase):
+    def test_active_sos_endpoint_is_resident_only(self):
+        route = next(route for route in main.app.routes if getattr(route, "path", "") == "/api/v1/resident/sos")
+        guard = next(dependency.call for dependency in route.dependant.dependencies if dependency.call.__name__ == "dependency")
+        resident = CurrentUser("resident-1", "resident@example.com", "Resident", "resident", 0)
+
+        self.assertIs(guard(resident), resident)
+        for role in ("responder", "admin"):
+            with self.subTest(role=role), self.assertRaises(HTTPException) as error:
+                guard(CurrentUser(f"{role}-1", f"{role}@example.com", role, role, 0))
+            self.assertEqual(error.exception.status_code, 403)
+
+
 class IncidentDispatchTests(unittest.TestCase):
     @patch("app.main.seed_binan_evacuation_centers")
     @patch("app.main.psycopg.connect")
