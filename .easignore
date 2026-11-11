@@ -17,6 +17,7 @@
 **/*.p8
 **/*.p12
 **/*.jks
+**/*.keystore
 **/*.mobileprovision
 HANDA/backend/
 HANDA/data/
