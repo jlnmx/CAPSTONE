@@ -70,7 +70,7 @@ export default function VerifyStatusScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void loadStatus(true)} tintColor={GREEN} colors={[GREEN]} />}
       >
-        <GradientHeader title="My evacuation status" subtitle="Updates from evacuation personnel" icon="shield-check" />
+        <GradientHeader title="My evacuation status" subtitle="Updates from evacuation personnel" icon="shield-check" showBack />
 
         {isLoading && !status ? (
           <View style={styles.state}><ActivityIndicator color={GREEN} /><Text style={[styles.stateText, { color: palette.textMuted }]}>Loading your latest status...</Text></View>

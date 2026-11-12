@@ -16,7 +16,7 @@ export default function EvacuationGuidanceScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <GradientHeader title="Evacuation guidance" subtitle="How center assignments work" icon="home-heart" />
+        <GradientHeader title="Evacuation guidance" subtitle="How center assignments work" icon="home-heart" showBack />
         <Reveal index={0}>
           <View style={[styles.heroCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <View style={styles.heroIcon}><MaterialCommunityIcons name="account-group-outline" size={30} color={GREEN} /></View>

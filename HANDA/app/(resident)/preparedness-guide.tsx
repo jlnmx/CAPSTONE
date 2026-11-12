@@ -84,7 +84,7 @@ export default function PreparednessGuideScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <GradientHeader title="Preparedness Guide" subtitle="Know what to do before, during and after" icon="book-open-page-variant" />
+        <GradientHeader title="Preparedness Guide" subtitle="Know what to do before, during and after" icon="book-open-page-variant" showBack />
         {selectedGuide ? <GuideDetail guide={selectedGuide} openSection={openSection} setOpenSection={setOpenSection} onBack={() => setSelectedGuide(null)} /> : <>
           <View style={styles.search}><MaterialCommunityIcons name="magnify" size={22} color="#218B25" /><TextInput value={search} onChangeText={setSearch} placeholder="Search type of disaster" placeholderTextColor="#8FA891" style={styles.searchInput} /></View>
           <View style={styles.list}>{visibleGuides.map((guide, index) => <Reveal key={guide.title} index={index}><GuideCard guide={guide} onPress={() => openGuide(guide)} /></Reveal>)}</View>

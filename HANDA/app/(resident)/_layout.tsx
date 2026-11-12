@@ -86,6 +86,7 @@ export default function ResidentLayout() {
   return (
     <>
     <Tabs
+      backBehavior="history"
       screenOptions={{
         ...responsiveTabBar,
         headerShown: false,

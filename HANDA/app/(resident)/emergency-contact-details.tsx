@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable as Pressable } from '@components/Buttons';
+import AppBackArrow from '@components/AppBackArrow';
 import { Colors } from '@constants/colors';
 import { AppBoldFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 import { getEmergencyContact, toDialNumber } from '@data/emergencyContacts';
@@ -29,6 +30,7 @@ export default function EmergencyContactDetailsScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.missing}>
+          <AppBackArrow style={styles.backButton} onPress={() => router.replace('/(resident)/emergency-contacts')} />
           <MaterialCommunityIcons name="alert-circle-outline" size={40} color={Colors.textMuted} />
           <Text style={styles.missingText}>This contact could not be found.</Text>
           <Pressable style={styles.missingButton} onPress={() => router.replace('/(resident)/emergency-contacts')}><Text darkText style={styles.missingButtonText}>Back to contacts</Text></Pressable>
@@ -61,9 +63,7 @@ export default function EmergencyContactDetailsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={[`${contact.color}33`, `${contact.color}0D`, Colors.surface]} style={styles.banner}>
-          <Pressable style={styles.backButton} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back">
-            <MaterialCommunityIcons name="arrow-left" size={22} color={Colors.primary} />
-          </Pressable>
+          <AppBackArrow style={styles.backButton} onPress={() => router.replace('/(resident)/emergency-contacts')} />
           <View style={[styles.logoFrame, { borderColor: contact.color }]}>
             <Image source={contact.logo} style={styles.logo} resizeMode="contain" accessibilityIgnoresInvertColors accessibilityLabel={`${contact.name} logo`} />
           </View>

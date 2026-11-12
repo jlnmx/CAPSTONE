@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
+import AppBackArrow from '@components/AppBackArrow';
 import { useTheme } from '@hooks/useTheme';
 import { fetchGoogleWeatherForecast } from '@services/googleWeather';
 import type { GoogleWeatherSnapshot } from '@/types/weather';
@@ -63,9 +63,7 @@ export default function WeatherForecastScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back" style={styles.backButton}>
-            <MaterialCommunityIcons name="chevron-left" size={28} color={Colors.text} />
-          </Pressable>
+          <AppBackArrow style={styles.backButton} />
           <Text style={styles.headerTitle}>Weather</Text>
         </View>
 

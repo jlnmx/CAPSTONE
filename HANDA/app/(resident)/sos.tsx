@@ -10,6 +10,7 @@ import * as Location from 'expo-location';
 import { authenticatedFetch } from '@services/apiClient';
 import { router } from 'expo-router';
 import { SosIncidentStatus, SosStatusView } from '@components/SosStatusView';
+import AppBackArrow from '@components/AppBackArrow';
 
 const emergencyTypes = [
   { label: 'Flood / landslide', icon: 'waves' as const },
@@ -267,6 +268,7 @@ export default function ResidentSosScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <LinearGradient colors={['#176B2D', '#25A04A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <AppBackArrow />
         <View style={styles.headerIcon}><MaterialCommunityIcons name={isActivated ? 'radar' : 'alarm-light-outline'} size={22} color={Colors.white} /></View>
         <View style={styles.headerCopy}>
           <Text darkText style={styles.headerTitle}>{isActivated ? 'Emergency Status' : 'Emergency SOS'}</Text>

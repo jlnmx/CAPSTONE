@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { AnimatedPressable } from '@components/Buttons';
 import { ThemedText as Text } from '@components/ThemedText';
 import Avatar from '@components/Avatar';
+import AppBackArrow from '@components/AppBackArrow';
 import { Reveal, kitFonts } from '@components/IncidentCardKit';
 import { Colors } from '@constants/colors';
 import { useAuth } from '@hooks/useAuth';
@@ -67,7 +68,10 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
       >
         <LinearGradient colors={['#218B25', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <View style={styles.heroDecoration} />
-          <Text style={styles.eyebrow}>YOUR HANDA SPACE</Text>
+          <View style={styles.heroTop}>
+            <AppBackArrow />
+            <Text style={styles.eyebrow}>YOUR HANDA SPACE</Text>
+          </View>
           <Text style={styles.heroTitle}>More</Text>
           <Text style={styles.heroSubtitle}>Your profile, preferences, and support.</Text>
           <View style={[styles.profileCard, { backgroundColor: palette.surface }]}>
@@ -175,6 +179,7 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 26 },
   hero: { paddingHorizontal: 22, paddingTop: 24, paddingBottom: 20, overflow: 'hidden' },
   heroDecoration: { position: 'absolute', width: 210, height: 210, borderRadius: 105, right: -85, top: -110, backgroundColor: 'rgba(255,255,255,0.09)' },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   eyebrow: { color: 'rgba(255,255,255,0.76)', fontFamily: kitFonts.bold, fontSize: 10, letterSpacing: 1.8 },
   heroTitle: { color: Colors.white, fontFamily: kitFonts.heading, fontSize: 34, marginTop: 5 },
   heroSubtitle: { color: 'rgba(255,255,255,0.82)', fontFamily: kitFonts.medium, fontSize: 14, marginTop: 2 },

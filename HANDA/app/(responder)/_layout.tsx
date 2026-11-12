@@ -90,6 +90,7 @@ export default function ResponderLayout() {
     <>
     {isAuthenticated && user?.role === 'responder' && <ResponderPresenceHeartbeat locationPermissionGranted={locationPermissionGranted} />}
     <Tabs
+      backBehavior="history"
       screenOptions={{
         ...responsiveTabBar,
         headerShown: false,
