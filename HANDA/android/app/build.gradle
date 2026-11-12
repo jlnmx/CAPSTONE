@@ -92,7 +92,7 @@ android {
         applicationId 'com.handa.evacuation'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 19
+        versionCode 20
         versionName "0.1.3"
         manifestPlaceholders = [
             GOOGLE_MAPS_API_KEY: System.getenv("EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY") ?: ""

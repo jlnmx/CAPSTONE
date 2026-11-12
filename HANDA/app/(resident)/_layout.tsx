@@ -20,10 +20,21 @@ interface TabBarIconProps {
   name: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   color: string;
   size: number;
+  focused: boolean;
 }
 
-function TabBarIcon({ name, color, size }: TabBarIconProps) {
-  return <MaterialCommunityIcons name={name} size={size} color={color} />;
+function TabBarIcon({ name, color, size, focused }: TabBarIconProps) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, { toValue: focused ? 1.06 : 1, useNativeDriver: true, speed: 24, bounciness: 5 }).start();
+  }, [focused, scale]);
+
+  return (
+    <Animated.View style={[styles.tabIcon, focused && styles.tabIconActive, { transform: [{ scale }] }]}>
+      <MaterialCommunityIcons name={name} size={size} color={color} />
+    </Animated.View>
+  );
 }
 
 function SosTabIcon({ active, size }: { active: boolean; size: number }) {
@@ -79,6 +90,7 @@ export default function ResidentLayout() {
         ...responsiveTabBar,
         headerShown: false,
         animation: 'fade',
+        tabBarHideOnKeyboard: true,
         tabBarButton: (props) => (
           <AnimatedPressable
             onPress={(event) => props.onPress?.(event)}
@@ -97,14 +109,14 @@ export default function ResidentLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <TabBarIcon name="home-outline" color={color} size={tabIconSize} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="home-variant-outline" color={color} size={tabIconSize} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="incidents"
         options={{
           title: 'Incidents',
-          tabBarIcon: ({ color }) => <TabBarIcon name="alert-outline" color={color} size={tabIconSize} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="alert-outline" color={color} size={tabIconSize} focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -119,14 +131,14 @@ export default function ResidentLayout() {
         name="map"
         options={{
           title: 'Map',
-          tabBarIcon: ({ color }) => <TabBarIcon name="map-outline" color={color} size={tabIconSize} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="map-outline" color={color} size={tabIconSize} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="more"
         options={{
           title: 'More',
-          tabBarIcon: ({ color }) => <TabBarIcon name="dots-horizontal" color={color} size={tabIconSize} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="dots-horizontal" color={color} size={tabIconSize} focused={focused} />,
         }}
       />
       <Tabs.Screen name="alerts" options={{ href: null }} />
@@ -147,6 +159,8 @@ export default function ResidentLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabIcon: { width: 42, height: 32, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  tabIconActive: { backgroundColor: 'rgba(33,139,37,0.12)' },
   sosTabShell: { marginTop: Platform.OS === 'web' ? -10 : -1, borderRadius: 999, padding: 3, backgroundColor: '#FCE1E1', shadowColor: '#A51D27', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 6 },
   sosTab: { borderRadius: 999, borderWidth: 2, borderColor: '#FFFFFF', backgroundColor: '#D62828', alignItems: 'center', justifyContent: 'center', gap: 0 },
   sosTabText: { color: '#FFFFFF', fontSize: 11, lineHeight: 13, fontWeight: '900', letterSpacing: 0.7 },

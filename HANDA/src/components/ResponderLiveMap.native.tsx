@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
-import MapView, { Callout, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -33,9 +33,25 @@ export default function ResponderLiveMap() {
   const [show3d, setShow3d] = useState(false);
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{ kind: 'center' | 'incident'; id: string } | null>(null);
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const isOnline = useMapConnectivity();
   const { responders } = useResponderLive();
+  const selectedCenter = selectedLocation?.kind === 'center'
+    ? data.centers.find((center) => center.id === selectedLocation.id)
+    : undefined;
+  const selectedIncident = selectedLocation?.kind === 'incident'
+    ? data.incidents.find((incident) => incident.id === selectedLocation.id)
+    : undefined;
+  const selectedCapacity = selectedCenter ? Math.max(0, Number(selectedCenter.capacity) || 0) : 0;
+  const selectedOccupancy = selectedCenter ? Math.max(0, Number(selectedCenter.currentOccupancy) || 0) : 0;
+  const selectedAvailability = selectedCenter?.status === 'closed'
+    ? 'Closed'
+    : selectedCenter?.status === 'full' || selectedCapacity - selectedOccupancy <= 0
+      ? 'Full'
+      : selectedCenter?.status === 'limited'
+        ? 'Limited availability'
+        : 'Spaces available';
 
   const loadData = useCallback(async () => {
     try {
@@ -129,27 +145,17 @@ export default function ResponderLiveMap() {
           <Marker
             key={`center-${center.id}`}
             coordinate={{ latitude: center.latitude, longitude: center.longitude }}
-            title={center.name}
-            description={`${center.location} · ${center.currentOccupancy}/${center.capacity} · ${center.status}`}
             pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#218B25'}
-          >
-            <Callout onPress={() => setNavigationTarget({ title: center.name, latitude: center.latitude!, longitude: center.longitude! })}>
-              <View style={styles.callout}><Text style={styles.calloutTitle}>{center.name}</Text><Text style={styles.calloutBody}>{center.currentOccupancy}/{center.capacity} · {center.status}</Text><View style={styles.calloutNavigate}><MaterialCommunityIcons name="navigation-variant" size={15} color={Colors.white} /><Text style={styles.calloutAction}>Navigate</Text></View></View>
-            </Callout>
-          </Marker>
+            onPress={() => setSelectedLocation({ kind: 'center', id: center.id })}
+          />
         ))}
         {data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null ? [] : (
           <Marker
             key={`incident-${incident.id}`}
             coordinate={{ latitude: incident.latitude, longitude: incident.longitude }}
-            title={incident.type}
-            description={`${incident.status.replace(/_/g, ' ')} · ${incident.location}`}
             pinColor={incidentStatusColor(incident.status)}
-          >
-            <Callout onPress={() => setNavigationTarget({ title: incident.type, latitude: incident.latitude!, longitude: incident.longitude! })}>
-              <View style={styles.callout}><Text style={styles.calloutTitle}>{incident.type}</Text><Text style={styles.calloutBody}>{incident.status.replace(/_/g, ' ')} · {incident.location}</Text><View style={styles.calloutNavigate}><MaterialCommunityIcons name="navigation-variant" size={15} color={Colors.white} /><Text style={styles.calloutAction}>Navigate</Text></View></View>
-            </Callout>
-          </Marker>
+            onPress={() => setSelectedLocation({ kind: 'incident', id: incident.id })}
+          />
         ))}
         {Object.values(responders).flatMap((responder) => {
           if (!responder.location || responder.user_id === user?.id) return [];
@@ -163,16 +169,71 @@ export default function ResponderLiveMap() {
         query={query}
         onChangeQuery={setQuery}
         localSuggestions={localSuggestions}
-        onSelect={(suggestion) => mapRef.current?.animateToRegion({ latitude: suggestion.latitude, longitude: suggestion.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 })}
-        onNavigate={(suggestion) => setNavigationTarget({ title: suggestion.title, latitude: suggestion.latitude, longitude: suggestion.longitude })}
+        onSelect={(suggestion) => {
+          mapRef.current?.animateToRegion({ latitude: suggestion.latitude, longitude: suggestion.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+          if (suggestion.kind === 'center') setSelectedLocation({ kind: 'center', id: suggestion.id.replace(/^center-/, '') });
+          if (suggestion.kind === 'incident') setSelectedLocation({ kind: 'incident', id: suggestion.id.replace(/^incident-/, '') });
+          if (suggestion.kind === 'place') setSelectedLocation(null);
+        }}
+        onNavigate={(suggestion) => {
+          setSelectedLocation(null);
+          setNavigationTarget({ title: suggestion.title, latitude: suggestion.latitude, longitude: suggestion.longitude });
+        }}
         placeholder="Search incidents, centers, or places"
         accessibilityLabel="Search incidents, centers, or places"
       />
-      <View style={styles.controls}>
+      <View style={[styles.controls, (selectedCenter || selectedIncident) && styles.controlsAboveCard]}>
         <Pressable onPress={() => void recenter()} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map"><MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} /></Pressable>
         <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map"><Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text></Pressable>
       </View>
-      {(loading || error) && <View style={styles.status}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error}</Text></View>}
+      {(loading || error) && <View style={[styles.status, (selectedCenter || selectedIncident) && styles.statusAboveCard]}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error}</Text></View>}
+      {(selectedCenter || selectedIncident) && (
+        <View style={styles.locationCard} accessibilityLiveRegion="polite">
+          <View style={styles.locationHeading}>
+            <View style={[styles.locationIcon, { backgroundColor: selectedCenter ? '#E8F4E8' : '#FFF0E8' }]}>
+              <MaterialCommunityIcons name={selectedCenter ? 'home-city-outline' : 'alert-circle-outline'} size={21} color={selectedCenter ? Colors.primary : '#C75B19'} />
+            </View>
+            <View style={styles.locationTitleCopy}>
+              <Text style={styles.locationKind}>{selectedCenter ? 'EVACUATION CENTER' : 'INCIDENT'}</Text>
+              <Text numberOfLines={2} style={styles.locationTitle}>{selectedCenter?.name ?? selectedIncident?.type}</Text>
+              <Text numberOfLines={2} style={styles.locationSubtitle}>{selectedCenter?.location || selectedIncident?.location || 'Location not provided'}</Text>
+            </View>
+            <Pressable onPress={() => setSelectedLocation(null)} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close map details">
+              <MaterialCommunityIcons name="close" size={20} color={Colors.textMuted} />
+            </Pressable>
+          </View>
+          {selectedCenter ? (
+            <>
+              <View style={[styles.availability, selectedAvailability === 'Full' || selectedAvailability === 'Closed' ? styles.availabilityUnavailable : styles.availabilityAvailable]}>
+                <View style={[styles.availabilityDot, selectedAvailability === 'Full' || selectedAvailability === 'Closed' ? styles.availabilityDotUnavailable : styles.availabilityDotAvailable]} />
+                <Text style={[styles.availabilityText, selectedAvailability === 'Full' || selectedAvailability === 'Closed' ? styles.availabilityTextUnavailable : styles.availabilityTextAvailable]}>{selectedAvailability}</Text>
+              </View>
+              <View style={styles.stats}>
+                <View style={styles.stat}><Text style={styles.statValue}>{selectedOccupancy} / {selectedCapacity}</Text><Text style={styles.statLabel}>People at center</Text></View>
+                <View style={styles.stat}><Text style={styles.statValue}>{Math.max(0, selectedCapacity - selectedOccupancy)}</Text><Text style={styles.statLabel}>Spaces remaining</Text></View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.incidentStatus}>
+              <View style={[styles.incidentStatusDot, { backgroundColor: incidentStatusColor(selectedIncident!.status) }]} />
+              <Text style={styles.incidentStatusText}>{selectedIncident!.status.replace(/_/g, ' ')}</Text>
+            </View>
+          )}
+          <Pressable
+            onPress={() => {
+              const location = selectedCenter ?? selectedIncident;
+              if (location?.latitude == null || location.longitude == null) return;
+              setNavigationTarget({ title: selectedCenter?.name ?? selectedIncident!.type, latitude: location.latitude, longitude: location.longitude });
+              setSelectedLocation(null);
+            }}
+            style={styles.navigateButton}
+            accessibilityRole="button"
+          >
+            <MaterialCommunityIcons name="navigation-variant" size={17} color={Colors.white} />
+            <Text style={styles.navigateButtonText}>Navigate</Text>
+          </Pressable>
+        </View>
+      )}
       {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
     </View>
   );
@@ -186,16 +247,39 @@ const styles = StyleSheet.create({
   container: { flex: 1, overflow: 'hidden', backgroundColor: Colors.surfaceMuted },
   message: { flex: 1, padding: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted },
   messageText: { color: Colors.textMuted, fontSize: 13, textAlign: 'center' },
-  controls: { position: 'absolute', right: 12, bottom: 20, gap: 8 },
-  control: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
+  controls: { position: 'absolute', right: 14, bottom: 20, gap: 8 },
+  controlsAboveCard: { bottom: 260 },
+  control: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: Colors.white, elevation: 5 },
   controlLabel: { color: Colors.primary, fontSize: 13, fontWeight: '800' },
-  status: { position: 'absolute', left: 10, bottom: 10, maxWidth: '75%', padding: 8, borderRadius: 6, backgroundColor: Colors.white, elevation: 3 },
+  status: { position: 'absolute', left: 10, bottom: 10, maxWidth: '75%', padding: 9, borderRadius: 12, backgroundColor: Colors.white, elevation: 3 },
+  statusAboveCard: { bottom: 260 },
   statusText: { color: Colors.textMuted, fontSize: 11 },
-  callout: { width: 200, padding: 4 },
-  calloutTitle: { color: Colors.text, fontSize: 14, fontWeight: '700' },
-  calloutBody: { color: Colors.textMuted, fontSize: 12, marginTop: 3 },
-  calloutNavigate: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 9, paddingVertical: 7, borderRadius: 8, backgroundColor: Colors.primary },
-  calloutAction: { color: Colors.white, fontSize: 11, fontWeight: '800' },
+  locationCard: { position: 'absolute', left: 12, right: 12, bottom: 10, padding: 15, borderRadius: 20, backgroundColor: Colors.white, shadowColor: '#10251A', shadowOffset: { width: 0, height: 7 }, shadowOpacity: 0.18, shadowRadius: 16, elevation: 10 },
+  locationHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  locationIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  locationTitleCopy: { flex: 1, minWidth: 0 },
+  locationKind: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+  locationTitle: { color: Colors.text, fontSize: 15, lineHeight: 19, fontWeight: '800', marginTop: 2 },
+  locationSubtitle: { color: Colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  closeButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#F3F6F4' },
+  availability: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 11, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  availabilityAvailable: { backgroundColor: '#E8F4E8' },
+  availabilityUnavailable: { backgroundColor: '#FCE8E6' },
+  availabilityDot: { width: 7, height: 7, borderRadius: 4 },
+  availabilityDotAvailable: { backgroundColor: Colors.primary },
+  availabilityDotUnavailable: { backgroundColor: '#D83B36' },
+  availabilityText: { fontSize: 10, fontWeight: '700' },
+  availabilityTextAvailable: { color: Colors.primary },
+  availabilityTextUnavailable: { color: '#B3261E' },
+  stats: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  stat: { flex: 1, padding: 9, borderRadius: 12, backgroundColor: '#F3F6F8' },
+  statValue: { color: Colors.text, fontSize: 15, fontWeight: '800' },
+  statLabel: { color: Colors.textMuted, fontSize: 9, marginTop: 2 },
+  incidentStatus: { flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start', marginTop: 10 },
+  incidentStatusDot: { width: 8, height: 8, borderRadius: 4 },
+  incidentStatusText: { color: Colors.text, fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
+  navigateButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 12, borderRadius: 13, backgroundColor: Colors.primary },
+  navigateButtonText: { color: Colors.white, fontSize: 13, fontWeight: '800' },
 });
 
 function toOfflinePoints(data: ResponderDataSnapshot): OfflineMapPoint[] {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
-import MapView, { Callout, Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -128,23 +128,9 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
           <Marker
             key={center.id}
             coordinate={{ latitude: Number(center.latitude), longitude: Number(center.longitude) }}
-            title={center.name}
-            description={`${center.location || 'Evacuation center'} · ${center.status}`}
             pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#218B25'}
             onPress={() => onSelectCenter?.(center.id)}
-          >
-            <Callout onPress={() => onNavigationTargetChange?.({
-              title: center.name,
-              latitude: Number(center.latitude),
-              longitude: Number(center.longitude),
-            })}>
-              <View style={styles.callout}>
-                <Text style={styles.calloutTitle}>{center.name}</Text>
-                <Text style={styles.calloutText}>{center.location || 'Evacuation center'}</Text>
-                <View style={styles.calloutNavigate}><MaterialCommunityIcons name="navigation-variant" size={15} color={Colors.white} /><Text style={styles.calloutAction}>Navigate</Text></View>
-              </View>
-            </Callout>
-          </Marker>
+          />
         ))}
       </MapView>
 
@@ -182,11 +168,6 @@ const styles = StyleSheet.create({
   control: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
   controlActive: { backgroundColor: '#E8F2E8' },
   controlLabel: { color: Colors.primary, fontSize: 13, fontWeight: '800' },
-  callout: { width: 190, padding: 4 },
-  calloutTitle: { color: Colors.text, fontSize: 14, fontWeight: '700' },
-  calloutText: { color: Colors.textMuted, fontSize: 12, marginTop: 3 },
-  calloutNavigate: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 9, paddingVertical: 7, borderRadius: 8, backgroundColor: Colors.primary },
-  calloutAction: { color: Colors.white, fontSize: 11, fontWeight: '800' },
 });
 
 function toOfflinePoints(centers: MapEvacuationCenter[]): OfflineMapPoint[] {

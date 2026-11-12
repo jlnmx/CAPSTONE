@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   actionCircle: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
   actionLabel: { color: Colors.text, fontFamily: AppSemiboldFontFamily, fontSize: 12 },
   sectionTitle: { color: Colors.primary, fontFamily: AppBoldFontFamily, fontSize: 15, marginTop: 26, marginBottom: 8 },
-  description: { color: Colors.text, fontFamily: AppMediumFontFamily, fontSize: 14, lineHeight: 22 },
+  description: { color: Colors.text, fontFamily: AppMediumFontFamily, fontSize: 14, lineHeight: 22, textAlign: 'justify' },
   numbers: { borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, overflow: 'hidden' },
   numberRow: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14 },
   numberRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
