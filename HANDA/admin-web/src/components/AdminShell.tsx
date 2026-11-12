@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity, AlertTriangle, BarChart3, Building2, ChevronDown, ClipboardList,
   LayoutDashboard, LogOut, Map, Menu, Radio, Settings, ShieldCheck,
-  Send, Siren, Users, X,
+  Send, X,
 } from 'lucide-react';
 import { useAuth } from '../auth';
 
@@ -12,17 +12,15 @@ const navigation = [
   { to: '/map', label: 'Live map', icon: Map },
   { to: '/operations', label: 'Operations', icon: Activity },
   { to: '/dispatch', label: 'Dispatch', icon: Send },
-  { to: '/evacuees', label: 'Evacuees', icon: Users },
   { to: '/centers', label: 'Centers', icon: Building2 },
-  { to: '/disasters', label: 'Disasters', icon: Siren },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/users', label: 'Users', icon: ShieldCheck },
   { to: '/logs', label: 'Logs', icon: ClipboardList },
 ];
 
 const pageNames: Record<string, string> = {
-  '/': 'Overview', '/map': 'Live map', '/operations': 'Operations', '/dispatch': 'Dispatch', '/evacuees': 'Evacuees', '/centers': 'Centers',
-  '/disasters': 'Disasters', '/analytics': 'Analytics', '/users': 'Users', '/logs': 'Logs',
+  '/': 'Overview', '/map': 'Live map', '/operations': 'Operations', '/dispatch': 'Dispatch', '/centers': 'Centers',
+  '/analytics': 'Analytics', '/users': 'Users', '/logs': 'Logs',
   '/system': 'System', '/settings': 'Settings',
 };
 
@@ -56,7 +54,6 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
             <NavLink key={to} to={to} end={end} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
               <Icon size={18} strokeWidth={1.9} />
               <span>{label}</span>
-              {to === '/disasters' && <span className="nav-live-dot" title="Live response" />}
             </NavLink>
           ))}
         </nav>

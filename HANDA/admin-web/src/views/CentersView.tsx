@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Building2, MapPin, Pencil, Plus, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createCenter, getCenters, updateCenter } from '../api';
@@ -154,7 +155,7 @@ function Field({ label, value, onChange, placeholder, type = 'text', required = 
 }
 
 function Modal({ title, eyebrow, onClose, children }: { title: string; eyebrow: string; onClose: () => void; children: React.ReactNode }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card" role="dialog" aria-modal="true"><div className="modal-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close">×</button></div>{children}</section></div>;
+  return createPortal(<div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card" role="dialog" aria-modal="true"><div className="modal-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close">×</button></div>{children}</section></div>, document.body);
 }
 
 function ModalActions({ onCancel, saving, label }: { onCancel: () => void; saving: boolean; label: string }) {

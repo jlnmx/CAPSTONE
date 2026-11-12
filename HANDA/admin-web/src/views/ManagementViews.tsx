@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Archive, ArrowRight, Check, Cloud, Download, FileClock, Plus, RefreshCw, Save, ShieldCheck, Sun, Moon, SunMoon } from 'lucide-react';
+import { Activity, AlertTriangle, Archive, ArrowRight, Check, Cloud, Download, FileClock, RefreshCw, Save, ShieldCheck, Sun, Moon, SunMoon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { createDisaster, getAdminSnapshot, getDisasters, getLogs, updateUser } from '../api';
-import type { AdminSnapshot, DisasterRecord, LogRecord } from '../types';
+import { getAdminSnapshot, getLogs, updateUser } from '../api';
+import type { AdminSnapshot, LogRecord } from '../types';
 import { useAuth } from '../auth';
 import { EmptyState, InlineNotice, LoadingState, MetricCard, PageHeading } from '../components/UI';
 
@@ -22,7 +22,9 @@ export function AnalyticsView() {
   }), [data.evacuees]);
   const max = Math.max(1, ...week.map((item) => item.value));
   const resolved = data.incidents.filter((item) => item.status === 'resolved').length;
+  const active = data.incidents.length - resolved;
   const resolution = data.incidents.length ? Math.round(resolved / data.incidents.length * 100) : 0;
+  const activeDegrees = data.incidents.length ? active / data.incidents.length * 360 : 0;
   const openCenters = data.centers.filter((center) => center.status !== 'closed');
   const capacity = openCenters.reduce((total, center) => total + center.capacity, 0);
   const occupied = openCenters.reduce((total, center) => total + center.currentOccupancy, 0);
@@ -31,49 +33,33 @@ export function AnalyticsView() {
     {error && <InlineNotice>{error}</InlineNotice>}
     {loading ? <LoadingState label="Calculating operational metrics" /> : <>
       <div className="metric-grid"><MetricCard label="Evacuees registered" value={data.evacuees.length} detail="All available records" icon={Activity} /><MetricCard label="Incidents reported" value={data.incidents.length} detail={`${data.incidents.filter((item) => item.status !== 'resolved').length} active`} icon={AlertTriangle} tone="red" /><MetricCard label="Resolution rate" value={`${resolution}%`} detail={`${resolved} resolved incidents`} icon={Check} tone="green" /><MetricCard label="Center utilization" value={capacity ? `${Math.round(occupied / capacity * 100)}%` : '—'} detail={`${occupied} of ${capacity} places`} icon={Cloud} tone="blue" /></div>
-      <div className="dashboard-grid analytics-grid"><section className="surface-panel activity-panel"><div className="panel-heading"><div><p className="eyebrow">REGISTRATION TREND</p><h2>Evacuees by day</h2><p className="panel-subtitle">New records during the last seven days</p></div></div><div className="chart-area">{week.map((item) => <div className="chart-column" key={item.label}><span className="chart-count">{item.value}</span><div className="chart-track"><span className="chart-bar" style={{ height: `${Math.max(item.value ? 12 : 4, item.value / max * 100)}%` }} /></div><span className="chart-label">{item.label}</span></div>)}</div></section><section className="surface-panel utilization-panel"><p className="eyebrow">SHELTER READINESS</p><h2>Center capacity</h2><p className="panel-subtitle">Occupancy in centers not marked closed</p><div className="utilization-number">{capacity ? `${Math.round(occupied / capacity * 100)}%` : '—'}</div><div className="capacity-track"><span className="capacity-good" style={{ width: `${capacity ? Math.min(occupied / capacity * 100, 100) : 0}%` }} /></div><div className="utilization-meta"><span>Occupied <strong>{occupied}</strong></span><span>Available <strong>{Math.max(0, capacity - occupied)}</strong></span></div></section></div>
+      <div className="dashboard-grid analytics-grid">
+        <section className="surface-panel activity-panel analytics-registration-panel">
+          <div className="panel-heading"><div><p className="eyebrow">REGISTRATION TREND</p><h2>Evacuees by day</h2><p className="panel-subtitle">New records during the last seven days</p></div></div>
+          <div className="chart-area" role="img" aria-label="Evacuee registrations during the last seven days">
+            {week.map((item) => <div className="chart-column" key={item.label}><span className="chart-count">{item.value}</span><div className="chart-track"><span className="chart-bar" style={{ height: `${Math.max(item.value ? 12 : 4, item.value / max * 100)}%` }} /></div><span className="chart-label">{item.label}</span></div>)}
+          </div>
+        </section>
+        <section className="surface-panel pie-panel">
+          <p className="eyebrow">RESPONSE STATUS</p><h2>Incident breakdown</h2><p className="panel-subtitle">Active and resolved reports</p>
+          <div className="incident-pie-layout">
+            <div className="incident-pie" role="img" aria-label={`${active} active and ${resolved} resolved incidents`} style={{ background: `conic-gradient(var(--red) 0deg ${activeDegrees}deg, #929f94 ${activeDegrees}deg 360deg)` }}>
+              <span><strong>{data.incidents.length}</strong><small>incidents</small></span>
+            </div>
+            <div className="incident-pie-legend">
+              <div><i className="pie-active" /><span>Active</span><strong>{active}</strong></div>
+              <div><i className="pie-resolved" /><span>Resolved</span><strong>{resolved}</strong></div>
+            </div>
+          </div>
+        </section>
+        <section className="surface-panel utilization-panel">
+          <p className="eyebrow">SHELTER READINESS</p><h2>Center capacity</h2><p className="panel-subtitle">Occupancy in centers not marked closed</p>
+          <div className="utilization-number">{capacity ? `${Math.round(occupied / capacity * 100)}%` : '—'}</div>
+          <div className="capacity-track"><span className="capacity-good" style={{ width: `${capacity ? Math.min(occupied / capacity * 100, 100) : 0}%` }} /></div>
+          <div className="utilization-meta"><span>Occupied <strong>{occupied}</strong></span><span>Available <strong>{Math.max(0, capacity - occupied)}</strong></span></div>
+        </section>
+      </div>
     </>}
-  </div>;
-}
-
-export function DisastersView() {
-  const [events, setEvents] = useState<DisasterRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [severity, setSeverity] = useState<DisasterRecord['severity']>('medium');
-  const [status, setStatus] = useState<DisasterRecord['status']>('Active');
-  const [affectedAreas, setAffectedAreas] = useState('0');
-
-  async function refresh() {
-    setLoading(true);
-    try { setEvents(await getDisasters()); setError(''); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Disaster records could not be loaded.'); }
-    finally { setLoading(false); }
-  }
-  useEffect(() => { void refresh(); }, []);
-  async function submit(event: FormEvent) {
-    event.preventDefault(); setSaving(true); setError('');
-    try { await createDisaster({ name: name.trim(), description: description.trim(), severity, status, affectedAreas: Number(affectedAreas) || 0 }); setOpen(false); setName(''); setDescription(''); await refresh(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'The event could not be saved.'); }
-    finally { setSaving(false); }
-  }
-  return <div className="page-content">
-    <PageHeading eyebrow="EVENT CONTROL" title="Disaster events" description="Track active and upcoming events affecting the response network." action={<button className="button-primary" onClick={() => setOpen(true)}><Plus size={17} /> Create event</button>} />
-    {error && <InlineNotice tone="error" onRetry={() => void refresh()}>{error}</InlineNotice>}
-    {loading ? <LoadingState label="Loading disaster events" /> : events.length === 0 ? <section className="surface-panel"><EmptyState title="No disaster events" detail="Create an event to coordinate an active or anticipated response." /></section> : <div className="event-list">{events.map((event) => <article className="event-row" key={event.id}><span className={`event-icon severity-${event.severity}`}><AlertTriangle size={19} /></span><span className="event-copy"><strong>{event.name}</strong><small>{event.description || 'No description provided'}</small><span className="event-meta">{event.id} · {event.affected_areas} affected areas{event.started_at ? ` · Started ${new Date(event.started_at).toLocaleString()}` : ''}</span></span><span className={`status-pill status-${event.status === 'Active' ? 'danger' : event.status === 'Upcoming' ? 'pending' : 'neutral'}`}><i />{event.status}</span></article>)}</div>}
-    {open && <Modal title="Create disaster event" eyebrow="EVENT CONTROL" onClose={() => setOpen(false)}><form className="form-grid" onSubmit={(event) => void submit(event)}>
-      <label className="form-field form-field-wide"><span>Event name *</span><input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Typhoon or local incident name" /></label>
-      <label className="form-field form-field-wide"><span>Description</span><textarea rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Situation summary" /></label>
-      <label className="form-field"><span>Severity</span><select value={severity} onChange={(event) => setSeverity(event.target.value as DisasterRecord['severity'])}>{['low', 'medium', 'high', 'critical'].map((item) => <option key={item}>{item}</option>)}</select></label>
-      <label className="form-field"><span>Status</span><select value={status} onChange={(event) => setStatus(event.target.value as DisasterRecord['status'])}>{['Upcoming', 'Active', 'Archived'].map((item) => <option key={item}>{item}</option>)}</select></label>
-      <label className="form-field"><span>Affected areas</span><input type="number" min="0" value={affectedAreas} onChange={(event) => setAffectedAreas(event.target.value)} /></label>
-      {error && <InlineNotice tone="error">{error}</InlineNotice>}
-      <div className="modal-actions form-field-wide"><button type="button" className="button-secondary" onClick={() => setOpen(false)}>Cancel</button><button className="button-primary" disabled={saving}>{saving && <span className="button-spinner" />} Create event</button></div>
-    </form></Modal>}
   </div>;
 }
 
@@ -158,8 +144,4 @@ export function SettingsView() {
 
 function SettingRow({ icon: Icon, title, detail, to }: { icon: LucideIcon; title: string; detail: string; to: string }) {
   return <a href={to} className="setting-row"><span className="setting-row-icon"><Icon size={18} /></span><span className="setting-row-copy"><strong>{title}</strong><small>{detail}</small></span><ArrowRight size={16} /></a>;
-}
-
-function Modal({ title, eyebrow, onClose, children }: { title: string; eyebrow: string; onClose: () => void; children: React.ReactNode }) {
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card modal-wide" role="dialog" aria-modal="true"><div className="modal-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div><button className="icon-button" onClick={onClose} aria-label="Close">×</button></div>{children}</section></div>;
 }

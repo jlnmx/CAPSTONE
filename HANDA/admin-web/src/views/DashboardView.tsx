@@ -52,7 +52,7 @@ export default function DashboardView() {
 
       <div className="dashboard-grid">
         <section className="surface-panel activity-panel">
-          <div className="panel-heading"><div><p className="eyebrow">LAST 7 DAYS</p><h2>Evacuee registrations</h2><p className="panel-subtitle">Daily registrations across the response network</p></div><Link className="text-link" to="/evacuees">View directory <ArrowRight size={15} /></Link></div>
+          <div className="panel-heading"><div><p className="eyebrow">LAST 7 DAYS</p><h2>Evacuee registrations</h2><p className="panel-subtitle">Daily registrations across the response network</p></div></div>
           {data.evacuees.length ? <div className="chart-area" role="img" aria-label="Evacuee registration count over the past seven days">
             {week.map((point) => <div className="chart-column" key={point.day}><span className="chart-count">{point.count}</span><div className="chart-track"><span className="chart-bar" style={{ height: `${Math.max(point.count ? 12 : 4, point.count / maxCount * 100)}%` }} /></div><span className="chart-label">{point.day}</span></div>)}
           </div> : <EmptyState title="No registrations yet" detail="New evacuee registrations will appear here." />}

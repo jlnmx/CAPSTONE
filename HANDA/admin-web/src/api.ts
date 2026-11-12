@@ -1,4 +1,4 @@
-import type { ActiveResponderRecord, AdminSnapshot, CenterRecord, DisasterRecord, EvacuationRegistrationInput, EvacuationRegistrationRecord, EvacueeRecord, IncidentAssignment, IncidentRecord, LogRecord, UserInput, UserRecord } from './types';
+import type { ActiveResponderRecord, AdminSnapshot, CenterRecord, EvacuationRegistrationInput, EvacuationRegistrationRecord, EvacueeRecord, IncidentAssignment, IncidentRecord, LogRecord, UserInput, UserRecord } from './types';
 
 const API_BASE = (import.meta.env.VITE_API_URL?.trim() || 'http://localhost:8000').replace(/\/$/, '');
 export const ACCESS_TOKEN_KEY = 'handa.accessToken';
@@ -278,14 +278,6 @@ export function updateUser(id: string, input: Partial<UserInput>) {
 
 export function deleteUser(id: string) {
   return apiRequest<void>(`/api/v1/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
-}
-
-export function getDisasters() {
-  return records<DisasterRecord>('/api/v1/disasters');
-}
-
-export function createDisaster(input: Pick<DisasterRecord, 'name' | 'description' | 'severity' | 'status'> & { affectedAreas: number }) {
-  return apiRequest<DisasterRecord>('/api/v1/disasters', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
 }
 
 export function getLogs(category: 'sync' | 'audit') {

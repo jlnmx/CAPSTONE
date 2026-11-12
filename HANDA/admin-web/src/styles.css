@@ -55,7 +55,6 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .nav-link:hover { color: #fff; background: rgb(255 255 255 / 7%); transform: translateX(2px); }
 .nav-link-active, .nav-link-active:hover { color: #fff; border-color: rgb(255 255 255 / 7%); background: #286443; box-shadow: inset 3px 0 #a8d99c; transform: none; }
 .nav-link svg { flex: 0 0 auto; }
-.nav-live-dot { width: 6px; height: 6px; margin-left: auto; border-radius: 50%; background: #a8df91; box-shadow: 0 0 0 3px rgb(168 223 145 / 12%); }
 .sidebar-bottom { display: grid; gap: 3px; margin-top: auto; }
 .sidebar-bottom .sidebar-caption { margin-top: 20px; }
 .sidebar-presence { display: flex; align-items: center; gap: 10px; padding: 13px 9px 5px; margin-top: 15px; border-top: 1px solid rgb(255 255 255 / 14%); }
@@ -276,11 +275,7 @@ button:disabled { cursor: not-allowed; opacity: .64; }
   .center-evacuees-toolbar { align-items: stretch; flex-direction: column; padding: 10px; }
   .center-evacuees-toolbar .search-field, .center-evacuees-toolbar .option-control { width: 100%; max-width: none; }
 }
-.event-list { display: grid; gap: 8px; }
-.event-row { display: flex; min-height: 76px; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; transition: border-color .15s ease, transform .15s ease; }
-.event-row:hover { border-color: #bdd8bb; transform: translateX(2px); }
-.event-icon { display: grid; width: 37px; height: 37px; flex: 0 0 37px; place-items: center; border-radius: 6px; color: var(--amber); background: var(--amber-pale); }
-.severity-high, .severity-critical { color: var(--red); background: var(--red-pale); }.severity-low { color: var(--green-deep); background: var(--green-pale); }
+
 .event-copy { display: grid; min-width: 0; flex: 1; gap: 3px; }
 .event-copy strong { color: var(--ink); font-size: 11px; font-weight: 850; }.event-copy small, .event-meta { overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }.event-meta { color: #89958b; font-family: 'IBM Plex Mono', monospace; font-size: 8px; }
 
@@ -292,7 +287,19 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .log-icon { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; border-radius: 5px; }.log-success { color: var(--green-deep); background: var(--green-pale); }.log-warning { color: var(--amber); background: var(--amber-pale); }
 .log-content { display: grid; min-width: 0; flex: 1; gap: 4px; color: #637166; font-size: 10px; line-height: 1.5; }.log-title-line { display: flex; justify-content: space-between; gap: 12px; color: var(--ink); }.log-title-line strong { font-size: 10px; font-weight: 850; }.log-title-line time, .log-content small { color: #849187; font-size: 8px; }
 
-.analytics-grid { grid-template-columns: minmax(0, 1.4fr) minmax(260px, .8fr); }
+.analytics-grid { grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(210px, .8fr)); }
+.pie-panel { min-height: 302px; padding: 18px 19px; }
+.pie-panel h2 { margin: 0; }
+.incident-pie-layout { display: flex; min-height: 195px; align-items: center; justify-content: center; gap: 20px; }
+.incident-pie { display: grid; width: 132px; height: 132px; flex: 0 0 132px; place-items: center; border-radius: 50%; }
+.incident-pie > span { display: grid; width: 82px; height: 82px; align-content: center; justify-items: center; border-radius: 50%; color: var(--ink); background: var(--surface); }
+.incident-pie strong { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 500; }
+.incident-pie small { color: var(--muted); font-size: 8px; }
+.incident-pie-legend { display: grid; gap: 12px; color: var(--muted); font-size: 9px; }
+.incident-pie-legend div { display: grid; grid-template-columns: 8px auto auto; align-items: center; gap: 7px; }
+.incident-pie-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.pie-active { background: var(--red); }.pie-resolved { background: #929f94; }
+.incident-pie-legend strong { color: var(--ink); font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
 .utilization-panel { min-height: 302px; padding: 18px 19px; }
 .utilization-panel h2 { margin: 0; }.utilization-number { margin: 37px 0 18px; color: var(--green-deep); font-family: 'IBM Plex Mono', monospace; font-size: 43px; }.utilization-meta { display: flex; justify-content: space-between; margin-top: 14px; color: var(--muted); font-size: 9px; }.utilization-meta strong { margin-left: 4px; color: var(--ink); font-family: 'IBM Plex Mono', monospace; }
 
@@ -454,6 +461,8 @@ button:disabled { cursor: not-allowed; opacity: .64; }
   .page-content { padding-right: 21px; padding-left: 21px; }
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .center-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analytics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analytics-registration-panel { grid-column: 1 / -1; }
 }
 @media (max-width: 820px) {
   .sidebar { width: 248px; transform: translateX(-102%); box-shadow: var(--shadow-float); }
@@ -464,7 +473,8 @@ button:disabled { cursor: not-allowed; opacity: .64; }
   .menu-toggle { display: inline-grid; margin-right: 9px; border-color: var(--line); }
   .topbar { min-height: 60px; padding: 0 15px; }
   .dashboard-grid, .analytics-grid, .settings-layout { grid-template-columns: 1fr; }
-  .activity-panel, .incident-panel, .utilization-panel { min-height: 260px; }
+  .activity-panel, .incident-panel, .utilization-panel, .pie-panel { min-height: 260px; }
+  .analytics-registration-panel { grid-column: auto; }
   .incident-total { margin-top: 22px; }
 }
 @media (max-width: 600px) {
@@ -475,7 +485,7 @@ button:disabled { cursor: not-allowed; opacity: .64; }
   .heading-action { width: 100%; }.heading-action .button-secondary, .heading-action .button-primary { flex: 1; }
   .metric-grid, .metric-grid-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .metric-card { min-height: 112px; padding: 12px; }.metric-value { font-size: 22px; }
-  .dashboard-grid { gap: 10px; }.activity-panel, .incident-panel, .utilization-panel { padding: 14px; }
+  .dashboard-grid { gap: 10px; }.activity-panel, .incident-panel, .utilization-panel, .pie-panel { padding: 14px; }
   .attention-list { grid-template-columns: 1fr; }
   .topbar-actions { gap: 9px; }.connection-status span:last-child, .account-copy, .topbar-divider { display: none; }.account-button > svg { display: none; }
   .records-toolbar { flex-wrap: wrap; padding: 10px; }.records-toolbar .segmented-control { width: 100%; }.records-toolbar .segmented-control button { flex: 1; }

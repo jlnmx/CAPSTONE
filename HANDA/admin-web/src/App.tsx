@@ -10,7 +10,7 @@ import CentersView from './views/CentersView';
 import CenterDetailView from './views/CenterDetailView';
 import UsersView from './views/UsersView';
 import DispatchView from './views/DispatchView';
-import { AnalyticsView, DisastersView, LogsView, SettingsView, SystemView } from './views/ManagementViews';
+import { AnalyticsView, LogsView, SettingsView, SystemView } from './views/ManagementViews';
 
 function ProtectedLayout() {
   const { user, isLoading } = useAuth();
@@ -34,10 +34,8 @@ export default function App() {
         <Route path="map" element={<MapView />} />
         <Route path="operations" element={<RecordsView mode="all" />} />
         <Route path="dispatch" element={<DispatchView />} />
-        <Route path="evacuees" element={<RecordsView mode="evacuees" />} />
         <Route path="centers" element={<CentersView />} />
         <Route path="centers/:centerId" element={<CenterDetailView />} />
-        <Route path="disasters" element={<DisastersView />} />
         <Route path="analytics" element={<AnalyticsView />} />
         <Route path="users" element={<SuperAdminOnly><UsersView /></SuperAdminOnly>} />
         <Route path="logs" element={<LogsView />} />

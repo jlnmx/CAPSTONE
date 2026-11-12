@@ -166,16 +166,6 @@ export interface UserInput {
   password?: string;
 }
 
-export interface DisasterRecord {
-  id: string;
-  name: string;
-  description: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'Upcoming' | 'Active' | 'Archived';
-  affected_areas: number;
-  started_at: string | null;
-}
-
 export interface LogRecord {
   id: number;
   action: string;
