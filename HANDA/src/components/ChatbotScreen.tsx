@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSegments } from 'expo-router';
 import { Colors } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
 import { answerQuestion, ChatbotTurn, getLiveQuestionContext, requestModelAnswer } from '@services/chatbotAnswers';
@@ -17,6 +18,8 @@ function isGoogleWeatherQuestion(question: string) {
 }
 
 export default function ChatbotScreen() {
+  const segments = useSegments();
+  const fallbackHref = segments[0] === '(responder)' ? '/(responder)/more' : '/(resident)/more';
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -69,7 +72,7 @@ export default function ChatbotScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <AppBackArrow />
+        <AppBackArrow fallbackHref={fallbackHref} />
         <View style={styles.headerCopy}>
           <Text style={styles.title}>HANDA SUPPORT</Text>
           <Text style={styles.subtitle}>Your quick safety companion</Text>

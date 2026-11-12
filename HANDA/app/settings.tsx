@@ -29,7 +29,7 @@ type NotificationPreferences = {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const { gutter } = useResponsiveLayout();
   const { mode, palette, setMode } = useTheme();
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
@@ -91,7 +91,13 @@ export default function SettingsScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
         <View style={{ marginHorizontal: -gutter }}>
-          <GradientHeader title="Settings" subtitle="Personalize your HANDA experience" icon="tune-variant" />
+          <GradientHeader
+            title="Settings"
+            subtitle="Personalize your HANDA experience"
+            icon="tune-variant"
+            showBack
+            fallbackHref={user?.role === 'responder' ? '/(responder)/more' : user?.role === 'resident' ? '/(resident)/more' : '/'}
+          />
         </View>
         <Reveal index={0}>
           <View style={styles.intro}>

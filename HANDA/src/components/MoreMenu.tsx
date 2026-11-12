@@ -83,7 +83,6 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
                 <Text style={styles.role}>{roleLabel}</Text>
               </View>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={23} color={palette.textMuted} />
           </View>
         </LinearGradient>
 

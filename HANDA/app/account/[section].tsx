@@ -89,7 +89,8 @@ export default function AccountSectionScreen() {
       const result = await response.json() as { detail?: unknown; accessToken?: string } & Partial<AuthUser>;
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Your account could not be updated.');
       await setAuthenticatedUser(result as AuthUser, result.accessToken);
-      router.replace('/account');
+      if (router.canGoBack()) router.back();
+      else router.replace('/account');
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Your account could not be updated.');
     } finally {
@@ -200,7 +201,13 @@ export default function AccountSectionScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={{ marginHorizontal: -gutter }}>
-          <GradientHeader title={section.title} subtitle="ACCOUNT SETTINGS" icon={sectionKey ? sectionIcons[sectionKey] : 'account-outline'} />
+          <GradientHeader
+            title={section.title}
+            subtitle="ACCOUNT SETTINGS"
+            icon={sectionKey ? sectionIcons[sectionKey] : 'account-outline'}
+            showBack
+            fallbackHref="/account"
+          />
         </View>
         <Reveal index={0}>
           <View style={[styles.form, { backgroundColor: palette.surface, borderColor: palette.border }]}>

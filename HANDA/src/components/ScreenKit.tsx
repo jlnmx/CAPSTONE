@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { Href } from 'expo-router';
 import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable } from '@components/Buttons';
 import AppBackArrow from '@components/AppBackArrow';
@@ -12,7 +13,7 @@ type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 export { KIT_GREEN, Reveal, kitFonts };
 
-export function GradientHeader({ title, subtitle, icon, right, showBack = false }: { title: string; subtitle?: string; icon?: IconName; right?: React.ReactNode; showBack?: boolean }) {
+export function GradientHeader({ title, subtitle, icon, right, showBack = false, fallbackHref }: { title: string; subtitle?: string; icon?: IconName; right?: React.ReactNode; showBack?: boolean; fallbackHref?: Href }) {
   const enter = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(enter, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
@@ -20,7 +21,7 @@ export function GradientHeader({ title, subtitle, icon, right, showBack = false 
   return (
     <LinearGradient colors={['#1F9A2E', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={kit.header}>
       {icon && <MaterialCommunityIcons name={icon} size={140} color="rgba(255,255,255,0.08)" style={kit.headerGlyph} />}
-      {showBack && <AppBackArrow />}
+      {showBack && <AppBackArrow fallbackHref={fallbackHref} />}
       <Animated.View style={[kit.headerCopy, { opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }] }]}>
         <Text style={kit.headerTitle}>{title}</Text>
         {!!subtitle && <Text style={kit.headerSubtitle}>{subtitle}</Text>}

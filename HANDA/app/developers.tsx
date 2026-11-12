@@ -5,6 +5,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable } from '@components/Buttons';
 import { GradientHeader, Reveal, kitFonts } from '@components/ScreenKit';
 import { useTheme } from '@hooks/useTheme';
+import { useAuth } from '@hooks/useAuth';
 
 const GREEN = '#218B25';
 const CONTACT_EMAIL = 'handadevs@gmail.com';
@@ -23,10 +24,17 @@ function initials(name: string) {
 
 export default function DevelopersScreen() {
   const { palette } = useTheme();
+  const { user } = useAuth();
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <GradientHeader title="Developer details" subtitle="The people and purpose behind HANDA" icon="code-tags" />
+        <GradientHeader
+          title="Developer details"
+          subtitle="The people and purpose behind HANDA"
+          icon="code-tags"
+          showBack
+          fallbackHref={user?.role === 'responder' ? '/(responder)/more' : user?.role === 'resident' ? '/(resident)/more' : '/'}
+        />
         <Reveal index={0}>
           <View style={[styles.schoolCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <View style={styles.schoolIcon}><MaterialCommunityIcons name="school-outline" size={25} color={GREEN} /></View>

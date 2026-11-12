@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useSegments } from 'expo-router';
+import { router, useSegments, type Href } from 'expo-router';
 import { StyleSheet, ViewStyle } from 'react-native';
 import { AnimatedPressable } from '@components/Buttons';
 import { useTheme } from '@hooks/useTheme';
@@ -7,9 +7,10 @@ import { useTheme } from '@hooks/useTheme';
 type AppBackArrowProps = {
   style?: ViewStyle;
   onPress?: () => void;
+  fallbackHref?: Href;
 };
 
-export default function AppBackArrow({ style, onPress }: AppBackArrowProps) {
+export default function AppBackArrow({ style, onPress, fallbackHref }: AppBackArrowProps) {
   const segments = useSegments();
   const { palette } = useTheme();
 
@@ -19,11 +20,11 @@ export default function AppBackArrow({ style, onPress }: AppBackArrowProps) {
     } else if (router.canGoBack()) {
       router.back();
     } else {
-      const fallback = segments[0] === '(resident)'
+      const fallback = fallbackHref ?? (segments[0] === '(resident)'
         ? '/(resident)'
         : segments[0] === '(responder)'
           ? '/(responder)'
-          : '/';
+          : '/');
       router.replace(fallback);
     }
   };

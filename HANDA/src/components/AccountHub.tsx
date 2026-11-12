@@ -34,7 +34,13 @@ export default function AccountHub() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
         <View style={{ marginHorizontal: -gutter }}>
-          <GradientHeader title="Account" subtitle="Your profile and account security" icon="account-cog-outline" />
+          <GradientHeader
+            title="Account"
+            subtitle="Your profile and account security"
+            icon="account-cog-outline"
+            showBack
+            fallbackHref={user?.role === 'responder' ? '/(responder)/more' : user?.role === 'resident' ? '/(resident)/more' : '/'}
+          />
         </View>
 
         <Reveal index={0}>
