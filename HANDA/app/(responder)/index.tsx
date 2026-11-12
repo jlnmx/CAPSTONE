@@ -13,7 +13,6 @@ import { useTheme } from '@hooks/useTheme';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { NotificationBell } from '@components/NotificationBell';
-import AppBackArrow from '@components/AppBackArrow';
 import { HandaLogoBadge } from '@components/HandaLogo';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, getResponseHistory, ResponderDataSnapshot } from '@services/responderData';
@@ -77,7 +76,6 @@ export default function ResponderDashboard() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <AppBackArrow />
           <View style={styles.headerBrand}>
             <HandaLogoBadge size={46} />
             <Text style={styles.headerLogo}>HANDA</Text>

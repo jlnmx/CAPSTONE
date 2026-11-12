@@ -9,7 +9,6 @@ import { WeatherWidget } from '@components/WeatherWidget';
 import { Colors } from '@constants/colors';
 import { AppBoldFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 import { NotificationBell } from '@components/NotificationBell';
-import AppBackArrow from '@components/AppBackArrow';
 import { HandaLogoBadge } from '@components/HandaLogo';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
@@ -134,7 +133,7 @@ export default function ResidentDashboard() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: timePresentation.pageBackground }]}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.brandRow}><AppBackArrow /><HandaLogoBadge size={46} /><Text style={styles.brand}>HANDA</Text></View>
+          <View style={styles.brandRow}><HandaLogoBadge size={46} /><Text style={styles.brand}>HANDA</Text></View>
           <NotificationBell />
         </View>
 
