@@ -3,11 +3,13 @@ import { Colors } from '@constants/colors';
 import { ActivityIndicator, Image, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { AnimatedPressable } from '@components/Buttons';
 import CurrentLocationMap, { LocationCoordinate } from '@components/CurrentLocationMap';
+import { incidentTypeIcon, kitFonts, Reveal } from '@components/IncidentCardKit';
 import { authenticatedFetch } from '@services/apiClient';
 import { saveLocalIncident } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
@@ -162,35 +164,128 @@ export default function ResidentIncidentReport() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={styles.header}><AppBackArrow /><View style={styles.headerCopy}><Text style={styles.eyebrow}>COMMUNITY SAFETY</Text><Text style={styles.title}>REPORT INCIDENT</Text></View><MaterialCommunityIcons name="alert-decagram-outline" size={32} color="#DFF1DF" /></View>
-        <View style={styles.form}>
-          <Text style={styles.sectionTitle}>What is happening?</Text>
-          <FieldLabel label="Incident type" required />
-          <AnimatedPressable style={styles.select} onPress={() => setPicker('type')} accessibilityRole="button"><Text style={incidentType ? styles.selectValue : styles.selectPlaceholder}>{incidentType || 'Select an incident or disaster'}</Text><MaterialCommunityIcons name="chevron-down" size={20} color="#5B735F" /></AnimatedPressable>
-          <FieldLabel label="Description" required />
-          <TextInput style={styles.descriptionInput} placeholder="Tell responders what they need to know" placeholderTextColor="#8EAF8E" value={description} onChangeText={setDescription} multiline textAlignVertical="top" maxLength={1000} />
-          <Text style={styles.characterCount}>{description.length}/1000</Text>
-          <View style={styles.locationHeading}><View><Text style={styles.sectionTitle}>Where is it?</Text><Text style={styles.helper}>Your current location will be pinned exactly on the map.</Text></View><AnimatedPressable onPress={() => void loadLocation()} style={styles.refreshButton} accessibilityRole="button" accessibilityLabel="Refresh current location"><MaterialCommunityIcons name="crosshairs-gps" size={19} color={GREEN} /></AnimatedPressable></View>
-          <View style={styles.mapFrame}><CurrentLocationMap coordinate={coordinate} /></View>
-          <View style={styles.locationReadout}><MaterialCommunityIcons name="map-marker" size={18} color={GREEN} /><Text style={styles.locationText}>{isGettingLocation ? 'Getting your current location...' : locationLabel || 'Location unavailable'}</Text></View>
-          <View style={styles.photoHeading}><View><Text style={styles.sectionTitle}>Photos</Text><Text style={styles.helper}>Add up to 4 photos to help others understand the situation.</Text></View><Text style={styles.photoCount}>{photos.length}/4</Text></View>
-          <View style={styles.photoGrid}>
-            {photos.map((photo, index) => <View key={`${photo.name}-${index}`} style={styles.photoItem}><AnimatedPressable onPress={() => setViewerIndex(index)} accessibilityRole="imagebutton" accessibilityLabel={`View photo ${index + 1}`}><Image source={{ uri: photo.uri }} style={styles.photo} /></AnimatedPressable><AnimatedPressable style={styles.removePhoto} onPress={() => setPhotos((current) => current.filter((_item, photoIndex) => photoIndex !== index))} accessibilityRole="button" accessibilityLabel="Remove photo"><MaterialCommunityIcons name="close" size={15} color="#FFFFFF" /></AnimatedPressable></View>)}
-            {photos.length < 4 && <View style={styles.photoActions}><AnimatedPressable style={styles.photoButton} onPress={() => void addPhotos('camera')} accessibilityRole="button"><MaterialCommunityIcons name="camera-outline" size={22} color={GREEN} /><Text style={styles.photoButtonText}>Take photo</Text></AnimatedPressable><AnimatedPressable style={styles.photoButton} onPress={() => void addPhotos('library')} accessibilityRole="button"><MaterialCommunityIcons name="image-multiple-outline" size={22} color={GREEN} /><Text style={styles.photoButtonText}>Upload</Text></AnimatedPressable></View>}
+        <LinearGradient colors={['#218B25', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+          <AppBackArrow />
+          <View style={styles.headerCopy}>
+            <Text style={styles.eyebrow}>COMMUNITY SAFETY</Text>
+            <Text style={styles.title}>Report incident</Text>
+            <Text style={styles.headerSubtitle}>Share details so responders can act quickly.</Text>
           </View>
-          {!!error && <Text style={styles.error}>{error}</Text>}
-          <AnimatedPressable style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={requestSubmit} disabled={isSubmitting} accessibilityRole="button">{isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <><MaterialCommunityIcons name="send-check-outline" size={20} color="#FFFFFF" /><Text style={styles.submitText}>Post incident report</Text></>}</AnimatedPressable>
+          <View style={styles.headerIcon}><MaterialCommunityIcons name="alert-decagram-outline" size={23} color="#FFFFFF" /></View>
+        </LinearGradient>
+        <View style={styles.form}>
+          <Reveal index={0}>
+            <View style={styles.formCard}>
+              <SectionHeading icon="alert-circle-outline" title="What is happening?" description="Tell responders what they need to know." />
+              <FieldLabel label="Incident type" required />
+              <AnimatedPressable style={styles.select} onPress={() => setPicker('type')} accessibilityRole="button" accessibilityLabel={incidentType ? `Incident type: ${incidentType}` : 'Choose incident type'}>
+                <View style={styles.selectCopy}>
+                  {incidentType ? <MaterialCommunityIcons name={incidentTypeIcon(incidentType)} size={19} color={GREEN} /> : null}
+                  <Text style={incidentType ? styles.selectValue : styles.selectPlaceholder}>{incidentType || 'Select an incident or disaster'}</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-down" size={21} color="#5B735F" />
+              </AnimatedPressable>
+              <FieldLabel label="Description" required />
+              <TextInput
+                style={styles.descriptionInput}
+                placeholder="Describe what happened and any immediate danger."
+                placeholderTextColor="#8E9891"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                textAlignVertical="top"
+                maxLength={1000}
+                accessibilityLabel="Incident description"
+              />
+              <View style={styles.descriptionFooter}>
+                <Text style={styles.inputHint}>Include helpful details such as hazards or people affected.</Text>
+                <Text style={styles.characterCount}>{description.length}/1000</Text>
+              </View>
+            </View>
+          </Reveal>
+
+          <Reveal index={1}>
+            <View style={styles.formCard}>
+              <View style={styles.locationHeading}>
+                <SectionHeading icon="map-marker-radius-outline" title="Where is it?" description="Your current location will be pinned on the map." />
+                <AnimatedPressable onPress={() => void loadLocation()} style={styles.refreshButton} accessibilityRole="button" accessibilityLabel="Refresh current location">
+                  <MaterialCommunityIcons name="crosshairs-gps" size={19} color={GREEN} />
+                </AnimatedPressable>
+              </View>
+              <View style={styles.mapFrame}><CurrentLocationMap coordinate={coordinate} /></View>
+              <View style={styles.locationReadout}>
+                <MaterialCommunityIcons name={isGettingLocation ? 'crosshairs-gps' : 'map-marker'} size={18} color={GREEN} />
+                <Text style={styles.locationText}>{isGettingLocation ? 'Getting your current location...' : locationLabel || 'Location unavailable'}</Text>
+                {!isGettingLocation && coordinate ? <MaterialCommunityIcons name="check-circle" size={17} color={GREEN} /> : null}
+              </View>
+            </View>
+          </Reveal>
+
+          <Reveal index={2}>
+            <View style={styles.formCard}>
+              <View style={styles.photoHeading}>
+                <SectionHeading icon="camera-outline" title="Add photos" description="Photos can help responders assess the situation." />
+                <View style={styles.photoCountBadge}><Text style={styles.photoCount}>{photos.length}/4</Text></View>
+              </View>
+              <View style={styles.photoGrid}>
+                {photos.map((photo, index) => (
+                  <View key={`${photo.name}-${index}`} style={styles.photoItem}>
+                    <AnimatedPressable onPress={() => setViewerIndex(index)} accessibilityRole="imagebutton" accessibilityLabel={`View photo ${index + 1}`}>
+                      <Image source={{ uri: photo.uri }} style={styles.photo} />
+                    </AnimatedPressable>
+                    <AnimatedPressable style={styles.removePhoto} onPress={() => setPhotos((current) => current.filter((_item, photoIndex) => photoIndex !== index))} accessibilityRole="button" accessibilityLabel="Remove photo">
+                      <MaterialCommunityIcons name="close" size={15} color="#FFFFFF" />
+                    </AnimatedPressable>
+                  </View>
+                ))}
+                {photos.length < 4 && (
+                  <View style={styles.photoActions}>
+                    <AnimatedPressable style={styles.photoButton} onPress={() => void addPhotos('camera')} accessibilityRole="button">
+                      <MaterialCommunityIcons name="camera-outline" size={22} color={GREEN} />
+                      <Text style={styles.photoButtonText}>Take photo</Text>
+                    </AnimatedPressable>
+                    <AnimatedPressable style={styles.photoButton} onPress={() => void addPhotos('library')} accessibilityRole="button">
+                      <MaterialCommunityIcons name="image-multiple-outline" size={22} color={GREEN} />
+                      <Text style={styles.photoButtonText}>Upload</Text>
+                    </AnimatedPressable>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.photoFootnote}>Up to 4 photos · JPG, PNG or HEIC</Text>
+            </View>
+          </Reveal>
+          {!!error && (
+            <View style={styles.errorBanner} accessibilityRole="alert">
+              <MaterialCommunityIcons name="alert-circle-outline" size={19} color="#B42318" />
+              <Text style={styles.error}>{error}</Text>
+            </View>
+          )}
+          <AnimatedPressable style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={requestSubmit} disabled={isSubmitting} accessibilityRole="button">
+            {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <><MaterialCommunityIcons name="send-check-outline" size={20} color="#FFFFFF" /><Text style={styles.submitText}>Review and submit report</Text></>}
+          </AnimatedPressable>
         </View>
       </ScrollView>
       <Modal transparent visible={picker !== null} animationType="fade" onRequestClose={() => setPicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setPicker(null)}>
           <Pressable style={styles.optionsCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.optionsTitle}>Select incident type</Text>
+            <View style={styles.optionsHeading}>
+              <View style={styles.optionsIcon}><MaterialCommunityIcons name="alert-circle-outline" size={22} color={GREEN} /></View>
+              <View style={styles.optionsTitleCopy}>
+                <Text style={styles.optionsTitle}>Choose incident type</Text>
+                <Text style={styles.optionsSubtitle}>Select the closest match.</Text>
+              </View>
+              <AnimatedPressable onPress={() => setPicker(null)} style={styles.optionsClose} accessibilityRole="button" accessibilityLabel="Close incident type picker">
+                <MaterialCommunityIcons name="close" size={19} color={Colors.textMuted} />
+              </AnimatedPressable>
+            </View>
             <ScrollView style={styles.optionsScroll} showsVerticalScrollIndicator={false}>
-              {INCIDENT_TYPES.map((option) => <AnimatedPressable key={option} style={styles.option} onPress={() => { setIncidentType(option); setPicker(null); }}>
-                <Text style={styles.optionText}>{option}</Text>
-                {incidentType === option && <MaterialCommunityIcons name="check" size={19} color={GREEN} />}
-              </AnimatedPressable>)}
+              {INCIDENT_TYPES.map((option) => (
+                <AnimatedPressable key={option} style={[styles.option, incidentType === option && styles.optionSelected]} onPress={() => { setIncidentType(option); setPicker(null); }}>
+                  <View style={styles.optionIcon}><MaterialCommunityIcons name={incidentTypeIcon(option)} size={18} color={incidentType === option ? GREEN : Colors.textMuted} /></View>
+                  <Text style={[styles.optionText, incidentType === option && styles.optionTextSelected]}>{option}</Text>
+                  {incidentType === option ? <MaterialCommunityIcons name="check-circle" size={19} color={GREEN} /> : <MaterialCommunityIcons name="chevron-right" size={19} color="#AAB6AC" />}
+                </AnimatedPressable>
+              ))}
             </ScrollView>
           </Pressable>
         </Pressable>
@@ -231,33 +326,105 @@ export default function ResidentIncidentReport() {
   );
 }
 
-function FieldLabel({ label, required = false }: { label: string; required?: boolean }) { return <Text style={styles.label}>{label}{required && <Text style={styles.required}> *</Text>}</Text>; }
+function SectionHeading({ icon, title, description }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; description: string }) {
+  return (
+    <View style={styles.sectionHeading}>
+      <View style={styles.sectionIcon}><MaterialCommunityIcons name={icon} size={19} color={GREEN} /></View>
+      <View style={styles.sectionCopy}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.helper}>{description}</Text>
+      </View>
+    </View>
+  );
+}
+
+function FieldLabel({ label, required = false }: { label: string; required?: boolean }) {
+  return <Text style={styles.label}>{label}{required && <Text style={styles.required}> *</Text>}</Text>;
+}
 
 const styles = StyleSheet.create({
   headerCopy: { flex: 1 },
-  container: { flex: 1, backgroundColor: Colors.background }, content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingBottom: 30 }, header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 19, paddingBottom: 15, backgroundColor: GREEN }, eyebrow: { color: '#DFF1DF', fontSize: 9, fontWeight: '800', letterSpacing: 1.1 }, title: { color: '#FFFFFF', fontSize: 25, fontWeight: '800', marginTop: 3 }, form: { paddingHorizontal: 16, paddingTop: 18 }, sectionTitle: { color: Colors.text, fontSize: 16, fontWeight: '800' }, label: { color: Colors.text, fontSize: 12, fontWeight: '700', marginTop: 15, marginBottom: 6 }, required: { color: '#D33A3A' }, select: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 13, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 9, backgroundColor: Colors.surface }, selectValue: { color: Colors.textMuted, fontSize: 13, fontWeight: '700' }, selectPlaceholder: { color: '#8EAF8E', fontSize: 13 }, severity_low: { color: '#2873A8' }, severity_medium: { color: '#B36E00' }, severity_high: { color: '#B42318' }, severity_critical: { color: '#8B1020' }, descriptionInput: { minHeight: 112, paddingHorizontal: 13, paddingTop: 12, paddingBottom: 10, borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 9, backgroundColor: Colors.surface, color: Colors.textMuted, fontSize: 13, lineHeight: 19 }, characterCount: { color: Colors.textMuted, fontSize: 10, textAlign: 'right', marginTop: 3 }, locationHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22 }, helper: { color: Colors.textMuted, fontSize: 11, lineHeight: 16, marginTop: 3 }, refreshButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 19, backgroundColor: Colors.surface }, mapFrame: { height: 230, overflow: 'hidden', marginTop: 10, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, backgroundColor: Colors.surfaceMuted }, locationReadout: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }, locationText: { flex: 1, color: Colors.textMuted, fontSize: 11, lineHeight: 16 }, photoHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 17, marginBottom: 9 }, photoCount: { color: Colors.textMuted, fontSize: 11, fontWeight: '700' }, photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, photoItem: { width: 86, height: 86, position: 'relative', borderRadius: 8, overflow: 'hidden', backgroundColor: Colors.surfaceMuted }, photo: { width: '100%', height: '100%' }, removePhoto: { position: 'absolute', top: 4, right: 4, width: 23, height: 23, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: 'rgba(23,33,43,0.72)' }, photoActions: { flexDirection: 'row', gap: 8 }, photoButton: { width: 104, height: 86, alignItems: 'center', justifyContent: 'center', gap: 5, borderWidth: 1, borderColor: Colors.border, borderRadius: 8, backgroundColor: Colors.surface }, photoButtonText: { color: GREEN, fontSize: 11, fontWeight: '700' }, error: { color: '#B42318', fontSize: 12, lineHeight: 17, marginTop: 14 }, submitButton: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 18, borderRadius: 9, backgroundColor: GREEN }, submitButtonDisabled: { opacity: 0.65 }, submitText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' }, modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.35)' }, optionsCard: { width: '100%', maxWidth: 430, maxHeight: '78%', padding: 17, borderRadius: 12, backgroundColor: Colors.surface }, optionsTitle: { color: Colors.text, fontSize: 17, fontWeight: '800', marginBottom: 8 }, optionsScroll: { maxHeight: 410 }, option: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: '#E7EFE7' }, optionText: { color: Colors.textMuted, fontSize: 13 },
+  container: { flex: 1, backgroundColor: Colors.surfaceMuted },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingBottom: 150 },
+  header: { minHeight: 128, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 20, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
+  eyebrow: { color: '#DFF1DF', fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 1.3 },
+  title: { color: '#FFFFFF', fontFamily: kitFonts.heading, fontSize: 25, lineHeight: 31, marginTop: 3 },
+  headerSubtitle: { color: 'rgba(255,255,255,0.86)', fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 17, marginTop: 3 },
+  headerIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(255,255,255,0.16)' },
+  form: { gap: 14, paddingHorizontal: 14, paddingTop: 17 },
+  formCard: { padding: 15, borderWidth: 1, borderColor: '#E2EAE2', borderRadius: 21, backgroundColor: Colors.surface, shadowColor: '#173A20', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 3 },
+  sectionIcon: { width: 39, height: 39, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#EAF5EA' },
+  sectionCopy: { flex: 1, minWidth: 0 },
+  sectionTitle: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 16, lineHeight: 21 },
+  helper: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 16, marginTop: 2 },
+  label: { color: Colors.text, fontFamily: kitFonts.bold, fontSize: 11, letterSpacing: 0.15, marginTop: 14, marginBottom: 7 },
+  required: { color: '#D33A3A', fontFamily: kitFonts.bold },
+  select: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 13, borderWidth: 1, borderColor: '#D6E3D6', borderRadius: 14, backgroundColor: '#FBFDFC' },
+  selectCopy: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  selectValue: { flexShrink: 1, color: Colors.text, fontFamily: kitFonts.semibold, fontSize: 13 },
+  selectPlaceholder: { flex: 1, color: '#7A8B7D', fontFamily: kitFonts.medium, fontSize: 13 },
+  descriptionInput: { minHeight: 124, paddingHorizontal: 13, paddingTop: 12, paddingBottom: 10, borderWidth: 1, borderColor: '#D6E3D6', borderRadius: 14, backgroundColor: '#FBFDFC', color: Colors.text, fontFamily: kitFonts.medium, fontSize: 13, lineHeight: 20 },
+  descriptionFooter: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginTop: 5 },
+  inputHint: { flex: 1, color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 10, lineHeight: 14 },
+  characterCount: { color: Colors.textMuted, fontFamily: kitFonts.semibold, fontSize: 10, textAlign: 'right' },
+  locationHeading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  refreshButton: { width: 42, height: 42, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#D6E3D6', borderRadius: 14, backgroundColor: '#F6FAF6' },
+  mapFrame: { height: 240, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, borderRadius: 17, backgroundColor: Colors.surfaceMuted },
+  locationReadout: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 13, backgroundColor: '#F1F8F1' },
+  locationText: { flex: 1, color: Colors.text, fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 16 },
+  photoHeading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 13 },
+  photoCountBadge: { minWidth: 43, alignItems: 'center', paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: '#EEF5EE' },
+  photoCount: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 11 },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photoItem: { width: 82, height: 82, position: 'relative', overflow: 'hidden', borderRadius: 14, backgroundColor: Colors.surfaceMuted },
+  photo: { width: '100%', height: '100%' },
+  removePhoto: { position: 'absolute', top: 5, right: 5, width: 25, height: 25, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: 'rgba(23,33,43,0.76)' },
+  photoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photoButton: { width: 104, height: 82, alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: '#D6E3D6', borderRadius: 15, backgroundColor: '#F8FBF8' },
+  photoButtonText: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 11 },
+  photoFootnote: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 10, marginTop: 10 },
+  errorBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12, borderWidth: 1, borderColor: '#F3C9C5', borderRadius: 14, backgroundColor: '#FFF5F4' },
+  error: { flex: 1, color: '#B42318', fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 17 },
+  submitButton: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 2, borderRadius: 16, backgroundColor: GREEN, shadowColor: '#1D6E22', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.22, shadowRadius: 10, elevation: 5 },
+  submitButtonDisabled: { opacity: 0.65 },
+  submitText: { color: '#FFFFFF', fontFamily: kitFonts.bold, fontSize: 14, letterSpacing: 0.15 },
+  modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: 'rgba(12,26,16,0.48)' },
+  optionsCard: { width: '100%', maxWidth: 430, maxHeight: '82%', padding: 17, borderRadius: 23, backgroundColor: Colors.surface, shadowColor: '#0B2411', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 22, elevation: 10 },
+  optionsHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 11 },
+  optionsIcon: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#EAF5EA' },
+  optionsTitleCopy: { flex: 1 },
+  optionsTitle: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 16 },
+  optionsSubtitle: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 11, marginTop: 2 },
+  optionsClose: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#F1F4F1' },
+  optionsScroll: { maxHeight: 430 },
+  option: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4, paddingHorizontal: 9, borderRadius: 13, backgroundColor: Colors.surface },
+  optionSelected: { backgroundColor: '#EEF7EE' },
+  optionIcon: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#F1F5F1' },
+  optionText: { flex: 1, color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 13 },
+  optionTextSelected: { color: GREEN, fontFamily: kitFonts.bold },
 });
 
 const confirmationStyles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.52)' },
-  card: { width: '100%', maxWidth: 420, padding: 20, borderRadius: 12, backgroundColor: Colors.surface },
-  title: { color: Colors.text, fontSize: 18, fontWeight: '800' },
-  message: { color: Colors.textMuted, fontSize: 14, lineHeight: 20, marginTop: 8 },
+  card: { width: '100%', maxWidth: 420, padding: 22, borderWidth: 1, borderColor: '#E2EAE2', borderRadius: 22, backgroundColor: Colors.surface, shadowColor: '#0B2411', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 22, elevation: 10 },
+  title: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 18, lineHeight: 24 },
+  message: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 13, lineHeight: 20, marginTop: 8 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 22 },
-  cancelButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 8, backgroundColor: Colors.surface },
-  cancelText: { color: Colors.text, fontSize: 13, fontWeight: '700' },
-  confirmButton: { flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 8, backgroundColor: GREEN },
-  confirmText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  cancelButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#C9DCC9', borderRadius: 13, backgroundColor: Colors.surface },
+  cancelText: { color: Colors.text, fontFamily: kitFonts.bold, fontSize: 12 },
+  confirmButton: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 13, backgroundColor: GREEN },
+  confirmText: { color: '#FFFFFF', fontFamily: kitFonts.bold, fontSize: 12, textAlign: 'center' },
 });
 
 const successStyles = StyleSheet.create({
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.52)' },
-  card: { width: '100%', maxWidth: 420, alignItems: 'center', padding: 22, borderRadius: 12, backgroundColor: Colors.surface },
-  icon: { width: 54, height: 54, alignItems: 'center', justifyContent: 'center', borderRadius: 27, backgroundColor: GREEN },
-  title: { marginTop: 16, color: Colors.text, fontSize: 18, fontWeight: '800', textAlign: 'center' },
-  message: { marginTop: 8, color: Colors.textMuted, fontSize: 14, lineHeight: 20, textAlign: 'center' },
-  primaryButton: { alignSelf: 'stretch', minHeight: 46, marginTop: 20, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: GREEN },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
-  closeButton: { minHeight: 42, marginTop: 4, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  closeButtonText: { color: GREEN, fontSize: 13, fontWeight: '700' },
+  card: { width: '100%', maxWidth: 420, alignItems: 'center', padding: 24, borderWidth: 1, borderColor: '#E2EAE2', borderRadius: 23, backgroundColor: Colors.surface, shadowColor: '#0B2411', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 22, elevation: 10 },
+  icon: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: GREEN },
+  title: { marginTop: 16, color: Colors.text, fontFamily: kitFonts.heading, fontSize: 18, lineHeight: 24, textAlign: 'center' },
+  message: { marginTop: 8, color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  primaryButton: { alignSelf: 'stretch', minHeight: 48, marginTop: 20, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: GREEN },
+  primaryButtonText: { color: '#FFFFFF', fontFamily: kitFonts.bold, fontSize: 13 },
+  closeButton: { minHeight: 42, marginTop: 5, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  closeButtonText: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 12 },
 });

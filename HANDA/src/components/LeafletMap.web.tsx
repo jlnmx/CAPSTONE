@@ -6,6 +6,7 @@ import { Colors } from '@constants/colors';
 import type { MapEvacuationCenter } from '@/types/index';
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import { loadGoogleMapsApi } from '@services/map/googleMapsWeb';
+import { createEvacuationCenterInfoContent } from '@services/map/evacuationCenterInfoContent';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
 import MapNavigation from './MapNavigation';
@@ -83,6 +84,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
     const map = mapReady ? mapRef.current : null;
     if (!map) return undefined;
     markersRef.current.forEach((marker) => marker.setMap(null));
+    const infoWindows: google.maps.InfoWindow[] = [];
     markersRef.current = validCenters.map((center) => {
       const marker = new google.maps.Marker({
         map,
@@ -92,31 +94,15 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
           ? undefined
           : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#218B25', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
       });
-      const content = document.createElement('div');
-      const title = document.createElement('strong');
-      title.textContent = center.name;
-      const description = document.createElement('div');
-      description.textContent = center.location || 'Evacuation center';
-      const navigateButton = document.createElement('button');
-      navigateButton.type = 'button';
-      navigateButton.textContent = 'Navigate';
-      Object.assign(navigateButton.style, {
-        marginTop: '8px',
-        border: '0',
-        borderRadius: '8px',
-        padding: '7px 12px',
-        background: '#218B25',
-        color: '#ffffff',
-        fontWeight: '700',
-        cursor: 'pointer',
+      const info = new google.maps.InfoWindow({
+        content: createEvacuationCenterInfoContent(center, () => onNavigationTargetChangeRef.current?.({
+          title: center.name,
+          latitude: Number(center.latitude),
+          longitude: Number(center.longitude),
+        })),
+        maxWidth: 280,
       });
-      navigateButton.addEventListener('click', () => onNavigationTargetChangeRef.current?.({
-        title: center.name,
-        latitude: Number(center.latitude),
-        longitude: Number(center.longitude),
-      }));
-      content.append(title, description, navigateButton);
-      const info = new google.maps.InfoWindow({ content });
+      infoWindows.push(info);
       marker.addListener('click', () => {
         info.open({ map, anchor: marker });
         onSelectCenterRef.current?.(center.id);
@@ -124,6 +110,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
       return marker;
     });
     return () => {
+      infoWindows.forEach((info) => info.close());
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
     };

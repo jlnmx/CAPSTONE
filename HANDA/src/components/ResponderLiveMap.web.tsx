@@ -9,6 +9,7 @@ import { useEvacuationCenterFeed, useIncidentFeed, useResponderLive } from '@hoo
 import { getResponderData, ResponderDataSnapshot } from '@services/responderData';
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import { loadGoogleMapsApi } from '@services/map/googleMapsWeb';
+import { createEvacuationCenterInfoContent } from '@services/map/evacuationCenterInfoContent';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
 import MapNavigation from './MapNavigation';
@@ -99,6 +100,7 @@ export default function ResponderLiveMap() {
     if (!map || !mapReady) return;
     markersRef.current.forEach((marker) => marker.setMap(null));
     const markers: google.maps.Marker[] = [];
+    const infoWindows: google.maps.InfoWindow[] = [];
 
     data.centers.forEach((center) => {
       if (center.latitude == null || center.longitude == null) return;
@@ -110,22 +112,15 @@ export default function ResponderLiveMap() {
           ? undefined
           : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#218B25', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
       });
-      const content = document.createElement('div');
-      const title = document.createElement('strong');
-      title.textContent = center.name;
-      const details = document.createElement('div');
-      details.textContent = `${center.location} · ${center.currentOccupancy}/${center.capacity}`;
-      const navigateButton = document.createElement('button');
-      navigateButton.type = 'button';
-      navigateButton.textContent = 'Navigate';
-      Object.assign(navigateButton.style, { marginTop: '8px', border: '0', borderRadius: '8px', padding: '7px 12px', background: '#218B25', color: '#ffffff', fontWeight: '700', cursor: 'pointer' });
-      navigateButton.addEventListener('click', () => setNavigationTarget({
-        title: center.name,
-        latitude: center.latitude!,
-        longitude: center.longitude!,
-      }));
-      content.append(title, details, navigateButton);
-      const info = new google.maps.InfoWindow({ content });
+      const info = new google.maps.InfoWindow({
+        content: createEvacuationCenterInfoContent(center, () => setNavigationTarget({
+          title: center.name,
+          latitude: center.latitude!,
+          longitude: center.longitude!,
+        })),
+        maxWidth: 280,
+      });
+      infoWindows.push(info);
       marker.addListener('click', () => info.open({ map, anchor: marker }));
       markers.push(marker);
     });
@@ -170,6 +165,7 @@ export default function ResponderLiveMap() {
       }));
     });
     markersRef.current = markers;
+    return () => infoWindows.forEach((info) => info.close());
   }, [data, responders, mapReady, user?.id]);
 
   useEffect(() => {
