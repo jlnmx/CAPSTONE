@@ -1,10 +1,30 @@
 import React, { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ArrowDownUp, Check, Download, Mail, MapPin, Phone, Plus, Search, SlidersHorizontal, Trash2, UserRoundPlus } from 'lucide-react';
+import { ArrowDownUp, CalendarDays, Check, ChevronLeft, ChevronRight, Download, Mail, MapPin, Phone, Plus, Search, SlidersHorizontal, Trash2, UserRoundPlus, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { createEvacuationRegistration, getAdminSnapshot, getCenters, getUsers } from '../api';
 import type { AdminSnapshot, CenterRecord, EvacuationHouseholdMemberInput, EvacuationRegistrationInput, EvacueeRecord, IncidentRecord, UserRecord } from '../types';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
 
 const emptySnapshot: AdminSnapshot = { incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' };
+type RecordPeriod = 'all' | 'week' | 'month' | 'year';
+
+function startOfPeriod(period: RecordPeriod, now: Date) {
+  if (period === 'all') return null;
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (period === 'week') start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  if (period === 'month') start.setDate(1);
+  if (period === 'year') {
+    start.setMonth(0);
+    start.setDate(1);
+  }
+  return start;
+}
+
+function inPeriod(value: string, start: Date | null, now: Date) {
+  if (start === null) return true;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp >= start.getTime() && timestamp <= now.getTime();
+}
 
 function downloadCsv(filename: string, rows: string[][]) {
   const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n');
@@ -22,6 +42,7 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [tab, setTab] = useState<'incidents' | 'evacuees'>(mode === 'evacuees' ? 'evacuees' : 'incidents');
+  const [period, setPeriod] = useState<RecordPeriod>('all');
   const [addEvacueeOpen, setAddEvacueeOpen] = useState(false);
 
   async function refresh() {
@@ -36,8 +57,21 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
   useEffect(() => { void refresh(); }, []);
   useEffect(() => { if (mode === 'evacuees') setTab('evacuees'); }, [mode]);
 
-  const incidents = useMemo(() => data.incidents.filter((row) => `${row.type} ${row.description} ${row.location} ${row.status}`.toLowerCase().includes(query.toLowerCase())), [data.incidents, query]);
-  const evacuees = useMemo(() => data.evacuees.filter((row) => `${row.displayName} ${row.barangay} ${row.centerName} ${row.status}`.toLowerCase().includes(query.toLowerCase())), [data.evacuees, query]);
+  const incidents = useMemo(() => {
+    const now = new Date();
+    const start = startOfPeriod(period, now);
+    const normalizedQuery = query.trim().toLowerCase();
+    return data.incidents.filter((row) => inPeriod(row.createdAt, start, now)
+      && `${row.type} ${row.description} ${row.location} ${row.status}`.toLowerCase().includes(normalizedQuery));
+  }, [data.incidents, period, query]);
+  const evacuees = useMemo(() => {
+    const now = new Date();
+    const start = startOfPeriod(period, now);
+    const normalizedQuery = query.trim().toLowerCase();
+    return data.evacuees.filter((row) => inPeriod(row.createdAt, start, now)
+      && `${row.displayName} ${row.barangay} ${row.centerName} ${row.status}`.toLowerCase().includes(normalizedQuery));
+  }, [data.evacuees, period, query]);
+  const visibleCount = tab === 'incidents' ? incidents.length : evacuees.length;
   const exportRecords = () => tab === 'incidents'
     ? downloadCsv('handa-incidents.csv', [['Type', 'Location', 'Status', 'Created'], ...incidents.map((row) => [row.type, row.location, row.status, row.createdAt])])
     : downloadCsv('handa-evacuees.csv', [['Name', 'Age', 'Barangay', 'Center', 'Status', 'Registered'], ...evacuees.map((row) => [row.displayName, String(row.age), row.barangay, row.centerName, row.status, row.createdAt])]);
@@ -47,11 +81,17 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
     {error && <InlineNotice onRetry={() => void refresh()}>{error}</InlineNotice>}
     <section className="surface-panel records-panel">
       <div className="records-toolbar">
-        {mode === 'all' && <div className="segmented-control" role="tablist">{(['incidents', 'evacuees'] as const).map((item) => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'segment-active' : ''} onClick={() => setTab(item)}>{item === 'incidents' ? 'Incidents' : 'Evacuees'}<span className="segment-count">{item === 'incidents' ? data.incidents.length : data.evacuees.length}</span></button>)}</div>}
+        {mode === 'all' && <div className="segmented-control records-tabs" role="tablist">{(['incidents', 'evacuees'] as const).map((item) => <button key={item} role="tab" aria-selected={tab === item} className={tab === item ? 'segment-active' : ''} onClick={() => setTab(item)}>{item === 'incidents' ? 'Incidents' : 'Evacuees'}<span className="segment-count">{item === 'incidents' ? incidents.length : evacuees.length}</span></button>)}</div>}
         <label className="search-field"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tab === 'incidents' ? 'Search incidents or locations' : 'Search evacuees, barangay, or center'} /><kbd>/</kbd></label>
-        <button className="icon-button filter-button" aria-label="Filter records"><SlidersHorizontal size={17} /></button>
+        <div className="records-toolbar-end">
+          <CalendarDays size={16} aria-hidden="true" />
+          <div className="segmented-control records-period-control" role="group" aria-label="Filter records by time period">
+            {([{ value: 'all', label: 'All time' }, { value: 'week', label: 'Week' }, { value: 'month', label: 'Month' }, { value: 'year', label: 'Year' }] as const).map(({ value, label }) => <button type="button" key={value} aria-pressed={period === value} className={period === value ? 'segment-active' : ''} onClick={() => setPeriod(value)}>{label}</button>)}
+          </div>
+          <span className="results-count" aria-live="polite">{visibleCount} records</span>
+        </div>
       </div>
-      {loading ? <LoadingState label="Loading HANDA records" /> : tab === 'incidents' ? <IncidentTable rows={incidents} /> : <EvacueeTable rows={evacuees} />}
+      {loading ? <LoadingState label="Loading HANDA records" /> : tab === 'incidents' ? <IncidentTable rows={incidents} filtered={Boolean(query.trim() || period !== 'all')} /> : <EvacueeTable rows={evacuees} filtered={Boolean(query.trim() || period !== 'all')} />}
     </section>
     {addEvacueeOpen && <AddEvacueeModal onClose={() => setAddEvacueeOpen(false)} onCreated={async () => { setAddEvacueeOpen(false); await refresh(); }} />}
   </div>;
@@ -306,34 +346,47 @@ function Field({ label, value, onChange, required = false, type = 'text', min, m
   return <label className={`form-field ${wide ? 'form-field-wide' : ''}`}><span>{label}{required && <i> *</i>}</span><input type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} min={min} max={max} placeholder={placeholder} /></label>;
 }
 
-function IncidentTable({ rows }: { rows: IncidentRecord[] }) {
-  if (!rows.length) return <EmptyState title="No incident records found" detail="Incident reports will appear here when they are submitted." />;
+function IncidentTable({ rows, filtered }: { rows: IncidentRecord[]; filtered: boolean }) {
+  if (!rows.length) return <EmptyState title={filtered ? 'No matching incident records' : 'No incident records found'} detail={filtered ? 'Try another search or time period.' : 'Incident reports will appear here when they are submitted.'} />;
   return <div className="table-scroll"><table className="data-table"><thead><tr><th>Incident</th><th>Location</th><th>Reporter</th><th>Reported photos</th><th>Scene photos (responders)</th><th>Reported</th><th>Status</th><th>Sync</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td><strong>{row.type}</strong><small className="cell-subtitle">{row.description}</small></td><td>{row.location || 'Location unavailable'}</td><td>{row.reporterContact ? <div className="person-cell"><span className="avatar avatar-table" style={row.reporterPicture ? { padding: 0, overflow: 'hidden' } : undefined}>{row.reporterPicture ? <img src={row.reporterPicture} alt={`${row.reporterName || 'Resident'} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : (row.reporterName || 'R').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{row.reporterName || 'Resident'}</strong><small className="cell-subtitle">{row.reporterContact}</small></span></div> : '—'}</td><td><PhotoCell photos={row.photoUris || []} title={`${row.type} reported`} /></td><td><PhotoCell photos={row.responsePhotoUris || []} title={`${row.type} scene`} /></td><td>{formatDate(row.createdAt)}</td><td><StatusPill value={row.status} /></td><td><span className="sync-state"><i />{row.syncStatus}</span></td></tr>)}</tbody></table></div>;
 }
 
 function PhotoCell({ photos, title }: { photos: string[]; title: string }) {
   const [open, setOpen] = useState<number | null>(null);
+  useEffect(() => {
+    if (open === null) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(null);
+      if (event.key === 'ArrowLeft') setOpen((index) => index === null ? null : Math.max(0, index - 1));
+      if (event.key === 'ArrowRight') setOpen((index) => index === null ? null : Math.min(photos.length - 1, index + 1));
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, photos.length]);
   if (!photos.length) return <>—</>;
-  const thumb = { width: 44, height: 44, objectFit: 'cover' as const, borderRadius: 8, border: '1px solid #d8e2d6', cursor: 'pointer' };
   return <>
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-      {photos.slice(0, 3).map((uri, index) => <img key={index} src={uri} alt={`${title} photo ${index + 1}`} style={thumb} onClick={() => setOpen(index)} />)}
-      {photos.length > 3 && <button className="button-secondary" onClick={() => setOpen(3)}>+{photos.length - 3}</button>}
+    <div className="photo-cell">
+      {photos.slice(0, 2).map((uri, index) => <button type="button" className="photo-thumbnail" key={index} onClick={() => setOpen(index)} aria-label={`View ${title} photo ${index + 1} of ${photos.length}`}><img src={uri} alt="" /></button>)}
+      {photos.length > 2 && <button type="button" className="photo-more" onClick={() => setOpen(2)} aria-label={`View all ${photos.length} ${title} photos`}>+{photos.length - 2}</button>}
     </div>
-    {open !== null && <div role="dialog" aria-label={`${title} photos`} onClick={() => setOpen(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, padding: 16 }}>
-      <img src={photos[open]} alt={`${title} photo ${open + 1}`} style={{ maxWidth: '92vw', maxHeight: '78vh', borderRadius: 10 }} onClick={(event) => event.stopPropagation()} />
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#fff' }} onClick={(event) => event.stopPropagation()}>
-        <button className="button-secondary" disabled={open === 0} onClick={() => setOpen(open - 1)}>Prev</button>
-        <span>{open + 1} / {photos.length}</span>
-        <button className="button-secondary" disabled={open === photos.length - 1} onClick={() => setOpen(open + 1)}>Next</button>
-        <button className="button-secondary" onClick={() => setOpen(null)}>Close</button>
-      </div>
-    </div>}
+    {open !== null && createPortal(<div className="photo-viewer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(null); }}>
+      <section className="photo-viewer" role="dialog" aria-modal="true" aria-label={`${title} photos`}>
+        <div className="photo-viewer-heading"><div><p className="eyebrow">INCIDENT PHOTOS</p><h2>{title}</h2></div><button className="icon-button" onClick={() => setOpen(null)} aria-label="Close photo viewer"><X size={18} /></button></div>
+        <div className="photo-viewer-stage">
+          <button type="button" className="photo-viewer-nav" onClick={() => setOpen((index) => index === null ? null : Math.max(0, index - 1))} disabled={open === 0} aria-label="Previous photo"><ChevronLeft size={20} /></button>
+          <img src={photos[open]} alt={`${title} photo ${open + 1}`} />
+          <button type="button" className="photo-viewer-nav" onClick={() => setOpen((index) => index === null ? null : Math.min(photos.length - 1, index + 1))} disabled={open === photos.length - 1} aria-label="Next photo"><ChevronRight size={20} /></button>
+        </div>
+        <div className="photo-viewer-footer"><span>{open + 1} of {photos.length} photos</span><div className="photo-viewer-thumbnails" aria-label="Choose a photo">
+          {photos.map((uri, index) => <button type="button" key={index} className={`photo-viewer-thumb ${open === index ? 'photo-viewer-thumb-active' : ''}`} onClick={() => setOpen(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={open === index}><img src={uri} alt="" /></button>)}
+        </div></div>
+      </section>
+    </div>, document.body)}
   </>;
 }
 
-function EvacueeTable({ rows }: { rows: EvacueeRecord[] }) {
-  if (!rows.length) return <EmptyState title="No evacuees found" detail="Registered evacuees will appear here." />;
+function EvacueeTable({ rows, filtered }: { rows: EvacueeRecord[]; filtered: boolean }) {
+  if (!rows.length) return <EmptyState title={filtered ? 'No matching evacuees' : 'No evacuees found'} detail={filtered ? 'Try another search or time period.' : 'Registered evacuees will appear here.'} />;
   return <div className="table-scroll"><table className="data-table"><thead><tr><th>Person</th><th>Barangay</th><th>Center</th><th>Age</th><th>Registered</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td><div className="person-cell"><span className="avatar avatar-table" style={row.profilePicture ? { padding: 0, overflow: 'hidden' } : undefined}>{row.profilePicture ? <img src={row.profilePicture} alt={`${row.displayName} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : row.displayName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><strong>{row.displayName}</strong></div><small className="cell-subtitle">{row.contactNumber}</small></td><td>{row.barangay || 'Not provided'}</td><td>{row.centerName || 'Not assigned'}</td><td>{row.age || '—'}</td><td>{formatDate(row.createdAt)}</td><td><StatusPill value={row.status} /></td></tr>)}</tbody></table></div>;
 }
 
