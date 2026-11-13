@@ -16,6 +16,14 @@ services:
         generateValue: true
       - key: REALTIME_JWT_PRIVATE_KEY
         sync: false
+      - key: GMAIL_API_CLIENT_ID
+        sync: false
+      - key: GMAIL_API_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_API_REFRESH_TOKEN
+        sync: false
+      - key: SMTP_FROM
+        sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
       - key: GOOGLE_WEATHER_API_KEY

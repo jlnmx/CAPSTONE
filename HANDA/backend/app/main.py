@@ -11,6 +11,7 @@ from email.message import EmailMessage
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlencode
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
@@ -91,13 +92,49 @@ def normalize_sms_number(value: str) -> str:
     return value
 
 
-def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose: str = "password reset", require_configured: bool = False) -> None:
-    if channel == "email" and settings.smtp_host and settings.smtp_from:
-        message = EmailMessage()
-        message["Subject"] = f"Your HANDA {purpose} code"
-        message["From"] = settings.smtp_from
-        message["To"] = destination
-        message.set_content(f"Your HANDA {purpose} code is {otp}. It expires in {settings.password_reset_expiry_minutes} minutes.")
+def gmail_api_configured() -> bool:
+    return all(
+        str(getattr(settings, setting, "")).strip()
+        for setting in ("gmail_api_client_id", "gmail_api_client_secret", "gmail_api_refresh_token")
+    )
+
+
+def email_delivery_configured() -> bool:
+    return (gmail_api_configured() and bool(settings.smtp_from)) or bool(settings.smtp_host and settings.smtp_from)
+
+
+def deliver_email_message(message: EmailMessage) -> None:
+    if gmail_api_configured():
+        token_request = Request(
+            "https://oauth2.googleapis.com/token",
+            data=urlencode({
+                "client_id": settings.gmail_api_client_id,
+                "client_secret": settings.gmail_api_client_secret,
+                "refresh_token": settings.gmail_api_refresh_token,
+                "grant_type": "refresh_token",
+            }).encode(),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        with urlopen(token_request, timeout=10) as response:
+            token_payload = json.loads(response.read())
+        access_token = token_payload.get("access_token")
+        if not isinstance(access_token, str) or not access_token:
+            raise RuntimeError("Google OAuth did not return an access token.")
+
+        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii").rstrip("=")
+        send_request = Request(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            data=json.dumps({"raw": encoded_message}).encode(),
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+            },
+        )
+        with urlopen(send_request, timeout=10):
+            pass
+        return
+
+    if settings.smtp_host and settings.smtp_from:
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
             server.starttls()
             if settings.smtp_username:
@@ -105,10 +142,20 @@ def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose
             server.send_message(message)
         return
 
-    if channel == "sms" and settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
-        from urllib.parse import urlencode
-        from urllib.request import Request, urlopen
+    raise RuntimeError("Email delivery is not configured.")
 
+
+def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose: str = "password reset", require_configured: bool = False) -> None:
+    if channel == "email" and email_delivery_configured():
+        message = EmailMessage()
+        message["Subject"] = f"Your HANDA {purpose} code"
+        message["From"] = settings.smtp_from
+        message["To"] = destination
+        message.set_content(f"Your HANDA {purpose} code is {otp}. It expires in {settings.password_reset_expiry_minutes} minutes.")
+        deliver_email_message(message)
+        return
+
+    if channel == "sms" and settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
         body = urlencode({"To": normalize_sms_number(destination), "From": settings.twilio_from_number, "Body": f"Your HANDA {purpose} code is {otp}."}).encode()
         request = Request(
             f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
@@ -126,7 +173,7 @@ def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose
 
 def otp_channel_configured(channel: str) -> bool:
     if channel == "email":
-        return bool(settings.smtp_host and settings.smtp_from)
+        return email_delivery_configured()
     return bool(settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number)
 
 
@@ -140,28 +187,21 @@ def notify_responder_application_status(email: str, mobile_number: str, responde
     if note.strip():
         message += f" Administrator note: {note.strip()}"
 
-    if settings.smtp_host and settings.smtp_from:
+    if email_delivery_configured():
         try:
             email_message = EmailMessage()
             email_message["Subject"] = "HANDA responder application update"
             email_message["From"] = settings.smtp_from
             email_message["To"] = email
             email_message.set_content(message)
-            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
-                server.starttls()
-                if settings.smtp_username:
-                    server.login(settings.smtp_username, settings.smtp_password)
-                server.send_message(email_message)
+            deliver_email_message(email_message)
         except Exception:
             logger.exception("Responder application email notification could not be delivered.")
     else:
-        logger.warning("Responder application email notification not sent because SMTP is not configured.")
+        logger.warning("Responder application email notification not sent because email delivery is not configured.")
 
     if settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
         try:
-            from urllib.parse import urlencode
-            from urllib.request import Request, urlopen
-
             body = urlencode({"To": normalize_sms_number(mobile_number), "From": settings.twilio_from_number, "Body": message}).encode()
             request = Request(
                 f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
@@ -178,8 +218,8 @@ def notify_responder_application_status(email: str, mobile_number: str, responde
 
 def deliver_incident_alert(email: str, mobile_number: str, title: str, message: str, email_enabled: bool, sms_enabled: bool) -> None:
     if email_enabled:
-        if not settings.smtp_host or not settings.smtp_from:
-            logger.warning("Incident email alert skipped because SMTP is not configured.")
+        if not email_delivery_configured():
+            logger.warning("Incident email alert skipped because email delivery is not configured.")
         else:
             try:
                 email_message = EmailMessage()
@@ -187,11 +227,7 @@ def deliver_incident_alert(email: str, mobile_number: str, title: str, message: 
                 email_message["From"] = settings.smtp_from
                 email_message["To"] = email
                 email_message.set_content(message)
-                with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
-                    server.starttls()
-                    if settings.smtp_username:
-                        server.login(settings.smtp_username, settings.smtp_password)
-                    server.send_message(email_message)
+                deliver_email_message(email_message)
             except Exception:
                 logger.exception("Incident email alert could not be delivered.")
 
@@ -202,9 +238,6 @@ def deliver_incident_alert(email: str, mobile_number: str, title: str, message: 
             logger.warning("Incident SMS alert skipped because the user has no mobile number.")
         else:
             try:
-                from urllib.parse import urlencode
-                from urllib.request import Request, urlopen
-
                 body = urlencode({"To": normalize_sms_number(mobile_number), "From": settings.twilio_from_number, "Body": f"{title}: {message}"}).encode()
                 request = Request(
                     f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
@@ -1527,7 +1560,7 @@ def issue_realtime_token(user: CurrentUser = Depends(require_roles("resident", "
 
 
 def notification_preferences_payload(row: dict) -> dict:
-    email_configured = bool(settings.smtp_host and settings.smtp_from)
+    email_configured = email_delivery_configured()
     sms_configured = bool(settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number)
     return {
         "emailEnabled": row["email_alerts_enabled"],

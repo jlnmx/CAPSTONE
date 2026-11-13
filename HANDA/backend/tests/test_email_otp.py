@@ -1,6 +1,9 @@
+import base64
+import json
 import unittest
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from urllib.parse import parse_qs
 from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
@@ -62,6 +65,37 @@ class EmailOtpTests(unittest.TestCase):
         self.assertEqual(message["To"], "ana@example.com")
         self.assertIn("account verification", message["Subject"])
         self.assertIn("123456", message.get_content())
+
+    def test_email_otp_uses_gmail_api_over_https_when_configured(self):
+        configuration = SimpleNamespace(
+            gmail_api_client_id="oauth-client-id",
+            gmail_api_client_secret="oauth-client-secret",
+            gmail_api_refresh_token="refresh-token",
+            smtp_host="",
+            smtp_from="sender@gmail.com",
+            password_reset_expiry_minutes=10,
+        )
+        token_response = MagicMock()
+        token_response.__enter__.return_value.read.return_value = b'{"access_token":"short-lived-token"}'
+        send_response = MagicMock()
+
+        with patch.object(main, "settings", configuration), \
+                patch.object(main, "urlopen", side_effect=[token_response, send_response]) as urlopen, \
+                patch.object(main.smtplib, "SMTP") as smtp_factory:
+            self.assertTrue(main.otp_channel_configured("email"))
+            main.deliver_password_reset_otp("ana@example.com", "email", "123456", "password change", True)
+
+        self.assertEqual(urlopen.call_count, 2)
+        token_request, send_request = [call.args[0] for call in urlopen.call_args_list]
+        self.assertEqual(token_request.full_url, "https://oauth2.googleapis.com/token")
+        self.assertEqual(parse_qs(token_request.data.decode())["refresh_token"], ["refresh-token"])
+        self.assertEqual(send_request.full_url, "https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
+        payload = json.loads(send_request.data)
+        encoded_message = payload["raw"]
+        decoded_message = base64.urlsafe_b64decode(encoded_message + "=" * (-len(encoded_message) % 4))
+        self.assertIn(b"123456", decoded_message)
+        self.assertIn(b"ana@example.com", decoded_message)
+        smtp_factory.assert_not_called()
 
     def test_philippine_mobile_numbers_are_normalized_for_sms(self):
         self.assertEqual(main.normalize_sms_number("09171234567"), "+639171234567")

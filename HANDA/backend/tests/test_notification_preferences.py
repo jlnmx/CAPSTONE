@@ -83,7 +83,7 @@ class NotificationPreferencesTests(unittest.TestCase):
             twilio_auth_token="secret",
             twilio_from_number="+15550000000",
         )
-        with patch.object(main, "settings", configuration), patch.object(main.smtplib, "SMTP", return_value=smtp_context) as smtp_factory, patch("urllib.request.urlopen") as urlopen:
+        with patch.object(main, "settings", configuration), patch.object(main.smtplib, "SMTP", return_value=smtp_context) as smtp_factory, patch.object(main, "urlopen") as urlopen:
             main.deliver_incident_alert("ana@example.com", "09171234567", "Help is on the way", "Responders are coordinating.", True, False)
 
         smtp_factory.assert_called_once()
@@ -101,7 +101,7 @@ class NotificationPreferencesTests(unittest.TestCase):
             twilio_auth_token="secret",
             twilio_from_number="+15550000000",
         )
-        with patch.object(main, "settings", configuration), patch("urllib.request.urlopen") as urlopen, patch.object(main.smtplib, "SMTP") as smtp_factory:
+        with patch.object(main, "settings", configuration), patch.object(main, "urlopen") as urlopen, patch.object(main.smtplib, "SMTP") as smtp_factory:
             main.deliver_incident_alert("ana@example.com", "09171234567", "Help is on the way", "Responders are coordinating.", False, True)
 
         urlopen.assert_called_once()
