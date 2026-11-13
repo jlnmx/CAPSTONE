@@ -22,7 +22,7 @@ export default function SplashScreen() {
   });
 
   useEffect(() => {
-    warmUpServer();
+    void warmUpServer().catch((error: unknown) => console.warn('HANDA server warm-up did not complete:', error));
     const entranceAnimation = Animated.timing(entrance, {
       toValue: 1,
       duration: 720,

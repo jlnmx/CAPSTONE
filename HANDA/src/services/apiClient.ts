@@ -1,24 +1,62 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
-const expoHostUri = Constants.expoConfig?.hostUri
-  ?? (Constants as typeof Constants & { expoGoConfig?: { debuggerHost?: string } }).expoGoConfig?.debuggerHost;
-const expoHost = expoHostUri?.split(':')[0];
-const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, '');
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
+const DEFAULT_NATIVE_API_URL = 'https://handa-api.onrender.com';
 
 export const API_BASE_URL = configuredApiUrl
-  ?? (Platform.OS === 'web' ? 'http://localhost:8000' : `http://${expoHost ?? 'localhost'}:8000`);
+  || (Platform.OS === 'web' ? 'http://localhost:8000' : DEFAULT_NATIVE_API_URL);
 
 // Render's free tier sleeps when idle and needs up to ~60s to wake, and mobile/public networks add latency.
 export const SLOW_NETWORK_TIMEOUT_MS = 60000;
 
-export function warmUpServer(): void {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), SLOW_NETWORK_TIMEOUT_MS);
-  fetch(`${API_BASE_URL}/health/ready`, { signal: controller.signal })
-    .catch(() => undefined)
-    .finally(() => clearTimeout(timer));
+const SERVER_READY_TIMEOUT_MS = 90000;
+const READY_CHECK_TIMEOUT_MS = 12000;
+const READY_RETRY_DELAY_MS = 2000;
+let serverReadyPromise: Promise<void> | null = null;
+
+export class ApiReadinessError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ApiReadinessError';
+  }
+}
+
+async function waitForServerReady(): Promise<void> {
+  const deadline = Date.now() + SERVER_READY_TIMEOUT_MS;
+  let lastNetworkError: unknown;
+
+  while (Date.now() < deadline) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), READY_CHECK_TIMEOUT_MS);
+    try {
+      const response = await fetch(`${API_BASE_URL}/health/ready`, { signal: controller.signal });
+      if (response.ok) return;
+      if (response.status < 500 && response.status !== 408) {
+        throw new ApiReadinessError(`HANDA server readiness check returned ${response.status}.`);
+      }
+    } catch (error) {
+      if (error instanceof ApiReadinessError) throw error;
+      lastNetworkError = error;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, READY_RETRY_DELAY_MS));
+  }
+
+  const reason = lastNetworkError instanceof Error ? ` ${lastNetworkError.message}` : '';
+  throw new ApiReadinessError(`The HANDA server did not become ready in time.${reason} Please try again.`);
+}
+
+export function warmUpServer(): Promise<void> {
+  if (serverReadyPromise) return serverReadyPromise;
+
+  const pending = waitForServerReady().finally(() => {
+    if (serverReadyPromise === pending) serverReadyPromise = null;
+  });
+  serverReadyPromise = pending;
+  return pending;
 }
 
 export async function fetchWithRetry(url: string, init: RequestInit, timeoutMs = SLOW_NETWORK_TIMEOUT_MS, attempts = 2): Promise<Response> {

@@ -7,6 +7,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://handa-api.onrender.com"
+      },
       "android": {
         "buildType": "apk"
       }

@@ -4,7 +4,7 @@
  */
 
 import { AuthUser, UserRole } from '@/types/index';
-import { API_BASE_URL, authenticatedFetch, clearAccessToken, fetchWithRetry, getAccessToken, setAccessToken } from './apiClient';
+import { API_BASE_URL, ApiReadinessError, authenticatedFetch, clearAccessToken, fetchWithRetry, getAccessToken, setAccessToken, warmUpServer } from './apiClient';
 
 const MOCK_USERS = {
   admin: {
@@ -73,6 +73,7 @@ export class AuthService {
     let apiReachable = false;
     let connectionError: unknown;
     try {
+      await warmUpServer();
       const response = await fetchWithRetry(`${API_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -97,6 +98,9 @@ export class AuthService {
       }
       throw new Error(`Login service returned ${response.status}.`);
     } catch (error) {
+      if (error instanceof ApiReadinessError) {
+        throw error;
+      }
       if (apiReachable) {
         throw error;
       }

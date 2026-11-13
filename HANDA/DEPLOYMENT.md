@@ -24,6 +24,12 @@ The frontend services use `https://handa-api.onrender.com` as their API origin. 
 
 `CORS_ORIGIN_REGEX` allows only the configured `handa-mobile-web` and `handa-admin-web` Vercel project domains and their Vercel preview variants, plus the corresponding Render sites. Keep the Vercel project names aligned with those prefixes. `CORS_ORIGINS` includes the production admin origin and local development origins.
 
+## Native Android and cellular data
+
+The EAS development, preview, and production profiles set `EXPO_PUBLIC_API_URL` to the public HTTPS API. Native builds also default to that URL if the variable is missing, rather than trying to reach the Expo development host or `localhost`, which are not reachable from a phone over mobile data. If testing against a local backend, explicitly set `EXPO_PUBLIC_API_URL` to an address the phone can reach. Expo inlines this value into the app bundle, so rebuild and reinstall after changing it.
+
+The Render free API service may sleep while idle. The app checks `/health/ready` and waits for it to respond before submitting login, retrying during startup. This avoids racing a cold start, but the first login after inactivity can still take longer; an always-on API plan removes that sleep delay.
+
 ## Vercel
 
 Create two separate Vercel projects from the same Git repository. For both, set **Framework Preset** to **Other**, **Root Directory** to `HANDA`, and the install command to `npm ci`. Enable **Include source files outside of the Root Directory in the Build Step** because HANDA references the sibling `leaflet-2.0.0-alpha.1` package. The `HANDA/vercel.json` file provides history fallback for Expo's single-page export and the admin app's client-side routes.
