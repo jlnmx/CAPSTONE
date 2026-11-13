@@ -11,7 +11,7 @@ import Avatar from '@components/Avatar';
 import { useAuth } from '@hooks/useAuth';
 import { useIncidentFeed } from '@hooks/useRealtime';
 import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentStatus';
-import { formatResponderOrganization, parseOrganizations, RESPONDER_ORGANIZATIONS, ResponderOrganization } from '@constants/responderOrganizations';
+import { parseOrganizations, RESPONDER_ORGANIZATIONS, ResponderOrganization } from '@constants/responderOrganizations';
 import { estimateResponseEta } from '@services/responderEta';
 import { addIncidentResponsePhoto, getIncidentReporterContacts, getIncidentResponders, getResponderData, IncidentReporterContact, IncidentResponderEntry, IncidentStatus, ResponderIncident, updateIncidentStatus } from '@services/responderData';
 import { IncidentTypeBadge, KIT_GREEN as GREEN, ProgressSteps, Reveal, StatusPill, kitFonts } from '@components/IncidentCardKit';
@@ -51,7 +51,6 @@ export default function ResponderIncidentQueue() {
   const [selectedStatus, setSelectedStatus] = useState<IncidentStatus>('acknowledged');
   const [responsePeople, setResponsePeople] = useState('');
   const [selectedOrganizations, setSelectedOrganizations] = useState<ResponderOrganization[]>([]);
-  const [organizationBarangay, setOrganizationBarangay] = useState('');
   const [otherOrganizations, setOtherOrganizations] = useState('');
   const [responseEta, setResponseEta] = useState('');
   const [etaHint, setEtaHint] = useState('');
@@ -89,14 +88,13 @@ export default function ResponderIncidentQueue() {
     const saved = parseOrganizations(incident.responseOrganizations);
     const fillDefaults = status === 'acknowledged';
     const ownOrganization = user?.responderOrganization as ResponderOrganization | null | undefined;
-    const useOwnOrganization = fillDefaults && saved.selected.length === 0 && !saved.other && !!ownOrganization && RESPONDER_ORGANIZATIONS.includes(ownOrganization);
+    const useOwnOrganization = fillDefaults && saved.selected.length === 0 && !saved.other && !!ownOrganization && RESPONDER_ORGANIZATIONS.some((organization) => organization === ownOrganization);
     etaRequest.current += 1;
     etaEdited.current = false;
     setSelectedIncident(incident);
     setSelectedStatus(status);
     setResponsePeople(incident.responsePeople || (fillDefaults ? user?.name ?? '' : ''));
     setSelectedOrganizations(useOwnOrganization ? [ownOrganization as ResponderOrganization] : saved.selected);
-    setOrganizationBarangay(useOwnOrganization ? user?.responderBarangay ?? '' : saved.barangay);
     setOtherOrganizations(saved.other);
     setResponseEta(incident.responseEtaMinutes == null ? '' : String(incident.responseEtaMinutes));
     setResponseNotes(incident.responseNotes || incident.actionNotes);
@@ -204,13 +202,12 @@ export default function ResponderIncidentQueue() {
   const toggleOrganization = (organization: ResponderOrganization) => {
     setSelectedOrganizations((current) => {
       if (current.includes(organization)) return current.filter((item) => item !== organization);
-      if (organization === 'Barangay Responder' && !organizationBarangay) setOrganizationBarangay(user?.responderBarangay ?? '');
       return [...current, organization];
     });
   };
 
   const organizationsText = () => [
-    ...selectedOrganizations.map((organization) => formatResponderOrganization(organization, organization === 'Barangay Responder' ? organizationBarangay : null)),
+    ...selectedOrganizations,
     otherOrganizations.trim(),
   ].filter(Boolean).join(', ');
 
@@ -301,7 +298,7 @@ export default function ResponderIncidentQueue() {
           const checked = selectedOrganizations.includes(organization);
           return <AnimatedPressable key={organization} style={[styles.chip, checked && styles.chipActive]} onPress={() => toggleOrganization(organization)} accessibilityRole="checkbox" accessibilityState={{ checked }} accessibilityLabel={organization}>
             <MaterialCommunityIcons name={checked ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'} size={15} color={checked ? '#FFFFFF' : GREEN} />
-            <Text style={[styles.chipText, checked && styles.chipTextActive]}>{organization === 'Barangay Responder' && checked && organizationBarangay ? `Barangay Responder · ${organizationBarangay}` : organization}</Text>
+            <Text style={[styles.chipText, checked && styles.chipTextActive]}>{organization}</Text>
           </AnimatedPressable>;
         })}</View>
         <TextInput style={styles.input} value={otherOrganizations} onChangeText={setOtherOrganizations} placeholder="Other organizations (optional)" placeholderTextColor="#8A9A8A" />

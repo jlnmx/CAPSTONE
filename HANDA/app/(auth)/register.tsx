@@ -9,7 +9,7 @@ import { API_BASE_URL, SLOW_NETWORK_TIMEOUT_MS, fetchWithRetry } from '@services
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AuthUser, ResidentHouseholdMember } from '@/types/index';
-import { BINAN_BARANGAYS, RESPONDER_ORGANIZATIONS } from '@constants/responderOrganizations';
+import { RESPONDER_ORGANIZATIONS } from '@constants/responderOrganizations';
 import * as ImagePicker from 'expo-image-picker';
 import AppBackArrow from '@components/AppBackArrow';
 import { HandaLogoBadge } from '@components/HandaLogo';
@@ -53,9 +53,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [sex, setSex] = useState('');
   const [isSexPickerOpen, setIsSexPickerOpen] = useState(false);
   const [responderOrganization, setResponderOrganization] = useState('');
-  const [responderBarangay, setResponderBarangay] = useState('');
-  const [responderPicker, setResponderPicker] = useState<'organization' | 'barangay' | null>(null);
-  const pickerOptions: readonly string[] = responderPicker === 'barangay' ? BINAN_BARANGAYS : RESPONDER_ORGANIZATIONS;
+  const [responderPicker, setResponderPicker] = useState<'organization' | null>(null);
   const [mobileNumber, setMobileNumber] = useState('');
   const [address, setAddress] = useState('');
   const [email, setEmail] = useState('');
@@ -405,7 +403,6 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     if (isResponder && !faceConsent) errors.faceConsent = 'Consent is required to submit a responder face photo.';
     if (isResponder && !facePhoto) errors.facePhoto = 'Capture a face photo with one clearly detected face.';
     if (isResponder && !responderOrganization) errors.responderOrganization = 'Choose your organization.';
-    if (isResponder && responderOrganization === 'Barangay Responder' && !responderBarangay) errors.responderBarangay = 'Choose the barangay you serve.';
 
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -433,7 +430,6 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             ? {
               responderType,
               responderOrganization,
-              responderBarangay: responderOrganization === 'Barangay Responder' ? responderBarangay : null,
               verificationDocumentBase64: verificationDocument?.base64,
               verificationDocumentMimeType: verificationDocument?.mimeType,
               verificationDocumentName: verificationDocument?.name,
@@ -634,14 +630,9 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             <Text style={styles.householdEmpty}>Tell us which agency or group you respond with. It is shared with residents when you are dispatched to an incident.</Text>
             <FormField label="Organization" error={validationErrors.responderOrganization}>
               <TouchableOpacity style={styles.selectInput} onPress={() => setResponderPicker('organization')} accessibilityRole="button" accessibilityLabel="Choose organization">
-                <Text style={responderOrganization ? styles.selectValue : styles.selectPlaceholder}>{responderOrganization || 'PNP, BFP, POSO, BCDRRMO, or Barangay Responder'}</Text>
+                <Text style={responderOrganization ? styles.selectValue : styles.selectPlaceholder}>{responderOrganization || 'PNP, BFP, POSO, or BCDRRMO'}</Text>
               </TouchableOpacity>
             </FormField>
-            {responderOrganization === 'Barangay Responder' && <FormField label="Barangay" error={validationErrors.responderBarangay}>
-              <TouchableOpacity style={styles.selectInput} onPress={() => setResponderPicker('barangay')} accessibilityRole="button" accessibilityLabel="Choose barangay">
-                <Text style={responderBarangay ? styles.selectValue : styles.selectPlaceholder}>{responderBarangay || 'Choose your barangay'}</Text>
-              </TouchableOpacity>
-            </FormField>}
           </View>
           <View style={styles.verificationSection}>
             <Text style={styles.householdLabel}>{responderType?.toUpperCase() ?? 'RESPONDER'} ID</Text>
@@ -750,16 +741,11 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
       <Modal transparent visible={responderPicker !== null} animationType="fade" onRequestClose={() => setResponderPicker(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setResponderPicker(null)}>
           <View style={styles.sexOptions}>
-            <Text style={styles.sexTitle}>{responderPicker === 'barangay' ? 'Select Barangay' : 'Select Organization'}</Text>
+            <Text style={styles.sexTitle}>Select Organization</Text>
             <ScrollView style={styles.pickerList}>
-              {pickerOptions.map((option) => (
+              {RESPONDER_ORGANIZATIONS.map((option) => (
                 <TouchableOpacity key={option} style={styles.sexOption} onPress={() => {
-                  if (responderPicker === 'barangay') {
-                    setResponderBarangay(option);
-                  } else {
-                    setResponderOrganization(option);
-                    if (option !== 'Barangay Responder') setResponderBarangay('');
-                  }
+                  setResponderOrganization(option);
                   setResponderPicker(null);
                 }} accessibilityRole="button">
                   <Text style={styles.sexOptionText}>{option}</Text>
