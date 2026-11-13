@@ -128,6 +128,7 @@ class UserRegistration(BaseModel):
     faceConsent: bool = False
     profilePicture: str | None = Field(default=None, max_length=PROFILE_PICTURE_MAX_CHARS)
     members: list[HouseholdMemberInput] = Field(default_factory=list, max_length=20)
+    registrationToken: str = Field(min_length=20, max_length=100)
 
     @model_validator(mode="after")
     def validate_responder_organization(self):
@@ -159,6 +160,8 @@ class ResidentAccountUpdate(BaseModel):
     mobileNumber: str | None = Field(default=None, pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
     currentPassword: str | None = Field(default=None, min_length=1, max_length=128)
     newPassword: str | None = Field(default=None, min_length=8, max_length=128)
+    passwordChangeToken: str | None = Field(default=None, min_length=20, max_length=100)
+    passwordChangeOtp: str | None = Field(default=None, pattern=r"^\d{6}$")
 
 
 class SelfProfileUpdate(BaseModel):
@@ -219,6 +222,22 @@ class PasswordResetCompletion(BaseModel):
     resetToken: str = Field(min_length=20, max_length=100)
     otp: str = Field(pattern=r"^\d{6}$")
     newPassword: str = Field(min_length=8, max_length=128)
+
+
+class RegistrationOtpRequest(BaseModel):
+    email: str = Field(pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$", max_length=255)
+    mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
+    channel: Literal["email", "sms"]
+
+
+class RegistrationOtpVerification(BaseModel):
+    registrationToken: str = Field(min_length=20, max_length=100)
+    otp: str = Field(pattern=r"^\d{6}$")
+
+
+class PasswordChangeOtpRequest(BaseModel):
+    channel: Literal["email", "sms"]
+    currentPassword: str = Field(min_length=1, max_length=128)
 
 
 class AdminUserCreate(BaseModel):

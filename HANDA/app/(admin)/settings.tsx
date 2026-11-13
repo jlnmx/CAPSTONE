@@ -25,6 +25,11 @@ export default function AdminSettings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>('email');
+  const [passwordChangeToken, setPasswordChangeToken] = useState('');
+  const [passwordChangeOtp, setPasswordChangeOtp] = useState('');
+  const [passwordChangeDestination, setPasswordChangeDestination] = useState('');
+  const [isRequestingPasswordOtp, setIsRequestingPasswordOtp] = useState(false);
 
   const saveProfile = async () => {
     if (!user || !name.trim()) {
@@ -56,21 +61,55 @@ export default function AdminSettings() {
   };
 
   const changePassword = async () => {
+    if (isRequestingPasswordOtp) return;
     if (!currentPassword || newPassword.length < 8 || newPassword !== confirmPassword) {
       Alert.alert('Check password details', 'Enter your current password, use at least 8 characters, and make both new passwords match.');
+      return;
+    }
+    if (!/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+      Alert.alert('Check password details', 'Use at least 8 characters with uppercase, lowercase, a number, and a symbol.');
+      return;
+    }
+    if (!passwordChangeToken) {
+      setIsRequestingPasswordOtp(true);
+      try {
+        const response = await authenticatedFetch('/api/v1/auth/password-change/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword, channel: passwordChangeChannel }),
+        });
+        const result = await response.json() as { resetToken?: string; destination?: string; detail?: unknown };
+        if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'A verification code could not be sent.');
+        if (!result.resetToken) throw new Error('The verification request did not return a token.');
+        setPasswordChangeToken(result.resetToken);
+        setPasswordChangeDestination(result.destination || '');
+        Alert.alert('Code sent', `Enter the verification code sent to ${result.destination || 'your selected contact'}.`);
+      } catch (error) {
+        Alert.alert('Could not send code', error instanceof Error ? error.message : 'A verification code could not be sent.');
+      } finally {
+        setIsRequestingPasswordOtp(false);
+      }
+      return;
+    }
+    if (!/^\d{6}$/.test(passwordChangeOtp)) {
+      Alert.alert('Check verification code', 'Enter the 6-digit code you received.');
       return;
     }
     try {
       const response = await authenticatedFetch('/api/v1/resident/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify({ currentPassword, newPassword, passwordChangeToken, passwordChangeOtp }),
       });
-      const result = await response.json() as { detail?: unknown };
+      const result = await response.json() as { detail?: unknown; accessToken?: string };
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Your password could not be changed.');
+      if (user) await setAuthenticatedUser(user, result.accessToken);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+      setPasswordChangeToken('');
+      setPasswordChangeOtp('');
+      setPasswordChangeDestination('');
       Alert.alert('Password updated', 'Your administrator password has been changed.');
     } catch (error) {
       Alert.alert('Update failed', error instanceof Error ? error.message : 'Your password could not be changed.');
@@ -118,7 +157,20 @@ export default function AdminSettings() {
           <Field label="Current password" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry palette={palette} />
           <Field label="New password" value={newPassword} onChangeText={setNewPassword} secureTextEntry palette={palette} />
           <Field label="Confirm new password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry palette={palette} />
-          <ActionButton label="Update password" icon="shield-lock-outline" onPress={changePassword} />
+          <View style={styles.otpChannelOptions}>
+            {(['email', 'sms'] as const).map((channel) => (
+              <Pressable key={channel} onPress={() => {
+                setPasswordChangeChannel(channel);
+                setPasswordChangeToken('');
+                setPasswordChangeOtp('');
+              }} style={[styles.otpChannelOption, { borderColor: passwordChangeChannel === channel ? Colors.secondary : palette.border, backgroundColor: palette.surface }]} accessibilityRole="radio" accessibilityState={{ selected: passwordChangeChannel === channel }}>
+                <MaterialCommunityIcons name={passwordChangeChannel === channel ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={passwordChangeChannel === channel ? Colors.secondary : palette.textMuted} />
+                <Text style={[styles.themeLabel, { color: palette.text }]}>{channel === 'email' ? 'Email code' : 'SMS code'}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {!!passwordChangeToken && <Field label={`6-digit code sent to ${passwordChangeDestination}`} value={passwordChangeOtp} onChangeText={setPasswordChangeOtp} keyboardType="number-pad" palette={palette} />}
+          <ActionButton label={isRequestingPasswordOtp ? 'Sending code...' : passwordChangeToken ? 'Update password' : 'Send verification code'} icon="shield-lock-outline" onPress={changePassword} />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -129,7 +181,7 @@ function SectionHeading({ icon, title, detail, palette }: { icon: React.Componen
   return <View style={styles.sectionHeading}><View style={styles.sectionIcon}><MaterialCommunityIcons name={icon} size={20} color={Colors.secondary} /></View><View><Text style={[styles.sectionTitle, { color: palette.text }]}>{title}</Text><Text style={[styles.sectionDetail, { color: palette.textMuted }]}>{detail}</Text></View></View>;
 }
 
-function Field({ label, value, onChangeText, palette, keyboardType = 'default', autoCapitalize = 'sentences', secureTextEntry = false }: { label: string; value: string; onChangeText: (value: string) => void; palette: { surfaceMuted: string; border: string; text: string; textMuted: string }; keyboardType?: 'default' | 'email-address'; autoCapitalize?: 'none' | 'sentences'; secureTextEntry?: boolean }) {
+function Field({ label, value, onChangeText, palette, keyboardType = 'default', autoCapitalize = 'sentences', secureTextEntry = false }: { label: string; value: string; onChangeText: (value: string) => void; palette: { surfaceMuted: string; border: string; text: string; textMuted: string }; keyboardType?: 'default' | 'email-address' | 'number-pad'; autoCapitalize?: 'none' | 'sentences'; secureTextEntry?: boolean }) {
   return <View style={styles.field}><Text style={[styles.fieldLabel, { color: palette.text }]}>{label}</Text><TextInput value={value} onChangeText={onChangeText} keyboardType={keyboardType} autoCapitalize={autoCapitalize} secureTextEntry={secureTextEntry} placeholderTextColor={palette.textMuted} style={[styles.input, { backgroundColor: palette.surfaceMuted, borderColor: palette.border, color: palette.text }]} /></View>;
 }
 
@@ -143,5 +195,6 @@ const styles = StyleSheet.create({
   intro: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, paddingBottom: Spacing.lg }, introTitle: { fontSize: 21, fontWeight: '800' }, introText: { maxWidth: 620, marginTop: Spacing.xs, fontSize: 13, lineHeight: 20 },
   section: { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderRadius: BorderRadius.md }, sectionHeading: { flexDirection: 'row', alignItems: 'center' }, sectionIcon: { width: 38, height: 38, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted }, sectionTitle: { marginLeft: Spacing.md, fontSize: 16, fontWeight: '800' }, sectionDetail: { marginLeft: Spacing.md, marginTop: 2, fontSize: 11 },
   themeList: { marginTop: Spacing.lg, gap: Spacing.sm }, themeOption: { minHeight: 64, paddingHorizontal: Spacing.md, borderWidth: 1, borderRadius: BorderRadius.md, flexDirection: 'row', alignItems: 'center' }, themeCopy: { flex: 1, marginLeft: Spacing.md }, themeLabel: { fontSize: 14, fontWeight: '700' }, themeDetail: { marginTop: 3, fontSize: 11 },
+  otpChannelOptions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md }, otpChannelOption: { flex: 1, minHeight: 46, paddingHorizontal: Spacing.sm, borderWidth: 1, borderRadius: BorderRadius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs },
   field: { marginTop: Spacing.lg }, fieldLabel: { marginBottom: Spacing.sm, fontSize: 12, fontWeight: '700' }, input: { height: 46, paddingHorizontal: Spacing.md, borderWidth: 1, borderRadius: BorderRadius.md, fontSize: 14 }, actionButton: { height: 44, marginTop: Spacing.lg, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.primary }, actionButtonText: { color: Colors.white, fontSize: 13, fontWeight: '800' }, pressed: { opacity: 0.78 },
 });

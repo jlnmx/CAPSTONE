@@ -16,6 +16,7 @@ RESPONDER = {
     "mobileNumber": "09171234567",
     "email": "ana@example.com",
     "password": "StrongPass1!",
+    "registrationToken": "r" * 32,
     "role": "Responder",
     "responderType": "Official",
 }

@@ -46,6 +46,11 @@ export default function AccountSectionScreen() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>('email');
+  const [passwordChangeToken, setPasswordChangeToken] = useState('');
+  const [passwordChangeOtp, setPasswordChangeOtp] = useState('');
+  const [passwordChangeDestination, setPasswordChangeDestination] = useState('');
+  const [notice, setNotice] = useState('');
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [middleName, setMiddleName] = useState(user?.middleName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
@@ -80,6 +85,7 @@ export default function AccountSectionScreen() {
   const save = async (endpoint: string, payload: Record<string, string | null>) => {
     setIsSaving(true);
     setError('');
+    setNotice('');
     try {
       const response = await authenticatedFetch(endpoint, {
         method: 'PATCH',
@@ -127,6 +133,30 @@ export default function AccountSectionScreen() {
     }
   };
 
+  const requestPasswordChangeOtp = async () => {
+    setIsSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const response = await authenticatedFetch('/api/v1/auth/password-change/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, channel: passwordChangeChannel }),
+      });
+      const result = await response.json() as { resetToken?: string; destination?: string; detail?: unknown };
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'A verification code could not be sent.');
+      if (!result.resetToken) throw new Error('The verification request did not return a token.');
+      setPasswordChangeToken(result.resetToken);
+      setPasswordChangeDestination(result.destination || (passwordChangeChannel === 'email' ? user?.email ?? '' : user?.mobileNumber ?? ''));
+      setPasswordChangeOtp('');
+      setNotice(`A verification code was sent to ${result.destination || 'your selected contact'}.`);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'A verification code could not be sent.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = () => {
     if (!sectionKey) return;
     if (sectionKey === 'contact-number') {
@@ -168,7 +198,20 @@ export default function AccountSectionScreen() {
         setError('Choose a password different from your current password.');
         return;
       }
-      void save('/api/v1/resident/account', { currentPassword, newPassword });
+      if (!passwordChangeToken) {
+        void requestPasswordChangeOtp();
+        return;
+      }
+      if (!/^\d{6}$/.test(passwordChangeOtp)) {
+        setError('Enter the 6-digit verification code.');
+        return;
+      }
+      void save('/api/v1/resident/account', {
+        currentPassword,
+        newPassword,
+        passwordChangeToken,
+        passwordChangeOtp,
+      });
       return;
     }
     if (!firstName.trim() || !lastName.trim()) {
@@ -229,6 +272,32 @@ export default function AccountSectionScreen() {
             <PasswordField label="Current password" value={currentPassword} onChangeText={setCurrentPassword} palette={palette} />
             <PasswordField label="New password" value={newPassword} onChangeText={setNewPassword} palette={palette} />
             <PasswordField label="Confirm new password" value={confirmPassword} onChangeText={setConfirmPassword} palette={palette} />
+            <View style={styles.otpChannelSection}>
+              <Text style={[styles.fieldLabelStandalone, { color: palette.text }]}>Send verification code by</Text>
+              <View style={styles.otpChannelOptions}>
+                {(['email', 'sms'] as const).map((channel) => (
+                  <Pressable
+                    key={channel}
+                    onPress={() => {
+                      setPasswordChangeChannel(channel);
+                      setPasswordChangeToken('');
+                      setPasswordChangeOtp('');
+                      setNotice('');
+                    }}
+                    style={[styles.otpChannelOption, { borderColor: passwordChangeChannel === channel ? '#218B25' : palette.border, backgroundColor: palette.surfaceMuted }]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: passwordChangeChannel === channel }}
+                  >
+                    <MaterialCommunityIcons name={passwordChangeChannel === channel ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={passwordChangeChannel === channel ? '#218B25' : palette.textMuted} />
+                    <Text style={[styles.otpChannelText, { color: palette.text }]}>{channel === 'email' ? 'Email' : 'SMS'}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            {!!passwordChangeToken && <>
+              <Text style={[styles.otpHint, { color: palette.textMuted }]}>Enter the 6-digit code sent to {passwordChangeDestination}.</Text>
+              <AccountField label="Verification code" icon="shield-key-outline" value={passwordChangeOtp} onChangeText={setPasswordChangeOtp} placeholder="000000" keyboardType="number-pad" maxLength={6} palette={palette} />
+            </>}
           </>}
           {sectionKey === 'profile' && <>
             <View style={[styles.photoCard, { backgroundColor: palette.surfaceMuted, borderColor: palette.border }]}>
@@ -275,9 +344,10 @@ export default function AccountSectionScreen() {
             </View>}
             <AccountField label="Current address" icon="map-marker-outline" value={address} onChangeText={setAddress} placeholder="Enter your current address" multiline textAlignVertical="top" palette={palette} />
           </>}
+            {!!notice && <Text style={[styles.notice, { color: '#218B25' }]}>{notice}</Text>}
             {!!error && <View style={styles.error}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={Colors.emergency} /><Text style={styles.errorText}>{error}</Text></View>}
             <AnimatedPressable onPress={handleSave} disabled={isSaving} style={[styles.saveButton, isSaving && styles.disabled]} accessibilityRole="button">
-              {isSaving ? <ActivityIndicator color={Colors.white} /> : <><Text style={styles.saveButtonText}>Save changes</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
+              {isSaving ? <ActivityIndicator color={Colors.white} /> : <><Text style={styles.saveButtonText}>{sectionKey === 'password' && !passwordChangeToken ? 'Send verification code' : 'Save changes'}</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
             </AnimatedPressable>
           </View>
         </Reveal>
@@ -329,6 +399,12 @@ const styles = StyleSheet.create({
   passwordField: { gap: 7 },
   passwordInput: { paddingRight: 5 },
   passwordToggle: { width: 48, height: 50, alignItems: 'center', justifyContent: 'center' },
+  otpChannelSection: { gap: 8 },
+  otpChannelOptions: { flexDirection: 'row', gap: 10 },
+  otpChannelOption: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, borderWidth: 1, borderRadius: 12 },
+  otpChannelText: { fontFamily: kitFonts.semibold, fontSize: 13 },
+  otpHint: { fontFamily: kitFonts.medium, fontSize: 11 },
+  notice: { fontFamily: kitFonts.medium, fontSize: 12 },
   select: { minHeight: 54, paddingHorizontal: 14, borderWidth: 1, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 10 },
   selectLeading: { flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 },
   fieldLabel: { fontFamily: kitFonts.semibold, fontSize: 12 },

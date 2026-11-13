@@ -142,14 +142,14 @@ export default function SettingsScreen() {
               <View style={styles.sectionIcon}><MaterialCommunityIcons name="bell-outline" size={20} color={Colors.secondary} /></View>
               <View style={styles.notificationHeading}>
                 <Text style={[styles.sectionTitle, { color: palette.text }]}>Notifications</Text>
-                <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Choose how incident response alerts reach you. In-app alerts remain on.</Text>
+                <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Choose how incident and evacuation-center updates reach you. In-app alerts remain on.</Text>
               </View>
             </View>
             {isLoadingNotificationPreferences ? <ActivityIndicator style={styles.preferenceLoading} color={Colors.secondary} /> : notificationPreferences ? <View style={styles.preferenceList}>
               <PreferenceSwitch
                 title="Email alerts"
                 detail={notificationPreferences.emailAvailable
-                  ? `Send incident updates to ${notificationPreferences.emailAddress}.`
+                  ? `Send incident and evacuation-center updates to ${notificationPreferences.emailAddress}.`
                   : !notificationPreferences.emailConfigured
                     ? 'Email delivery is not configured by the administrator; messages cannot be delivered yet.'
                     : 'An email address is not available for this account.'}
@@ -163,7 +163,7 @@ export default function SettingsScreen() {
               <PreferenceSwitch
                 title="SMS alerts"
                 detail={notificationPreferences.smsAvailable
-                  ? `Send incident updates to ${notificationPreferences.mobileNumber || 'your account mobile number'}.`
+                  ? `Send incident and evacuation-center updates to ${notificationPreferences.mobileNumber || 'your account mobile number'}.`
                   : !notificationPreferences.smsConfigured
                     ? 'SMS delivery is not configured by the administrator; messages cannot be delivered yet.'
                     : 'A mobile number is not available for this account.'}

@@ -80,11 +80,17 @@ class AccountCredentialTests(unittest.TestCase):
     def test_password_change_rotates_token_and_returns_fresh_session(self, _verify, _validate, _hash, _token, _profile, _members):
         connection = FakeConnection(self.credential_row, self.profile_row)
 
-        result = main.update_resident_account(
-            ResidentAccountUpdate(currentPassword="Current#123", newPassword="New#Password456"),
-            self.user,
-            connection,
-        )
+        with patch("app.main.verify_reset_request", return_value={"user_id": "resident-1"}):
+            result = main.update_resident_account(
+                ResidentAccountUpdate(
+                    currentPassword="Current#123",
+                    newPassword="New#Password456",
+                    passwordChangeToken="r" * 32,
+                    passwordChangeOtp="123456",
+                ),
+                self.user,
+                connection,
+            )
 
         self.assertIn("token_version = token_version + 1", connection.update_query)
         self.assertEqual(connection.update_values[0], "new-hash")
@@ -107,6 +113,20 @@ class AccountCredentialTests(unittest.TestCase):
         self.assertFalse(connection.update_query)
         verify.assert_any_call("Current#123", "current-hash")
         verify.assert_any_call("Current#123", "current-hash")
+
+    @patch("app.main.verify_password", side_effect=[True, False])
+    def test_password_change_requires_otp_even_with_current_password(self, _verify):
+        connection = FakeConnection(self.credential_row, self.profile_row)
+
+        with patch("app.main.validate_account_password"), self.assertRaises(HTTPException) as error:
+            main.update_resident_account(
+                ResidentAccountUpdate(currentPassword="Current#123", newPassword="New#Password456"),
+                self.user,
+                connection,
+            )
+
+        self.assertEqual(error.exception.status_code, 422)
+        self.assertFalse(connection.update_query)
 
     @patch("app.main.household_members_for_user", return_value=[])
     @patch("app.main.resident_profile_payload", side_effect=lambda row, _members: row)

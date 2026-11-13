@@ -86,8 +86,16 @@ class PushDeviceTests(unittest.TestCase):
                             "id": "registration-1", "center_id": "center-1", "status": current,
                             "household_size": 2, "resident_user_id": "resident-1",
                         }
-                    elif "SELECT capacity" in sql:
-                        cursor.fetchone.return_value = {"capacity": 10, "current_occupancy": 0, "status": "available"}
+                    elif "SELECT id, name, location_text, capacity, current_occupancy, status" in sql:
+                        cursor.fetchone.return_value = {
+                            "id": "center-1", "name": "Center", "location_text": "",
+                            "capacity": 10, "current_occupancy": 0, "status": "available",
+                        }
+                    elif "SELECT id, name, capacity, current_occupancy, status" in sql:
+                        cursor.fetchone.return_value = {
+                            "id": "center-1", "name": "Center",
+                            "capacity": 10, "current_occupancy": 2, "status": "limited",
+                        }
                     return cursor
                 connection.execute.side_effect = execute
                 user = CurrentUser("responder-1", "r@example.com", "Ana Santos", "responder", 0)
@@ -127,8 +135,11 @@ class PushDeviceTests(unittest.TestCase):
                     "id": "registration-1", "center_id": "center-1", "status": "registered",
                     "household_size": 2, "resident_user_id": None,
                 }
-            elif "SELECT capacity" in sql:
-                cursor.fetchone.return_value = {"capacity": 10, "current_occupancy": 0, "status": "available"}
+            elif "SELECT id, name, location_text, capacity, current_occupancy, status" in sql:
+                cursor.fetchone.return_value = {
+                    "id": "center-1", "name": "Center", "location_text": "",
+                    "capacity": 10, "current_occupancy": 0, "status": "available",
+                }
             return cursor
         connection.execute.side_effect = execute
         user = CurrentUser("admin-1", "a@example.com", "Admin", "admin", 0)

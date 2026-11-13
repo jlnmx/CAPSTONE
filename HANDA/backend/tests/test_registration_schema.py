@@ -15,6 +15,7 @@ class UserRegistrationSchemaTests(unittest.TestCase):
             "mobileNumber": "09171234567",
             "email": "ana@example.com",
             "password": "StrongPass1!",
+            "registrationToken": "r" * 32,
         })
 
         self.assertIsNone(registration.middleName)
@@ -30,6 +31,7 @@ class UserRegistrationSchemaTests(unittest.TestCase):
             "mobileNumber": "09171234567",
             "email": "ana@example.com",
             "password": "StrongPass1!",
+            "registrationToken": "r" * 32,
         })
 
         self.assertEqual(registration.middleName, "Maria")
@@ -44,6 +46,7 @@ class UserRegistrationSchemaTests(unittest.TestCase):
             "mobileNumber": "09171234567",
             "email": "ana@example.com",
             "password": "StrongPass1!",
+            "registrationToken": "r" * 32,
             "members": [{"name": "Luis Santos", "relationship": "Son"}],
         })
 
@@ -59,6 +62,7 @@ class UserRegistrationSchemaTests(unittest.TestCase):
                 "mobileNumber": "09171234567",
                 "email": "ana@example.com",
                 "password": "StrongPass1!",
+                "registrationToken": "r" * 32,
             })
 
     def test_resident_profile_update_includes_household_members(self):

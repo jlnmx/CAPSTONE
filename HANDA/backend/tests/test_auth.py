@@ -172,6 +172,8 @@ class AuthTests(unittest.TestCase):
             ("POST", "/api/v1/auth/password-reset/request"),
             ("POST", "/api/v1/auth/password-reset/verify"),
             ("POST", "/api/v1/auth/password-reset/complete"),
+            ("POST", "/api/v1/auth/registration-otp/request"),
+            ("POST", "/api/v1/auth/registration-otp/verify"),
             ("POST", "/api/v1/users/register"),
             ("GET", "/api/v1/incidents"),
         }

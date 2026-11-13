@@ -156,8 +156,8 @@ class DatabaseDependencyTests(unittest.TestCase):
     def test_admin_can_update_center_details_and_close_it(self):
         connection = MagicMock()
         connection.execute.return_value.fetchone.side_effect = [
-            {"current_occupancy": 3},
-            {"id": "center-1", "status": "closed"},
+            {"id": "center-1", "name": "Community Hall", "status": "available", "current_occupancy": 3},
+            {"id": "center-1", "name": "Community Hall", "status": "closed", "capacity": 100, "current_occupancy": 3},
         ]
         update = CenterDetailsUpdate(
             name="Community Hall",

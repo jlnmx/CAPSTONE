@@ -69,9 +69,11 @@ Invoke-RestMethod http://localhost:8000/health/ready
 
 The API adds HSTS and `X-Content-Type-Options: nosniff` headers to normal responses, CORS preflight responses, and unhandled errors. The reverse-proxy/hosting layer must continue to serve the API over HTTPS for browsers to honor HSTS.
 
-### Password reset delivery
+### Email and OTP delivery
 
-The password reset flow supports email and SMS OTPs. Set the `SMTP_*` variables in `.env` for email delivery, or the `TWILIO_*` variables for SMS delivery. When neither provider is configured, the API logs the OTP at warning level for local development only; configure a provider before production use.
+Registration and signed-in password changes require an OTP sent to the email address or mobile number selected by the user. Password reset also supports email and SMS OTPs. Set the backend `SMTP_*` variables for email delivery, or the `TWILIO_*` variables for SMS delivery. Gmail requires an App Password and should use `smtp.gmail.com` on port `587` with STARTTLS. Do not put these credentials in frontend or `EXPO_PUBLIC_*` variables.
+
+The same SMTP/Twilio providers deliver opted-in incident updates and evacuation-center status changes. Center status updates go only to users with alerts enabled who have an active registration at that center. Alert preferences can be changed in the app settings. When deploying the web app, configure these variables in the backend hosting environment as well as local `backend/.env`; frontend deployment variables do not configure backend email delivery. SMS remains unavailable until Twilio is configured.
 
 Responder data is available from `/api/v1/disasters`, `/api/v1/incidents`, `/api/v1/evacuees`, and `/api/v1/centers`. Administrators select responders from `/api/v1/responders/active` and dispatch them with `POST /api/v1/incidents/{id}/dispatch`; responders receive an incident-specific notification and can submit scene photos. Only administrators can change incident status with `PATCH /api/v1/incidents/{id}/status`. Responders can still update evacuee state with `PATCH /api/v1/evacuees/{id}/status` and household check-in state with `PATCH /api/v1/evacuation-registrations/{id}/status`.
 

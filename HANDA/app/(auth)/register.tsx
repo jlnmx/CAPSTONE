@@ -92,6 +92,11 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [memberError, setMemberError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [registrationChannel, setRegistrationChannel] = useState<'email' | 'sms'>('email');
+  const [registrationToken, setRegistrationToken] = useState('');
+  const [registrationOtp, setRegistrationOtp] = useState('');
+  const [otpDestination, setOtpDestination] = useState('');
+  const [isRegistrationOtpOpen, setIsRegistrationOtpOpen] = useState(false);
   const stepLabels = isResponder ? ['Personal info', 'Account', 'Responder details'] : ['Personal info', 'Account', 'Household'];
 
   const continueToNextStep = () => {
@@ -383,7 +388,6 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
 
   const handleRegister = async () => {
     const errors: Record<string, string> = {};
-    setIsSubmitting(true);
     const normalizedMobile = mobileNumber.replace(/[\s()-]/g, '');
     const normalizedEmail = email.trim().toLowerCase();
     if (!firstName.trim()) errors.firstName = 'First name is required.';
@@ -405,11 +409,50 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     if (isResponder && !responderOrganization) errors.responderOrganization = 'Choose your organization.';
 
     setValidationErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      setIsSubmitting(false);
+    if (Object.keys(errors).length > 0) return;
+    if (registrationToken) {
+      setIsRegistrationOtpOpen(true);
       return;
     }
+    await requestRegistrationOtp();
+  };
 
+  const requestRegistrationOtp = async () => {
+    setIsSubmitting(true);
+    setValidationErrors({});
+    try {
+      const response = await fetchWithRetry(`${API_BASE_URL}/api/v1/auth/registration-otp/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          mobileNumber: mobileNumber.replace(/[\s()-]/g, ''),
+          channel: registrationChannel,
+        }),
+      }, SLOW_NETWORK_TIMEOUT_MS, 1);
+      const result = await response.json() as { registrationToken?: string; destination?: string; detail?: unknown };
+      if (!response.ok) {
+        setValidationErrors({ form: getRegistrationErrorMessage(result.detail) });
+        return;
+      }
+      if (!result.registrationToken) throw new Error('The verification request did not return a registration token.');
+      setRegistrationToken(result.registrationToken);
+      setOtpDestination(result.destination || (registrationChannel === 'email' ? email.trim() : mobileNumber.trim()));
+      setRegistrationOtp('');
+      setIsRegistrationOtpOpen(true);
+    } catch (error) {
+      const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+      setValidationErrors({ form: error instanceof Error && error.message !== 'The operation was aborted.' ? error.message : errorName === 'AbortError' ? 'The verification service timed out. Check your internet connection and try again.' : 'Unable to connect to the verification service.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const submitRegistration = async (verifiedToken: string) => {
+    setIsSubmitting(true);
+    setValidationErrors({});
+    const normalizedMobile = mobileNumber.replace(/[\s()-]/g, '');
+    const normalizedEmail = email.trim().toLowerCase();
     try {
       const response = await fetchWithRetry(`${API_BASE_URL}/api/v1/users/register`, {
         method: 'POST',
@@ -426,6 +469,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           password,
           role,
           profilePicture,
+          registrationToken: verifiedToken,
           ...(isResponder
             ? {
               responderType,
@@ -444,9 +488,12 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
       const result = await response.json() as { id?: string; status?: string; accessToken?: string; user?: AuthUser; detail?: unknown; message?: string };
       if (!response.ok) {
         setValidationErrors({ form: getRegistrationErrorMessage(result.detail) });
+        setRegistrationToken('');
+        setIsRegistrationOtpOpen(false);
         return;
       }
       if (isResponder) {
+        setIsRegistrationOtpOpen(false);
         setIsPendingConfirmationOpen(true);
         return;
       }
@@ -471,6 +518,34 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     } catch (error) {
       const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
       setValidationErrors({ form: errorName === 'AbortError' ? 'The registration service timed out. Check your internet connection and try again.' : 'Unable to connect to the registration service.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const verifyRegistrationOtp = async () => {
+    if (!/^\d{6}$/.test(registrationOtp)) {
+      setValidationErrors({ form: 'Enter the 6-digit verification code.' });
+      return;
+    }
+    setIsSubmitting(true);
+    setValidationErrors({});
+    try {
+      const response = await fetchWithRetry(`${API_BASE_URL}/api/v1/auth/registration-otp/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationToken, otp: registrationOtp }),
+      }, SLOW_NETWORK_TIMEOUT_MS, 1);
+      const result = await response.json() as { detail?: unknown };
+      if (!response.ok) {
+        setValidationErrors({ form: getRegistrationErrorMessage(result.detail) });
+        return;
+      }
+      setIsRegistrationOtpOpen(false);
+      await submitRegistration(registrationToken);
+    } catch (error) {
+      const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
+      setValidationErrors({ form: errorName === 'AbortError' ? 'The verification service timed out. Check your internet connection and try again.' : 'Unable to connect to the verification service.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -617,6 +692,24 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             </View>
           </FormField>
           <Text style={styles.passwordHint}>At least 8 characters, including uppercase, lowercase, a number, and a symbol.</Text>
+          <View style={styles.otpChannelSection}>
+            <Text style={styles.label}>Account verification code</Text>
+            <Text style={styles.otpChannelHint}>Choose where to receive the required code before your account is created.</Text>
+            <View style={styles.otpChannelOptions}>
+              {(['email', 'sms'] as const).map((channel) => (
+                <TouchableOpacity
+                  key={channel}
+                  style={[styles.otpChannelOption, registrationChannel === channel && styles.otpChannelOptionSelected]}
+                  onPress={() => setRegistrationChannel(channel)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: registrationChannel === channel }}
+                >
+                  <MaterialCommunityIcons name={registrationChannel === channel ? 'radiobox-marked' : 'radiobox-blank'} size={19} color={registrationChannel === channel ? GREEN : TEXT_MUTED} />
+                  <Text style={styles.otpChannelOptionText}>{channel === 'email' ? 'Email' : 'SMS'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
           </>}
 
           {currentStep === 2 && isResponder && Platform.OS === 'web' && <View style={styles.mobileOnlyNotice}>
@@ -779,6 +872,33 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             </View>
           </Pressable>
         </Pressable>
+      </Modal>
+      <Modal transparent visible={isRegistrationOtpOpen} animationType="fade" onRequestClose={() => setIsRegistrationOtpOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.pendingDialog}>
+            <MaterialCommunityIcons name="shield-key-outline" size={40} color={GREEN} />
+            <Text style={styles.pendingTitle}>Verify your contact</Text>
+            <Text style={styles.pendingMessage}>Enter the 6-digit code sent to {otpDestination}. Your account will be created after verification.</Text>
+            <NativeTextInput
+              style={[styles.input, styles.otpCodeInput]}
+              value={registrationOtp}
+              onChangeText={setRegistrationOtp}
+              placeholder="000000"
+              placeholderTextColor={PLACEHOLDER_COLOR}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoComplete="one-time-code"
+              accessibilityLabel="6-digit account verification code"
+            />
+            {!!validationErrors.form && <Text style={styles.fieldError}>{validationErrors.form}</Text>}
+            <TouchableOpacity style={styles.submitButton} onPress={() => void verifyRegistrationOtp()} disabled={isSubmitting} accessibilityRole="button">
+              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Verify and create account</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.otpResendButton} onPress={() => void requestRegistrationOtp()} disabled={isSubmitting} accessibilityRole="button">
+              <Text style={styles.otpResendText}>Send a new code</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
       {isCameraOpen && <Modal visible animationType="slide" onRequestClose={() => setIsCameraOpen(false)}>
         <View style={styles.cameraModal} onLayout={(event) => setCameraBounds({ width: event.nativeEvent.layout.width, height: event.nativeEvent.layout.height })}>
@@ -995,6 +1115,15 @@ const styles = StyleSheet.create({
   passwordField: { paddingRight: 52 },
   passwordToggle: { position: 'absolute', right: 3, width: 44, height: 42, alignItems: 'center', justifyContent: 'center' },
   passwordHint: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, lineHeight: 16, marginTop: -4, marginBottom: 8 },
+  otpChannelSection: { marginTop: 10, marginBottom: 10 },
+  otpChannelHint: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, lineHeight: 16, marginBottom: 8 },
+  otpChannelOptions: { flexDirection: 'row', gap: 10 },
+  otpChannelOption: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: BORDER, borderRadius: 10, backgroundColor: SURFACE },
+  otpChannelOptionSelected: { borderColor: GREEN, backgroundColor: '#F3FAF3' },
+  otpChannelOptionText: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
+  otpCodeInput: { width: '100%', marginTop: 12, textAlign: 'center', letterSpacing: 8, fontSize: 22 },
+  otpResendButton: { paddingVertical: 12, alignItems: 'center' },
+  otpResendText: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
   row: { flexDirection: 'row', columnGap: 18 },
   rowStacked: { flexDirection: 'column', columnGap: 0 },
   selectInput: { height: 52, justifyContent: 'center', paddingHorizontal: 15, borderWidth: 1, borderColor: '#D5E0D8', borderRadius: 13, backgroundColor: '#FBFDFC' },

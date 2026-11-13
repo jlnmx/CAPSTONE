@@ -27,7 +27,7 @@ from .config import settings
 from .realtime import RealtimeNotConfigured, create_realtime_token
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import get_live_typhoon_report
-from .schemas import AdminEvacuationRegistrationCreate, AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, CenterDetailsUpdate, DisasterCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminEvacuationRegistrationCreate, AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, CenterDetailsUpdate, DisasterCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordChangeOtpRequest, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, RegistrationOtpRequest, RegistrationOtpVerification, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
@@ -82,13 +82,22 @@ def mask_destination(value: str, channel: str) -> str:
     return f"***{value[-4:]}"
 
 
-def deliver_password_reset_otp(destination: str, channel: str, otp: str) -> None:
+def normalize_sms_number(value: str) -> str:
+    digits = re.sub(r"\D", "", value)
+    if len(digits) == 11 and digits.startswith("0"):
+        return f"+63{digits[1:]}"
+    if len(digits) == 12 and digits.startswith("63"):
+        return f"+{digits}"
+    return value
+
+
+def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose: str = "password reset", require_configured: bool = False) -> None:
     if channel == "email" and settings.smtp_host and settings.smtp_from:
         message = EmailMessage()
-        message["Subject"] = "Your HANDA password reset code"
+        message["Subject"] = f"Your HANDA {purpose} code"
         message["From"] = settings.smtp_from
         message["To"] = destination
-        message.set_content(f"Your HANDA password reset code is {otp}. It expires in {settings.password_reset_expiry_minutes} minutes.")
+        message.set_content(f"Your HANDA {purpose} code is {otp}. It expires in {settings.password_reset_expiry_minutes} minutes.")
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
             server.starttls()
             if settings.smtp_username:
@@ -100,7 +109,7 @@ def deliver_password_reset_otp(destination: str, channel: str, otp: str) -> None
         from urllib.parse import urlencode
         from urllib.request import Request, urlopen
 
-        body = urlencode({"To": destination, "From": settings.twilio_from_number, "Body": f"Your HANDA password reset code is {otp}."}).encode()
+        body = urlencode({"To": normalize_sms_number(destination), "From": settings.twilio_from_number, "Body": f"Your HANDA {purpose} code is {otp}."}).encode()
         request = Request(
             f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
             data=body,
@@ -110,7 +119,15 @@ def deliver_password_reset_otp(destination: str, channel: str, otp: str) -> None
             pass
         return
 
+    if require_configured:
+        raise HTTPException(status_code=503, detail=f"{channel.upper()} code delivery is not configured.")
     logger.warning("Password reset OTP for %s (%s): %s", mask_destination(destination, channel), channel, otp)
+
+
+def otp_channel_configured(channel: str) -> bool:
+    if channel == "email":
+        return bool(settings.smtp_host and settings.smtp_from)
+    return bool(settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number)
 
 
 def notify_responder_application_status(email: str, mobile_number: str, responder_type: str, status: str, note: str = "") -> None:
@@ -145,7 +162,7 @@ def notify_responder_application_status(email: str, mobile_number: str, responde
             from urllib.parse import urlencode
             from urllib.request import Request, urlopen
 
-            body = urlencode({"To": mobile_number, "From": settings.twilio_from_number, "Body": message}).encode()
+            body = urlencode({"To": normalize_sms_number(mobile_number), "From": settings.twilio_from_number, "Body": message}).encode()
             request = Request(
                 f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
                 data=body,
@@ -188,7 +205,7 @@ def deliver_incident_alert(email: str, mobile_number: str, title: str, message: 
                 from urllib.parse import urlencode
                 from urllib.request import Request, urlopen
 
-                body = urlencode({"To": mobile_number, "From": settings.twilio_from_number, "Body": f"{title}: {message}"}).encode()
+                body = urlencode({"To": normalize_sms_number(mobile_number), "From": settings.twilio_from_number, "Body": f"{title}: {message}"}).encode()
                 request = Request(
                     f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
                     data=body,
@@ -198,6 +215,36 @@ def deliver_incident_alert(email: str, mobile_number: str, title: str, message: 
                     pass
             except Exception:
                 logger.exception("Incident SMS alert could not be delivered.")
+
+
+def notify_center_status_change(connection: psycopg.Connection, previous_status: str, center: dict) -> None:
+    if center["status"] == previous_status:
+        return
+    recipients = connection.execute(
+        """
+        SELECT DISTINCT users.email, users.mobile_number, users.email_alerts_enabled, users.sms_alerts_enabled
+        FROM evacuation_registrations AS registrations
+        JOIN users ON users.id = registrations.resident_user_id
+        WHERE registrations.center_id = %s
+          AND registrations.status IN ('registered', 'checked_in', 'evacuated')
+          AND (users.email_alerts_enabled OR users.sms_alerts_enabled)
+        """,
+        (center["id"],),
+    ).fetchall()
+    title = f"{center['name']} status changed to {center['status'].replace('_', ' ').upper()}"
+    message = (
+        f"The evacuation center {center['name']} is now {center['status'].replace('_', ' ')}. "
+        f"Current occupancy: {center['current_occupancy']} of {center['capacity']}."
+    )
+    for recipient in recipients:
+        deliver_incident_alert(
+            recipient["email"],
+            recipient["mobile_number"] or "",
+            title,
+            message,
+            recipient["email_alerts_enabled"],
+            recipient["sms_alerts_enabled"],
+        )
 
 
 MAX_LOGIN_ATTEMPTS = 5
@@ -598,6 +645,22 @@ def ensure_operational_schema() -> None:
                         """,
         )
         connection.execute("CREATE INDEX IF NOT EXISTS password_reset_requests_user_idx ON password_reset_requests (user_id, created_at DESC)")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS registration_otp_requests (
+                token TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                mobile_number TEXT NOT NULL,
+                channel TEXT NOT NULL CHECK (channel IN ('email', 'sms')),
+                otp_hash TEXT NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                verified_at TIMESTAMPTZ,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS registration_otp_requests_email_idx ON registration_otp_requests (email, created_at DESC)")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS evacuation_centers (
@@ -1605,6 +1668,12 @@ def update_center_capacity(
     connection: psycopg.Connection = Depends(get_connection),
     _: CurrentUser = Depends(require_roles("admin")),
 ):
+    current = connection.execute(
+        "SELECT id, name, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
+        (center_id,),
+    ).fetchone()
+    if not current:
+        raise HTTPException(status_code=404, detail="Evacuation center not found.")
     row = connection.execute(
         """
         UPDATE evacuation_centers
@@ -1621,9 +1690,8 @@ def update_center_capacity(
         """,
         (update.capacity, update.capacity, center_id),
     ).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Evacuation center not found.")
     connection.commit()
+    notify_center_status_change(connection, current["status"], row)
     return row
 
 
@@ -1635,7 +1703,7 @@ def update_center_details(
     _: CurrentUser = Depends(require_roles("admin")),
 ):
     current = connection.execute(
-        "SELECT current_occupancy FROM evacuation_centers WHERE id = %s FOR UPDATE",
+        "SELECT id, name, status, current_occupancy FROM evacuation_centers WHERE id = %s FOR UPDATE",
         (center_id,),
     ).fetchone()
     if not current:
@@ -1658,6 +1726,7 @@ def update_center_details(
         ),
     ).fetchone()
     connection.commit()
+    notify_center_status_change(connection, current["status"], row)
     return row
 
 
@@ -1862,12 +1931,14 @@ def update_evacuation_registration_status(
         raise HTTPException(status_code=409, detail=f"Cannot change status from {current_status} to {update.status}.")
 
     household_count = registration["household_size"]
+    center_before = None
 
     if update.status == "checked_in":
         center = connection.execute(
-            "SELECT capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
+            "SELECT id, name, location_text, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
             (registration["center_id"],),
         ).fetchone()
+        center_before = center
         center_status = evacuation_center_status(center["capacity"], center["current_occupancy"], center["status"])
         if center_status == "closed" or center["current_occupancy"] + household_count > center["capacity"]:
             raise HTTPException(status_code=409, detail="The evacuation center does not have enough available capacity for this household.")
@@ -1876,6 +1947,10 @@ def update_evacuation_registration_status(
             (household_count, household_count, registration["center_id"]),
         )
     elif update.status == "released" and current_status in ("checked_in", "evacuated"):
+        center_before = connection.execute(
+            "SELECT id, name, location_text, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
+            (registration["center_id"],),
+        ).fetchone()
         connection.execute(
             "UPDATE evacuation_centers SET current_occupancy = GREATEST(0, current_occupancy - %s), status = CASE WHEN status = 'closed' THEN 'closed' WHEN GREATEST(0, current_occupancy - %s) >= capacity THEN 'full' WHEN GREATEST(0, current_occupancy - %s) > 0 THEN 'limited' ELSE 'available' END, updated_at = NOW() WHERE id = %s",
             (household_count, household_count, household_count, registration["center_id"]),
@@ -1894,6 +1969,12 @@ def update_evacuation_registration_status(
     if registration["resident_user_id"]:
         enqueue_evacuation_status(connection, registration["resident_user_id"], registration_id, message)
     connection.commit()
+    if center_before:
+        center_after = connection.execute(
+            "SELECT id, name, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s",
+            (registration["center_id"],),
+        ).fetchone()
+        notify_center_status_change(connection, center_before["status"], center_after)
     return {"id": registration_id, "status": update.status}
 
 
@@ -2167,6 +2248,78 @@ def decode_verification_image(encoded: str, mime_type: str, image_label: str) ->
     return image_bytes
 
 
+@app.post("/api/v1/auth/registration-otp/request")
+def request_registration_otp(request: RegistrationOtpRequest, connection: psycopg.Connection = Depends(get_connection)):
+    email = request.email.strip().lower()
+    mobile_number = request.mobileNumber.strip()
+    assert_unique_contact(connection, email, mobile_number)
+    if not otp_channel_configured(request.channel):
+        raise HTTPException(status_code=503, detail=f"{request.channel.upper()} code delivery is not configured.")
+    if connection.execute(
+        """
+        SELECT 1 FROM registration_otp_requests
+        WHERE (email = %s OR RIGHT(REGEXP_REPLACE(mobile_number, '\\D', '', 'g'), 10) = %s)
+          AND created_at > NOW() - INTERVAL '60 seconds'
+        LIMIT 1
+        """,
+        (email, "".join(char for char in mobile_number if char.isdigit())[-10:]),
+    ).fetchone():
+        raise HTTPException(status_code=429, detail="Wait one minute before requesting another verification code.")
+
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    registration_token = secrets.token_urlsafe(32)
+    connection.execute(
+        """
+        DELETE FROM registration_otp_requests
+        WHERE email = %s OR RIGHT(REGEXP_REPLACE(mobile_number, '\\D', '', 'g'), 10) = %s
+        """,
+        (email, "".join(char for char in mobile_number if char.isdigit())[-10:]),
+    )
+    connection.execute(
+        """
+        INSERT INTO registration_otp_requests
+          (token, email, mobile_number, channel, otp_hash, expires_at)
+        VALUES (%s, %s, %s, %s, %s, NOW() + (%s * INTERVAL '1 minute'))
+        """,
+        (registration_token, email, mobile_number, request.channel, hash_reset_otp(otp), settings.password_reset_expiry_minutes),
+    )
+    connection.commit()
+    destination = email if request.channel == "email" else mobile_number
+    try:
+        deliver_password_reset_otp(destination, request.channel, otp, "account verification", require_configured=True)
+    except HTTPException:
+        connection.execute("DELETE FROM registration_otp_requests WHERE token = %s", (registration_token,))
+        connection.commit()
+        raise
+    except Exception as error:
+        logger.exception("Registration verification code could not be delivered.")
+        connection.execute("DELETE FROM registration_otp_requests WHERE token = %s", (registration_token,))
+        connection.commit()
+        raise HTTPException(status_code=503, detail="The verification code could not be delivered. Try again later.") from error
+    return {
+        "registrationToken": registration_token,
+        "destination": mask_destination(destination, request.channel),
+        "message": "A verification code was sent.",
+    }
+
+
+@app.post("/api/v1/auth/registration-otp/verify")
+def verify_registration_otp(request: RegistrationOtpVerification, connection: psycopg.Connection = Depends(get_connection)):
+    row = connection.execute(
+        "SELECT otp_hash, expires_at, attempts FROM registration_otp_requests WHERE token = %s FOR UPDATE",
+        (request.registrationToken,),
+    ).fetchone()
+    if not row or row["expires_at"] <= datetime.now(UTC) or row["attempts"] >= settings.password_reset_max_attempts:
+        raise HTTPException(status_code=400, detail="This verification code is invalid or expired.")
+    if not hmac.compare_digest(row["otp_hash"], hash_reset_otp(request.otp)):
+        connection.execute("UPDATE registration_otp_requests SET attempts = attempts + 1 WHERE token = %s", (request.registrationToken,))
+        connection.commit()
+        raise HTTPException(status_code=400, detail="This verification code is invalid or expired.")
+    connection.execute("UPDATE registration_otp_requests SET verified_at = NOW() WHERE token = %s", (request.registrationToken,))
+    connection.commit()
+    return {"message": "Contact verified. You can finish creating your account."}
+
+
 @app.post("/api/v1/users/register", status_code=201)
 def register_user(registration: UserRegistration, connection: psycopg.Connection = Depends(get_connection)):
     if not any((char.isupper() for char in registration.password)) or not any((char.islower() for char in registration.password)) or not any((char.isdigit() for char in registration.password)) or not any((not char.isalnum() for char in registration.password)):
@@ -2191,6 +2344,21 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
             registration.facePhotoMimeType,
             "face",
         )
+
+    verification = connection.execute(
+        "SELECT email, mobile_number, expires_at, attempts, verified_at FROM registration_otp_requests WHERE token = %s FOR UPDATE",
+        (registration.registrationToken,),
+    ).fetchone()
+    if (
+        not verification
+        or verification["expires_at"] <= datetime.now(UTC)
+        or verification["attempts"] >= settings.password_reset_max_attempts
+        or not verification["verified_at"]
+        or verification["email"].lower() != registration.email.strip().lower()
+        or "".join(char for char in verification["mobile_number"] if char.isdigit())[-10:]
+        != "".join(char for char in registration.mobileNumber if char.isdigit())[-10:]
+    ):
+        raise HTTPException(status_code=400, detail="The contact verification is invalid or expired. Request a new code.")
 
     user_id = f"user-{uuid4()}"
     assert_unique_contact(connection, registration.email, registration.mobileNumber)
@@ -2246,6 +2414,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         else:
             for member in registration.members:
                 insert_household_member(connection, "resident_household_members", "resident_user_id", f"resident-household-{uuid4()}", user_id, member)
+        connection.execute("DELETE FROM registration_otp_requests WHERE token = %s", (registration.registrationToken,))
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()
@@ -2300,6 +2469,55 @@ def request_password_reset(request: PasswordResetRequest, connection: psycopg.Co
     response["resetToken"] = reset_token
     response["destination"] = mask_destination(destination, request.channel)
     return response
+
+
+@app.post("/api/v1/auth/password-change/request")
+def request_password_change_otp(
+    request: PasswordChangeOtpRequest,
+    user: CurrentUser = Depends(get_current_user),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    row = connection.execute(
+        "SELECT email, mobile_number, password_hash FROM users WHERE id = %s",
+        (user.id,),
+    ).fetchone()
+    if not row or not verify_password(request.currentPassword, row["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+    if not otp_channel_configured(request.channel):
+        raise HTTPException(status_code=503, detail=f"{request.channel.upper()} code delivery is not configured.")
+    destination = row["email"] if request.channel == "email" else row["mobile_number"]
+    if not destination:
+        raise HTTPException(status_code=400, detail=f"No {request.channel.upper()} contact is available for this account.")
+    if connection.execute(
+        "SELECT 1 FROM password_reset_requests WHERE user_id = %s AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1",
+        (user.id,),
+    ).fetchone():
+        raise HTTPException(status_code=429, detail="Wait one minute before requesting another verification code.")
+
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    reset_token = secrets.token_urlsafe(32)
+    connection.execute("DELETE FROM password_reset_requests WHERE user_id = %s", (user.id,))
+    connection.execute(
+        "INSERT INTO password_reset_requests (token, user_id, channel, otp_hash, expires_at) VALUES (%s, %s, %s, %s, NOW() + (%s * INTERVAL '1 minute'))",
+        (reset_token, user.id, request.channel, hash_reset_otp(otp), settings.password_reset_expiry_minutes),
+    )
+    connection.commit()
+    try:
+        deliver_password_reset_otp(destination, request.channel, otp, "password change", require_configured=True)
+    except HTTPException:
+        connection.execute("DELETE FROM password_reset_requests WHERE token = %s", (reset_token,))
+        connection.commit()
+        raise
+    except Exception as error:
+        logger.exception("Password change verification code could not be delivered.")
+        connection.execute("DELETE FROM password_reset_requests WHERE token = %s", (reset_token,))
+        connection.commit()
+        raise HTTPException(status_code=503, detail="The verification code could not be delivered. Try again later.") from error
+    return {
+        "resetToken": reset_token,
+        "destination": mask_destination(destination, request.channel),
+        "message": "A verification code was sent.",
+    }
 
 
 def verify_reset_request(reset_token: str, otp: str, connection: psycopg.Connection) -> dict:
@@ -2484,6 +2702,11 @@ def update_resident_account(
         validate_account_password(account.newPassword)
         if verify_password(account.newPassword, row["password_hash"]):
             raise HTTPException(status_code=400, detail="Your new password must be different from your current password.")
+        if not account.passwordChangeToken or not account.passwordChangeOtp:
+            raise HTTPException(status_code=422, detail="Verify the code sent to your contact before changing your password.")
+        reset = verify_reset_request(account.passwordChangeToken, account.passwordChangeOtp, connection)
+        if reset["user_id"] != user.id:
+            raise HTTPException(status_code=400, detail="This verification code is invalid or expired.")
     assignments: list[str] = []
     values: list[object] = []
     normalized_email = account.email.strip().lower() if account.email is not None else None
@@ -2507,6 +2730,8 @@ def update_resident_account(
     values.append(user.id)
     try:
         connection.execute(f"UPDATE users SET {', '.join(assignments)} WHERE id = %s", values)
+        if account.newPassword and account.passwordChangeToken:
+            connection.execute("DELETE FROM password_reset_requests WHERE token = %s", (account.passwordChangeToken,))
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()
