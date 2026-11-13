@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -50,6 +50,7 @@ export default function AccountSectionScreen() {
   const [passwordChangeToken, setPasswordChangeToken] = useState('');
   const [passwordChangeOtp, setPasswordChangeOtp] = useState('');
   const [passwordChangeDestination, setPasswordChangeDestination] = useState('');
+  const [isPasswordOtpModalOpen, setIsPasswordOtpModalOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [middleName, setMiddleName] = useState(user?.middleName || '');
@@ -150,6 +151,7 @@ export default function AccountSectionScreen() {
       setPasswordChangeDestination(result.destination || (passwordChangeChannel === 'email' ? user?.email ?? '' : user?.mobileNumber ?? ''));
       setPasswordChangeOtp('');
       setNotice(`A verification code was sent to ${result.destination || 'your selected contact'}.`);
+      setIsPasswordOtpModalOpen(true);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'A verification code could not be sent.');
     } finally {
@@ -282,6 +284,7 @@ export default function AccountSectionScreen() {
                       setPasswordChangeChannel(channel);
                       setPasswordChangeToken('');
                       setPasswordChangeOtp('');
+                      setIsPasswordOtpModalOpen(false);
                       setNotice('');
                     }}
                     style={[styles.otpChannelOption, { borderColor: passwordChangeChannel === channel ? '#218B25' : palette.border, backgroundColor: palette.surfaceMuted }]}
@@ -294,10 +297,6 @@ export default function AccountSectionScreen() {
                 ))}
               </View>
             </View>
-            {!!passwordChangeToken && <>
-              <Text style={[styles.otpHint, { color: palette.textMuted }]}>Enter the 6-digit code sent to {passwordChangeDestination}.</Text>
-              <AccountField label="Verification code" icon="shield-key-outline" value={passwordChangeOtp} onChangeText={setPasswordChangeOtp} placeholder="000000" keyboardType="number-pad" maxLength={6} palette={palette} />
-            </>}
           </>}
           {sectionKey === 'profile' && <>
             <View style={[styles.photoCard, { backgroundColor: palette.surfaceMuted, borderColor: palette.border }]}>
@@ -346,12 +345,116 @@ export default function AccountSectionScreen() {
           </>}
             {!!notice && <Text style={[styles.notice, { color: '#218B25' }]}>{notice}</Text>}
             {!!error && <View style={styles.error}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={Colors.emergency} /><Text style={styles.errorText}>{error}</Text></View>}
-            <AnimatedPressable onPress={handleSave} disabled={isSaving} style={[styles.saveButton, isSaving && styles.disabled]} accessibilityRole="button">
-              {isSaving ? <ActivityIndicator color={Colors.white} /> : <><Text style={styles.saveButtonText}>{sectionKey === 'password' && !passwordChangeToken ? 'Send verification code' : 'Save changes'}</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
+            <AnimatedPressable
+              onPress={() => {
+                if (sectionKey === 'password' && passwordChangeToken) {
+                  setError('');
+                  setIsPasswordOtpModalOpen(true);
+                } else {
+                  handleSave();
+                }
+              }}
+              disabled={isSaving}
+              style={[styles.saveButton, isSaving && styles.disabled]}
+              accessibilityRole="button"
+            >
+              {isSaving ? <ActivityIndicator color={Colors.white} /> : <><Text style={styles.saveButtonText}>{sectionKey === 'password' ? passwordChangeToken ? 'Enter verification code' : 'Send verification code' : 'Save changes'}</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
             </AnimatedPressable>
           </View>
         </Reveal>
       </ScrollView>
+      <Modal
+        transparent
+        visible={sectionKey === 'password' && isPasswordOtpModalOpen}
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setIsPasswordOtpModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.otpModalBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setIsPasswordOtpModalOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Close verification dialog"
+          />
+          <ScrollView
+            contentContainerStyle={styles.otpModalScroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View
+              style={[styles.otpDialog, { backgroundColor: palette.surface, borderColor: palette.border }]}
+              accessibilityViewIsModal
+            >
+              <Pressable
+                onPress={() => setIsPasswordOtpModalOpen(false)}
+                style={styles.otpDialogClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close verification dialog"
+              >
+                <MaterialCommunityIcons name="close" size={21} color={palette.textMuted} />
+              </Pressable>
+              <View style={[styles.otpDialogIcon, { backgroundColor: palette.surfaceMuted }]}>
+                <MaterialCommunityIcons
+                  name={passwordChangeChannel === 'email' ? 'email-outline' : 'message-text-outline'}
+                  size={28}
+                  color="#218B25"
+                />
+              </View>
+              <Text style={[styles.otpDialogTitle, { color: palette.text }]}>Verify it's you</Text>
+              <Text style={[styles.otpDialogDescription, { color: palette.textMuted }]}>
+                Enter the 6-digit code we sent to {passwordChangeDestination || 'your selected contact'} to confirm your password change.
+              </Text>
+              <Text style={[styles.fieldLabelStandalone, { color: palette.text }]}>Verification code</Text>
+              <TextInput
+                value={passwordChangeOtp}
+                onChangeText={(value) => {
+                  setPasswordChangeOtp(value.replace(/\D/g, '').slice(0, 6));
+                  setError('');
+                }}
+                placeholder="000000"
+                placeholderTextColor={palette.textMuted}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoComplete="one-time-code"
+                textContentType="oneTimeCode"
+                selectionColor="#218B25"
+                style={[styles.otpCodeInput, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}
+                accessibilityLabel="6-digit verification code"
+              />
+              <Text style={[styles.otpSecurityHint, { color: palette.textMuted }]}>
+                For your security, never share this code. If you didn't request this change, close this dialog.
+              </Text>
+              {!!error && (
+                <View style={styles.error}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={18} color={Colors.emergency} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+              <AnimatedPressable
+                onPress={handleSave}
+                disabled={isSaving}
+                style={[styles.saveButton, isSaving && styles.disabled]}
+                accessibilityRole="button"
+              >
+                {isSaving
+                  ? <ActivityIndicator color={Colors.white} />
+                  : <><Text style={styles.saveButtonText}>Verify and change password</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
+              </AnimatedPressable>
+              <Pressable
+                onPress={() => setIsPasswordOtpModalOpen(false)}
+                style={styles.otpDialogCancel}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.otpDialogCancelText, { color: palette.textMuted }]}>Not now</Text>
+              </Pressable>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -403,7 +506,17 @@ const styles = StyleSheet.create({
   otpChannelOptions: { flexDirection: 'row', gap: 10 },
   otpChannelOption: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, borderWidth: 1, borderRadius: 12 },
   otpChannelText: { fontFamily: kitFonts.semibold, fontSize: 13 },
-  otpHint: { fontFamily: kitFonts.medium, fontSize: 11 },
+  otpModalBackdrop: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(15, 23, 18, 0.58)' },
+  otpModalScroll: { flexGrow: 1, justifyContent: 'center', padding: 22 },
+  otpDialog: { width: '100%', maxWidth: 420, alignSelf: 'center', padding: 24, borderWidth: 1, borderRadius: 24, alignItems: 'stretch', gap: 12, shadowColor: '#0B1C10', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 10 },
+  otpDialogClose: { position: 'absolute', top: 14, right: 14, width: 36, height: 36, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  otpDialogIcon: { width: 60, height: 60, alignSelf: 'center', borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  otpDialogTitle: { fontFamily: kitFonts.heading, fontSize: 21, textAlign: 'center', marginTop: 2 },
+  otpDialogDescription: { fontFamily: kitFonts.medium, fontSize: 13, lineHeight: 20, textAlign: 'center', marginBottom: 8 },
+  otpCodeInput: { minHeight: 60, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, fontFamily: kitFonts.bold, fontSize: 25, letterSpacing: 12, textAlign: 'center' },
+  otpSecurityHint: { fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  otpDialogCancel: { minHeight: 40, alignItems: 'center', justifyContent: 'center' },
+  otpDialogCancelText: { fontFamily: kitFonts.semibold, fontSize: 13 },
   notice: { fontFamily: kitFonts.medium, fontSize: 12 },
   select: { minHeight: 54, paddingHorizontal: 14, borderWidth: 1, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 10 },
   selectLeading: { flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 },

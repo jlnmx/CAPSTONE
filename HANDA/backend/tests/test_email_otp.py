@@ -63,8 +63,14 @@ class EmailOtpTests(unittest.TestCase):
         message = smtp.send_message.call_args.args[0]
         self.assertEqual(message["From"], "sender@gmail.com")
         self.assertEqual(message["To"], "ana@example.com")
-        self.assertIn("account verification", message["Subject"])
-        self.assertIn("123456", message.get_content())
+        self.assertEqual(message["Subject"], "Verify your HANDA account")
+        plain_body = message.get_body(preferencelist=("plain",)).get_content()
+        self.assertIn("123456", plain_body)
+        self.assertIn("verify your HANDA account", plain_body)
+        self.assertIn("expires in 10 minutes", plain_body)
+        self.assertIn("do not share it with anyone", plain_body)
+        self.assertIn("No changes will be made without the code", plain_body)
+        self.assertIsNotNone(message.get_body(preferencelist=("html",)))
 
     def test_email_otp_uses_gmail_api_over_https_when_configured(self):
         configuration = SimpleNamespace(
@@ -95,6 +101,8 @@ class EmailOtpTests(unittest.TestCase):
         decoded_message = base64.urlsafe_b64decode(encoded_message + "=" * (-len(encoded_message) % 4))
         self.assertIn(b"123456", decoded_message)
         self.assertIn(b"ana@example.com", decoded_message)
+        self.assertIn(b"Password change verification code", decoded_message)
+        self.assertIn(b"change the password for your HANDA account", decoded_message)
         smtp_factory.assert_not_called()
 
     def test_philippine_mobile_numbers_are_normalized_for_sms(self):
