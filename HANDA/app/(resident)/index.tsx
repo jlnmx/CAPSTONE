@@ -19,9 +19,9 @@ import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weat
 import type { LiveTyphoon } from '@/types/weather';
 import type { ResidentHouseholdMember } from '@/types/index';
 
-const actions: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; mark: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; route: string; tone: 'forest' | 'teal' | 'sand' | 'clay' }[] = [
+const actions: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; mark: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; route: string; tone: 'forest' | 'teal' | 'sand' | 'clay' | 'danger' }[] = [
   { icon: 'information-outline', mark: 'home-heart', label: 'Evacuation guidance', route: '/(resident)/register-evacuee', tone: 'forest' },
-  { icon: 'alert-circle-outline', mark: 'alert-octagon-outline', label: 'Report incident', route: '/(resident)/report', tone: 'clay' },
+  { icon: 'alert-circle-outline', mark: 'alert-octagon-outline', label: 'Report incident', route: '/(resident)/report', tone: 'danger' },
   { icon: 'home-city-outline', mark: 'home-city-outline', label: 'Center status', route: '/(resident)/center-status', tone: 'sand' },
   { icon: 'account-multiple-outline', mark: 'home-group', label: 'Household', route: '/(resident)/household', tone: 'sand' },
 ];
@@ -166,7 +166,7 @@ export default function ResidentDashboard() {
         <View style={styles.actionGrid}>{actions.map((action) => <DashTile key={action.label} tone={action.tone} icon={action.icon} mark={action.mark} title={action.label} onPress={() => router.push(action.route)} style={styles.actionButton} />)}</View>
         <View style={styles.resourceRow}>
           <ResourceButton
-            tone="clay"
+            tone="danger"
             icon="phone-in-talk-outline"
             mark="bullhorn-outline"
             title="Emergency Hotline"
@@ -200,11 +200,12 @@ function getResidentStatusPresentation(unavailable: boolean, loading: boolean, s
 }
 
 type TileTone = { bg: string; fg: string; badgeBg: string; badgeFg: string; mark: string };
-const TONES: Record<'forest' | 'teal' | 'sand' | 'clay', TileTone> = {
-  forest: { bg: '#B64A75', fg: '#FFFFFF', badgeBg: '#F4F8D8', badgeFg: '#B64A75', mark: 'rgba(255,255,255,0.14)' },
+const TONES: Record<'forest' | 'teal' | 'sand' | 'clay' | 'danger', TileTone> = {
+  forest: { bg: '#1F6B2B', fg: '#FFFFFF', badgeBg: '#F4F8D8', badgeFg: '#1F6B2B', mark: 'rgba(255,255,255,0.14)' },
   teal: { bg: '#1E4D5C', fg: '#FFFFFF', badgeBg: '#E6F0F3', badgeFg: '#1E4D5C', mark: 'rgba(255,255,255,0.14)' },
   sand: { bg: '#ECE6D6', fg: '#71354F', badgeBg: '#B64A75', badgeFg: '#FFFFFF', mark: 'rgba(31,107,43,0.12)' },
   clay: { bg: '#C9573F', fg: '#FFFFFF', badgeBg: '#FFF1E8', badgeFg: '#C9573F', mark: 'rgba(255,255,255,0.16)' },
+  danger: { bg: '#D63F43', fg: '#FFFFFF', badgeBg: '#FFF1E8', badgeFg: '#D63F43', mark: 'rgba(255,255,255,0.16)' },
 };
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 

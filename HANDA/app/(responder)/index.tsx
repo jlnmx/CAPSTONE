@@ -124,7 +124,7 @@ export default function ResponderDashboard() {
 }
 
 const TILE_TONES = {
-  forest: { bg: '#B64A75', fg: '#FFFFFF', badgeBg: '#F4F8D8', badgeFg: '#B64A75', mark: 'rgba(255,255,255,0.14)' },
+  forest: { bg: '#1F6B2B', fg: '#FFFFFF', badgeBg: '#F4F8D8', badgeFg: '#1F6B2B', mark: 'rgba(255,255,255,0.14)' },
   clay: { bg: '#C9573F', fg: '#FFFFFF', badgeBg: '#FFF1E8', badgeFg: '#C9573F', mark: 'rgba(255,255,255,0.16)' },
   teal: { bg: '#1E4D5C', fg: '#FFFFFF', badgeBg: '#E6F0F3', badgeFg: '#1E4D5C', mark: 'rgba(255,255,255,0.14)' },
   sand: { bg: '#ECE6D6', fg: '#71354F', badgeBg: '#B64A75', badgeFg: '#FFFFFF', mark: 'rgba(31,107,43,0.12)' },
