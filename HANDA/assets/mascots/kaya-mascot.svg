@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 284" role="img" aria-labelledby="title description">
+  <title id="title">Kaya, the HANDA rescue dog</title>
+  <desc id="description">A friendly rescue dog wearing a pink and blue safety vest and helmet.</desc>
+  <style>
+    .mascot { transform-origin: 120px 112px; animation: bob 2.2s ease-in-out infinite; }
+    .tail { transform-origin: 67px 166px; animation: wag .55s ease-in-out infinite alternate; }
+    .wave-arm { transform-origin: 174px 137px; animation: wave .7s ease-in-out infinite alternate; }
+    @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+    @keyframes wag { from { transform: rotate(-8deg); } to { transform: rotate(12deg); } }
+    @keyframes wave { from { transform: rotate(-8deg); } to { transform: rotate(9deg); } }
+    @media (prefers-reduced-motion: reduce) { .mascot, .tail, .wave-arm { animation: none; } }
+  </style>
+  <g class="mascot">
+    <circle cx="120" cy="112" r="103" fill="#FFF1F6"/>
+    <circle cx="188" cy="39" r="16" fill="#E7F3FA"/>
+    <circle cx="52" cy="87" r="6" fill="#91BCDD"/>
+    <path class="tail" d="M65 151c-26 15-26-16-13-22 11-5 14 10 8 15" fill="none" stroke="#B77B56" stroke-width="11" stroke-linecap="round"/>
+    <path d="M76 130c8-14 22-20 44-20s37 7 45 23l14 73H60l8-58z" fill="#F2D2AE"/>
+    <path d="M79 138c15-11 27-13 41-13s27 4 40 14l12 66H66z" fill="#FA96BB"/>
+    <path d="M112 128h18l9 76h-34z" fill="#91BCDD"/>
+    <path class="wave-arm" d="M158 145c15-11 20-29 30-42" fill="none" stroke="#E8C092" stroke-width="16" stroke-linecap="round"/>
+    <circle class="wave-arm" cx="190" cy="95" r="12" fill="#E8C092"/>
+    <path d="M61 145c8-6 16-7 24-3l6 17c-9 7-19 7-27 0z" fill="#E8C092"/>
+    <path d="m88 203-4 12h24l3-12m24 0 3 12h24l-4-13" fill="#A96756"/>
+    <ellipse cx="77" cy="65" rx="17" ry="30" transform="rotate(-27 77 65)" fill="#A96756"/>
+    <ellipse cx="163" cy="65" rx="17" ry="30" transform="rotate(27 163 65)" fill="#A96756"/>
+    <ellipse cx="120" cy="70" rx="52" ry="48" fill="#EBC99E"/>
+    <ellipse cx="100" cy="81" rx="5" ry="6" fill="#3B302B"/>
+    <ellipse cx="140" cy="81" rx="5" ry="6" fill="#3B302B"/>
+    <ellipse cx="120" cy="96" rx="20" ry="14" fill="#FFF8F0"/>
+    <path d="M114 91c1-6 11-6 12 0 0 5-4 6-6 6s-6-1-6-6" fill="#513D39"/>
+    <path d="M120 97c0 7-8 8-12 3m12-3c0 7 8 8 12 3" fill="none" stroke="#76544D" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M67 54c2-27 22-40 53-40s51 13 53 40l-14-4c-5-10-19-15-39-15s-34 5-39 15z" fill="#91BCDD"/>
+    <path d="M70 52c21-9 79-9 100 0l-4 9c-21-7-71-7-92 0z" fill="#D45B92"/>
+    <path d="m104 40 16-8 16 8-4 16-12 9-12-9z" fill="#fff"/>
+    <path d="M118 43h4v5h5v4h-5v5h-4v-5h-5v-4h5z" fill="#D45B92"/>
+    <path d="m106 157 14 9 14-9 5 19-19 12-19-12z" fill="#fff"/>
+    <path d="M118 166h4v5h5v4h-5v5h-4v-5h-5v-4h5z" fill="#6D739B"/>
+    <path d="m180 149 4 9 9 4-9 4-4 9-4-9-9-4 9-4z" fill="#91BCDD"/>
+  </g>
+  <text x="120" y="250" text-anchor="middle" fill="#D45B92" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="800" letter-spacing="3">KAYA</text>
+  <text x="120" y="270" text-anchor="middle" fill="#6D739B" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="700" letter-spacing="1.5">HANDA SAFETY COMPANION</text>
+</svg>

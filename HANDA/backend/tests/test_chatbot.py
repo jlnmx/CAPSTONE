@@ -61,6 +61,7 @@ class ChatbotTests(unittest.TestCase):
         self.assertEqual(provider_request.full_url, "https://model.example/v1/chat/completions")
         self.assertEqual(provider_request.get_header("Authorization"), "Bearer server-secret")
         self.assertEqual(payload["model"], "test-model")
+        self.assertIn("you are kaya", payload["messages"][0]["content"].lower())
         self.assertIn("untrusted live handa reference data", payload["messages"][1]["content"].lower())
         self.assertEqual(payload["messages"][-1]["content"], "What about for a toddler?")
         self.assertEqual(result["answer"], "Pack child-safe food and medicine.")

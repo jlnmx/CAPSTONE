@@ -9,6 +9,7 @@ import Avatar from '@components/Avatar';
 import AppBackArrow from '@components/AppBackArrow';
 import { Reveal, kitFonts } from '@components/IncidentCardKit';
 import { Colors } from '@constants/colors';
+import RescueMascot from '@components/RescueMascot';
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
 
@@ -19,7 +20,8 @@ interface MoreMenuProps {
 type MenuItem = {
   title: string;
   description: string;
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  icon?: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
+  mascot?: boolean;
   onPress: () => void;
 };
 
@@ -35,9 +37,9 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
     { title: 'Settings', description: 'Personalize your app experience', icon: 'cog-outline', onPress: () => router.push('/settings') },
     { title: 'Account', description: 'Manage your profile and details', icon: 'account-outline', onPress: () => router.push('/account') },
     {
-      title: 'HANDA Support',
-      description: 'Get help with preparedness and response',
-      icon: 'lifebuoy',
+      title: 'Kaya',
+      description: 'Your HANDA safety companion',
+      mascot: true,
       onPress: () => router.push(roleLabel === 'Resident' ? '/(resident)/chatbot' : '/(responder)/chatbot'),
     },
     { title: 'Developer details', description: 'Learn about the team behind HANDA', icon: 'code-braces', onPress: () => router.push('/developers') },
@@ -106,7 +108,9 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
                 accessibilityLabel={`${item.title}. ${item.description}`}
               >
                 <View style={styles.menuIcon}>
-                  <MaterialCommunityIcons name={item.icon} size={23} color="#D45B92" />
+                  {item.mascot
+                    ? <RescueMascot size={38} />
+                    : <MaterialCommunityIcons name={item.icon ?? 'help-circle-outline'} size={23} color="#D45B92" />}
                 </View>
                 <View style={styles.menuCopy}>
                   <Text style={[styles.menuLabel, { color: palette.text }]}>{item.title}</Text>

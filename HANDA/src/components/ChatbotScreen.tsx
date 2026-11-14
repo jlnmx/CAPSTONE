@@ -5,9 +5,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSegments } from 'expo-router';
 import { Colors } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
+import RescueMascot from '@components/RescueMascot';
 import { answerQuestion, ChatbotTurn, getLiveQuestionContext, requestModelAnswer } from '@services/chatbotAnswers';
 
-const GREEN = '#D45B92';
+const CHAT_ACCENT = Colors.primary;
 const QUICK_PROMPTS = ['Any typhoons right now?', 'Will it rain in Biñan today?', 'How do I report an incident?', 'How do evacuation status updates work?'];
 
 type ChatMessage = { id: string; role: 'assistant' | 'user'; text: string; weatherAttribution?: boolean };
@@ -23,7 +24,7 @@ export default function ChatbotScreen() {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: 'welcome', role: 'assistant', text: 'Hi! I am HANDA Support. Ask me anything: how to use the app, incidents, evacuation, first aid, weather, or disaster safety.' },
+    { id: 'welcome', role: 'assistant', text: 'Hi! I’m Kaya, your HANDA safety companion. Ask me about using the app, incidents, evacuation, first aid, weather, or disaster safety.' },
   ]);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -61,8 +62,8 @@ export default function ChatbotScreen() {
       }
       const hasSpecificFallback = !fallback.startsWith('I can help with current Biñan weather');
       const status = hasSpecificFallback
-        ? `${fallback}\n\nHANDA Support's AI is offline right now, so this is built-in guidance.`
-        : 'HANDA Support could not reach its AI service. Please check your connection and try again in a moment. For emergencies, call BCDRRMO (049) 513-9111.';
+        ? `${fallback}\n\nKaya’s AI service is offline right now, so this is built-in guidance.`
+        : 'Kaya could not reach the AI service. Please check your connection and try again in a moment. For emergencies, call BCDRRMO (049) 513-9111.';
       setMessages((current) => [...current, { id: `assistant-${Date.now()}`, role: 'assistant', text: status, weatherAttribution: isGoogleWeatherQuestion(question) }]);
     } finally {
       setIsTyping(false);
@@ -74,10 +75,10 @@ export default function ChatbotScreen() {
       <View style={styles.header}>
         <AppBackArrow fallbackHref={fallbackHref} />
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>HANDA SUPPORT</Text>
-          <Text style={styles.subtitle}>Your quick safety companion</Text>
+          <Text style={styles.title}>KAYA</Text>
+          <Text style={styles.subtitle}>Your HANDA safety companion</Text>
         </View>
-        <MaterialCommunityIcons name="robot-outline" size={34} color={Colors.white} />
+        <RescueMascot size={50} animated />
       </View>
       <KeyboardAvoidingView style={styles.body} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
@@ -88,11 +89,14 @@ export default function ChatbotScreen() {
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.map((message) => (
-            <View key={message.id} style={[styles.bubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
-              <Text style={[styles.messageText, message.role === 'user' && styles.userText]}>{message.text}</Text>
-              {message.weatherAttribution && <View style={styles.attribution}>
-                <Text style={styles.googleAttribution}>Google Maps</Text>
-              </View>}
+            <View key={message.id} style={[styles.messageRow, message.role === 'user' ? styles.userMessageRow : styles.assistantMessageRow]}>
+              {message.role === 'assistant' && <RescueMascot size={32} />}
+              <View style={[styles.bubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
+                <Text style={[styles.messageText, message.role === 'user' && styles.userText]}>{message.text}</Text>
+                {message.weatherAttribution && <View style={styles.attribution}>
+                  <Text style={styles.googleAttribution}>Google Maps</Text>
+                </View>}
+              </View>
             </View>
           ))}
           {isTyping && <TypingIndicator />}
@@ -103,7 +107,7 @@ export default function ChatbotScreen() {
           ))}
         </ScrollView>
         <View style={styles.inputRow}>
-          <TextInput value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Ask about weather, typhoons, or HANDA" placeholderTextColor="#8A9B8C" style={styles.input} returnKeyType="send" blurOnSubmit={false} />
+          <TextInput value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Ask Kaya about safety, weather, or HANDA" placeholderTextColor={Colors.textMuted} style={styles.input} returnKeyType="send" blurOnSubmit={false} />
           <Pressable onPress={() => sendMessage()} style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendDisabled]} disabled={!input.trim() || isTyping} accessibilityRole="button" accessibilityLabel="Send assistant question"><MaterialCommunityIcons name="send" size={20} color="#FFFFFF" /></Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -124,24 +128,30 @@ function TypingIndicator() {
     return () => dots.forEach((value) => value.stopAnimation());
   }, [dots]);
 
-  return <View style={[styles.bubble, styles.assistantBubble, styles.typingBubble]}>
-    <Text style={styles.typingLabel}>HANDA Support is thinking</Text>
-    <View style={styles.typingDots}>{dots.map((value, index) => <Animated.View key={index} style={[styles.typingDot, { opacity: value }]} />)}</View>
+  return <View style={[styles.messageRow, styles.assistantMessageRow]}>
+    <RescueMascot size={32} />
+    <View style={[styles.bubble, styles.assistantBubble, styles.typingBubble]}>
+      <Text style={styles.typingLabel}>Kaya is thinking</Text>
+      <View style={styles.typingDots}>{dots.map((value, index) => <Animated.View key={index} style={[styles.typingDot, { opacity: value }]} />)}</View>
+    </View>
   </View>;
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.surface },
-  header: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: GREEN, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 },
+  header: { minHeight: 80, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: CHAT_ACCENT, borderBottomLeftRadius: 22, borderBottomRightRadius: 22 },
   headerCopy: { flex: 1 },
   title: { color: Colors.white, fontSize: 24, lineHeight: 28, fontWeight: '900' },
-  subtitle: { color: '#E1F1E1', fontSize: 10, marginTop: 2 },
+  subtitle: { color: '#FCEAF1', fontSize: 10, marginTop: 2 },
   body: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center', backgroundColor: Colors.surface },
   messages: { flex: 1 },
   messageContent: { padding: 14, paddingTop: 18, gap: 10 },
+  messageRow: { width: '100%', flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  assistantMessageRow: { justifyContent: 'flex-start' },
+  userMessageRow: { justifyContent: 'flex-end' },
   bubble: { maxWidth: '88%', paddingHorizontal: 13, paddingVertical: 10, borderRadius: 16 },
-  assistantBubble: { alignSelf: 'flex-start', backgroundColor: Colors.surfaceMuted, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: '#E3ECE4' },
-  userBubble: { alignSelf: 'flex-end', backgroundColor: GREEN, borderBottomRightRadius: 4 },
+  assistantBubble: { maxWidth: '82%', backgroundColor: Colors.surfaceMuted, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: Colors.border },
+  userBubble: { alignSelf: 'flex-end', backgroundColor: CHAT_ACCENT, borderBottomRightRadius: 4 },
   messageText: { color: Colors.text, fontSize: 13, lineHeight: 19 },
   userText: { color: '#FFFFFF' },
   attribution: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', marginTop: 6 },
@@ -149,13 +159,13 @@ const styles = StyleSheet.create({
   typingBubble: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   typingLabel: { color: Colors.textMuted, fontSize: 11, fontStyle: 'italic' },
   typingDots: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: GREEN },
+  typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: CHAT_ACCENT },
   promptsScroll: { flexGrow: 0 },
   prompts: { gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  prompt: { paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#BFDDC0', borderRadius: 16, backgroundColor: '#F0F8F0' },
-  promptText: { color: GREEN, fontSize: 11, fontWeight: '700' },
-  inputRow: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: '#E7EFE7', backgroundColor: Colors.surface },
-  input: { flex: 1, minHeight: 44, paddingHorizontal: 16, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border, borderRadius: 22, backgroundColor: '#F7FAF7', color: Colors.text, fontSize: 13 },
-  sendButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: GREEN },
+  prompt: { paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#F1C7D9', borderRadius: 16, backgroundColor: '#FFF1F6' },
+  promptText: { color: CHAT_ACCENT, fontSize: 11, fontWeight: '700' },
+  inputRow: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.surface },
+  input: { flex: 1, minHeight: 44, paddingHorizontal: 16, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border, borderRadius: 22, backgroundColor: '#FFF8FB', color: Colors.text, fontSize: 13 },
+  sendButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: CHAT_ACCENT },
   sendDisabled: { opacity: 0.45 },
 });

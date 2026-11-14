@@ -14,6 +14,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { NotificationBell } from '@components/NotificationBell';
 import { HandaLogoBadge } from '@components/HandaLogo';
+import QuickTutorial from '@components/QuickTutorial';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, getResponseHistory, ResponderDataSnapshot } from '@services/responderData';
 import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
@@ -119,6 +120,7 @@ export default function ResponderDashboard() {
         <Text style={styles.dataSource}>{isLoading ? 'Loading live server data...' : dataUnavailable ? `Partial live data · unavailable: ${data.unavailableSources.join(', ')}` : 'Live server data · refreshes every 15 seconds'}</Text>
 
       </ScrollView>
+      <QuickTutorial role="responder" userId={user?.id} />
     </SafeAreaView>
   );
 }

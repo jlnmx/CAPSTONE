@@ -13,6 +13,7 @@ import { HandaLogoBadge } from '@components/HandaLogo';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { TyphoonCard } from '@components/TyphoonCard';
+import QuickTutorial from '@components/QuickTutorial';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
@@ -183,6 +184,7 @@ export default function ResidentDashboard() {
           />
         </View>
       </ScrollView>
+      <QuickTutorial role="resident" userId={user?.id} />
     </SafeAreaView>
   );
 }
