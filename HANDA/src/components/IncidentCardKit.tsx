@@ -8,7 +8,7 @@ import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentSta
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-export const KIT_GREEN = '#218B25';
+export const KIT_GREEN = '#B64A75';
 export const kitFonts = { heading: AppHeadingFontFamily, bold: AppBoldFontFamily, semibold: AppSemiboldFontFamily, medium: AppMediumFontFamily };
 
 export function incidentTypeIcon(type: string): IconName {

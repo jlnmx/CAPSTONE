@@ -4,7 +4,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { AnimatedPressable } from '@components/Buttons';
 import type { ResidentHouseholdMember } from '@types/index';
 
-const GREEN = '#218B25';
+const GREEN = '#B64A75';
 
 export interface HouseholdMemberDraft {
   firstName: string;
@@ -124,11 +124,11 @@ export function HouseholdMemberFields({ draft, onChange, relationshipPlaceholder
 
 const styles = StyleSheet.create({
   wrap: { gap: 10 },
-  input: { minHeight: 46, borderWidth: 1.5, borderColor: '#A6CFA7', borderRadius: 12, paddingHorizontal: 14, color: '#17212B', backgroundColor: '#FFFFFF', fontSize: 14 },
+  input: { minHeight: 46, borderWidth: 1.5, borderColor: '#E9C9D7', borderRadius: 12, paddingHorizontal: 14, color: '#17212B', backgroundColor: '#FFFFFF', fontSize: 14 },
   row: { flexDirection: 'row', gap: 10 },
   age: { width: 92 },
   sexRow: { flex: 1, flexDirection: 'row', gap: 8 },
-  sexChip: { flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1.5, borderColor: '#A6CFA7', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  sexChip: { flex: 1, minHeight: 46, borderRadius: 12, borderWidth: 1.5, borderColor: '#E9C9D7', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   sexChipActive: { backgroundColor: GREEN, borderColor: GREEN },
   sexText: { color: '#17212B', fontWeight: '700', fontSize: 14 },
   sexTextActive: { color: '#FFFFFF' },

@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   panel: { position: 'absolute', left: 12, right: 12, bottom: 14, maxHeight: '54%', gap: 12, padding: 16, borderRadius: 19, backgroundColor: Colors.white, elevation: 9 },
   modeRow: { flexDirection: 'row', gap: 9 },
   modeButton: { flex: 1, minHeight: 46, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, borderRadius: 12, backgroundColor: '#F3F6F2' },
-  modeButtonSelected: { backgroundColor: '#E7F4E7', borderWidth: 1, borderColor: '#9BCB99' },
+  modeButtonSelected: { backgroundColor: '#FAEDF2', borderWidth: 1, borderColor: '#E9C9D7' },
   modeLabel: { color: Colors.textMuted, fontSize: 12, fontWeight: '700' },
   modeLabelSelected: { color: Colors.primary },
   loading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 8 },

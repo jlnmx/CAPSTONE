@@ -164,7 +164,7 @@ export default function AGAPMap() {
 function MapControl({ label, icon, onPress }: { label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.control} onPress={onPress} activeOpacity={0.75}>
-      <MaterialCommunityIcons name={icon} size={17} color="#218B25" />
+      <MaterialCommunityIcons name={icon} size={17} color="#B64A75" />
       <Text style={styles.controlText}>{label}</Text>
     </TouchableOpacity>
   );
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
   },
   header: {
-    backgroundColor: '#218B25',
+    backgroundColor: '#B64A75',
     paddingHorizontal: 18,
     paddingTop: 18,
     paddingBottom: 12,
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 14,
     borderWidth: 1,
-    borderColor: '#218B25',
+    borderColor: '#B64A75',
     borderRadius: 10,
     overflow: 'hidden',
   },
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   control: {
     height: 34,
     borderWidth: 1,
-    borderColor: '#218B25',
+    borderColor: '#B64A75',
     borderRadius: 7,
     flexDirection: 'row',
     alignItems: 'center',
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   controlText: {
-    color: '#218B25',
+    color: '#B64A75',
     fontSize: 12,
     fontWeight: '600',
   },

@@ -13,7 +13,7 @@ import { fetchJsonWithCache } from '@services/offlineCache';
 import type { MapEvacuationCenter } from '@/types/index';
 import type { MapNavigationTarget } from '@components/MapNavigation.types';
 
-const GREEN = '#218B25';
+const GREEN = '#B64A75';
 
 export default function ResidentMapScreen() {
   const { palette } = useTheme();
@@ -111,7 +111,7 @@ export default function ResidentMapScreen() {
                   <MaterialCommunityIcons name="close" size={22} color={palette.textMuted} />
                 </AnimatedPressable>
               </View>
-              <View style={[styles.availability, { backgroundColor: selectedCenter.status === 'closed' || availability === 'Full' ? '#FCE8E6' : '#E8F4E8' }]}>
+              <View style={[styles.availability, { backgroundColor: selectedCenter.status === 'closed' || availability === 'Full' ? '#FCE8E6' : '#FAEDF2' }]}>
                 <View style={[styles.availabilityDot, { backgroundColor: selectedCenter.status === 'closed' || availability === 'Full' ? Colors.emergency : GREEN }]} />
                 <Text style={[styles.availabilityText, { color: selectedCenter.status === 'closed' || availability === 'Full' ? Colors.emergency : GREEN }]}>{availability}</Text>
               </View>

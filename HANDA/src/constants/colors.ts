@@ -1,6 +1,6 @@
 /**
  * HANDA Color Palette
- * Professional emergency-response application design
+ * HANDA brand and semantic colors
  */
 
 import { Platform } from 'react-native';
@@ -46,8 +46,8 @@ const platformBorder = Platform.select({
 
 export const Colors = {
   // Primary Colors
-  primary: '#0B3A63', // Dark Navy Blue
-  secondary: '#1769AA', // Secondary Blue
+  primary: '#B64A75', // Muted rose-pink
+  secondary: '#426E8A', // Subtle blue accent
   
   // Emergency Colors
   emergency: '#D62828', // Emergency Red

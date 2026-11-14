@@ -1070,24 +1070,24 @@ const TEXT = '#17212B';
 const TEXT_MUTED = '#475467';
 const BORDER = '#D7E2EA';
 const PLACEHOLDER_COLOR = '#667085';
-const GREEN = '#218B25';
+const GREEN = '#B64A75';
 const FONT_FAMILY = AppFontFamily;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: PAGE_BACKGROUND },
   contentContainer: { flexGrow: 1, width: '100%', maxWidth: 620, alignSelf: 'center', paddingHorizontal: 16, paddingTop: 18, paddingBottom: 32 },
-  header: { minHeight: 124, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 18, borderRadius: 22, backgroundColor: GREEN, shadowColor: '#0E4B20', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 16, elevation: 4 },
+  header: { minHeight: 124, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 18, paddingVertical: 18, borderRadius: 22, backgroundColor: GREEN, shadowColor: '#71354F', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 16, elevation: 4 },
   headerCopy: { flex: 1 },
   headerEyebrow: { color: '#DFF1DF', fontFamily: AppBoldFontFamily, fontSize: 10, fontWeight: '800' },
   headerTitle: { color: '#FFFFFF', fontFamily: AppHeadingFontFamily, fontSize: 25, fontWeight: '800', marginTop: 5 },
-  headerSubtitle: { color: '#E7F4E7', fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  headerSubtitle: { color: '#FAEDF2', fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginTop: 4 },
   form: { marginTop: 16, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 20, borderWidth: 1, borderColor: '#E1E9E3', borderRadius: 22, backgroundColor: SURFACE, shadowColor: '#173A24', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.07, shadowRadius: 18, elevation: 2 },
   formIntro: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginBottom: 12 },
   stepper: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   stepItem: { flex: 1, minWidth: 0, alignItems: 'center', gap: 5 },
   stepNumber: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: BORDER, borderRadius: 14, backgroundColor: SURFACE_MUTED },
   stepNumberComplete: { borderColor: GREEN, backgroundColor: GREEN },
-  stepNumberCurrent: { borderColor: GREEN, backgroundColor: '#E8F2E8' },
+  stepNumberCurrent: { borderColor: GREEN, backgroundColor: '#FAEDF2' },
   stepNumberText: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, fontWeight: '700' },
   stepNumberTextCurrent: { color: GREEN },
   stepLabel: { maxWidth: '100%', color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 10, textAlign: 'center' },
@@ -1100,7 +1100,7 @@ const styles = StyleSheet.create({
   avatarPicker: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 },
   avatarActions: { flex: 1, alignItems: 'flex-start', gap: 6 },
   avatarButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, backgroundColor: '#E8F5E9' },
-  avatarButtonText: { color: '#1B6B2A', fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800' },
+  avatarButtonText: { color: '#8D3A5F', fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '800' },
   avatarRemoveText: { color: '#B42318', fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700' },
   avatarHint: { color: '#6B7A72', fontFamily: FONT_FAMILY, fontSize: 11 },
   stepDescription: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, marginTop: 4 },
@@ -1119,7 +1119,7 @@ const styles = StyleSheet.create({
   otpChannelHint: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, lineHeight: 16, marginBottom: 8 },
   otpChannelOptions: { flexDirection: 'row', gap: 10 },
   otpChannelOption: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: BORDER, borderRadius: 10, backgroundColor: SURFACE },
-  otpChannelOptionSelected: { borderColor: GREEN, backgroundColor: '#F3FAF3' },
+  otpChannelOptionSelected: { borderColor: GREEN, backgroundColor: '#FAEDF2' },
   otpChannelOptionText: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
   otpCodeInput: { width: '100%', marginTop: 12, textAlign: 'center', letterSpacing: 8, fontSize: 22 },
   otpResendButton: { paddingVertical: 12, alignItems: 'center' },
@@ -1150,10 +1150,10 @@ const styles = StyleSheet.create({
   householdLabel: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
   householdCount: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, marginTop: 2 },
   householdLimit: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 11, marginTop: 1 },
-  addMemberButton: { width: '100%', minHeight: 52, justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 13, backgroundColor: SURFACE_MUTED },
+  addMemberButton: { width: '100%', minHeight: 52, justifyContent: 'center', paddingHorizontal: 12, borderWidth: 1, borderColor: '#E9C9D7', borderRadius: 13, backgroundColor: SURFACE_MUTED },
   addMemberButtonDisabled: { opacity: 0.55 },
   idPhotoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  idPhotoButton: { minHeight: 48, flexGrow: 1, flexBasis: 140, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#8BC58B', borderRadius: 13, backgroundColor: SURFACE_MUTED },
+  idPhotoButton: { minHeight: 48, flexGrow: 1, flexBasis: 140, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: '#E9C9D7', borderRadius: 13, backgroundColor: SURFACE_MUTED },
   idPhotoButtonText: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 12, fontWeight: '700' },
   idPhotoPreview: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, padding: 10, borderWidth: 1, borderColor: '#CDE5CD', borderRadius: 13, backgroundColor: '#F6FBF6' },
   idPhotoThumbnail: { width: 96, height: 62, borderRadius: 4, backgroundColor: '#E8ECEF' },

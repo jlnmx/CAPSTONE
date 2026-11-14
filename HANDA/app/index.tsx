@@ -71,7 +71,7 @@ export default function SplashScreen() {
 
       <View style={styles.content}>
         <View style={styles.locationPill}>
-          <MaterialCommunityIcons name="map-marker-radius-outline" size={15} color="#A8E6CB" />
+          <MaterialCommunityIcons name="map-marker-radius-outline" size={15} color="#C7DCE8" />
           <Text style={styles.locationText}>BIÑAN CITY  ·  LAGUNA</Text>
         </View>
 
@@ -106,7 +106,7 @@ export default function SplashScreen() {
 
         <View style={styles.loadingPanel}>
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color="#A8E6CB" />
+            <ActivityIndicator size="small" color="#C7DCE8" />
             <Text style={styles.loadingText}>Getting HANDA ready</Text>
           </View>
           <View
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   logoBadge: {
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.82)',
-    shadowColor: '#A8E6CB',
+    shadowColor: '#C7DCE8',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.32,
     shadowRadius: 16,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginTop: 13,
     marginBottom: 17,
-    backgroundColor: '#A8E6CB',
+    backgroundColor: '#C7DCE8',
   },
   headline: {
     color: '#FFFFFF',
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 3,
     borderRadius: 2,
-    backgroundColor: '#A8E6CB',
+    backgroundColor: '#C7DCE8',
   },
   footerText: {
     color: 'rgba(232,244,242,0.58)',

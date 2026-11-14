@@ -124,10 +124,10 @@ export default function ResponderDashboard() {
 }
 
 const TILE_TONES = {
-  forest: { bg: '#1F6B2B', fg: '#FFFFFF', badgeBg: '#F4F8D8', badgeFg: '#1F6B2B', mark: 'rgba(255,255,255,0.14)' },
+  forest: { bg: '#B64A75', fg: '#FFFFFF', badgeBg: '#F4F8D8', badgeFg: '#B64A75', mark: 'rgba(255,255,255,0.14)' },
   clay: { bg: '#C9573F', fg: '#FFFFFF', badgeBg: '#FFF1E8', badgeFg: '#C9573F', mark: 'rgba(255,255,255,0.16)' },
   teal: { bg: '#1E4D5C', fg: '#FFFFFF', badgeBg: '#E6F0F3', badgeFg: '#1E4D5C', mark: 'rgba(255,255,255,0.14)' },
-  sand: { bg: '#ECE6D6', fg: '#1B3D20', badgeBg: '#1F6B2B', badgeFg: '#FFFFFF', mark: 'rgba(31,107,43,0.12)' },
+  sand: { bg: '#ECE6D6', fg: '#71354F', badgeBg: '#B64A75', badgeFg: '#FFFFFF', mark: 'rgba(31,107,43,0.12)' },
 };
 
 interface StatTileProps {
@@ -182,10 +182,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 86,
     paddingHorizontal: 16,
-    backgroundColor: '#176B3A',
+    backgroundColor: '#8D3A5F',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.16)',
-    shadowColor: '#0C4225',
+    shadowColor: '#71354F',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.16,
     shadowRadius: 5,
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   greetingTitle: {
-    color: '#176B3A',
+    color: '#8D3A5F',
     fontFamily: AppBoldFontFamily,
     fontSize: 16,
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     fontFamily: AppHeadingFontFamily,
     fontSize: 16,
     letterSpacing: 0.65,
-    color: '#176B3A',
+    color: '#8D3A5F',
     marginBottom: 7,
   },
 });

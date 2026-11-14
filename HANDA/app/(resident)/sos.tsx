@@ -267,7 +267,7 @@ export default function ResidentSosScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <LinearGradient colors={['#176B2D', '#25A04A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+      <LinearGradient colors={['#8D3A5F', '#B64A75']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
         <AppBackArrow />
         <View style={styles.headerIcon}><MaterialCommunityIcons name={isActivated ? 'radar' : 'alarm-light-outline'} size={22} color={Colors.white} /></View>
         <View style={styles.headerCopy}>

@@ -102,7 +102,7 @@ export default function ResidentLayout() {
             {props.children}
           </AnimatedPressable>
         ),
-        tabBarActiveTintColor: '#218B25',
+        tabBarActiveTintColor: '#B64A75',
         tabBarInactiveTintColor: '#6B7B85',
       }}
     >

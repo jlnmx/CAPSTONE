@@ -120,16 +120,16 @@ export default function SettingsScreen() {
                     onPress={() => void setMode(option.value)}
                     accessibilityRole="radio"
                     accessibilityState={{ selected }}
-                    style={[styles.themeOption, { backgroundColor: palette.background, borderColor: selected ? '#218B25' : palette.border }, selected && styles.themeOptionSelected]}
+                    style={[styles.themeOption, { backgroundColor: palette.background, borderColor: selected ? '#B64A75' : palette.border }, selected && styles.themeOptionSelected]}
                   >
                     <View style={[styles.themeOptionIcon, selected && styles.themeOptionIconSelected]}>
-                      <MaterialCommunityIcons name={option.icon} size={20} color={selected ? '#218B25' : palette.textMuted} />
+                      <MaterialCommunityIcons name={option.icon} size={20} color={selected ? '#B64A75' : palette.textMuted} />
                     </View>
                     <View style={styles.themeCopy}>
                       <Text style={[styles.themeLabel, { color: palette.text }]}>{option.label}</Text>
                       <Text style={[styles.themeDetail, { color: palette.textMuted }]}>{option.detail}</Text>
                     </View>
-                    {selected && <MaterialCommunityIcons name="check-circle" size={20} color="#218B25" />}
+                    {selected && <MaterialCommunityIcons name="check-circle" size={20} color="#B64A75" />}
                   </Pressable>
                 );
               })}
@@ -240,6 +240,6 @@ function PreferenceSwitch({ title, detail, icon, value, disabled, palette, onVal
       <Text style={[styles.preferenceTitle, { color: palette.text }]}>{title}</Text>
       <Text style={[styles.preferenceDetail, { color: palette.textMuted }]}>{detail}</Text>
     </View>
-    <Switch value={value} onValueChange={onValueChange} disabled={disabled} trackColor={{ false: palette.border, true: '#218B25' }} thumbColor={Colors.white} accessibilityLabel={title} />
+    <Switch value={value} onValueChange={onValueChange} disabled={disabled} trackColor={{ false: palette.border, true: '#B64A75' }} thumbColor={Colors.white} accessibilityLabel={title} />
   </View>;
 }

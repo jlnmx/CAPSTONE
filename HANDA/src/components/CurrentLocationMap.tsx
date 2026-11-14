@@ -22,5 +22,5 @@ export default function CurrentLocationMap({ coordinate }: CurrentLocationMapPro
 
 const styles = StyleSheet.create({
   container: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted },
-  text: { color: '#218B25', fontSize: 12 },
+  text: { color: '#B64A75', fontSize: 12 },
 });

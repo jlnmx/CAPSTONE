@@ -37,7 +37,7 @@ export default function AppBackArrow({ style, onPress, fallbackHref }: AppBackAr
       accessibilityLabel="Go back"
       accessibilityHint="Returns to the previous screen"
     >
-      <MaterialCommunityIcons name="arrow-left" size={21} color="#218B25" />
+      <MaterialCommunityIcons name="arrow-left" size={21} color="#B64A75" />
     </AnimatedPressable>
   );
 }

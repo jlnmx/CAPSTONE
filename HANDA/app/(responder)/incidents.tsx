@@ -11,7 +11,7 @@ export default function IncidentsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#1F9A2E', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.titleBand}>
+        <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.titleBand}>
           <AppBackArrow />
           <View>
             <Text style={styles.title}>Active</Text>

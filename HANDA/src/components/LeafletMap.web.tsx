@@ -92,7 +92,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
         title: center.name,
         icon: center.status === 'closed' || center.status === 'full'
           ? undefined
-          : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#218B25', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
+          : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#B64A75', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
       });
       const info = new google.maps.InfoWindow({
         content: createEvacuationCenterInfoContent(center, () => onNavigationTargetChangeRef.current?.({

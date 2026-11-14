@@ -12,7 +12,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 
-const GREEN = '#218B25';
+const GREEN = '#B64A75';
 const RED = '#B76565';
 
 type EvacuationCenter = {
@@ -93,7 +93,7 @@ export default function CenterStatusScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void loadCenters(true)} tintColor={GREEN} colors={[GREEN]} />}
       >
-        <LinearGradient colors={['#20862B', '#176B28']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <AppBackArrow />
           <View style={styles.headerCopy}>
             <Text style={styles.headerEyebrow}>RESIDENT SERVICES</Text>
@@ -209,7 +209,7 @@ function CenterCard({ center, index, onDetails }: { center: EvacuationCenter; in
   const spaces = availableSpaces(center);
   const statusKey = getAvailabilityKey(center);
   const tone = statusKey === 'available'
-    ? { fg: '#1F6B2B', bg: '#E3F1E3', accent: '#2E9B3E' }
+    ? { fg: '#B64A75', bg: '#FAEDF2', accent: '#2E9B3E' }
     : statusKey === 'limited'
       ? { fg: '#8A6A00', bg: '#FBF1CC', accent: '#E2B93B' }
       : statusKey === 'closed'
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   refreshButton: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.12)' },
   intro: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 17, marginBottom: 12, padding: 15, borderWidth: 1, borderColor: '#E1EAE2', borderRadius: 17, backgroundColor: Colors.surface },
   introCopy: { flex: 1 },
-  introIcon: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#EAF5EB' },
+  introIcon: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#FAEDF2' },
   sectionTitle: { color: Colors.text, fontFamily: AppHeadingFontFamily, fontSize: 17 },
   sectionSubtitle: { color: Colors.textMuted, fontFamily: AppFontFamily, fontSize: 11, lineHeight: 16, marginTop: 3 },
   overviewCard: { marginHorizontal: 16, marginBottom: 13, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 13, borderWidth: 1, borderColor: '#DDE9DE', borderRadius: 16, backgroundColor: '#F8FBF8' },

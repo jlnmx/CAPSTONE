@@ -128,7 +128,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
           <Marker
             key={center.id}
             coordinate={{ latitude: Number(center.latitude), longitude: Number(center.longitude) }}
-            pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#218B25'}
+            pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#B64A75'}
             onPress={() => onSelectCenter?.(center.id)}
           />
         ))}
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   messageText: { color: Colors.textMuted, fontSize: 13, textAlign: 'center' },
   controls: { position: 'absolute', right: 12, bottom: 20, gap: 8 },
   control: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.white, elevation: 4 },
-  controlActive: { backgroundColor: '#E8F2E8' },
+  controlActive: { backgroundColor: '#FAEDF2' },
   controlLabel: { color: Colors.primary, fontSize: 13, fontWeight: '800' },
 });
 

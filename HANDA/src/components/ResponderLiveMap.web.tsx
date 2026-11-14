@@ -110,7 +110,7 @@ export default function ResponderLiveMap() {
         title: center.name,
         icon: center.status === 'closed' || center.status === 'full'
           ? undefined
-          : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#218B25', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
+          : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#B64A75', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
       });
       const info = new google.maps.InfoWindow({
         content: createEvacuationCenterInfoContent(center, () => setNavigationTarget({
@@ -141,7 +141,7 @@ export default function ResponderLiveMap() {
       const navigateButton = document.createElement('button');
       navigateButton.type = 'button';
       navigateButton.textContent = 'Navigate';
-      Object.assign(navigateButton.style, { marginTop: '8px', border: '0', borderRadius: '8px', padding: '7px 12px', background: '#218B25', color: '#ffffff', fontWeight: '700', cursor: 'pointer' });
+      Object.assign(navigateButton.style, { marginTop: '8px', border: '0', borderRadius: '8px', padding: '7px 12px', background: '#B64A75', color: '#ffffff', fontWeight: '700', cursor: 'pointer' });
       navigateButton.addEventListener('click', () => setNavigationTarget({
         title: incident.type,
         latitude: incident.latitude!,
@@ -282,7 +282,7 @@ function toOfflinePoints(data: ResponderDataSnapshot): OfflineMapPoint[] {
         description: `${center.currentOccupancy}/${center.capacity} · ${center.status}`,
         latitude: center.latitude,
         longitude: center.longitude,
-        color: center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#218B25',
+        color: center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#B64A75',
       }]),
     ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
       ? []

@@ -10,7 +10,7 @@ import { AppBoldFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemibo
 import AppBackArrow from '@components/AppBackArrow';
 import { emergencyContacts, toDialNumber, type EmergencyContact } from '@data/emergencyContacts';
 
-const CALL_GREEN = '#1E9446';
+const CALL_PINK = '#B64A75';
 
 function useEntrance(index: number) {
   const progress = useRef(new Animated.Value(0)).current;
@@ -85,7 +85,7 @@ export default function EmergencyContactsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#1F9A2E', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <MaterialCommunityIcons name="phone-in-talk" size={150} color="rgba(255,255,255,0.08)" style={styles.headerGlyph} />
           <AppBackArrow />
           <Animated.View style={[styles.headerCopy, { opacity: headerIn, transform: [{ translateX: headerIn.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }] }]}>
@@ -95,11 +95,11 @@ export default function EmergencyContactsScreen() {
           <View style={styles.headerBadge}><MaterialCommunityIcons name="phone-in-talk-outline" size={26} color={Colors.white} /></View>
         </LinearGradient>
         <Animated.View style={[styles.introRow, { opacity: headerIn }]}>
-          <MaterialCommunityIcons name="shield-check-outline" size={16} color="#218B25" />
+          <MaterialCommunityIcons name="shield-check-outline" size={16} color="#B64A75" />
           <Text style={styles.intro}>Keep these numbers accessible during an emergency.</Text>
         </Animated.View>
         <View style={styles.list}>{emergencyContacts.map((contact, index) => <ContactCard key={contact.id} contact={contact} index={index} />)}</View>
-        <Text style={styles.note}>Tap a contact for details, or tap the green button to call right away. Emergency calls may require mobile service.</Text>
+        <Text style={styles.note}>Tap a contact for details, or use the call button to connect right away. Emergency calls may require mobile service.</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   intro: { flex: 1, color: Colors.textMuted, fontFamily: AppMediumFontFamily, fontSize: 12 },
   list: { gap: 12, marginHorizontal: 14 },
   contactCard: { minHeight: 82, paddingLeft: 16, paddingRight: 10, paddingVertical: 10, borderWidth: 1, borderColor: '#DCE9DC', borderRadius: 18, flexDirection: 'row', alignItems: 'center', gap: 10, overflow: 'hidden', backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
-  contactCardHover: { borderColor: '#8BC58B', shadowOpacity: 0.16 },
+  contactCardHover: { borderColor: '#E9C9D7', shadowOpacity: 0.16 },
   accentBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5 },
   contactIcon: { width: 54, height: 54, borderWidth: 1.5, borderRadius: 27, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   logo: { width: 44, height: 44 },
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   numberPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   contactNumber: { color: Colors.text, fontFamily: AppBoldFontFamily, fontSize: 12, letterSpacing: 0.3 },
   callWrap: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  callPulse: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: CALL_GREEN },
-  callButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: CALL_GREEN, shadowColor: CALL_GREEN, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 4 },
+  callPulse: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: CALL_PINK },
+  callButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: CALL_PINK, shadowColor: CALL_PINK, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 8, elevation: 4 },
   note: { color: Colors.textMuted, fontFamily: AppMediumFontFamily, fontSize: 10, lineHeight: 15, textAlign: 'center', marginHorizontal: 28, marginTop: 20 },
 });

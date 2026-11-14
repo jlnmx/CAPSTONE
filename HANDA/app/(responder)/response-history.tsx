@@ -75,7 +75,7 @@ export default function ResponseHistoryScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#218B25', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.titleBand}>
+        <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.titleBand}>
           <AppBackArrow />
           <View style={styles.headingCopy}>
             <Text style={styles.eyebrow}>FIELD OPERATIONS</Text>
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   status: { fontFamily: kitFonts.bold, fontSize: 9, textTransform: 'uppercase' },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
   metric: { width: '48%', minHeight: 72, flexGrow: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 14, backgroundColor: Colors.surfaceMuted },
-  metricIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#E4F1E4' },
+  metricIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#FAEDF2' },
   metricCopy: { flex: 1, minWidth: 0 },
   metricLabel: { color: Colors.textMuted, fontFamily: kitFonts.bold, fontSize: 8, letterSpacing: 0.5 },
   metricValue: { color: Colors.text, fontFamily: kitFonts.semibold, fontSize: 11, lineHeight: 16, marginTop: 4 },

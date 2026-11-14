@@ -17,5 +17,5 @@ export default function Avatar({ uri, name, size = 40 }: AvatarProps) {
 const styles = StyleSheet.create({
   image: { backgroundColor: '#E3EAEE' },
   fallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#DCEBDD' },
-  initials: { color: '#1B6B2A', fontWeight: '800' },
+  initials: { color: '#8D3A5F', fontWeight: '800' },
 });

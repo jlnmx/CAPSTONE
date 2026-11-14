@@ -42,7 +42,7 @@ interface LogoBadgeProps {
   style?: StyleProp<ViewStyle>;
 }
 
-/** HANDA mark on a white circle so the green logo stays visible on green headers. */
+/** HANDA mark on a white circle so the logo stays visible on colored headers. */
 export function HandaLogoBadge({ size = 44, style }: LogoBadgeProps) {
   return (
     <View style={[styles.badge, { width: size, height: size, borderRadius: size / 2 }, style]}>

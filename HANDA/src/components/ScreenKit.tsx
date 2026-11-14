@@ -19,7 +19,7 @@ export function GradientHeader({ title, subtitle, icon, right, showBack = false,
     Animated.timing(enter, { toValue: 1, duration: 450, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [enter]);
   return (
-    <LinearGradient colors={['#1F9A2E', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={kit.header}>
+    <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={kit.header}>
       {icon && <MaterialCommunityIcons name={icon} size={140} color="rgba(255,255,255,0.08)" style={kit.headerGlyph} />}
       {showBack && <AppBackArrow fallbackHref={fallbackHref} />}
       <Animated.View style={[kit.headerCopy, { opacity: enter, transform: [{ translateX: enter.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }] }]}>
@@ -116,10 +116,10 @@ const kit = StyleSheet.create({
   headerBadge: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
   card: { marginHorizontal: 14, marginTop: 14, padding: 14, borderRadius: 20, borderWidth: 1, borderColor: '#E0EAE0', backgroundColor: '#FFFFFF', shadowColor: '#103A18', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 2 },
   cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 4 },
-  cardIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#E4F1E4' },
+  cardIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FAEDF2' },
   cardTitle: { flex: 1, color: Colors.text, fontFamily: kitFonts.heading, fontSize: 14 },
   field: { marginTop: 12 },
-  label: { color: '#476B49', fontFamily: kitFonts.semibold, fontSize: 11, marginBottom: 6 },
+  label: { color: '#8D3A5F', fontFamily: kitFonts.semibold, fontSize: 11, marginBottom: 6 },
   required: { color: '#D33D3D' },
   inputWrap: { borderWidth: 1.5, borderRadius: 14, overflow: 'hidden' },
   input: { minHeight: 46, paddingHorizontal: 14, color: Colors.text, fontFamily: kitFonts.medium, fontSize: 14 },

@@ -9,7 +9,7 @@ import { Colors } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
 import { authenticatedFetch } from '@services/apiClient';
 
-const GREEN = '#218B25';
+const GREEN = '#B64A75';
 
 type EvacuationStatus = {
   resident: { id: string; name: string; status: string };
@@ -61,7 +61,7 @@ export default function VerifyStatusScreen() {
       : status?.status === 'released'
         ? 'Released'
         : 'Registered';
-  const statusTone = status?.status === 'checked_in' ? GREEN : status?.status === 'evacuated' ? '#9A6700' : '#56705A';
+  const statusTone = status?.status === 'checked_in' ? Colors.success : status?.status === 'evacuated' ? '#9A6700' : '#56705A';
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
@@ -185,14 +185,14 @@ const styles = StyleSheet.create({
   stateTitle: { fontFamily: kitFonts.heading, fontSize: 17, marginTop: 10 },
   stateText: { fontFamily: kitFonts.medium, fontSize: 12, textAlign: 'center', lineHeight: 18 },
   guidanceCard: { alignItems: 'center', margin: 16, padding: 21, borderWidth: 1, borderRadius: 21 },
-  guidanceIcon: { width: 58, height: 58, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
+  guidanceIcon: { width: 58, height: 58, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(169,71,112,0.1)' },
   guidanceTitle: { fontFamily: kitFonts.heading, fontSize: 19, marginTop: 13, textAlign: 'center' },
   guidanceText: { fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 19, textAlign: 'center', marginTop: 7 },
   guidanceNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 11, borderRadius: 13, marginTop: 15 },
   guidanceNoteText: { flex: 1, fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 16 },
   statusCard: { margin: 16, padding: 16, borderWidth: 1, borderRadius: 20 },
   statusHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  statusIcon: { width: 43, height: 43, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
+  statusIcon: { width: 43, height: 43, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(169,71,112,0.1)' },
   statusCopy: { flex: 1 },
   cardEyebrow: { fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 0.8 },
   centerName: { fontFamily: kitFonts.heading, fontSize: 15, marginTop: 4 },
@@ -206,12 +206,12 @@ const styles = StyleSheet.create({
   householdCard: { marginHorizontal: 16, marginBottom: 15, padding: 16, borderWidth: 1, borderRadius: 20 },
   sectionTitle: { fontFamily: kitFonts.heading, fontSize: 16, marginBottom: 7 },
   personRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
-  personIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
+  personIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(169,71,112,0.1)' },
   personCopy: { flex: 1 },
   personName: { fontFamily: kitFonts.semibold, fontSize: 12 },
   personRelation: { fontFamily: kitFonts.medium, fontSize: 10, marginTop: 2 },
   directoryButton: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 11, marginHorizontal: 16, padding: 12, borderWidth: 1, borderRadius: 17 },
-  directoryIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(33,139,37,0.1)' },
+  directoryIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(169,71,112,0.1)' },
   directoryCopy: { flex: 1 },
   directoryTitle: { fontFamily: kitFonts.semibold, fontSize: 13 },
   directorySubtitle: { fontFamily: kitFonts.medium, fontSize: 10, marginTop: 4 },

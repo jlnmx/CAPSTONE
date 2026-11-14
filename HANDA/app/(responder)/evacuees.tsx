@@ -38,7 +38,7 @@ type CenterRegistration = {
 const STATUS_COLORS: Record<EvacuationStatus, string> = {
   registered: '#C47A13',
   checked_in: '#1976A7',
-  evacuated: GREEN,
+  evacuated: Colors.success,
   released: '#667085',
 };
 
@@ -168,7 +168,7 @@ export default function EvacueesScreen() {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={GREEN} colors={[GREEN]} />}
     >
-      <LinearGradient colors={['#218B25', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+      <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
         <View style={styles.heroTop}><AppBackArrow /><Text style={styles.eyebrow}>FIELD OPERATIONS</Text></View>
         <Text style={styles.title}>Evacuees</Text>
         <Text style={styles.subtitle}>Manage shelter registrations and household check-ins.</Text>
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   centerHeading: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16, marginBottom: 8 },
   centerFilters: { gap: 7, paddingRight: 15 },
   centerChip: { maxWidth: 210, minHeight: 34, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, borderRadius: 11, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
-  activeCenterChip: { backgroundColor: '#E8F4E8', borderColor: '#A8D0A8' },
+  activeCenterChip: { backgroundColor: '#FAEDF2', borderColor: '#E9C9D7' },
   centerChipText: { flexShrink: 1, color: Colors.textMuted, fontFamily: kitFonts.semibold, fontSize: 10 },
   activeCenterChipText: { color: GREEN },
   centerCount: { color: Colors.textMuted, fontFamily: kitFonts.bold, fontSize: 9 },

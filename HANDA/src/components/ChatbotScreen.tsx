@@ -7,7 +7,7 @@ import { Colors } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
 import { answerQuestion, ChatbotTurn, getLiveQuestionContext, requestModelAnswer } from '@services/chatbotAnswers';
 
-const GREEN = '#218B25';
+const GREEN = '#B64A75';
 const QUICK_PROMPTS = ['Any typhoons right now?', 'Will it rain in Biñan today?', 'How do I report an incident?', 'How do evacuation status updates work?'];
 
 type ChatMessage = { id: string; role: 'assistant' | 'user'; text: string; weatherAttribution?: boolean };

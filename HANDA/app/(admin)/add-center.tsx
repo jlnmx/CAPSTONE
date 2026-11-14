@@ -74,7 +74,7 @@ function Field({ label, value, onChangeText, placeholder, keyboardType = 'defaul
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.surfaceMuted },
   content: { paddingBottom: 48, maxWidth: 760, width: '100%', alignSelf: 'center' },
-  titleBand: { minHeight: 90, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: '#218B25' },
+  titleBand: { minHeight: 90, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: '#B64A75' },
   titleCopy: { flex: 1 },
   eyebrow: { color: '#DFF1DF', fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
   title: { color: Colors.white, fontSize: 21, fontWeight: '800', marginTop: 3 },

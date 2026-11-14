@@ -258,7 +258,7 @@ export default function AccountSectionScreen() {
           <View style={[styles.form, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <View style={styles.formIntro}>
               <View style={[styles.formIcon, { backgroundColor: palette.surfaceMuted }]}>
-                <MaterialCommunityIcons name={sectionKey ? sectionIcons[sectionKey] : 'account-outline'} size={23} color="#218B25" />
+                <MaterialCommunityIcons name={sectionKey ? sectionIcons[sectionKey] : 'account-outline'} size={23} color="#B64A75" />
               </View>
               <View style={styles.formIntroCopy}>
                 <Text style={[styles.formTitle, { color: palette.text }]}>{section.title}</Text>
@@ -287,11 +287,11 @@ export default function AccountSectionScreen() {
                       setIsPasswordOtpModalOpen(false);
                       setNotice('');
                     }}
-                    style={[styles.otpChannelOption, { borderColor: passwordChangeChannel === channel ? '#218B25' : palette.border, backgroundColor: palette.surfaceMuted }]}
+                    style={[styles.otpChannelOption, { borderColor: passwordChangeChannel === channel ? '#B64A75' : palette.border, backgroundColor: palette.surfaceMuted }]}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: passwordChangeChannel === channel }}
                   >
-                    <MaterialCommunityIcons name={passwordChangeChannel === channel ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={passwordChangeChannel === channel ? '#218B25' : palette.textMuted} />
+                    <MaterialCommunityIcons name={passwordChangeChannel === channel ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={passwordChangeChannel === channel ? '#B64A75' : palette.textMuted} />
                     <Text style={[styles.otpChannelText, { color: palette.text }]}>{channel === 'email' ? 'Email' : 'SMS'}</Text>
                   </Pressable>
                 ))}
@@ -306,7 +306,7 @@ export default function AccountSectionScreen() {
                 <Text style={[styles.photoHint, { color: palette.textMuted }]}>Help others recognize your account</Text>
                 <View style={styles.photoButtons}>
                   <Pressable onPress={() => void changePhoto()} disabled={isPhotoBusy} style={[styles.photoButton, { backgroundColor: palette.surface, borderColor: palette.border }]} accessibilityRole="button" accessibilityLabel={user?.profilePicture ? 'Change profile picture' : 'Add profile picture'}>
-                    {isPhotoBusy ? <ActivityIndicator color={Colors.secondary} /> : <><MaterialCommunityIcons name="camera-outline" size={16} color="#218B25" /><Text style={[styles.photoButtonText, { color: palette.text }]}>{user?.profilePicture ? 'Change' : 'Add photo'}</Text></>}
+                    {isPhotoBusy ? <ActivityIndicator color={Colors.secondary} /> : <><MaterialCommunityIcons name="camera-outline" size={16} color="#B64A75" /><Text style={[styles.photoButtonText, { color: palette.text }]}>{user?.profilePicture ? 'Change' : 'Add photo'}</Text></>}
                   </Pressable>
                   {!!user?.profilePicture && <Pressable onPress={() => void deletePhoto()} disabled={isPhotoBusy} style={styles.deletePhotoButton} accessibilityRole="button" accessibilityLabel="Delete profile picture"><Text style={styles.photoDeleteText}>Remove</Text></Pressable>}
                 </View>
@@ -321,7 +321,7 @@ export default function AccountSectionScreen() {
             <AccountField label="Last name" icon="account-outline" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" palette={palette} required />
             {Platform.OS === 'web' ? <AccountField label="Birthdate" icon="calendar-blank-outline" value={birthday} onChangeText={setBirthday} placeholder="Select birthdate" accessibilityLabel="Select birthdate from calendar" palette={palette} {...({ type: 'date', max: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` } as object)} /> : <>
               <Pressable style={[styles.select, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} onPress={() => setIsBirthdayPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Choose birthdate">
-                <View style={styles.selectLeading}><MaterialCommunityIcons name="calendar-blank-outline" size={18} color="#218B25" /><Text style={[styles.fieldLabel, { color: palette.text }]}>Birthdate</Text></View>
+                <View style={styles.selectLeading}><MaterialCommunityIcons name="calendar-blank-outline" size={18} color="#B64A75" /><Text style={[styles.fieldLabel, { color: palette.text }]}>Birthdate</Text></View>
                 <Text style={[styles.selectText, { color: birthday ? palette.text : palette.textMuted }]}>{birthday || 'Birthdate'}</Text>
                 <MaterialCommunityIcons name="chevron-down" size={20} color={palette.textMuted} />
               </Pressable>
@@ -334,7 +334,7 @@ export default function AccountSectionScreen() {
               }} />}
             </>}
             <Pressable style={[styles.select, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} onPress={() => setIsSexPickerOpen((open) => !open)} accessibilityRole="button" accessibilityLabel="Choose sex">
-              <View style={styles.selectLeading}><MaterialCommunityIcons name="gender-male-female" size={18} color="#218B25" /><Text style={[styles.fieldLabel, { color: palette.text }]}>Sex</Text></View>
+              <View style={styles.selectLeading}><MaterialCommunityIcons name="gender-male-female" size={18} color="#B64A75" /><Text style={[styles.fieldLabel, { color: palette.text }]}>Sex</Text></View>
               <Text style={[styles.selectText, { color: sex ? palette.text : palette.textMuted }]}>{sex || 'Select'}</Text>
               <MaterialCommunityIcons name={isSexPickerOpen ? 'chevron-up' : 'chevron-down'} size={21} color={palette.textMuted} />
             </Pressable>
@@ -343,7 +343,7 @@ export default function AccountSectionScreen() {
             </View>}
             <AccountField label="Current address" icon="map-marker-outline" value={address} onChangeText={setAddress} placeholder="Enter your current address" multiline textAlignVertical="top" palette={palette} />
           </>}
-            {!!notice && <Text style={[styles.notice, { color: '#218B25' }]}>{notice}</Text>}
+            {!!notice && <Text style={[styles.notice, { color: '#B64A75' }]}>{notice}</Text>}
             {!!error && <View style={styles.error}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={Colors.emergency} /><Text style={styles.errorText}>{error}</Text></View>}
             <AnimatedPressable
               onPress={() => {
@@ -401,7 +401,7 @@ export default function AccountSectionScreen() {
                 <MaterialCommunityIcons
                   name={passwordChangeChannel === 'email' ? 'email-outline' : 'message-text-outline'}
                   size={28}
-                  color="#218B25"
+                  color="#B64A75"
                 />
               </View>
               <Text style={[styles.otpDialogTitle, { color: palette.text }]}>Verify it's you</Text>
@@ -421,7 +421,7 @@ export default function AccountSectionScreen() {
                 maxLength={6}
                 autoComplete="one-time-code"
                 textContentType="oneTimeCode"
-                selectionColor="#218B25"
+                selectionColor="#B64A75"
                 style={[styles.otpCodeInput, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}
                 accessibilityLabel="6-digit verification code"
               />
@@ -464,7 +464,7 @@ function PasswordField({ label, value, onChangeText, palette }: { label: string;
   return <View style={styles.passwordField}>
     <Text style={[styles.fieldLabelStandalone, { color: palette.text }]}>{label}</Text>
     <View style={[styles.inputWrap, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}>
-      <MaterialCommunityIcons name="lock-outline" size={19} color="#218B25" style={styles.inputIcon} />
+      <MaterialCommunityIcons name="lock-outline" size={19} color="#B64A75" style={styles.inputIcon} />
       <TextInput value={value} onChangeText={onChangeText} secureTextEntry={!visible} autoCapitalize="none" autoComplete={label === 'Current password' ? 'current-password' : 'new-password'} placeholder={label} placeholderTextColor={palette.textMuted} style={[styles.input, styles.passwordInput, { color: palette.text }]} />
       <Pressable onPress={() => setVisible((current) => !current)} style={styles.passwordToggle} accessibilityRole="button" accessibilityLabel={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}>
         <MaterialCommunityIcons name={visible ? 'eye-off-outline' : 'eye-outline'} size={20} color={palette.textMuted} />
@@ -477,8 +477,8 @@ function AccountField({ label, icon, palette, required, style, ...input }: { lab
   return <View style={styles.field}>
     <Text style={[styles.fieldLabelStandalone, { color: palette.text }]}>{label}{required ? <Text style={styles.required}> *</Text> : null}</Text>
     <View style={[styles.inputWrap, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }, input.multiline && styles.multilineWrap]}>
-      <MaterialCommunityIcons name={icon} size={19} color="#218B25" style={[styles.inputIcon, input.multiline && styles.multilineIcon]} />
-      <TextInput {...input} placeholderTextColor={palette.textMuted} selectionColor="#218B25" style={[styles.input, input.multiline && styles.addressInput, style, { color: palette.text }]} />
+      <MaterialCommunityIcons name={icon} size={19} color="#B64A75" style={[styles.inputIcon, input.multiline && styles.multilineIcon]} />
+      <TextInput {...input} placeholderTextColor={palette.textMuted} selectionColor="#B64A75" style={[styles.input, input.multiline && styles.addressInput, style, { color: palette.text }]} />
     </View>
   </View>;
 }
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
   photoDeleteText: { color: Colors.emergency, fontFamily: kitFonts.semibold, fontSize: 12 },
   error: { padding: 13, borderWidth: 1, borderColor: '#E8B4B0', borderRadius: 14, backgroundColor: '#FFF4F2', flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
   errorText: { flex: 1, color: Colors.emergency, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 18 },
-  saveButton: { minHeight: 52, marginTop: 3, borderRadius: 15, backgroundColor: '#218B25', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
+  saveButton: { minHeight: 52, marginTop: 3, borderRadius: 15, backgroundColor: '#B64A75', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
   saveButtonText: { color: Colors.white, fontFamily: kitFonts.bold, fontSize: 14 },
   disabled: { opacity: 0.6 },
 });

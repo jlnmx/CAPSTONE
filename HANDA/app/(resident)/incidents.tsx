@@ -12,7 +12,7 @@ export default function ResidentIncidentsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <LinearGradient colors={['#1F9A2E', '#176B1D']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <AppBackArrow />
           <View style={styles.headerCopy}>
             <Text style={styles.headerTitle}>Incidents</Text>
