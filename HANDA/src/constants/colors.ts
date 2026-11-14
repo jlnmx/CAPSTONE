@@ -46,7 +46,10 @@ const platformBorder = Platform.select({
 
 export const Colors = {
   // Primary Colors
-  primary: '#B64A75', // Muted rose-pink
+  primary: '#D45B92',
+  brandPink: '#FA96BB',
+  brandBlue: '#91BCDD',
+  brandBlueDeep: '#6D739B',
   secondary: '#426E8A', // Subtle blue accent
   
   // Emergency Colors

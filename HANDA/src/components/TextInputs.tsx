@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.emergency,
   },
   inputFocused: {
-    shadowColor: '#B64A75',
+    shadowColor: '#D45B92',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.28,
     shadowRadius: 6,

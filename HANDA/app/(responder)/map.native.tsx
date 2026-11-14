@@ -28,7 +28,7 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   content: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center' },
-  header: { backgroundColor: '#B64A75', paddingHorizontal: 14, paddingTop: 13, paddingBottom: 15, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  header: { backgroundColor: '#D45B92', paddingHorizontal: 14, paddingTop: 13, paddingBottom: 15, flexDirection: 'row', alignItems: 'center', gap: 11 },
   headerCopy: { flex: 1 },
   headerEyebrow: { color: '#DFF1DF', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
   headerTitle: { color: Colors.white, fontSize: 21, lineHeight: 26, fontWeight: '800', textTransform: 'uppercase' },

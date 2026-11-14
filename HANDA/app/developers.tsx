@@ -7,7 +7,7 @@ import { GradientHeader, Reveal, kitFonts } from '@components/ScreenKit';
 import { useTheme } from '@hooks/useTheme';
 import { useAuth } from '@hooks/useAuth';
 
-const GREEN = '#B64A75';
+const GREEN = '#D45B92';
 const CONTACT_EMAIL = 'handadevs@gmail.com';
 
 const DEVELOPERS = [
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   teamCountText: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 13 },
   teamList: { paddingHorizontal: 16, gap: 9 },
   member: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderWidth: 1, borderRadius: 17 },
-  avatar: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FAEDF2' },
+  avatar: { width: 48, height: 48, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1F6' },
   avatarText: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 15 },
   memberCopy: { flex: 1, minWidth: 0 },
   memberName: { fontFamily: kitFonts.semibold, fontSize: 14, lineHeight: 19 },

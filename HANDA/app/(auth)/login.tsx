@@ -56,7 +56,7 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient
-          colors={['#B64A75', '#B64A75', '#B64A75']}
+          colors={[Colors.primary, '#A84F7D', Colors.brandBlueDeep]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.hero}
@@ -120,7 +120,7 @@ export default function LoginScreen() {
                 <MaterialCommunityIcons
                   name={stayLoggedIn ? 'checkbox-marked' : 'checkbox-blank-outline'}
                   size={21}
-                  color={stayLoggedIn ? '#B64A75' : Colors.textMuted}
+                  color={stayLoggedIn ? '#D45B92' : Colors.textMuted}
                 />
                 <Text style={styles.stayLabel}>Keep me signed in</Text>
               </Pressable>
@@ -159,7 +159,7 @@ export default function LoginScreen() {
           </Animated.View>
 
           <Animated.View entering={FadeInUp.duration(500).delay(220)} style={styles.securityNote}>
-            <MaterialCommunityIcons name="shield-check-outline" size={17} color="#8D3A5F" />
+            <MaterialCommunityIcons name="shield-check-outline" size={17} color="#A84F7D" />
             <Text style={styles.securityText}>Your community response starts here.</Text>
           </Animated.View>
         </View>
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
   },
   heroBrandCaption: {
-    color: '#FAEDF2',
+    color: '#FFF1F6',
     fontFamily: AppSemiboldFontFamily,
     fontSize: 9,
     letterSpacing: 1.15,
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     borderColor: '#E3EBE5',
     borderRadius: 24,
     backgroundColor: Colors.surface,
-    shadowColor: '#71354F',
+    shadowColor: '#7D567E',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.1,
     shadowRadius: 24,
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   forgotLink: {
-    color: '#B64A75',
+    color: '#D45B92',
     fontFamily: AppSemiboldFontFamily,
     fontSize: 13,
   },
@@ -358,9 +358,9 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingVertical: 0,
     borderRadius: 14,
-    backgroundColor: '#B64A75',
+    backgroundColor: '#D45B92',
     marginBottom: 18,
-    shadowColor: '#B64A75',
+    shadowColor: '#D45B92',
     shadowOffset: { width: 0, height: 7 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     rowGap: 3,
   },
   createLink: {
-    color: '#B64A75',
+    color: '#D45B92',
     fontFamily: AppBoldFontFamily,
     fontSize: 14,
   },

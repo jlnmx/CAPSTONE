@@ -14,7 +14,7 @@ import AppBackArrow from '@components/AppBackArrow';
 import { HouseholdMemberFields, EMPTY_MEMBER_DRAFT, HouseholdMemberDraft, draftToMember, memberToDraft, memberSummary, validateMemberDraft } from '@components/HouseholdMemberFields';
 import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 
-const GREEN = '#B64A75';
+const GREEN = '#D45B92';
 const MAX_MEMBERS = 20;
 
 type MemberDraft = ResidentHouseholdMember;
@@ -124,7 +124,7 @@ export default function HouseholdScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <AppBackArrow style={styles.backButton} />
           <View style={styles.headerCopy}><Text style={styles.eyebrow}>RESIDENT PROFILE</Text><Text style={styles.title}>Household</Text><Text style={styles.headerSubtitle}>People connected to your household</Text></View>
           <View style={styles.headerIcon}><MaterialCommunityIcons name="account-group-outline" size={25} color="#FFFFFF" /></View>
@@ -161,13 +161,13 @@ const styles = StyleSheet.create({
   headerSubtitle: { color: '#E4F2E5', fontFamily: AppMediumFontFamily, fontSize: 11, marginTop: 3 },
   headerIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.12)' },
   introCard: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 17, padding: 14, borderWidth: 1, borderColor: '#E0EAE1', borderRadius: 17, backgroundColor: Colors.surface, shadowColor: '#15391D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 12, elevation: 2 },
-  introIcon: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#FAEDF2' },
+  introIcon: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: '#FFF1F6' },
   introCopy: { flex: 1 },
   introTitle: { color: Colors.text, fontFamily: AppBoldFontFamily, fontSize: 15 },
   introText: { color: Colors.textMuted, fontFamily: AppFontFamily, fontSize: 11, lineHeight: 16, marginTop: 3 },
   toolbar: { minHeight: 60, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'space-between', flexDirection: 'row', gap: 10 },
   peopleCount: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, borderRadius: 10, backgroundColor: '#EAF4EB' },
-  count: { color: '#8D3A5F', fontFamily: AppSemiboldFontFamily, fontSize: 11 },
+  count: { color: '#A84F7D', fontFamily: AppSemiboldFontFamily, fontSize: 11 },
   addButton: { minHeight: 42, paddingHorizontal: 14, borderRadius: 12, backgroundColor: GREEN, flexDirection: 'row', alignItems: 'center', gap: 6, shadowColor: GREEN, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.19, shadowRadius: 6, elevation: 2 },
   addText: { color: Colors.white, fontFamily: AppBoldFontFamily, fontSize: 11 },
   disabled: { opacity: 0.55 },
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   retry: { color: GREEN, fontFamily: AppBoldFontFamily, fontSize: 12, marginTop: 8 },
   sectionEyebrow: { marginHorizontal: 17, marginBottom: 9, color: '#76867A', fontFamily: AppBoldFontFamily, fontSize: 9, letterSpacing: 1 },
   empty: { marginHorizontal: 16, marginTop: 10, paddingHorizontal: 22, paddingVertical: 24, alignItems: 'center', borderWidth: 1, borderColor: '#E1EAE2', borderRadius: 18, backgroundColor: Colors.surface },
-  emptyIcon: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: '#FAEDF2' },
+  emptyIcon: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: '#FFF1F6' },
   emptyTitle: { color: Colors.text, fontFamily: AppBoldFontFamily, fontSize: 15, marginTop: 12 },
   emptyText: { maxWidth: 320, color: Colors.textMuted, fontFamily: AppFontFamily, fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 6 },
   emptyButton: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 16, paddingHorizontal: 15, borderRadius: 12, backgroundColor: GREEN },
@@ -187,16 +187,16 @@ const styles = StyleSheet.create({
   accountCard: { borderColor: '#D5E8D6' },
   registeredCard: { backgroundColor: '#FBFDFB' },
   avatar: { width: 42, height: 42, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#EEF3EF' },
-  accountAvatar: { backgroundColor: '#FAEDF2' },
-  registeredAvatar: { backgroundColor: '#FAEDF2' },
+  accountAvatar: { backgroundColor: '#FFF1F6' },
+  registeredAvatar: { backgroundColor: '#FFF1F6' },
   avatarText: { color: GREEN, fontFamily: AppBoldFontFamily, fontSize: 15 },
   memberCopy: { flex: 1, marginLeft: 10 },
   memberName: { color: Colors.text, fontFamily: AppBoldFontFamily, fontSize: 13 },
   relationship: { color: Colors.textMuted, fontFamily: AppFontFamily, fontSize: 11, marginTop: 3 },
   accountBadge: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 7, backgroundColor: '#E5F3ED' },
   accountBadgeText: { color: '#167A5B', fontFamily: AppBoldFontFamily, fontSize: 9, letterSpacing: 0.5 },
-  registeredBadge: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7, backgroundColor: '#FAEDF2' },
-  registeredBadgeText: { color: '#8D3A5F', fontFamily: AppBoldFontFamily, fontSize: 8, letterSpacing: 0.4 },
+  registeredBadge: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7, backgroundColor: '#FFF1F6' },
+  registeredBadgeText: { color: '#A84F7D', fontFamily: AppBoldFontFamily, fontSize: 8, letterSpacing: 0.4 },
   iconButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#EEF5EF' },
   deleteButton: { marginLeft: 5, backgroundColor: '#FFF0EF' },
   backdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: 'rgba(13,28,17,0.48)' },

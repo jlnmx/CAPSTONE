@@ -66,7 +66,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+        <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
           <View style={styles.heroDecoration} />
           <View style={styles.heroTop}>
             <AppBackArrow />
@@ -79,7 +79,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
             <View style={styles.profileCopy}>
               <Text numberOfLines={1} style={[styles.name, { color: palette.text }]}>{displayName}</Text>
               <View style={styles.roleRow}>
-                <MaterialCommunityIcons name={roleLabel === 'Responder' ? 'shield-check' : 'account-heart-outline'} size={15} color="#B64A75" />
+                <MaterialCommunityIcons name={roleLabel === 'Responder' ? 'shield-check' : 'account-heart-outline'} size={15} color="#D45B92" />
                 <Text style={styles.role}>{roleLabel}</Text>
               </View>
             </View>
@@ -92,7 +92,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
             <Text style={[styles.sectionCaption, { color: palette.textMuted }]}>Everything you need, in one place</Text>
           </View>
           <View style={styles.sectionIcon}>
-            <MaterialCommunityIcons name="view-grid-outline" size={18} color="#B64A75" />
+            <MaterialCommunityIcons name="view-grid-outline" size={18} color="#D45B92" />
           </View>
         </View>
 
@@ -106,7 +106,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
                 accessibilityLabel={`${item.title}. ${item.description}`}
               >
                 <View style={styles.menuIcon}>
-                  <MaterialCommunityIcons name={item.icon} size={23} color="#B64A75" />
+                  <MaterialCommunityIcons name={item.icon} size={23} color="#D45B92" />
                 </View>
                 <View style={styles.menuCopy}>
                   <Text style={[styles.menuLabel, { color: palette.text }]}>{item.title}</Text>
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   profileCopy: { flex: 1, marginLeft: 13, marginRight: 8 },
   name: { fontFamily: kitFonts.bold, fontSize: 17 },
   roleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5 },
-  role: { color: '#B64A75', fontFamily: kitFonts.semibold, fontSize: 12 },
+  role: { color: '#D45B92', fontFamily: kitFonts.semibold, fontSize: 12 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 22, marginTop: 25, marginBottom: 13 },
   sectionTitle: { fontFamily: kitFonts.heading, fontSize: 19 },
   sectionCaption: { fontFamily: kitFonts.medium, fontSize: 12, marginTop: 3 },

@@ -8,7 +8,7 @@ import { GradientHeader, Reveal, kitFonts } from '@components/ScreenKit';
 import { Colors } from '@constants/colors';
 import { useTheme } from '@hooks/useTheme';
 
-const GREEN = '#B64A75';
+const GREEN = '#D45B92';
 
 export default function EvacuationGuidanceScreen() {
   const router = useRouter();

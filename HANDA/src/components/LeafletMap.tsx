@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceMuted,
   },
   text: {
-    color: '#B64A75',
+    color: '#D45B92',
     fontSize: 14,
   },
 });

@@ -106,7 +106,7 @@ export default function ResponderLayout() {
             {props.children}
           </AnimatedPressable>
         ),
-        tabBarActiveTintColor: '#B64A75',
+        tabBarActiveTintColor: '#D45B92',
         tabBarInactiveTintColor: '#6B7B85',
       }}
     >

@@ -72,7 +72,7 @@ export default function CurrentLocationMap({ coordinate }: CurrentLocationMapPro
         pitchEnabled
         rotateEnabled
       >
-        {coordinate && <Marker coordinate={coordinate} title="Your current location" pinColor="#B64A75" />}
+        {coordinate && <Marker coordinate={coordinate} title="Your current location" pinColor="#D45B92" />}
       </MapView>
       <View style={styles.controls}>
         <Pressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter on current location">

@@ -13,7 +13,7 @@ import { useAuth } from '@hooks/useAuth';
 import { useNotificationStream } from '@hooks/useRealtime';
 import { useWeather } from '@hooks/useWeather';
 
-const GREEN = '#B64A75';
+const GREEN = '#D45B92';
 const READ_IDS_KEY = 'handa.readNotificationIds';
 const ROUTES = {
   incidents: '/(resident)/incidents',
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   markReadButton: { minHeight: 40, minWidth: 132, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 11, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#CDE5D0' },
   markRead: { color: GREEN, fontFamily: AppBoldFontFamily, fontSize: 13 },
   empty: { alignItems: 'center', paddingVertical: 34, paddingHorizontal: 12 },
-  emptyIcon: { width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FAEDF2' },
+  emptyIcon: { width: 58, height: 58, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1F6' },
   emptyTitle: { color: Colors.text, fontFamily: AppHeadingFontFamily, fontSize: 16, marginTop: 12 },
   emptyDetail: { color: Colors.textMuted, fontFamily: AppFontFamily, fontSize: 13, lineHeight: 19, marginTop: 5, textAlign: 'center' },
 });

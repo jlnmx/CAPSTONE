@@ -52,7 +52,7 @@ export default function AccountHub() {
               <Text numberOfLines={1} style={[styles.name, { color: palette.text }]}>{user?.name || 'HANDA User'}</Text>
               <Text numberOfLines={1} style={[styles.email, { color: palette.textMuted }]}>{user?.email || 'No email available'}</Text>
               <View style={styles.verifiedRow}>
-                <MaterialCommunityIcons name="shield-check" size={14} color="#B64A75" />
+                <MaterialCommunityIcons name="shield-check" size={14} color="#D45B92" />
                 <Text style={styles.verifiedText}>Account profile</Text>
               </View>
             </View>
@@ -64,7 +64,7 @@ export default function AccountHub() {
             <Text style={[styles.sectionHeading, { color: palette.text }]}>Account settings</Text>
             <Text style={[styles.sectionCaption, { color: palette.textMuted }]}>Manage your information and sign-in security</Text>
           </View>
-          <View style={styles.sectionBadge}><MaterialCommunityIcons name="account-edit-outline" size={18} color="#B64A75" /></View>
+          <View style={styles.sectionBadge}><MaterialCommunityIcons name="account-edit-outline" size={18} color="#D45B92" /></View>
         </View>
         <View style={styles.sectionList}>
           {accountSections.map((section, index) => {
@@ -83,7 +83,7 @@ export default function AccountHub() {
                   accessibilityRole="button"
                   accessibilityLabel={`${section.title}. ${section.detail}. ${value}`}
                 >
-                  <View style={styles.sectionIcon}><MaterialCommunityIcons name={section.icon} size={21} color="#B64A75" /></View>
+                  <View style={styles.sectionIcon}><MaterialCommunityIcons name={section.icon} size={21} color="#D45B92" /></View>
                   <View style={styles.sectionCopy}>
                     <Text style={[styles.sectionTitle, { color: palette.text }]}>{section.title}</Text>
                     <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>{section.detail}</Text>
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   name: { fontFamily: kitFonts.heading, fontSize: 17 },
   email: { marginTop: 4, fontFamily: kitFonts.medium, fontSize: 12 },
   verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 7 },
-  verifiedText: { color: '#B64A75', fontFamily: kitFonts.semibold, fontSize: 10 },
+  verifiedText: { color: '#D45B92', fontFamily: kitFonts.semibold, fontSize: 10 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   sectionHeading: { fontFamily: kitFonts.heading, fontSize: 18 },
   sectionCaption: { marginTop: 4, fontFamily: kitFonts.medium, fontSize: 11 },
@@ -123,6 +123,6 @@ const styles = StyleSheet.create({
   sectionCopy: { flex: 1, minWidth: 0 },
   sectionTitle: { fontFamily: kitFonts.semibold, fontSize: 14 },
   sectionDetail: { marginTop: 3, fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 16 },
-  sectionValue: { marginTop: 5, color: '#B64A75', fontFamily: kitFonts.semibold, fontSize: 11 },
+  sectionValue: { marginTop: 5, color: '#D45B92', fontFamily: kitFonts.semibold, fontSize: 11 },
   chevron: { width: 30, height: 30, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
 });

@@ -5,7 +5,7 @@ import { Colors } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
 import ResponderLiveMap from '@components/ResponderLiveMap';
 
-const GREEN = '#B64A75';
+const GREEN = '#D45B92';
 
 export default function MapScreen() {
   return (

@@ -9,8 +9,9 @@ import { AuthService } from '@services/authService';
 import AppBackArrow from '@components/AppBackArrow';
 import { HandaLogoBadge } from '@components/HandaLogo';
 import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
+import { Colors } from '@constants/colors';
 
-const GREEN = '#B64A75';
+const GREEN = '#D45B92';
 const PAGE_BACKGROUND = '#F3F7F4';
 const SURFACE = '#FFFFFF';
 const TEXT = '#17212B';
@@ -141,7 +142,7 @@ export default function ForgotPasswordScreen() {
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient
-          colors={['#B64A75', '#B64A75', '#B64A75']}
+          colors={[Colors.primary, '#A84F7D', Colors.brandBlueDeep]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.header}
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
     borderColor: '#E3EBE5',
     borderRadius: 23,
     backgroundColor: SURFACE,
-    shadowColor: '#71354F',
+    shadowColor: '#7D567E',
     shadowOffset: { width: 0, height: 11 },
     shadowOpacity: 0.09,
     shadowRadius: 22,
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
   progressNumber: { color: TEXT_MUTED, fontFamily: AppSemiboldFontFamily, fontSize: 12 },
   progressNumberActive: { color: '#FFFFFF' },
   progressLine: { width: 50, height: 2, backgroundColor: '#E5EBE6', marginHorizontal: 7 },
-  progressLineActive: { backgroundColor: '#D9A8BD' },
+  progressLineActive: { backgroundColor: '#E6A6C1' },
   fieldLabel: { color: TEXT, fontFamily: AppSemiboldFontFamily, fontSize: 13, marginBottom: 8 },
   channelRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
   channelButton: { flex: 1, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: FIELD_BORDER, borderRadius: 13, backgroundColor: '#FBFCFB' },

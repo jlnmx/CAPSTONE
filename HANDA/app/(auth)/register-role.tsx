@@ -52,7 +52,7 @@ export default function RegistrationRoleScreen() {
                   title="Official responder"
                   description="For authorized emergency-response personnel. An official ID is required."
                   onPress={() => openRegistration('Responder')}
-                  accent="#B64A75"
+                  accent="#D45B92"
                   tag="VERIFICATION REQUIRED"
                 />
               </Reveal>
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   cardBody: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 22 },
   intro: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 19 },
   introCopy: { flex: 1 },
-  eyebrow: { color: '#B64A75', fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 1 },
+  eyebrow: { color: '#D45B92', fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 1 },
   title: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 21, marginTop: 4 },
   subtitle: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 18, marginTop: 3 },
   options: { gap: 11 },

@@ -16,7 +16,7 @@ import { syncPendingLocalData } from '@services/syncService';
 import AppBackArrow from '@components/AppBackArrow';
 import { PhotoViewer } from '@components/PhotoGallery';
 
-const GREEN = '#B64A75';
+const GREEN = '#D45B92';
 const INCIDENT_TYPES = ['Fire', 'Flooding', 'Earthquake', 'Landslide', 'Typhoon', 'Severe storm', 'Strong winds', 'Road accident', 'Road obstruction', 'Building collapse', 'Power outage', 'Gas leak', 'Water emergency', 'Medical emergency', 'Missing person', 'Crime or security threat', 'Hazardous spill', 'Other emergency'];
 type Photo = { uri: string; name: string };
 
@@ -164,7 +164,7 @@ export default function ResidentIncidentReport() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#B64A75', '#8D3A5F']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
+        <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <AppBackArrow />
           <View style={styles.headerCopy}>
             <Text style={styles.eyebrow}>COMMUNITY SAFETY</Text>
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   photoFootnote: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 10, marginTop: 10 },
   errorBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12, borderWidth: 1, borderColor: '#F3C9C5', borderRadius: 14, backgroundColor: '#FFF5F4' },
   error: { flex: 1, color: '#B42318', fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 17 },
-  submitButton: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 2, borderRadius: 16, backgroundColor: GREEN, shadowColor: '#8D3A5F', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.22, shadowRadius: 10, elevation: 5 },
+  submitButton: { minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginTop: 2, borderRadius: 16, backgroundColor: GREEN, shadowColor: '#A84F7D', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.22, shadowRadius: 10, elevation: 5 },
   submitButtonDisabled: { opacity: 0.65 },
   submitText: { color: '#FFFFFF', fontFamily: kitFonts.bold, fontSize: 14, letterSpacing: 0.15 },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 18, backgroundColor: 'rgba(12,26,16,0.48)' },

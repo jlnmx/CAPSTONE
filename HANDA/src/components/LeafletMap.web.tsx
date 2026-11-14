@@ -88,7 +88,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
         title: center.name,
         icon: center.status === 'closed' || center.status === 'full'
           ? undefined
-          : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#B64A75', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
+          : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#D45B92', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
       });
       marker.addListener('click', () => onSelectCenterRef.current?.(center.id));
       return marker;

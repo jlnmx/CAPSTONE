@@ -86,7 +86,7 @@ export default function PreparednessGuideScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <GradientHeader title="Preparedness Guide" subtitle="Know what to do before, during and after" icon="book-open-page-variant" showBack />
         {selectedGuide ? <GuideDetail guide={selectedGuide} openSection={openSection} setOpenSection={setOpenSection} onBack={() => setSelectedGuide(null)} /> : <>
-          <View style={styles.search}><MaterialCommunityIcons name="magnify" size={22} color="#B64A75" /><TextInput value={search} onChangeText={setSearch} placeholder="Search type of disaster" placeholderTextColor="#8FA891" style={styles.searchInput} /></View>
+          <View style={styles.search}><MaterialCommunityIcons name="magnify" size={22} color="#D45B92" /><TextInput value={search} onChangeText={setSearch} placeholder="Search type of disaster" placeholderTextColor="#8FA891" style={styles.searchInput} /></View>
           <View style={styles.list}>{visibleGuides.map((guide, index) => <Reveal key={guide.title} index={index}><GuideCard guide={guide} onPress={() => openGuide(guide)} /></Reveal>)}</View>
         </>}
       </ScrollView>
@@ -135,7 +135,7 @@ function GuideCard({ guide, onPress }: { guide: Guide; onPress: () => void }) {
 const phaseMeta = {
   before: { label: 'Before', icon: 'clipboard-check-outline', color: '#2F7FD1', hint: 'Prepare ahead' },
   during: { label: 'During', icon: 'alert-octagon-outline', color: '#D9822B', hint: 'Stay safe in the moment' },
-  after: { label: 'After', icon: 'shield-check-outline', color: '#B64A75', hint: 'Recover carefully' },
+  after: { label: 'After', icon: 'shield-check-outline', color: '#D45B92', hint: 'Recover carefully' },
 } as const;
 
 function AccordionBody({ tips, color }: { tips: string[]; color: string }) {
@@ -151,7 +151,7 @@ function AccordionBody({ tips, color }: { tips: string[]; color: string }) {
 function GuideDetail({ guide, openSection, setOpenSection, onBack }: { guide: Guide; openSection: 'before' | 'during' | 'after' | null; setOpenSection: (section: 'before' | 'during' | 'after' | null) => void; onBack: () => void }) {
   const sections = { before: guide.before, during: guide.during, after: guide.after };
   return <View style={styles.detail}>
-    <Pressable style={styles.backButton} onPress={onBack}><MaterialCommunityIcons name="arrow-left" size={18} color="#B64A75" /><Text style={styles.backText}>All disasters</Text></Pressable>
+    <Pressable style={styles.backButton} onPress={onBack}><MaterialCommunityIcons name="arrow-left" size={18} color="#D45B92" /><Text style={styles.backText}>All disasters</Text></Pressable>
     <Reveal index={0}>
       <View style={styles.hero}>
         <Image source={guide.image} style={styles.disasterImage} />
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.surface },
   container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 850, alignSelf: 'center', paddingBottom: 24 },
-  header: { minHeight: 58, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#B64A75' },
+  header: { minHeight: 58, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#D45B92' },
   headerCopy: { flex: 1 },
   headerTitle: { color: Colors.white, fontSize: 24, fontWeight: '900', lineHeight: 25 },
   headerSubtitle: { color: Colors.white, fontSize: 15, fontWeight: '800', lineHeight: 17 },
@@ -203,8 +203,8 @@ const styles = StyleSheet.create({
   guideChevron: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
   guideIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   detail: { paddingHorizontal: 14, paddingTop: 14 },
-  backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#FAEDF2', marginBottom: 12 },
-  backText: { color: '#B64A75', fontSize: 12, fontWeight: '700', marginLeft: 5 },
+  backButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#FFF1F6', marginBottom: 12 },
+  backText: { color: '#D45B92', fontSize: 12, fontWeight: '700', marginLeft: 5 },
   hero: { height: 200, borderRadius: 22, overflow: 'hidden', backgroundColor: '#1B2A1C' },
   disasterImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   heroShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 120 },

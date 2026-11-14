@@ -145,7 +145,7 @@ export default function ResponderLiveMap() {
           <Marker
             key={`center-${center.id}`}
             coordinate={{ latitude: center.latitude, longitude: center.longitude }}
-            pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#B64A75'}
+            pinColor={center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#D45B92'}
             onPress={() => setSelectedLocation({ kind: 'center', id: center.id })}
           />
         ))}
@@ -190,7 +190,7 @@ export default function ResponderLiveMap() {
       {(selectedCenter || selectedIncident) && (
         <View style={styles.locationCard} accessibilityLiveRegion="polite">
           <View style={styles.locationHeading}>
-            <View style={[styles.locationIcon, { backgroundColor: selectedCenter ? '#FAEDF2' : '#FFF0E8' }]}>
+            <View style={[styles.locationIcon, { backgroundColor: selectedCenter ? '#FFF1F6' : '#FFF0E8' }]}>
               <MaterialCommunityIcons name={selectedCenter ? 'home-city-outline' : 'alert-circle-outline'} size={21} color={selectedCenter ? Colors.primary : '#C75B19'} />
             </View>
             <View style={styles.locationTitleCopy}>
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   locationSubtitle: { color: Colors.textMuted, fontSize: 11, lineHeight: 15, marginTop: 2 },
   closeButton: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#F3F6F4' },
   availability: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 11, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-  availabilityAvailable: { backgroundColor: '#FAEDF2' },
+  availabilityAvailable: { backgroundColor: '#FFF1F6' },
   availabilityUnavailable: { backgroundColor: '#FCE8E6' },
   availabilityDot: { width: 7, height: 7, borderRadius: 4 },
   availabilityDotAvailable: { backgroundColor: Colors.primary },
@@ -292,7 +292,7 @@ function toOfflinePoints(data: ResponderDataSnapshot): OfflineMapPoint[] {
         description: `${center.currentOccupancy}/${center.capacity} · ${center.status}`,
         latitude: center.latitude,
         longitude: center.longitude,
-        color: center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#B64A75',
+        color: center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#D45B92',
       }]),
     ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
       ? []
