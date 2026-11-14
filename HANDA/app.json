@@ -25,10 +25,10 @@
     "android": {
       "package": "com.handa.evacuation",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 20,
+      "versionCode": 21,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#0B6B4E"
       },
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
