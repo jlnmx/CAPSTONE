@@ -40,9 +40,10 @@ def _decode_segment(value: str) -> dict:
     return json.loads(base64.urlsafe_b64decode(f"{value}{padding}"))
 
 
-def create_access_token(user_id: str, role: str, token_version: int) -> tuple[str, int]:
+def create_access_token(user_id: str, role: str, token_version: int, remember_me: bool = False) -> tuple[str, int]:
     now = int(time.time())
-    expires_at = now + settings.access_token_minutes * 60
+    lifetime_minutes = settings.remembered_access_token_minutes if remember_me else settings.access_token_minutes
+    expires_at = now + lifetime_minutes * 60
     header = _encode_segment({"alg": "HS256", "typ": "JWT"})
     payload = _encode_segment({"sub": user_id, "role": role, "ver": token_version, "iat": now, "exp": expires_at})
     unsigned = f"{header}.{payload}"

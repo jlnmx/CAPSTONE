@@ -69,6 +69,7 @@ export class AuthService {
     identifier: string,
     password: string,
     allowedRoles?: readonly UserRole[],
+    keepLoggedIn = true,
   ): Promise<AuthUser | null> {
     let apiReachable = false;
     let connectionError: unknown;
@@ -77,7 +78,7 @@ export class AuthService {
       const response = await fetchWithRetry(`${API_BASE_URL}/api/v1/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier.trim(), password }),
+        body: JSON.stringify({ email: identifier.trim(), password, keepLoggedIn }),
       });
       apiReachable = true;
       if (response.ok) {
@@ -88,7 +89,7 @@ export class AuthService {
                 ? 'Only administrator accounts can sign in to the Command Center.'
                 : 'Administrator accounts must sign in through the HANDA Command Center.');
             }
-          await setAccessToken(result.accessToken);
+          await setAccessToken(result.accessToken, keepLoggedIn);
           return result.user;
         }
       }

@@ -70,7 +70,13 @@ class EmailOtpTests(unittest.TestCase):
         self.assertIn("expires in 10 minutes", plain_body)
         self.assertIn("do not share it with anyone", plain_body)
         self.assertIn("No changes will be made without the code", plain_body)
-        self.assertIsNotNone(message.get_body(preferencelist=("html",)))
+        html_body = message.get_body(preferencelist=("html",))
+        self.assertIsNotNone(html_body)
+        html_content = html_body.get_content()
+        self.assertIn("#D45B92", html_content)
+        self.assertIn("#91BCDD", html_content)
+        self.assertNotIn("#218b25", html_content)
+        self.assertNotIn("#176b20", html_content)
 
     def test_email_otp_uses_gmail_api_over_https_when_configured(self):
         configuration = SimpleNamespace(

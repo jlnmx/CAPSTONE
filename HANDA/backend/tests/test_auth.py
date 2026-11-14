@@ -69,11 +69,25 @@ class AuthTests(unittest.TestCase):
         }
         connection = FakeConnection(row)
 
-        result = login_user(UserLogin(email="+63 (917) 123-4567", password="password"), connection)
+        result = login_user(UserLogin(email="+63 (917) 123-4567", password="password", keepLoggedIn=True), connection)
 
         self.assertEqual(connection.parameters, (["639171234567", "09171234567"],))
         self.assertEqual(result["accessToken"], "access-token")
         self.assertEqual(result["user"]["role"], "resident")
+        _token.assert_called_once_with("resident-1", "resident", 0, True)
+
+    def test_remembered_access_token_has_thirty_day_lifetime(self):
+        configuration = type("TestSettings", (), {
+            "auth_secret": "test-secret",
+            "access_token_minutes": 480,
+            "remembered_access_token_minutes": 30 * 24 * 60,
+        })()
+        with patch("app.auth.settings", configuration), patch("app.auth.time.time", return_value=1_000):
+            _, normal_lifetime = create_access_token("user-1", "resident", 0)
+            _, remembered_lifetime = create_access_token("user-1", "resident", 0, True)
+
+        self.assertEqual(normal_lifetime, 8 * 60 * 60)
+        self.assertEqual(remembered_lifetime, 30 * 24 * 60 * 60)
 
     def test_login_rejects_mobile_number_shared_by_multiple_accounts(self):
         connection = FakeConnection([{"id": "resident-1"}, {"id": "resident-2"}])

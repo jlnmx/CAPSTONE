@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     cors_origin_regex: str = ""
     auth_secret: str = "handa-development-auth-secret-change-me"
     access_token_minutes: int = 480
+    remembered_access_token_minutes: int = 43200
     realtime_jwt_private_key: str = ""
     realtime_jwt_algorithm: str = "ES256"
     realtime_token_minutes: int = 30

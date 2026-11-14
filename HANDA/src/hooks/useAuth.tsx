@@ -124,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(true);
       setError(null);
 
-      const authUser = await AuthService.login(email, password, allowedRoles);
+      const authUser = await AuthService.login(email, password, allowedRoles, stayLoggedIn);
 
       if (authUser) {
         await finishLogin(authUser, stayLoggedIn);

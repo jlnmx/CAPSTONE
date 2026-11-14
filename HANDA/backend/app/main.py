@@ -172,23 +172,24 @@ def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose
             f"""\
 <!doctype html>
 <html lang="en">
-  <body style="margin:0;padding:24px;background-color:#f3f7f4;font-family:Arial,Helvetica,sans-serif;color:#17212b;">
-    <table role="presentation" style="width:100%;max-width:560px;margin:0 auto;border-collapse:collapse;background:#ffffff;border:1px solid #e1e9e2;border-radius:16px;">
+  <body style="margin:0;padding:24px;background-color:#f8f5f8;font-family:Arial,Helvetica,sans-serif;color:#17212b;">
+    <table role="presentation" style="width:100%;max-width:560px;margin:0 auto;border-collapse:collapse;background:#ffffff;border:1px solid #f1dce6;border-radius:16px;">
       <tr>
         <td style="padding:28px 32px 12px;">
-          <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;color:#218b25;">HANDA</div>
+          <div style="font-size:13px;font-weight:700;letter-spacing:1.5px;color:#D45B92;">HANDA</div>
+          <div style="width:44px;height:3px;margin-top:8px;background-color:#91BCDD;"></div>
           <h1 style="margin:18px 0 12px;font-size:22px;line-height:1.35;color:#17212b;">{escape(subject)}</h1>
           <p style="margin:0;font-size:15px;line-height:1.6;color:#475467;">Hello,</p>
           <p style="margin:12px 0 20px;font-size:15px;line-height:1.6;color:#475467;">{escape(context)}</p>
           <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#475467;">Your verification code</p>
-          <div style="padding:18px 16px;border:1px solid #dce8dd;border-radius:12px;background:#f7faf7;text-align:center;font-size:30px;font-weight:700;letter-spacing:8px;color:#176b20;">{escape(otp)}</div>
+          <div style="padding:18px 16px;border:1px solid #f1c8db;border-left:4px solid #91BCDD;border-radius:12px;background:#fff7fa;text-align:center;font-size:30px;font-weight:700;letter-spacing:8px;color:#D45B92;">{escape(otp)}</div>
           <p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#667085;">This code expires in {expiry_minutes} minutes. For your security, do not share it with anyone. HANDA support will never ask you for this code.</p>
           <p style="margin:12px 0 0;font-size:13px;line-height:1.6;color:#667085;">If you did not make this request, you can safely ignore this email. No changes will be made without the code.</p>
           <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:#475467;">Regards,<br><strong>HANDA Support</strong></p>
         </td>
       </tr>
       <tr>
-        <td style="padding:16px 32px;border-top:1px solid #edf1ed;font-size:11px;line-height:1.5;color:#98a2b3;">This is an automated security email. Please do not reply.</td>
+        <td style="padding:16px 32px;border-top:1px solid #f2e6ec;font-size:11px;line-height:1.5;color:#98a2b3;">This is an automated security email. Please do not reply.</td>
       </tr>
     </table>
   </body>
@@ -2882,7 +2883,7 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
         connection.execute("UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = %s", (row["id"],))
         connection.commit()
     role = normalize_role(row["role"])
-    access_token, expires_in = create_access_token(row["id"], role, row["token_version"])
+    access_token, expires_in = create_access_token(row["id"], role, row["token_version"], credentials.keepLoggedIn)
     profile = resident_profile_payload(row, household_members_for_user(connection, row["id"]))
     profile["role"] = role
     profile["isSuperAdmin"] = bool(row.get("is_superadmin", False))

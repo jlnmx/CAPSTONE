@@ -86,6 +86,10 @@ export function subscribeToUnauthorized(listener: () => void): () => void {
 }
 
 async function webStorageGet() {
+  if (typeof globalThis.localStorage !== 'undefined') {
+    const persistentToken = globalThis.localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (persistentToken) return persistentToken;
+  }
   return typeof globalThis.sessionStorage === 'undefined' ? null : globalThis.sessionStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
@@ -96,10 +100,16 @@ export async function getAccessToken(): Promise<string | null> {
   return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
 }
 
-export async function setAccessToken(token: string): Promise<void> {
+export async function setAccessToken(token: string, keepLoggedIn = true): Promise<void> {
   unauthorizedHandled = false;
   if (Platform.OS === 'web') {
-    globalThis.sessionStorage?.setItem(ACCESS_TOKEN_KEY, token);
+    if (keepLoggedIn) {
+      globalThis.localStorage?.setItem(ACCESS_TOKEN_KEY, token);
+      globalThis.sessionStorage?.removeItem(ACCESS_TOKEN_KEY);
+    } else {
+      globalThis.sessionStorage?.setItem(ACCESS_TOKEN_KEY, token);
+      globalThis.localStorage?.removeItem(ACCESS_TOKEN_KEY);
+    }
     return;
   }
   await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
@@ -107,6 +117,7 @@ export async function setAccessToken(token: string): Promise<void> {
 
 export async function clearAccessToken(): Promise<void> {
   if (Platform.OS === 'web') {
+    globalThis.localStorage?.removeItem(ACCESS_TOKEN_KEY);
     globalThis.sessionStorage?.removeItem(ACCESS_TOKEN_KEY);
     return;
   }

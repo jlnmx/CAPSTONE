@@ -193,6 +193,7 @@ class ProfilePictureUpdate(BaseModel):
 class UserLogin(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=1, max_length=128)
+    keepLoggedIn: bool = False
 
 
 class ChatbotMessage(BaseModel):
