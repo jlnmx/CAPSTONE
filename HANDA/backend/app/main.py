@@ -2173,9 +2173,36 @@ def update_evacuation_registration_status(
 
 
 @app.get("/api/v1/users")
-def list_users(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_superadmin)):
+def list_users(
+    includeHouseholdMembers: bool = False,
+    connection: psycopg.Connection = Depends(get_connection),
+    _: CurrentUser = Depends(require_superadmin),
+):
+    household_members_column = """
+        , COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+                'name', member.name,
+                'relationship', member.relationship,
+                'age', member.age,
+                'sex', member.sex,
+                'contactNumber', member.contact_number
+            ) ORDER BY member.created_at, member.id)
+            FROM resident_household_members AS member
+            WHERE member.resident_user_id = users.id
+        ), '[]'::jsonb) AS household_members
+    """ if includeHouseholdMembers else ""
     rows = connection.execute(
-        "SELECT users.id, users.name, users.email, users.birthday, users.sex, users.mobile_number, users.current_address, users.role, users.status, users.is_superadmin, users.responder_type, users.responder_organization, users.responder_barangay, users.profile_picture, EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document, users.created_at, users.updated_at FROM users ORDER BY users.created_at DESC"
+        f"""
+        SELECT users.id, users.name, users.email, users.birthday, users.sex, users.mobile_number,
+               users.current_address, users.role, users.status, users.is_superadmin,
+               users.responder_type, users.responder_organization, users.responder_barangay,
+               users.profile_picture,
+               EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document,
+               users.created_at, users.updated_at
+               {household_members_column}
+        FROM users
+        ORDER BY users.created_at DESC
+        """
     ).fetchall()
     return rows
 

@@ -136,7 +136,7 @@ export function AddEvacueeModal({ onClose, onCreated, initialCenterId }: { onClo
 
   useEffect(() => {
     let active = true;
-    void Promise.all([getCenters(), getUsers()])
+    void Promise.all([getCenters(), getUsers({ includeHouseholdMembers: true })])
       .then(([centerRows, userRows]) => {
         if (!active) return;
         const activeCenters = centerRows.filter((center) => center.status !== 'closed' && center.status !== 'full' && center.currentOccupancy < center.capacity);
@@ -185,6 +185,13 @@ export function AddEvacueeModal({ onClose, onCreated, initialCenterId }: { onClo
     setSex(resident.sex === 'Male' || resident.sex === 'Female' || resident.sex === 'Other' ? resident.sex : '');
     setContactNumber(resident.mobileNumber ?? '');
     setAddress(resident.currentAddress ?? '');
+    setMembers((resident.householdMembers ?? []).map((member) => ({
+      name: member.name?.trim() || [member.firstName, member.middleName, member.lastName].filter(Boolean).join(' '),
+      relationship: member.relationship,
+      age: member.age == null ? '' : String(member.age),
+      sex: member.sex === 'Male' || member.sex === 'Female' ? member.sex : '',
+      contactNumber: member.contactNumber ?? '',
+    })));
   };
 
   const selectWalkIn = () => {
@@ -196,6 +203,7 @@ export function AddEvacueeModal({ onClose, onCreated, initialCenterId }: { onClo
     setSex('Female');
     setContactNumber('');
     setAddress('');
+    setMembers([]);
   };
 
   const linkedResident = residents.find((resident) => resident.id === residentUserId);

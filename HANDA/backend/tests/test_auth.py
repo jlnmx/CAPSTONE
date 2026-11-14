@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.auth import CurrentUser, create_access_token, get_current_user, require_roles, require_superadmin
-from app.main import app, login_user, mobile_login_candidates
+from app.main import app, list_users, login_user, mobile_login_candidates
 from app.schemas import UserLogin
 
 
@@ -27,9 +27,11 @@ class FakeConnection:
         self.row = row
         self.executed = False
         self.parameters = None
+        self.query = None
 
     def execute(self, *_args):
         self.executed = True
+        self.query = _args[0] if _args else None
         self.parameters = _args[1] if len(_args) > 1 else None
         return FakeResult(self.row)
 
@@ -88,6 +90,22 @@ class AuthTests(unittest.TestCase):
 
         self.assertEqual(normal_lifetime, 8 * 60 * 60)
         self.assertEqual(remembered_lifetime, 30 * 24 * 60 * 60)
+
+    def test_admin_resident_listing_can_include_saved_household_members(self):
+        members = [{
+            "name": "Ana Santos",
+            "relationship": "Child",
+            "age": 10,
+            "sex": "Female",
+            "contactNumber": "09171234567",
+        }]
+        connection = FakeConnection({"id": "resident-1", "household_members": members})
+
+        result = list_users(True, connection, CurrentUser("admin-1", "admin@example.com", "Admin", "admin", 0))
+
+        self.assertEqual(result[0]["household_members"], members)
+        self.assertIn("resident_household_members", connection.query)
+        self.assertIn("jsonb_agg", connection.query)
 
     def test_login_rejects_mobile_number_shared_by_multiple_accounts(self):
         connection = FakeConnection([{"id": "resident-1"}, {"id": "resident-2"}])

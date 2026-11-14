@@ -232,8 +232,9 @@ export function updateEvacuationRegistrationStatus(registrationId: string, statu
   });
 }
 
-export async function getUsers() {
-  const users = await records<Record<string, any>>('/api/v1/users');
+export async function getUsers(options: { includeHouseholdMembers?: boolean } = {}) {
+  const query = options.includeHouseholdMembers ? '?includeHouseholdMembers=true' : '';
+  const users = await records<Record<string, any>>(`/api/v1/users${query}`);
   return users.map((user): UserRecord => ({
     id: String(user.id), name: user.name, email: user.email, role: user.role, status: user.status,
     isSuperAdmin: Boolean(user.is_superadmin ?? user.isSuperAdmin),
@@ -242,6 +243,7 @@ export async function getUsers() {
     birthday: user.birthday, sex: user.sex, mobileNumber: user.mobile_number ?? user.mobileNumber,
     currentAddress: user.current_address ?? user.currentAddress,
     profilePicture: user.profile_picture ?? null,
+    householdMembers: Array.isArray(user.household_members) ? user.household_members : undefined,
     createdAt: user.createdAt ?? user.created_at ?? '', updatedAt: user.updatedAt ?? user.updated_at ?? '',
   }));
 }

@@ -151,6 +151,7 @@ export interface UserRecord {
   mobileNumber?: string;
   currentAddress?: string;
   profilePicture?: string | null;
+  householdMembers?: EvacuationHouseholdMemberInput[];
   createdAt: string;
   updatedAt: string;
 }
