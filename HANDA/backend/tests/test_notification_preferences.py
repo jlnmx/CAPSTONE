@@ -101,10 +101,15 @@ class NotificationPreferencesTests(unittest.TestCase):
             twilio_auth_token="secret",
             twilio_from_number="+15550000000",
         )
-        with patch.object(main, "settings", configuration), patch.object(main, "urlopen") as urlopen, patch.object(main.smtplib, "SMTP") as smtp_factory:
+        with patch.object(main, "settings", configuration), patch.object(main, "send_sms") as send_sms, patch.object(main.smtplib, "SMTP") as smtp_factory:
             main.deliver_incident_alert("ana@example.com", "09171234567", "Help is on the way", "Responders are coordinating.", False, True)
 
-        urlopen.assert_called_once()
+        send_sms.assert_called_once_with(
+            "09171234567",
+            "Help is on the way: Responders are coordinating.",
+            False,
+            configuration,
+        )
         smtp_factory.assert_not_called()
 
 

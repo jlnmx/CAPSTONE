@@ -24,6 +24,10 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
+      - key: SEMAPHORE_API_KEY
+        sync: false
+      - key: SEMAPHORE_SENDER_NAME
+        sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
       - key: GOOGLE_WEATHER_API_KEY

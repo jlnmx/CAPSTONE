@@ -18,7 +18,7 @@ const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-nati
 
 const sections = {
   'contact-number': { title: 'Contact number', detail: 'Keep your phone number current.' },
-  email: { title: 'Change email', detail: 'Confirm your identity with your current password.' },
+  email: { title: 'Change email', detail: 'Confirm your identity with an SMS code sent to your current mobile number.' },
   password: { title: 'Change password', detail: 'Use at least 8 characters with uppercase, lowercase, a number, and a symbol.' },
   profile: { title: 'Personal information', detail: 'Update the details attached to your account.' },
 } as const;
@@ -46,10 +46,13 @@ export default function AccountSectionScreen() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>('email');
+  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>('sms');
   const [passwordChangeToken, setPasswordChangeToken] = useState('');
   const [passwordChangeOtp, setPasswordChangeOtp] = useState('');
   const [passwordChangeDestination, setPasswordChangeDestination] = useState('');
+  const [emailChangeToken, setEmailChangeToken] = useState('');
+  const [emailChangeOtp, setEmailChangeOtp] = useState('');
+  const [emailChangeDestination, setEmailChangeDestination] = useState('');
   const [isPasswordOtpModalOpen, setIsPasswordOtpModalOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [firstName, setFirstName] = useState(user?.firstName || '');
@@ -159,6 +162,31 @@ export default function AccountSectionScreen() {
     }
   };
 
+  const requestEmailChangeOtp = async () => {
+    setIsSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const response = await authenticatedFetch('/api/v1/auth/email-change/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newEmail: email.trim().toLowerCase(), currentPassword }),
+      });
+      const result = await response.json() as { emailChangeToken?: string; destination?: string; detail?: unknown };
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'An email-change code could not be sent.');
+      if (!result.emailChangeToken) throw new Error('The verification request did not return a token.');
+      setEmailChangeToken(result.emailChangeToken);
+      setEmailChangeDestination(result.destination || user?.mobileNumber || '');
+      setEmailChangeOtp('');
+      setNotice(`A verification code was sent by SMS to ${result.destination || 'your mobile number'}.`);
+      setIsPasswordOtpModalOpen(true);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'An email-change code could not be sent.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSave = () => {
     if (!sectionKey) return;
     if (sectionKey === 'contact-number') {
@@ -180,7 +208,20 @@ export default function AccountSectionScreen() {
         setError('Enter your current password to change your email.');
         return;
       }
-      void save('/api/v1/resident/account', { email: normalizedEmail, currentPassword });
+      if (!emailChangeToken) {
+        void requestEmailChangeOtp();
+        return;
+      }
+      if (!/^\d{6}$/.test(emailChangeOtp)) {
+        setError('Enter the 6-digit SMS verification code.');
+        return;
+      }
+      void save('/api/v1/resident/account', {
+        email: normalizedEmail,
+        currentPassword,
+        emailChangeToken,
+        emailChangeOtp,
+      });
       return;
     }
     if (sectionKey === 'password') {
@@ -267,7 +308,13 @@ export default function AccountSectionScreen() {
             </View>
           {sectionKey === 'contact-number' && <AccountField label="Mobile number" icon="phone-outline" value={mobileNumber} onChangeText={setMobileNumber} placeholder="09XX XXX XXXX" keyboardType="phone-pad" autoComplete="tel" palette={palette} />}
           {sectionKey === 'email' && <>
-            <AccountField label="New email address" icon="email-outline" value={email} onChangeText={setEmail} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" autoComplete="email" palette={palette} />
+            <AccountField label="New email address" icon="email-outline" value={email} onChangeText={(value) => {
+              setEmail(value);
+              setEmailChangeToken('');
+              setEmailChangeOtp('');
+              setEmailChangeDestination('');
+              setError('');
+            }} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" autoComplete="email" palette={palette} />
             <PasswordField label="Current password" value={currentPassword} onChangeText={setCurrentPassword} palette={palette} />
           </>}
           {sectionKey === 'password' && <>
@@ -347,7 +394,7 @@ export default function AccountSectionScreen() {
             {!!error && <View style={styles.error}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={Colors.emergency} /><Text style={styles.errorText}>{error}</Text></View>}
             <AnimatedPressable
               onPress={() => {
-                if (sectionKey === 'password' && passwordChangeToken) {
+                if ((sectionKey === 'password' && passwordChangeToken) || (sectionKey === 'email' && emailChangeToken)) {
                   setError('');
                   setIsPasswordOtpModalOpen(true);
                 } else {
@@ -358,14 +405,14 @@ export default function AccountSectionScreen() {
               style={[styles.saveButton, isSaving && styles.disabled]}
               accessibilityRole="button"
             >
-              {isSaving ? <ActivityIndicator color={Colors.white} /> : <><Text style={styles.saveButtonText}>{sectionKey === 'password' ? passwordChangeToken ? 'Enter verification code' : 'Send verification code' : 'Save changes'}</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
+              {isSaving ? <ActivityIndicator color={Colors.white} /> : <><Text style={styles.saveButtonText}>{sectionKey === 'password' ? passwordChangeToken ? 'Enter verification code' : 'Send verification code' : sectionKey === 'email' ? emailChangeToken ? 'Enter verification code' : 'Send SMS verification code' : 'Save changes'}</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
             </AnimatedPressable>
           </View>
         </Reveal>
       </ScrollView>
       <Modal
         transparent
-        visible={sectionKey === 'password' && isPasswordOtpModalOpen}
+        visible={(sectionKey === 'password' || sectionKey === 'email') && isPasswordOtpModalOpen}
         animationType="fade"
         statusBarTranslucent
         onRequestClose={() => setIsPasswordOtpModalOpen(false)}
@@ -399,20 +446,23 @@ export default function AccountSectionScreen() {
               </Pressable>
               <View style={[styles.otpDialogIcon, { backgroundColor: palette.surfaceMuted }]}>
                 <MaterialCommunityIcons
-                  name={passwordChangeChannel === 'email' ? 'email-outline' : 'message-text-outline'}
+                  name={sectionKey === 'email' || passwordChangeChannel === 'sms' ? 'message-text-outline' : 'email-outline'}
                   size={28}
                   color="#B64A75"
                 />
               </View>
               <Text style={[styles.otpDialogTitle, { color: palette.text }]}>Verify it's you</Text>
               <Text style={[styles.otpDialogDescription, { color: palette.textMuted }]}>
-                Enter the 6-digit code we sent to {passwordChangeDestination || 'your selected contact'} to confirm your password change.
+                {sectionKey === 'email'
+                  ? `Enter the 6-digit SMS code sent to ${emailChangeDestination || 'your current mobile number'} to confirm your email change.`
+                  : `Enter the 6-digit code we sent to ${passwordChangeDestination || 'your selected contact'} to confirm your password change.`}
               </Text>
               <Text style={[styles.fieldLabelStandalone, { color: palette.text }]}>Verification code</Text>
               <TextInput
-                value={passwordChangeOtp}
+                value={sectionKey === 'email' ? emailChangeOtp : passwordChangeOtp}
                 onChangeText={(value) => {
-                  setPasswordChangeOtp(value.replace(/\D/g, '').slice(0, 6));
+                  if (sectionKey === 'email') setEmailChangeOtp(value.replace(/\D/g, '').slice(0, 6));
+                  else setPasswordChangeOtp(value.replace(/\D/g, '').slice(0, 6));
                   setError('');
                 }}
                 placeholder="000000"
@@ -423,7 +473,7 @@ export default function AccountSectionScreen() {
                 textContentType="oneTimeCode"
                 selectionColor="#B64A75"
                 style={[styles.otpCodeInput, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}
-                accessibilityLabel="6-digit verification code"
+                accessibilityLabel={sectionKey === 'email' ? '6-digit email change SMS code' : '6-digit password change verification code'}
               />
               <Text style={[styles.otpSecurityHint, { color: palette.textMuted }]}>
                 For your security, never share this code. If you didn't request this change, close this dialog.
@@ -442,7 +492,7 @@ export default function AccountSectionScreen() {
               >
                 {isSaving
                   ? <ActivityIndicator color={Colors.white} />
-                  : <><Text style={styles.saveButtonText}>Verify and change password</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
+                  : <><Text style={styles.saveButtonText}>{sectionKey === 'email' ? 'Verify and change email' : 'Verify and change password'}</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
               </AnimatedPressable>
               <Pressable
                 onPress={() => setIsPasswordOtpModalOpen(false)}

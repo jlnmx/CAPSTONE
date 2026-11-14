@@ -14,6 +14,8 @@ The API uses the existing PostgreSQL database. During the initial Blueprint setu
 
 The Render Blueprint declares `GOOGLE_WEATHER_API_KEY` as a secret for the `handa-api` service. Set its value in Render to enable Resident and Responder weather forecasts. Use a separate server-side key restricted to the Google Weather API and Air Quality API; never expose it in Expo or Vite environment variables. The API proxies and caches provider responses.
 
+To enable SMS, add the Semaphore `SEMAPHORE_API_KEY` to the Render `handa-api` environment. Optionally add `SEMAPHORE_SENDER_NAME` for a sender name already registered with Semaphore. These values are server-only. Registration/password/email-change OTPs use Semaphore's OTP endpoint; incident and storm advisories use its message endpoints. Do not configure these values on either frontend.
+
 The frontend services use `https://handa-api.onrender.com` as their API origin. If Render assigns a different service URL, update both frontend variables to that URL and redeploy:
 
 - `EXPO_PUBLIC_API_URL` for the resident/responder web app.

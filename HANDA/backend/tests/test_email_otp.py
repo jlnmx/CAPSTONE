@@ -55,7 +55,7 @@ class EmailOtpTests(unittest.TestCase):
 
         with patch.object(main, "settings", configuration), \
                 patch.object(main.smtplib, "SMTP", return_value=smtp_context) as smtp_factory:
-            main.deliver_password_reset_otp("ana@example.com", "email", "123456", "account verification", True)
+            main.deliver_password_reset_otp("ana@example.com", "email", "123456", "account verification")
 
         smtp_factory.assert_called_once_with("smtp.gmail.com", 587, timeout=10)
         smtp.starttls.assert_called_once()
@@ -89,7 +89,7 @@ class EmailOtpTests(unittest.TestCase):
                 patch.object(main, "urlopen", side_effect=[token_response, send_response]) as urlopen, \
                 patch.object(main.smtplib, "SMTP") as smtp_factory:
             self.assertTrue(main.otp_channel_configured("email"))
-            main.deliver_password_reset_otp("ana@example.com", "email", "123456", "password change", True)
+            main.deliver_password_reset_otp("ana@example.com", "email", "123456", "password change")
 
         self.assertEqual(urlopen.call_count, 2)
         token_request, send_request = [call.args[0] for call in urlopen.call_args_list]

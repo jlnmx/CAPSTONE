@@ -29,13 +29,15 @@ from .config import settings
 from .realtime import RealtimeNotConfigured, create_realtime_token
 from .db import CONNECT_TIMEOUT_SECONDS, get_connection
 from .typhoons import get_live_typhoon_report
-from .schemas import AdminEvacuationRegistrationCreate, AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, CenterDetailsUpdate, DisasterCreate, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordChangeOtpRequest, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, RegistrationOtpRequest, RegistrationOtpVerification, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminEvacuationRegistrationCreate, AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, CenterDetailsUpdate, DisasterCreate, EmailChangeOtpRequest, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordChangeOtpRequest, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, RegistrationOtpRequest, RegistrationOtpVerification, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import SelfProfileUpdate
 from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
 from .schemas import MapPlaceSearch, MapRouteRequest
 from .maps import compute_routes, search_places
 from .push import PUSH_SCHEMA_SQL, enqueue_evacuation_status, enqueue_responders, enqueue_user, process_one
+from .sms import normalize_sms_number, send_sms, send_sms_otp, send_sms_to_many, sms_delivery_configured
+from .storm_alerts import STORM_ADVISORY_POLL_SECONDS, process_live_storm_advisories
 from .weather import get_google_weather_snapshot
 
 logger = logging.getLogger(__name__)
@@ -82,15 +84,6 @@ def mask_destination(value: str, channel: str) -> str:
         name, domain = value.split("@", 1)
         return f"{name[:1]}***@{domain}"
     return f"***{value[-4:]}"
-
-
-def normalize_sms_number(value: str) -> str:
-    digits = re.sub(r"\D", "", value)
-    if len(digits) == 11 and digits.startswith("0"):
-        return f"+63{digits[1:]}"
-    if len(digits) == 12 and digits.startswith("63"):
-        return f"+{digits}"
-    return value
 
 
 def gmail_api_configured() -> bool:
@@ -146,7 +139,7 @@ def deliver_email_message(message: EmailMessage) -> None:
     raise RuntimeError("Email delivery is not configured.")
 
 
-def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose: str = "password reset", require_configured: bool = False) -> None:
+def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose: str = "password reset") -> None:
     if channel == "email" and email_delivery_configured():
         message = EmailMessage()
         if purpose == "account verification":
@@ -155,6 +148,9 @@ def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose
         elif purpose == "password change":
             subject = "Password change verification code"
             context = "We received a request to change the password for your HANDA account."
+        elif purpose == "email change":
+            subject = "Email change verification code"
+            context = "We received a request to change the email address for your HANDA account."
         else:
             subject = "Password reset verification code"
             context = "We received a request to reset the password for your HANDA account."
@@ -202,26 +198,24 @@ def deliver_password_reset_otp(destination: str, channel: str, otp: str, purpose
         deliver_email_message(message)
         return
 
-    if channel == "sms" and settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
-        body = urlencode({"To": normalize_sms_number(destination), "From": settings.twilio_from_number, "Body": f"Your HANDA {purpose} code is {otp}."}).encode()
-        request = Request(
-            f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
-            data=body,
-            headers={"Authorization": "Basic " + base64.b64encode(f"{settings.twilio_account_sid}:{settings.twilio_auth_token}".encode()).decode()},
+    if channel == "sms":
+        if not sms_delivery_configured(settings):
+            raise HTTPException(status_code=503, detail="SMS code delivery is not configured.")
+        expiry_minutes = settings.password_reset_expiry_minutes
+        message = (
+            f"Your HANDA {purpose} code is {{otp}}. "
+            f"Use it within {expiry_minutes} minutes. Never share this code."
         )
-        with urlopen(request, timeout=10):
-            pass
+        send_sms_otp(destination, otp, message, settings)
         return
 
-    if require_configured:
-        raise HTTPException(status_code=503, detail=f"{channel.upper()} code delivery is not configured.")
-    logger.warning("Password reset OTP for %s (%s): %s", mask_destination(destination, channel), channel, otp)
+    raise HTTPException(status_code=503, detail=f"{channel.upper()} code delivery is not configured.")
 
 
 def otp_channel_configured(channel: str) -> bool:
     if channel == "email":
         return email_delivery_configured()
-    return bool(settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number)
+    return sms_delivery_configured(settings)
 
 
 def notify_responder_application_status(email: str, mobile_number: str, responder_type: str, status: str, note: str = "") -> None:
@@ -247,23 +241,24 @@ def notify_responder_application_status(email: str, mobile_number: str, responde
     else:
         logger.warning("Responder application email notification not sent because email delivery is not configured.")
 
-    if settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number:
+    if sms_delivery_configured(settings):
         try:
-            body = urlencode({"To": normalize_sms_number(mobile_number), "From": settings.twilio_from_number, "Body": message}).encode()
-            request = Request(
-                f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
-                data=body,
-                headers={"Authorization": "Basic " + base64.b64encode(f"{settings.twilio_account_sid}:{settings.twilio_auth_token}".encode()).decode()},
-            )
-            with urlopen(request, timeout=10):
-                pass
+            send_sms(mobile_number, message, configuration=settings)
         except Exception:
             logger.exception("Responder application SMS notification could not be delivered.")
     else:
-        logger.warning("Responder application SMS notification not sent because Twilio is not configured.")
+        logger.warning("Responder application SMS notification not sent because SMS delivery is not configured.")
 
 
-def deliver_incident_alert(email: str, mobile_number: str, title: str, message: str, email_enabled: bool, sms_enabled: bool) -> None:
+def deliver_incident_alert(
+    email: str,
+    mobile_number: str,
+    title: str,
+    message: str,
+    email_enabled: bool,
+    sms_enabled: bool,
+    priority: bool = False,
+) -> None:
     if email_enabled:
         if not email_delivery_configured():
             logger.warning("Incident email alert skipped because email delivery is not configured.")
@@ -279,20 +274,13 @@ def deliver_incident_alert(email: str, mobile_number: str, title: str, message: 
                 logger.exception("Incident email alert could not be delivered.")
 
     if sms_enabled:
-        if not (settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number):
-            logger.warning("Incident SMS alert skipped because Twilio is not configured.")
+        if not sms_delivery_configured(settings):
+            logger.warning("Incident SMS alert skipped because SMS delivery is not configured.")
         elif not mobile_number:
             logger.warning("Incident SMS alert skipped because the user has no mobile number.")
         else:
             try:
-                body = urlencode({"To": normalize_sms_number(mobile_number), "From": settings.twilio_from_number, "Body": f"{title}: {message}"}).encode()
-                request = Request(
-                    f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Messages.json",
-                    data=body,
-                    headers={"Authorization": "Basic " + base64.b64encode(f"{settings.twilio_account_sid}:{settings.twilio_auth_token}".encode()).decode()},
-                )
-                with urlopen(request, timeout=10):
-                    pass
+                send_sms(mobile_number, f"{title}: {message}", priority, settings)
             except Exception:
                 logger.exception("Incident SMS alert could not be delivered.")
 
@@ -386,6 +374,41 @@ def notify_responders_of_new_incident(connection: psycopg.Connection, incident: 
         notify_responders(connection, incident_id, f"New incident: {incident.type}", f"A new incident was reported at {incident.location}.", exclude_user_id)
     severity = "medium" if incident.severity == "moderity" else incident.severity
     enqueue_responders(connection, incident_id, incident.type, severity, incident.location, exclude_user_id)
+
+
+def notify_responders_of_new_incident_sms(
+    connection: psycopg.Connection,
+    incident: IncidentCreate,
+    incident_id: str,
+    exclude_user_id: str | None = None,
+) -> None:
+    if not sms_delivery_configured(settings):
+        logger.warning("New incident SMS alert skipped because SMS delivery is not configured.")
+        return
+    responders = connection.execute(
+        """
+        SELECT mobile_number
+        FROM users
+        WHERE role = 'Responder' AND status = 'Active'
+          AND sms_alerts_enabled AND mobile_number IS NOT NULL AND mobile_number <> ''
+          AND id <> COALESCE(%s, '')
+        """,
+        (exclude_user_id,),
+    ).fetchall()
+    severity = "medium" if incident.severity == "moderity" else incident.severity
+    title = f"{'EMERGENCY SOS' if severity == 'critical' else 'New incident'}: {incident.type}"
+    message = f"Ref {incident_id}. {severity.upper()} severity at {incident.location}. Open HANDA for incident details."
+    numbers = [responder["mobile_number"] for responder in responders]
+    if numbers:
+        try:
+            send_sms_to_many(
+                numbers,
+                f"{title}: {message}",
+                severity in ("high", "critical"),
+                settings,
+            )
+        except Exception:
+            logger.exception("New incident SMS alert could not be delivered.")
 
 
 def write_evacuee(connection: psycopg.Connection, evacuee: EvacueeCreate) -> dict:
@@ -678,6 +701,16 @@ def ensure_operational_schema() -> None:
             "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS incident_id TEXT REFERENCES incidents(id) ON DELETE CASCADE"
         )
         connection.execute("CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications (user_id, created_at DESC)")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS storm_advisory_sms_events (
+                storm_id TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                PRIMARY KEY (storm_id, fingerprint)
+            )
+            """
+        )
         connection.execute(PUSH_SCHEMA_SQL)
         connection.execute(
             """
@@ -725,6 +758,20 @@ def ensure_operational_schema() -> None:
                         """,
         )
         connection.execute("CREATE INDEX IF NOT EXISTS password_reset_requests_user_idx ON password_reset_requests (user_id, created_at DESC)")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS email_change_requests (
+                token TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                new_email TEXT NOT NULL,
+                otp_hash TEXT NOT NULL,
+                expires_at TIMESTAMPTZ NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS email_change_requests_user_idx ON email_change_requests (user_id, created_at DESC)")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS registration_otp_requests (
@@ -894,13 +941,27 @@ async def lifespan(_: FastAPI):
                 processed = False
             await asyncio.sleep(0.1 if processed else 10)
 
+    async def storm_advisory_worker():
+        while True:
+            try:
+                await asyncio.to_thread(process_live_storm_advisories)
+            except Exception:
+                logger.exception("Tropical storm advisory polling failed.")
+            await asyncio.sleep(STORM_ADVISORY_POLL_SECONDS)
+
     worker = asyncio.create_task(push_worker())
+    storm_worker = asyncio.create_task(storm_advisory_worker())
     try:
         yield
     finally:
         worker.cancel()
+        storm_worker.cancel()
         try:
             await worker
+        except asyncio.CancelledError:
+            pass
+        try:
+            await storm_worker
         except asyncio.CancelledError:
             pass
 
@@ -1021,6 +1082,8 @@ def create_incident(incident: IncidentCreate, connection: psycopg.Connection = D
     if is_new:
         notify_responders_of_new_incident(connection, incident, result["id"], user.id)
     connection.commit()
+    if is_new:
+        notify_responders_of_new_incident_sms(connection, incident, result["id"], user.id)
     return result
 
 
@@ -1046,6 +1109,13 @@ def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_co
                 else:
                     result = write_evacuee(connection, EvacueeCreate.model_validate(event.payload))
                 write_log(connection, "sync", "upload", user.id, event.entityType, result["id"], f"Synchronized {event.entityType} from the user device.")
+            if event.entityType == "incident" and is_new:
+                notify_responders_of_new_incident_sms(
+                    connection,
+                    incident_payload,
+                    result["id"],
+                    user.id,
+                )
             results.append(result)
         except (ValueError, psycopg.Error, HTTPException) as error:
             detail = error.detail if isinstance(error, HTTPException) else str(error)
@@ -1297,7 +1367,7 @@ def dispatch_incident_responders(
     user: CurrentUser = Depends(require_roles("admin")),
 ):
     incident = connection.execute(
-        "SELECT id, type, location_text, status, reporter_user_id FROM incidents WHERE id = %s FOR UPDATE",
+        "SELECT id, type, location_text, status, reporter_user_id, severity FROM incidents WHERE id = %s FOR UPDATE",
         (incident_id,),
     ).fetchone()
     if not incident:
@@ -1307,7 +1377,7 @@ def dispatch_incident_responders(
 
     responders = connection.execute(
         """
-        SELECT id, name, responder_organization, responder_barangay
+        SELECT id, name, responder_organization, responder_barangay, mobile_number, sms_alerts_enabled
         FROM users
         WHERE id = ANY(%s) AND role = 'Responder' AND status = 'Active'
         FOR SHARE
@@ -1380,7 +1450,7 @@ def dispatch_incident_responders(
         enqueue_user(connection, responder_id, incident_id, title, message)
 
     reporter = None
-    reporter_alert: tuple[str, str, str, str, bool, bool] | None = None
+    reporter_alert: tuple[str, str, str, str, bool, bool, bool] | None = None
     if incident["reporter_user_id"]:
         reporter = connection.execute(
             "SELECT id, email, mobile_number, email_alerts_enabled, sms_alerts_enabled FROM users WHERE id = %s",
@@ -1404,10 +1474,29 @@ def dispatch_incident_responders(
             report_message,
             reporter["email_alerts_enabled"],
             reporter["sms_alerts_enabled"],
+            incident.get("severity") in ("high", "critical"),
         )
 
     write_log(connection, "audit", "incident_dispatch", user.id, "incident", incident_id, f"Dispatched {len(dispatch.responderIds)} responder(s) to {incident['type']}.")
     connection.commit()
+    dispatch_numbers = [
+        responder_by_id[responder_id].get("mobile_number")
+        for responder_id in dispatch.responderIds
+        if responder_id not in previously_assigned
+        and responder_by_id[responder_id].get("sms_alerts_enabled")
+        and responder_by_id[responder_id].get("mobile_number")
+    ]
+    if dispatch_numbers:
+        try:
+            send_sms_to_many(
+                dispatch_numbers,
+                f"HANDA dispatch: {incident['type']} at {incident['location_text'] or 'the reported location'}. "
+                f"Incident reference: {incident_id}. Open HANDA for details.",
+                incident.get("severity") in ("high", "critical"),
+                settings,
+            )
+        except Exception:
+            logger.exception("Responder dispatch SMS could not be delivered.")
     if reporter_alert:
         deliver_incident_alert(*reporter_alert)
     return {
@@ -1540,7 +1629,7 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
         """,
         (incident_id,),
     ).fetchone()
-    incident_info = connection.execute("SELECT type, location_text FROM incidents WHERE id = %s", (incident_id,)).fetchone()
+    incident_info = connection.execute("SELECT type, location_text, severity FROM incidents WHERE id = %s", (incident_id,)).fetchone()
     if reporter:
         title, message = incident_notification_message(update.status, saved, reporter["incident_type"])
         connection.execute(
@@ -1558,6 +1647,17 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
         f"{incident_type} at {incident_info['location_text'] if incident_info else 'the reported location'} is now {update.status.replace('_', ' ').upper()}.",
         user.id,
     )
+    assigned_responders = connection.execute(
+        """
+        SELECT users.mobile_number
+        FROM incident_responder_assignments AS assignments
+        JOIN users ON users.id = assignments.responder_id
+        WHERE assignments.incident_id = %s AND assignments.status = 'dispatched'
+          AND users.id <> %s AND users.sms_alerts_enabled
+          AND users.mobile_number IS NOT NULL AND users.mobile_number <> ''
+        """,
+        (incident_id, user.id),
+    ).fetchall()
     connection.commit()
     if reporter:
         deliver_incident_alert(
@@ -1567,7 +1667,19 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
             message,
             reporter["email_alerts_enabled"],
             reporter["sms_alerts_enabled"],
+            incident_info.get("severity") in ("high", "critical") if incident_info else False,
         )
+    if assigned_responders:
+        try:
+            send_sms_to_many(
+                [responder["mobile_number"] for responder in assigned_responders],
+                f"Incident update: {incident_type} is now {update.status.replace('_', ' ').upper()}. "
+                f"Open HANDA for details.",
+                incident_info.get("severity") in ("high", "critical") if incident_info else False,
+                settings,
+            )
+        except Exception:
+            logger.exception("Assigned responder incident update SMS could not be delivered.")
     return row
 
 
@@ -1608,7 +1720,7 @@ def issue_realtime_token(user: CurrentUser = Depends(require_roles("resident", "
 
 def notification_preferences_payload(row: dict) -> dict:
     email_configured = email_delivery_configured()
-    sms_configured = bool(settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_from_number)
+    sms_configured = sms_delivery_configured(settings)
     return {
         "emailEnabled": row["email_alerts_enabled"],
         "smsEnabled": row["sms_alerts_enabled"],
@@ -2366,7 +2478,7 @@ def request_registration_otp(request: RegistrationOtpRequest, connection: psycop
     connection.commit()
     destination = email if request.channel == "email" else mobile_number
     try:
-        deliver_password_reset_otp(destination, request.channel, otp, "account verification", require_configured=True)
+        deliver_password_reset_otp(destination, request.channel, otp, "account verification")
     except HTTPException:
         connection.execute("DELETE FROM registration_otp_requests WHERE token = %s", (registration_token,))
         connection.commit()
@@ -2526,6 +2638,8 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
 
 @app.post("/api/v1/auth/password-reset/request")
 def request_password_reset(request: PasswordResetRequest, connection: psycopg.Connection = Depends(get_connection)):
+    if not otp_channel_configured(request.channel):
+        raise HTTPException(status_code=503, detail=f"{request.channel.upper()} code delivery is not configured.")
     identifier = request.identifier.strip().lower() if request.channel == "email" else request.identifier.strip()
     column = "email" if request.channel == "email" else "mobile_number"
     user = connection.execute(
@@ -2545,7 +2659,13 @@ def request_password_reset(request: PasswordResetRequest, connection: psycopg.Co
     )
     connection.commit()
     destination = user["email"] if request.channel == "email" else user["mobile_number"]
-    deliver_password_reset_otp(destination, request.channel, otp)
+    try:
+        deliver_password_reset_otp(destination, request.channel, otp)
+    except Exception as error:
+        logger.exception("Password reset verification code could not be delivered.")
+        connection.execute("DELETE FROM password_reset_requests WHERE token = %s", (reset_token,))
+        connection.commit()
+        raise HTTPException(status_code=503, detail="The verification code could not be delivered. Try again later.") from error
     response["resetToken"] = reset_token
     response["destination"] = mask_destination(destination, request.channel)
     return response
@@ -2583,7 +2703,7 @@ def request_password_change_otp(
     )
     connection.commit()
     try:
-        deliver_password_reset_otp(destination, request.channel, otp, "password change", require_configured=True)
+        deliver_password_reset_otp(destination, request.channel, otp, "password change")
     except HTTPException:
         connection.execute("DELETE FROM password_reset_requests WHERE token = %s", (reset_token,))
         connection.commit()
@@ -2600,6 +2720,57 @@ def request_password_change_otp(
     }
 
 
+@app.post("/api/v1/auth/email-change/request")
+def request_email_change_otp(
+    request: EmailChangeOtpRequest,
+    user: CurrentUser = Depends(get_current_user),
+    connection: psycopg.Connection = Depends(get_connection),
+):
+    row = connection.execute(
+        "SELECT password_hash, email, mobile_number FROM users WHERE id = %s",
+        (user.id,),
+    ).fetchone()
+    if not row or not verify_password(request.currentPassword, row["password_hash"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+    new_email = request.newEmail.strip().lower()
+    if new_email == row["email"].strip().lower():
+        raise HTTPException(status_code=400, detail="This is already your current email address.")
+    assert_unique_contact(connection, new_email, None, user.id)
+    if not row["mobile_number"]:
+        raise HTTPException(status_code=400, detail="Add a mobile number before changing your email address.")
+    if not sms_delivery_configured(settings):
+        raise HTTPException(status_code=503, detail="SMS code delivery is not configured.")
+    if connection.execute(
+        "SELECT 1 FROM email_change_requests WHERE user_id = %s AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1",
+        (user.id,),
+    ).fetchone():
+        raise HTTPException(status_code=429, detail="Wait one minute before requesting another verification code.")
+
+    otp = f"{secrets.randbelow(1_000_000):06d}"
+    email_change_token = secrets.token_urlsafe(32)
+    connection.execute("DELETE FROM email_change_requests WHERE user_id = %s", (user.id,))
+    connection.execute(
+        """
+        INSERT INTO email_change_requests (token, user_id, new_email, otp_hash, expires_at)
+        VALUES (%s, %s, %s, %s, NOW() + (%s * INTERVAL '1 minute'))
+        """,
+        (email_change_token, user.id, new_email, hash_reset_otp(otp), settings.password_reset_expiry_minutes),
+    )
+    connection.commit()
+    try:
+        deliver_password_reset_otp(row["mobile_number"], "sms", otp, "email change")
+    except Exception as error:
+        logger.exception("Email change verification code could not be delivered.")
+        connection.execute("DELETE FROM email_change_requests WHERE token = %s", (email_change_token,))
+        connection.commit()
+        raise HTTPException(status_code=503, detail="The verification code could not be delivered. Try again later.") from error
+    return {
+        "emailChangeToken": email_change_token,
+        "destination": mask_destination(row["mobile_number"], "sms"),
+        "message": "A verification code was sent to your current mobile number.",
+    }
+
+
 def verify_reset_request(reset_token: str, otp: str, connection: psycopg.Connection) -> dict:
     row = connection.execute(
         "SELECT token, user_id, otp_hash, expires_at, attempts, verified_at FROM password_reset_requests WHERE token = %s",
@@ -2613,6 +2784,32 @@ def verify_reset_request(reset_token: str, otp: str, connection: psycopg.Connect
         raise HTTPException(status_code=400, detail="This reset code is invalid or expired.")
     connection.execute("UPDATE password_reset_requests SET verified_at = NOW() WHERE token = %s", (reset_token,))
     connection.commit()
+    return row
+
+
+def verify_email_change_request(
+    token: str,
+    otp: str,
+    user_id: str,
+    new_email: str,
+    connection: psycopg.Connection,
+) -> dict:
+    row = connection.execute(
+        "SELECT token, user_id, new_email, otp_hash, expires_at, attempts FROM email_change_requests WHERE token = %s FOR UPDATE",
+        (token,),
+    ).fetchone()
+    if (
+        not row
+        or row["user_id"] != user_id
+        or row["new_email"] != new_email
+        or row["expires_at"] <= datetime.now(UTC)
+        or row["attempts"] >= settings.password_reset_max_attempts
+    ):
+        raise HTTPException(status_code=400, detail="This verification code is invalid or expired.")
+    if not hmac.compare_digest(row["otp_hash"], hash_reset_otp(otp)):
+        connection.execute("UPDATE email_change_requests SET attempts = attempts + 1 WHERE token = %s", (token,))
+        connection.commit()
+        raise HTTPException(status_code=400, detail="This verification code is invalid or expired.")
     return row
 
 
@@ -2778,6 +2975,18 @@ def update_resident_account(
     ).fetchone()
     if account.currentPassword and (not row or not verify_password(account.currentPassword, row["password_hash"])):
         raise HTTPException(status_code=400, detail="Current password is incorrect.")
+    normalized_email = account.email.strip().lower() if account.email is not None else None
+    email_changed = normalized_email is not None and normalized_email != row["email"].strip().lower()
+    if email_changed:
+        if not account.emailChangeToken or not account.emailChangeOtp:
+            raise HTTPException(status_code=422, detail="Verify the SMS code sent to your current mobile number before changing your email.")
+        verify_email_change_request(
+            account.emailChangeToken,
+            account.emailChangeOtp,
+            user.id,
+            normalized_email,
+            connection,
+        )
     if account.newPassword:
         validate_account_password(account.newPassword)
         if verify_password(account.newPassword, row["password_hash"]):
@@ -2789,13 +2998,12 @@ def update_resident_account(
             raise HTTPException(status_code=400, detail="This verification code is invalid or expired.")
     assignments: list[str] = []
     values: list[object] = []
-    normalized_email = account.email.strip().lower() if account.email is not None else None
     assert_unique_contact(connection, normalized_email, account.mobileNumber, user.id)
     credentials_changed = bool(
-        (normalized_email is not None and normalized_email != row["email"].lower())
+        email_changed
         or account.newPassword is not None
     )
-    if account.email is not None:
+    if email_changed:
         assignments.append("email = %s")
         values.append(normalized_email)
     if account.mobileNumber is not None:
@@ -2812,6 +3020,8 @@ def update_resident_account(
         connection.execute(f"UPDATE users SET {', '.join(assignments)} WHERE id = %s", values)
         if account.newPassword and account.passwordChangeToken:
             connection.execute("DELETE FROM password_reset_requests WHERE token = %s", (account.passwordChangeToken,))
+        if email_changed and account.emailChangeToken:
+            connection.execute("DELETE FROM email_change_requests WHERE token = %s", (account.emailChangeToken,))
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()

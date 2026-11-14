@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     twilio_account_sid: str = ""
     twilio_auth_token: str = ""
     twilio_from_number: str = ""
+    semaphore_api_key: str = ""
+    semaphore_sender_name: str = ""
     chatbot_api_base_url: str = Field(default="https://api.groq.com/openai/v1", validation_alias=AliasChoices("GROQ_API_BASE_URL", "CHATBOT_API_BASE_URL"))
     chatbot_api_key: str = Field(default="", validation_alias=AliasChoices("GROQ_API_KEY", "CHATBOT_API_KEY"))
     chatbot_model: str = Field(default="openai/gpt-oss-120b", validation_alias=AliasChoices("GROQ_MODEL", "CHATBOT_MODEL"))

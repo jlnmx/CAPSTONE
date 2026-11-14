@@ -102,7 +102,7 @@ export default function SettingsScreen() {
         <Reveal index={0}>
           <View style={styles.intro}>
             <Text style={[styles.introTitle, { color: palette.text }]}>Make HANDA yours</Text>
-            <Text style={[styles.introText, { color: palette.textMuted }]}>Choose how HANDA looks and how you receive incident response alerts.</Text>
+            <Text style={[styles.introText, { color: palette.textMuted }]}>Choose how HANDA looks and how you receive operational and tropical storm alerts.</Text>
           </View>
         </Reveal>
         <Reveal index={1}>
@@ -142,7 +142,7 @@ export default function SettingsScreen() {
               <View style={styles.sectionIcon}><MaterialCommunityIcons name="bell-outline" size={20} color={Colors.secondary} /></View>
               <View style={styles.notificationHeading}>
                 <Text style={[styles.sectionTitle, { color: palette.text }]}>Notifications</Text>
-                <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Choose how incident and evacuation-center updates reach you. In-app alerts remain on.</Text>
+                <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Choose how incident and evacuation-center updates reach you. SMS alerts can also include tropical storm advisories. In-app alerts remain on.</Text>
               </View>
             </View>
             {isLoadingNotificationPreferences ? <ActivityIndicator style={styles.preferenceLoading} color={Colors.secondary} /> : notificationPreferences ? <View style={styles.preferenceList}>
@@ -163,7 +163,7 @@ export default function SettingsScreen() {
               <PreferenceSwitch
                 title="SMS alerts"
                 detail={notificationPreferences.smsAvailable
-                  ? `Send incident and evacuation-center updates to ${notificationPreferences.mobileNumber || 'your account mobile number'}.`
+                  ? `Send incident, evacuation-center, and tropical storm advisories to ${notificationPreferences.mobileNumber || 'your account mobile number'}.`
                   : !notificationPreferences.smsConfigured
                     ? 'SMS delivery is not configured by the administrator; messages cannot be delivered yet.'
                     : 'A mobile number is not available for this account.'}

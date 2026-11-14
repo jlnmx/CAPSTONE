@@ -162,6 +162,8 @@ class ResidentAccountUpdate(BaseModel):
     newPassword: str | None = Field(default=None, min_length=8, max_length=128)
     passwordChangeToken: str | None = Field(default=None, min_length=20, max_length=100)
     passwordChangeOtp: str | None = Field(default=None, pattern=r"^\d{6}$")
+    emailChangeToken: str | None = Field(default=None, min_length=20, max_length=100)
+    emailChangeOtp: str | None = Field(default=None, pattern=r"^\d{6}$")
 
 
 class SelfProfileUpdate(BaseModel):
@@ -237,6 +239,11 @@ class RegistrationOtpVerification(BaseModel):
 
 class PasswordChangeOtpRequest(BaseModel):
     channel: Literal["email", "sms"]
+    currentPassword: str = Field(min_length=1, max_length=128)
+
+
+class EmailChangeOtpRequest(BaseModel):
+    newEmail: str = Field(pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$", max_length=255)
     currentPassword: str = Field(min_length=1, max_length=128)
 
 

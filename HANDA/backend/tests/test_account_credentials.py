@@ -131,17 +131,24 @@ class AccountCredentialTests(unittest.TestCase):
     @patch("app.main.household_members_for_user", return_value=[])
     @patch("app.main.resident_profile_payload", side_effect=lambda row, _members: row)
     @patch("app.main.create_access_token", return_value=("fresh-access-token", 3600))
+    @patch("app.main.verify_email_change_request")
     @patch("app.main.verify_password", return_value=True)
-    def test_email_change_normalizes_email_and_rotates_token(self, _verify, _token, _profile, _members):
+    def test_email_change_normalizes_email_and_rotates_token(self, _verify, _verify_email, _token, _profile, _members):
         profile = {**self.profile_row, "email": "new@example.com"}
         connection = FakeConnection(self.credential_row, profile)
 
         result = main.update_resident_account(
-            ResidentAccountUpdate(email="NEW@Example.com", currentPassword="Current#123"),
+            ResidentAccountUpdate(
+                email="NEW@Example.com",
+                currentPassword="Current#123",
+                emailChangeToken="e" * 32,
+                emailChangeOtp="123456",
+            ),
             self.user,
             connection,
         )
 
+        _verify_email.assert_called_once_with("e" * 32, "123456", "resident-1", "new@example.com", connection)
         self.assertIn("token_version = token_version + 1", connection.update_query)
         self.assertEqual(connection.update_values[0], "new@example.com")
         _token.assert_called_once_with("resident-1", "resident", 5)

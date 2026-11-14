@@ -9,6 +9,7 @@ import AppBackArrow from '@components/AppBackArrow';
 import { ThemeMode, useTheme } from '@hooks/useTheme';
 import { authenticatedFetch } from '@services/apiClient';
 import { updateAdminUser } from '@services/adminData';
+import { AuthUser } from '@/types/index';
 
 const themeOptions: Array<{ value: ThemeMode; label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; detail: string }> = [
   { value: 'light', label: 'Light', icon: 'white-balance-sunny', detail: 'Keep the interface bright' },
@@ -25,11 +26,15 @@ export default function AdminSettings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>('email');
+  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>('sms');
   const [passwordChangeToken, setPasswordChangeToken] = useState('');
   const [passwordChangeOtp, setPasswordChangeOtp] = useState('');
   const [passwordChangeDestination, setPasswordChangeDestination] = useState('');
   const [isRequestingPasswordOtp, setIsRequestingPasswordOtp] = useState(false);
+  const [emailChangeToken, setEmailChangeToken] = useState('');
+  const [emailChangeOtp, setEmailChangeOtp] = useState('');
+  const [emailChangeDestination, setEmailChangeDestination] = useState('');
+  const [isRequestingEmailOtp, setIsRequestingEmailOtp] = useState(false);
 
   const saveProfile = async () => {
     if (!user || !name.trim()) {
@@ -46,17 +51,66 @@ export default function AdminSettings() {
   };
 
   const saveEmail = async () => {
+    if (isRequestingEmailOtp) return;
     if (!user || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       Alert.alert('Invalid email', 'Enter a valid email address before saving.');
       return;
     }
     const nextEmail = email.trim().toLowerCase();
+    if (!currentPassword) {
+      Alert.alert('Current password required', 'Enter your current password before changing your email.');
+      return;
+    }
+    if (!emailChangeToken) {
+      setIsRequestingEmailOtp(true);
+      try {
+        const response = await authenticatedFetch('/api/v1/auth/email-change/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newEmail: nextEmail, currentPassword }),
+        });
+        const result = await response.json() as { emailChangeToken?: string; destination?: string; detail?: unknown };
+        if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'An email-change code could not be sent.');
+        if (!result.emailChangeToken) throw new Error('The verification request did not return a token.');
+        setEmailChangeToken(result.emailChangeToken);
+        setEmailChangeOtp('');
+        setEmailChangeDestination(result.destination || '');
+        Alert.alert('SMS code sent', `Enter the verification code sent to ${result.destination || 'your current mobile number'}.`);
+      } catch (error) {
+        Alert.alert('Could not send code', error instanceof Error ? error.message : 'An email-change code could not be sent.');
+      } finally {
+        setIsRequestingEmailOtp(false);
+      }
+      return;
+    }
+    if (!/^\d{6}$/.test(emailChangeOtp)) {
+      Alert.alert('Check verification code', 'Enter the 6-digit SMS code you received.');
+      return;
+    }
+    setIsRequestingEmailOtp(true);
     try {
-      await updateAdminUser(user.id, { email: nextEmail });
-      await setAuthenticatedUser({ ...user, email: nextEmail });
-      Alert.alert('Email updated', 'Your email address has been saved.');
+      const response = await authenticatedFetch('/api/v1/resident/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: nextEmail,
+          currentPassword,
+          emailChangeToken,
+          emailChangeOtp,
+        }),
+      });
+      const result = await response.json() as { detail?: unknown; accessToken?: string } & Partial<AuthUser>;
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Your email could not be saved.');
+      await setAuthenticatedUser(result as AuthUser, result.accessToken);
+      setCurrentPassword('');
+      setEmailChangeToken('');
+      setEmailChangeOtp('');
+      setEmailChangeDestination('');
+      Alert.alert('Email updated', 'Your email address has been verified and saved.');
     } catch (error) {
       Alert.alert('Update failed', error instanceof Error ? error.message : 'Your email could not be saved.');
+    } finally {
+      setIsRequestingEmailOtp(false);
     }
   };
 
@@ -147,9 +201,16 @@ export default function AdminSettings() {
         </View>
 
         <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-          <SectionHeading icon="email-edit-outline" title="Change email" detail="Use this address for future account communication" palette={palette} />
-          <Field label="Email address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" palette={palette} />
-          <ActionButton label="Save email" icon="email-check-outline" onPress={() => void saveEmail()} />
+          <SectionHeading icon="email-edit-outline" title="Change email" detail="Verify with an SMS code sent to your current mobile number" palette={palette} />
+          <Field label="New email address" value={email} onChangeText={(value) => {
+            setEmail(value);
+            setEmailChangeToken('');
+            setEmailChangeOtp('');
+            setEmailChangeDestination('');
+          }} keyboardType="email-address" autoCapitalize="none" palette={palette} />
+          <Field label="Current password" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry palette={palette} />
+          {!!emailChangeToken && <Field label={`6-digit SMS code sent to ${emailChangeDestination}`} value={emailChangeOtp} onChangeText={(value) => setEmailChangeOtp(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" palette={palette} />}
+          <ActionButton label={isRequestingEmailOtp ? 'Please wait...' : emailChangeToken ? 'Verify and save email' : 'Send SMS verification code'} icon="email-check-outline" onPress={() => void saveEmail()} />
         </View>
 
         <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}>
