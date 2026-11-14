@@ -6,7 +6,6 @@ import { Colors } from '@constants/colors';
 import type { MapEvacuationCenter } from '@/types/index';
 import useMapConnectivity from '@services/map/useMapConnectivity';
 import { loadGoogleMapsApi } from '@services/map/googleMapsWeb';
-import { createEvacuationCenterInfoContent } from '@services/map/evacuationCenterInfoContent';
 import OfflineMapCanvas from './OfflineMapCanvas';
 import type { OfflineMapPoint } from './OfflineMapCanvas';
 import MapNavigation from './MapNavigation';
@@ -35,9 +34,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
   const markersRef = useRef<google.maps.Marker[]>([]);
   const userMarkerRef = useRef<google.maps.Marker | null>(null);
   const onSelectCenterRef = useRef(onSelectCenter);
-  const onNavigationTargetChangeRef = useRef(onNavigationTargetChange);
   onSelectCenterRef.current = onSelectCenter;
-  onNavigationTargetChangeRef.current = onNavigationTargetChange;
   const validCenters = useMemo(() => centers.filter((center) => (
     center.latitude != null && center.longitude != null
       && Number.isFinite(Number(center.latitude)) && Number.isFinite(Number(center.longitude))
@@ -84,7 +81,6 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
     const map = mapReady ? mapRef.current : null;
     if (!map) return undefined;
     markersRef.current.forEach((marker) => marker.setMap(null));
-    const infoWindows: google.maps.InfoWindow[] = [];
     markersRef.current = validCenters.map((center) => {
       const marker = new google.maps.Marker({
         map,
@@ -94,23 +90,10 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
           ? undefined
           : { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#B64A75', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
       });
-      const info = new google.maps.InfoWindow({
-        content: createEvacuationCenterInfoContent(center, () => onNavigationTargetChangeRef.current?.({
-          title: center.name,
-          latitude: Number(center.latitude),
-          longitude: Number(center.longitude),
-        })),
-        maxWidth: 280,
-      });
-      infoWindows.push(info);
-      marker.addListener('click', () => {
-        info.open({ map, anchor: marker });
-        onSelectCenterRef.current?.(center.id);
-      });
+      marker.addListener('click', () => onSelectCenterRef.current?.(center.id));
       return marker;
     });
     return () => {
-      infoWindows.forEach((info) => info.close());
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
     };
