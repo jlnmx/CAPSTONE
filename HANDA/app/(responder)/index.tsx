@@ -2,7 +2,7 @@
  * Responder Dashboard / Home Screen
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, SafeAreaView, Animated, useWindowDimensions } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,7 +14,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { NotificationBell } from '@components/NotificationBell';
 import { HandaLogoBadge } from '@components/HandaLogo';
-import QuickTutorial from '@components/QuickTutorial';
+import QuickTutorial, { type TutorialTargetRefs } from '@components/QuickTutorial';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, getResponseHistory, ResponderDataSnapshot } from '@services/responderData';
 import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
@@ -31,6 +31,22 @@ export default function ResponderDashboard() {
   const { resolvedTheme } = useTheme();
   const { user } = useAuth();
   const { width, height } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const notificationsTargetRef = useRef<View>(null);
+  const evacueesTargetRef = useRef<View>(null);
+  const incidentsTargetRef = useRef<View>(null);
+  const centersTargetRef = useRef<View>(null);
+  const historyTargetRef = useRef<View>(null);
+  const weatherTargetRef = useRef<View>(null);
+  const tutorialTargets: TutorialTargetRefs = {
+    notifications: notificationsTargetRef,
+    evacuees: evacueesTargetRef,
+    incidents: incidentsTargetRef,
+    centers: centersTargetRef,
+    history: historyTargetRef,
+    weather: weatherTargetRef,
+  };
   const fontScale = Math.max(0.9, Math.min(width / 390, height / 800, 1.4));
   const heightScale = Math.max(0.9, Math.min(height / 800, 1.8));
   const [data, setData] = useState<ResponderDataSnapshot>({ incidents: [], evacuees: [], registeredEvacuees: 0, disasters: [], centers: [], unavailableSources: [] });
@@ -72,16 +88,19 @@ export default function ResponderDashboard() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
+        ref={scrollRef}
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        onScroll={(event) => { scrollOffsetRef.current = event.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
       >
         <View style={styles.header}>
           <View style={styles.headerBrand}>
             <HandaLogoBadge size={46} />
             <Text style={styles.headerLogo}>HANDA</Text>
           </View>
-          <NotificationBell />
+          <View ref={notificationsTargetRef} collapsable={false}><NotificationBell /></View>
         </View>
 
         <View style={styles.greeting}>
@@ -91,7 +110,9 @@ export default function ResponderDashboard() {
           </View>
         </View>
 
-        <ResponderWeatherCard disasterActive={disasterIsActive} scale={heightScale} />
+        <View ref={weatherTargetRef} collapsable={false}>
+          <ResponderWeatherCard disasterActive={disasterIsActive} scale={heightScale} />
+        </View>
 
         {disasterIsActive && activeDisaster && (
           <ActiveDisasterCard
@@ -108,19 +129,27 @@ export default function ResponderDashboard() {
         </View>
 
         <View style={[styles.statsContainer, { minHeight: 112 * heightScale }]}>
-          <StatTile scale={fontScale} tone="forest" icon="account-group-outline" mark="account-group-outline" value={isLoading ? '...' : displayedEvacuees} label="Total Evacuees" onPress={() => router.push('/evacuees')} />
-          <StatTile scale={fontScale} tone="clay" icon="alert-outline" mark="alert-octagon-outline" value={isLoading ? '...' : displayedIncidents} label="Active Incidents" onPress={() => router.push('/incidents')} />
+          <View ref={evacueesTargetRef} collapsable={false} style={styles.statTarget}>
+            <StatTile scale={fontScale} tone="forest" icon="account-group-outline" mark="account-group-outline" value={isLoading ? '...' : displayedEvacuees} label="Total Evacuees" onPress={() => router.push('/evacuees')} />
+          </View>
+          <View ref={incidentsTargetRef} collapsable={false} style={styles.statTarget}>
+            <StatTile scale={fontScale} tone="clay" icon="alert-outline" mark="alert-octagon-outline" value={isLoading ? '...' : displayedIncidents} label="Active Incidents" onPress={() => router.push('/incidents')} />
+          </View>
         </View>
 
         <View style={[styles.statsContainer, { minHeight: 112 * heightScale }]}>
-          <StatTile scale={fontScale} tone="teal" icon="home-city-outline" mark="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers" onPress={() => router.push('/responder-center-status')} />
-          <StatTile scale={fontScale} tone="sand" icon="history" mark="clipboard-text-clock-outline" value={isLoading ? '...' : displayedResponses} label="Response History" onPress={() => router.push('/response-history')} />
+          <View ref={centersTargetRef} collapsable={false} style={styles.statTarget}>
+            <StatTile scale={fontScale} tone="teal" icon="home-city-outline" mark="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers" onPress={() => router.push('/responder-center-status')} />
+          </View>
+          <View ref={historyTargetRef} collapsable={false} style={styles.statTarget}>
+            <StatTile scale={fontScale} tone="sand" icon="history" mark="clipboard-text-clock-outline" value={isLoading ? '...' : displayedResponses} label="Response History" onPress={() => router.push('/response-history')} />
+          </View>
         </View>
 
         <Text style={styles.dataSource}>{isLoading ? 'Loading live server data...' : dataUnavailable ? `Partial live data · unavailable: ${data.unavailableSources.join(', ')}` : 'Live server data · refreshes every 15 seconds'}</Text>
 
       </ScrollView>
-      <QuickTutorial role="responder" userId={user?.id} />
+      <QuickTutorial role="responder" userId={user?.id} targets={tutorialTargets} scrollRef={scrollRef} scrollOffsetRef={scrollOffsetRef} />
     </SafeAreaView>
   );
 }
@@ -284,6 +313,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     flexGrow: 1,
   },
+  statTarget: { flex: 1 },
   dataSource: { marginHorizontal: 18, marginTop: -3, marginBottom: 12, color: Colors.textMuted, fontSize: 10 },
   statTile: {
     flex: 1,

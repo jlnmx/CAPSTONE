@@ -1,5 +1,6 @@
 import { ChannelLike } from '../realtimeChannel';
-import { createLocationPublisher, mergeResponderLive, parseLocation } from '../responderLive';
+import { createLocationPublisher, mergeResponderLive, parseLocation, resolveResponderLocationArea } from '../responderLive';
+import { isRealtimeEnabledForUser } from '../realtimeTopics';
 
 const fakeChannel = () => ({ send: jest.fn(async () => undefined) } as unknown as ChannelLike & { send: jest.Mock });
 
@@ -17,6 +18,44 @@ describe('parseLocation', () => {
     { latitude: 0, longitude: 0 },
   ])('rejects malformed payload %j', (payload) => {
     expect(parseLocation(payload)).toBeNull();
+  });
+
+  it('accepts current city and barangay labels without other payload fields', () => {
+    expect(parseLocation({
+      user_id: 'r1',
+      latitude: 14.3,
+      longitude: 121.0,
+      city: 'Biñan City',
+      barangay: 'Canlalay',
+      phone: '123',
+    })).toMatchObject({ city: 'Biñan City', barangay: 'Canlalay' });
+    expect(parseLocation({ user_id: 'r1', latitude: 14.3, longitude: 121.0, city: 3 })).not.toHaveProperty('city');
+    expect(parseLocation({
+      user_id: 'r1',
+      latitude: 14.3,
+      longitude: 121.0,
+      city: 'Santa Rosa',
+      barangay: 'Balibago',
+    })).not.toHaveProperty('barangay');
+  });
+});
+
+describe('resolveResponderLocationArea', () => {
+  it('includes the barangay only when the reverse-geocoded city is Biñan', () => {
+    expect(resolveResponderLocationArea({ city: 'Biñan City', district: 'Barangay Canlalay' }))
+      .toEqual({ city: 'Biñan City', barangay: 'Canlalay' });
+    expect(resolveResponderLocationArea({ city: 'Santa Rosa', district: 'Balibago', subregion: 'Laguna' }))
+      .toEqual({ city: 'Santa Rosa' });
+  });
+});
+
+describe('isRealtimeEnabledForUser', () => {
+  it('allows authenticated demo responders on the live responder channel only', () => {
+    const demoResponder = { role: 'responder', isDemo: true };
+    expect(isRealtimeEnabledForUser(demoResponder, ['responder'])).toBe(false);
+    expect(isRealtimeEnabledForUser(demoResponder, ['responder'], true)).toBe(true);
+    expect(isRealtimeEnabledForUser({ role: 'resident', isDemo: true }, ['responder'], true)).toBe(false);
+    expect(isRealtimeEnabledForUser({ role: 'admin', isDemo: true }, ['admin'], true)).toBe(false);
   });
 });
 
@@ -49,6 +88,13 @@ describe('createLocationPublisher', () => {
       event: 'location',
       payload: { user_id: 'r1', latitude: 14.3, longitude: 121.0, accuracy: 8, ts: 10_000 },
     });
+  });
+
+  it('sends locality labels with the transient GPS update', () => {
+    const channel = fakeChannel();
+    const publish = createLocationPublisher(() => channel, 'r1', () => 10_000);
+    expect(publish(14.3, 121.0, undefined, { city: 'Biñan City', barangay: 'Canlalay' })).toBe(true);
+    expect(channel.send.mock.calls[0][0].payload).toMatchObject({ city: 'Biñan City', barangay: 'Canlalay' });
   });
 
   it('does nothing without a subscribed channel', () => {

@@ -15,6 +15,16 @@ export const CENTER_EVENT = 'center_changed';
 export const NOTIFICATION_EVENT = 'notification_created';
 export const LOCATION_EVENT = 'location';
 
+export function isRealtimeEnabledForUser(
+  user: { role: string; isDemo?: boolean } | null | undefined,
+  roles?: readonly string[],
+  allowDemoResponder = false,
+): boolean {
+  return Boolean(user
+    && (!user.isDemo || (allowDemoResponder && user.role === 'responder'))
+    && (!roles || roles.includes(user.role)));
+}
+
 export type ChangeOp = 'INSERT' | 'UPDATE' | 'DELETE';
 
 export interface RealtimeIncident {
@@ -75,6 +85,8 @@ export interface ResponderLocation {
   latitude: number;
   longitude: number;
   accuracy?: number;
+  city?: string;
+  barangay?: string;
   ts: number;
 }
 

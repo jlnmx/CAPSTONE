@@ -1,6 +1,6 @@
 /**
- * React hooks for Supabase Realtime. Channels open only for a signed-in, non-demo user, are private,
- * retry on error, and are removed on unmount or logout.
+ * React hooks for Supabase Realtime. Channels are private, retry on error, and are removed on
+ * unmount or logout. The authenticated demo responder can also publish responder presence.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +22,7 @@ import {
   RESPONDER_LIVE_ROLES,
   ResponderAvailability,
   ResponderLocation,
+  isRealtimeEnabledForUser,
   notificationsTopic,
 } from '@services/realtimeTopics';
 
@@ -66,9 +67,9 @@ export function useRealtimeChannel(spec: ChannelSpec & { enabled: boolean }): { 
   return { status, channel };
 }
 
-function useRealtimeEnabled(roles?: readonly string[]) {
+function useRealtimeEnabled(roles?: readonly string[], allowDemoResponder = false) {
   const { user } = useAuth();
-  const enabled = Boolean(user && !user.isDemo && (!roles || roles.includes(user.role)));
+  const enabled = isRealtimeEnabledForUser(user, roles, allowDemoResponder);
   return { user, enabled };
 }
 
@@ -97,7 +98,7 @@ export function useNotificationStream(onNotification: (event: NotificationCreate
  * Everything is transient: Presence holds who is online, Broadcast carries throttled locations.
  */
 export function useResponderLive() {
-  const { user, enabled } = useRealtimeEnabled(RESPONDER_LIVE_ROLES);
+  const { user, enabled } = useRealtimeEnabled(RESPONDER_LIVE_ROLES, true);
   const canShare = user?.role === 'responder';
   const [presence, setPresence] = useState<Record<string, any[]>>({});
   const [locations, setLocations] = useState<Record<string, ResponderLocation>>({});

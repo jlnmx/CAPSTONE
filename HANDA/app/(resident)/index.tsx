@@ -1,5 +1,5 @@
 import React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,18 +13,18 @@ import { HandaLogoBadge } from '@components/HandaLogo';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { TyphoonCard } from '@components/TyphoonCard';
-import QuickTutorial from '@components/QuickTutorial';
+import QuickTutorial, { type TutorialTargetRefs } from '@components/QuickTutorial';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { getFirstName, getGreeting, getTimeOfDayPresentation } from '@utils/weatherTime';
 import type { LiveTyphoon } from '@/types/weather';
 import type { ResidentHouseholdMember } from '@/types/index';
 
-const actions: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; mark: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; route: string; tone: 'forest' | 'teal' | 'sand' | 'clay' | 'danger' }[] = [
-  { icon: 'information-outline', mark: 'home-heart', label: 'Evacuation guidance', route: '/(resident)/register-evacuee', tone: 'forest' },
-  { icon: 'alert-circle-outline', mark: 'alert-octagon-outline', label: 'Report incident', route: '/(resident)/report', tone: 'danger' },
-  { icon: 'home-city-outline', mark: 'home-city-outline', label: 'Center status', route: '/(resident)/center-status', tone: 'sand' },
-  { icon: 'account-multiple-outline', mark: 'home-group', label: 'Household', route: '/(resident)/household', tone: 'sand' },
+const actions: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; mark: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; route: string; tone: 'forest' | 'teal' | 'sand' | 'clay' | 'danger'; target: string }[] = [
+  { icon: 'information-outline', mark: 'home-heart', label: 'Evacuation guidance', route: '/(resident)/register-evacuee', tone: 'forest', target: 'guidance' },
+  { icon: 'alert-circle-outline', mark: 'alert-octagon-outline', label: 'Report incident', route: '/(resident)/report', tone: 'danger', target: 'report' },
+  { icon: 'home-city-outline', mark: 'home-city-outline', label: 'Center status', route: '/(resident)/center-status', tone: 'sand', target: 'centers' },
+  { icon: 'account-multiple-outline', mark: 'home-group', label: 'Household', route: '/(resident)/household', tone: 'sand', target: 'household' },
 ];
 
 type ActiveDisaster = {
@@ -45,6 +45,24 @@ type ResidentEvacuationStatus = {
 
 export default function ResidentDashboard() {
   const { user } = useAuth();
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
+  const notificationsTargetRef = useRef<View>(null);
+  const statusTargetRef = useRef<View>(null);
+  const reportTargetRef = useRef<View>(null);
+  const guidanceTargetRef = useRef<View>(null);
+  const householdTargetRef = useRef<View>(null);
+  const centersTargetRef = useRef<View>(null);
+  const hotlineTargetRef = useRef<View>(null);
+  const tutorialTargets: TutorialTargetRefs = {
+    notifications: notificationsTargetRef,
+    status: statusTargetRef,
+    report: reportTargetRef,
+    guidance: guidanceTargetRef,
+    household: householdTargetRef,
+    centers: centersTargetRef,
+    hotline: hotlineTargetRef,
+  };
   const [activeDisaster, setActiveDisaster] = useState<ActiveDisaster | null>(null);
   const [disasterError, setDisasterError] = useState(false);
   const { weather, weatherEvents, environmentalRisk, airQualityUnavailable, presentation, isLoading: isWeatherLoading, isUnavailable: weatherError, errorMessage: weatherErrorMessage, now } = useWeather();
@@ -132,10 +150,17 @@ export default function ResidentDashboard() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: timePresentation.pageBackground }]}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        onScroll={(event) => { scrollOffsetRef.current = event.nativeEvent.contentOffset.y; }}
+        scrollEventThrottle={16}
+      >
         <View style={styles.header}>
           <View style={styles.brandRow}><HandaLogoBadge size={46} /><Text style={styles.brand}>HANDA</Text></View>
-          <NotificationBell />
+          <View ref={notificationsTargetRef} collapsable={false}><NotificationBell /></View>
         </View>
 
         <View style={styles.greeting}>
@@ -156,35 +181,50 @@ export default function ResidentDashboard() {
         )}
         {liveTyphoons.map((typhoon) => <TyphoonCard key={typhoon.id} typhoon={typhoon} />)}
 
-        <StatusTile
-          unavailable={evacuationStatusUnavailable}
-          status={evacuationStatus}
-          loading={!evacuationStatusUnavailable && !evacuationStatus}
-          onPress={() => router.push('/(resident)/verify-status')}
-        />
-
-        <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-        <View style={styles.actionGrid}>{actions.map((action) => <DashTile key={action.label} tone={action.tone} icon={action.icon} mark={action.mark} title={action.label} onPress={() => router.push(action.route)} style={styles.actionButton} />)}</View>
-        <View style={styles.resourceRow}>
-          <ResourceButton
-            tone="danger"
-            icon="phone-in-talk-outline"
-            mark="bullhorn-outline"
-            title="Emergency Hotline"
-            detail="Contact list"
-            onPress={() => router.push('/(resident)/emergency-contacts')}
-          />
-          <ResourceButton
-            tone="sand"
-            icon="book-open-page-variant-outline"
-            mark="book-open-page-variant-outline"
-            title="Preparation Guide"
-            detail="Disaster readiness"
-            onPress={() => router.push('/(resident)/preparedness-guide')}
+        <View ref={statusTargetRef} collapsable={false}>
+          <StatusTile
+            unavailable={evacuationStatusUnavailable}
+            status={evacuationStatus}
+            loading={!evacuationStatusUnavailable && !evacuationStatus}
+            onPress={() => router.push('/(resident)/verify-status')}
           />
         </View>
+
+        <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
+        <View style={styles.actionGrid}>
+          {actions.map((action) => {
+            const targetRef = tutorialTargets[action.target];
+            return (
+              <View key={action.label} ref={targetRef} collapsable={false} style={styles.actionTarget}>
+                <DashTile tone={action.tone} icon={action.icon} mark={action.mark} title={action.label} onPress={() => router.push(action.route)} style={styles.actionButton} />
+              </View>
+            );
+          })}
+        </View>
+        <View style={styles.resourceRow}>
+          <View ref={hotlineTargetRef} collapsable={false} style={styles.resourceTarget}>
+            <ResourceButton
+              tone="danger"
+              icon="phone-in-talk-outline"
+              mark="bullhorn-outline"
+              title="Emergency Hotline"
+              detail="Contact list"
+              onPress={() => router.push('/(resident)/emergency-contacts')}
+            />
+          </View>
+          <View style={styles.resourceTarget}>
+            <ResourceButton
+              tone="sand"
+              icon="book-open-page-variant-outline"
+              mark="book-open-page-variant-outline"
+              title="Preparation Guide"
+              detail="Disaster readiness"
+              onPress={() => router.push('/(resident)/preparedness-guide')}
+            />
+          </View>
+        </View>
       </ScrollView>
-      <QuickTutorial role="resident" userId={user?.id} />
+      <QuickTutorial role="resident" userId={user?.id} targets={tutorialTargets} scrollRef={scrollRef} scrollOffsetRef={scrollOffsetRef} />
     </SafeAreaView>
   );
 }
@@ -332,7 +372,9 @@ const styles = StyleSheet.create({
   tileFooterRow: { flex: 1, marginTop: 0, alignItems: 'center' },
   sectionTitle: { color: '#A84F7D', fontFamily: AppHeadingFontFamily, fontSize: 15, letterSpacing: 0.65, marginHorizontal: 18, marginTop: 0, marginBottom: 10 },
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 12, marginHorizontal: 18 },
-  actionButton: { width: '48%' },
+  actionTarget: { width: '48%' },
+  actionButton: { width: '100%' },
+  resourceTarget: { flex: 1 },
   actionButtonHovered: { transform: [{ translateY: -3 }], backgroundColor: Colors.surface, borderColor: '#F1C7D9', shadowColor: '#1769AA', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.16, shadowRadius: 7, elevation: 5 },
   buttonPressed: { transform: [{ translateY: 1 }] },
   actionLabel: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', flexShrink: 1 },

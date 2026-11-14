@@ -176,12 +176,15 @@ export default function DispatchView() {
           {sortedResponders.map(({ responder, live, distance }) => {
             const alreadyAssigned = assignedIds.has(responder.id);
             const checked = selectedResponderIds.includes(responder.id);
+            const currentArea = live?.location?.barangay
+              ? `Barangay ${live.location.barangay}`
+              : live?.location?.city;
             return <label className={`dispatch-responder ${checked ? 'dispatch-responder-selected' : ''}`} key={responder.id}>
               <input type="checkbox" checked={checked} onChange={() => toggleResponder(responder.id)} disabled={busy || alreadyAssigned} />
               <span className="dispatch-avatar">{responder.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?'}</span>
               <span className="dispatch-responder-copy">
                 <strong>{responder.name}</strong>
-                <small>{responder.responder_organization || 'Responder'}{responder.responder_barangay ? ` · ${responder.responder_barangay}` : ''}</small>
+                <small>{responder.responder_organization || 'Responder'}{currentArea ? ` · Now: ${currentArea}` : responder.responder_barangay ? ` · Registered: ${responder.responder_barangay}` : ''}</small>
               </span>
               <span className="dispatch-responder-meta">
                 {alreadyAssigned ? <span className="dispatch-assigned-tag"><Check size={12} /> Assigned</span> : <span className={`dispatch-presence ${live ? 'is-online' : ''}`}>{live ? 'Online' : 'Offline'}</span>}

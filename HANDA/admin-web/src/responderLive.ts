@@ -13,6 +13,8 @@ interface ResponderLocation {
   latitude: number;
   longitude: number;
   accuracy?: number;
+  city?: string;
+  barangay?: string;
   ts: number;
 }
 
@@ -55,6 +57,9 @@ function parseLocation(payload: unknown): ResponderLocation | null {
   if (typeof payload !== 'object' || payload === null) return null;
   const value = payload as Record<string, unknown>;
   const { user_id: userId, latitude, longitude, accuracy, ts } = value;
+  const city = typeof value.city === 'string' ? value.city.trim().slice(0, 100) : '';
+  const barangay = typeof value.barangay === 'string' ? value.barangay.trim().slice(0, 100) : '';
+  const isBinan = city.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes('binan');
   if (typeof userId !== 'string'
     || typeof latitude !== 'number' || !Number.isFinite(latitude) || latitude < -90 || latitude > 90
     || typeof longitude !== 'number' || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null;
@@ -63,6 +68,8 @@ function parseLocation(payload: unknown): ResponderLocation | null {
     latitude,
     longitude,
     ...(typeof accuracy === 'number' ? { accuracy } : {}),
+    ...(city ? { city } : {}),
+    ...(isBinan && barangay ? { barangay } : {}),
     ts: typeof ts === 'number' && Number.isFinite(ts) ? ts : Date.now(),
   };
 }

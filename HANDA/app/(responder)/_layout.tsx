@@ -13,6 +13,7 @@ import { StartupLocationPermission } from '@components/StartupLocationPermission
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
 import { useResponderLive } from '@hooks/useRealtime';
+import { resolveResponderLocationArea, type ResponderLocationArea } from '@services/responderLive';
 import { getResponsiveTabBarOptions, getResponsiveTabIconSize } from '@utils/responsiveTabBar';
 
 interface TabBarIconProps {
@@ -36,6 +37,15 @@ function TabBarIcon({ name, color, size, focused }: TabBarIconProps) {
   );
 }
 
+const AREA_REFRESH_INTERVAL_MS = 60_000;
+const AREA_REFRESH_DISTANCE_METERS = 500;
+
+function distanceMeters(from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }): number {
+  const latitudeMeters = (to.latitude - from.latitude) * 111_000;
+  const longitudeMeters = (to.longitude - from.longitude) * 111_000 * Math.cos(from.latitude * Math.PI / 180);
+  return Math.sqrt(latitudeMeters ** 2 + longitudeMeters ** 2);
+}
+
 function ResponderPresenceHeartbeat({ locationPermissionGranted }: { locationPermissionGranted: boolean }) {
   const { status, publishLocation } = useResponderLive();
 
@@ -43,13 +53,39 @@ function ResponderPresenceHeartbeat({ locationPermissionGranted }: { locationPer
     if (!locationPermissionGranted || status !== 'SUBSCRIBED') return undefined;
     let active = true;
     let subscription: Location.LocationSubscription | null = null;
+    let geocoding = false;
+    let lastGeocodedAt = 0;
+    let lastGeocodedCoordinates: { latitude: number; longitude: number } | null = null;
+    const currentArea: ResponderLocationArea = {};
+
     void Location.watchPositionAsync(
       { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
-      (position) => publishLocation(
-        position.coords.latitude,
-        position.coords.longitude,
-        position.coords.accuracy ?? undefined,
-      ),
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        const coordinates = { latitude, longitude };
+        publishLocation(latitude, longitude, accuracy ?? undefined, currentArea);
+
+        const now = Date.now();
+        const movedEnough = lastGeocodedCoordinates !== null
+          && distanceMeters(lastGeocodedCoordinates, coordinates) >= AREA_REFRESH_DISTANCE_METERS;
+        if (geocoding || (lastGeocodedAt && now - lastGeocodedAt < AREA_REFRESH_INTERVAL_MS && !movedEnough)) return;
+
+        geocoding = true;
+        lastGeocodedAt = now;
+        lastGeocodedCoordinates = coordinates;
+        void Location.reverseGeocodeAsync(coordinates)
+          .then((addresses) => {
+            if (!active) return;
+            const area = resolveResponderLocationArea(addresses[0]);
+            currentArea.city = area.city;
+            currentArea.barangay = area.barangay;
+            publishLocation(latitude, longitude, accuracy ?? undefined, area);
+          })
+          .catch((error: unknown) => {
+            console.warn('Responder location area could not be resolved.', error);
+          })
+          .finally(() => { geocoding = false; });
+      },
     ).then((watcher) => {
       if (active) subscription = watcher;
       else watcher.remove();
@@ -88,7 +124,7 @@ export default function ResponderLayout() {
 
   return (
     <>
-    {isAuthenticated && user?.role === 'responder' && <ResponderPresenceHeartbeat locationPermissionGranted={locationPermissionGranted} />}
+    {isAuthenticated && user?.role === 'responder' && <ResponderPresenceHeartbeat key={user.id} locationPermissionGranted={locationPermissionGranted} />}
     <Tabs
       backBehavior="history"
       screenOptions={{

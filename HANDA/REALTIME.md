@@ -4,7 +4,7 @@ Private Broadcast channels deliver database-driven events; Presence plus throttl
 
 ## Auth flow
 
-1. The client calls `POST /api/v1/realtime/token` with its normal HANDA bearer token (resident, responder or admin; demo users get none).
+1. The client calls `POST /api/v1/realtime/token` with its normal HANDA bearer token (resident, responder or admin). The demo responder sign-in authenticates against a real HANDA account and can publish responder presence; other demo-only realtime feeds remain disabled.
 2. The API signs a JWT with the private key you imported into Supabase (`REALTIME_JWT_PRIVATE_KEY`, ES256 or RS256) and returns `{ token, expires_in }`. The key never leaves the server.
 3. The client calls `supabase.realtime.setAuth(token)` before joining, and refreshes at 75% of the lifetime (`src/services/realtimeClient.ts`). A revoked HANDA session cannot mint new tokens; an issued token lives up to `REALTIME_TOKEN_MINUTES` (default 30).
 
@@ -17,9 +17,9 @@ Claims: `role=authenticated`, `aud=authenticated`, `sub=<public.users.id>` (text
 | `incidents:feed` | `incident_changed` | `{ op, incident: { id, type, severity, status, location, latitude, longitude, created_at, updated_at } }` (DELETE: id only) | resident, responder, admin |
 | `evacuation_centers:feed` | `center_changed` | `{ op, center: { id, name, location, capacity, current_occupancy, status, latitude, longitude, updated_at } }` | resident, responder, admin |
 | `user:<users.id>:notifications` | `notification_created` | `{ notification: { id, incident_id, title, message, created_at } }` | only that user (resident/responder) |
-| `responders:live` | presence `{ availability, online_at }` (key = user id); broadcast `location` `{ user_id, latitude, longitude, accuracy?, ts }` | responders and admins read; only responders send |
+| `responders:live` | presence; broadcast `location` | presence `{ availability, online_at }` (key = user id); location `{ user_id, latitude, longitude, accuracy?, city?, barangay?, ts }` | responders and admins read; only responders send |
 
-Incident descriptions, photos, reporter ids, coordinator contacts and notification `user_id` are never broadcast. Responder locations are never written to the database; they exist only while the responder is online and fresh (60 s).
+Incident descriptions, photos, reporter ids, coordinator contacts and notification `user_id` are never broadcast. Responder GPS and its city/Barangay labels are never written to the database; they exist only while the responder is online and fresh (60 s). The device reverse-geocodes at a limited interval and sends only the city, plus the Barangay when inside Biñan.
 
 Known limit: `user_id` in location/presence payloads is supplied by the sending responder, so a malicious responder could impersonate another. Move location publishing behind the API if that matters.
 
