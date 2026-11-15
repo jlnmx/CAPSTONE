@@ -302,7 +302,12 @@ export default function QuickTutorial({ role, userId, targets, scrollRef, scroll
       <View pointerEvents="none" style={[styles.dim, { top: spotlight.y, left: 0, width: spotlight.x, height: spotlight.height }]} />
       <View pointerEvents="none" style={[styles.dim, { top: spotlight.y, left: spotlight.x + spotlight.width, right: 0, height: spotlight.height }]} />
       <View pointerEvents="none" style={[styles.dim, { top: spotlight.y + spotlight.height, left: 0, right: 0, bottom: 0 }]} />
-      <View pointerEvents="none" style={[styles.spotlight, spotlight]} />
+      <View pointerEvents="none" style={[styles.spotlight, {
+        left: spotlight.x,
+        top: spotlight.y,
+        width: spotlight.width,
+        height: spotlight.height,
+      }]} />
 
       <View
         onLayout={(event) => {
