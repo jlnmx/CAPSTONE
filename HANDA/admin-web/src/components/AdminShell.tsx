@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity, AlertTriangle, BarChart3, Building2, ChevronDown, ClipboardList,
@@ -29,9 +29,30 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const pageTitle = location.pathname.startsWith('/centers/') ? 'Center management' : pageNames[location.pathname] || 'Command Center';
   const initials = (user?.name || 'HA').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+
+  useEffect(() => {
+    const breakpoint = window.matchMedia('(max-width: 820px)');
+    const updateViewport = () => {
+      setIsMobileViewport(breakpoint.matches);
+      if (!breakpoint.matches) setMenuOpen(false);
+    };
+    updateViewport();
+    breakpoint.addEventListener('change', updateViewport);
+    return () => breakpoint.removeEventListener('change', updateViewport);
+  }, []);
+
+  const toggleNavigation = () => {
+    if (isMobileViewport) {
+      setMenuOpen((open) => !open);
+      return;
+    }
+    setSidebarCollapsed((collapsed) => !collapsed);
+  };
 
   const leave = async () => {
     await signOut();
@@ -39,9 +60,9 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
   };
 
   return (
-    <div className="app-frame">
+    <div className={`app-frame ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <div className={`sidebar-scrim ${menuOpen ? 'is-visible' : ''}`} onClick={() => setMenuOpen(false)} />
-      <aside className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`}>
+      <aside id="command-center-sidebar" className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`}>
         <div className="brand-lockup">
           <div className="brand-emblem"><img src="/handa-logo.png" alt="HANDA logo" /></div>
           <div className="brand-copy"><strong>HANDA</strong><span>COMMAND CENTER</span></div>
@@ -51,7 +72,7 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
         <div className="sidebar-caption">RESPONSE</div>
         <nav className="primary-nav" aria-label="Command center">
           {navigation.filter(({ to }) => to !== '/users' || user?.isSuperAdmin).map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
+            <NavLink key={to} to={to} end={end} title={label} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
               <Icon size={18} strokeWidth={1.9} />
               <span>{label}</span>
             </NavLink>
@@ -60,8 +81,8 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
 
         <div className="sidebar-bottom">
           <div className="sidebar-caption">PREFERENCES</div>
-          <NavLink to="/system" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Radio size={18} /><span>System status</span></NavLink>
-          <NavLink to="/settings" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Settings size={18} /><span>Settings</span></NavLink>
+          <NavLink to="/system" title="System status" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Radio size={18} /><span>System status</span></NavLink>
+          <NavLink to="/settings" title="Settings" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Settings size={18} /><span>Settings</span></NavLink>
           <div className="sidebar-presence"><span className="presence-indicator" /><div><strong>Secure console</strong><small>Administrator session</small></div></div>
         </div>
       </aside>
@@ -69,7 +90,16 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
       <main className="main-frame">
         <header className="topbar">
           <div className="topbar-left">
-            <button className="icon-button menu-toggle" onClick={() => setMenuOpen(true)} aria-label="Open navigation"><Menu size={20} /></button>
+            <button
+              className="icon-button menu-toggle"
+              onClick={toggleNavigation}
+              aria-label={isMobileViewport ? (menuOpen ? 'Close navigation' : 'Open navigation') : (sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation')}
+              aria-controls="command-center-sidebar"
+              aria-expanded={isMobileViewport ? menuOpen : !sidebarCollapsed}
+              title={isMobileViewport ? 'Toggle navigation' : (sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation')}
+            >
+              <Menu size={20} />
+            </button>
             <div className="breadcrumb"><span>HANDA</span><span className="breadcrumb-slash">/</span><strong>{pageTitle}</strong></div>
           </div>
           <div className="topbar-actions">

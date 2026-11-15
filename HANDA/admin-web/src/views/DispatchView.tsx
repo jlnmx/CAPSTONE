@@ -40,7 +40,7 @@ export default function DispatchView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const { responders: liveResponders, status: realtimeStatus } = useResponderLive();
+  const { responders: liveResponders, status: realtimeStatus, errorMessage: realtimeError } = useResponderLive();
 
   const refresh = useCallback(async (quiet = false) => {
     if (quiet) setRefreshing(true);
@@ -161,6 +161,7 @@ export default function DispatchView() {
       <span className="dispatch-live-dot" />
       <span>{realtimeMessage}</span>
       {realtimeStatus === 'SUBSCRIBED' && <small>GPS locations expire after 60 seconds</small>}
+      {realtimeStatus !== 'SUBSCRIBED' && realtimeError && <small>{realtimeError}</small>}
     </div>
 
     {loading ? <LoadingState label="Loading incidents and active responders" /> : <div className="dispatch-layout">

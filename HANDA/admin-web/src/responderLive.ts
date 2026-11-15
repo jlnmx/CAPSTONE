@@ -40,6 +40,19 @@ function getClient(): SupabaseClient | null {
   return client;
 }
 
+function getErrorSummary(error: unknown): string {
+  const message = error instanceof Error
+    ? error.message
+    : typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+      ? error.message
+      : '';
+  return message
+    .replace(/https?:\/\/\S+/gi, 'service URL')
+    .replace(/wss?:\/\/\S+/gi, 'Realtime endpoint')
+    .replace(/Bearer\s+\S+/gi, 'Bearer [redacted]')
+    .slice(0, 180);
+}
+
 async function refreshRealtimeAuth(force = false): Promise<void> {
   const supabase = getClient();
   if (!supabase) throw new Error('Realtime is not configured for the Command Center.');
@@ -98,6 +111,7 @@ export function useResponderLive() {
   const [presence, setPresence] = useState<Record<string, LivePresence[]>>({});
   const [locations, setLocations] = useState<Record<string, ResponderLocation>>({});
   const [status, setStatus] = useState('connecting');
+  const [errorMessage, setErrorMessage] = useState('');
   const [now, setNow] = useState(Date.now);
   const responders = useMemo(() => mergeResponders(presence, locations, now), [presence, locations, now]);
 
@@ -119,7 +133,10 @@ export function useResponderLive() {
       tokenTimer = setTimeout(() => {
         void refreshRealtimeAuth(true)
           .then(scheduleTokenRefresh)
-          .catch(() => setStatus('AUTH_ERROR'));
+          .catch((error: unknown) => {
+            setStatus('AUTH_ERROR');
+            setErrorMessage(getErrorSummary(error));
+          });
       }, refreshIn);
     };
 
@@ -152,9 +169,11 @@ export function useResponderLive() {
             const location = parseLocation(message.payload);
             if (location) setLocations((current) => ({ ...current, [location.user_id]: location }));
           })
-          .subscribe((nextStatus) => {
+          .subscribe((nextStatus, error) => {
             if (!active) return;
             setStatus(nextStatus);
+            if (nextStatus === 'SUBSCRIBED') setErrorMessage('');
+            else if (error) setErrorMessage(getErrorSummary(error));
             if (nextStatus === 'SUBSCRIBED' && retryTimer) {
               clearTimeout(retryTimer);
               retryTimer = undefined;
@@ -171,6 +190,7 @@ export function useResponderLive() {
       } catch {
         if (!active) return;
         setStatus('AUTH_ERROR');
+        setErrorMessage('Could not obtain a Realtime access token.');
         if (!retryTimer) retryTimer = setTimeout(() => {
           retryTimer = undefined;
           void connect();
@@ -189,5 +209,5 @@ export function useResponderLive() {
     };
   }, []);
 
-  return { responders, status };
+  return { responders, status, errorMessage };
 }
