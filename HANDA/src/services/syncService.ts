@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { authenticatedFetch } from './apiClient';
 import { getPendingOutboxEvents, markOutboxEventFailed, markOutboxEventSynced } from './localDatabase';
-let activeSync: Promise<{ processed: number; synced: number }> | null = null;
+const activeSyncs = new Map<string, Promise<{ processed: number; synced: number }>>();
 const syncListeners = new Set<() => void>();
 
 export function onSyncCompleted(listener: () => void) {
@@ -13,25 +13,28 @@ function notifySyncListeners() {
   syncListeners.forEach((listener) => listener());
 }
 
-export async function syncPendingLocalData() {
+export async function syncPendingLocalData(ownerUserId: string) {
+  if (!ownerUserId) return { processed: 0, synced: 0 };
+  const activeSync = activeSyncs.get(ownerUserId);
   if (activeSync) {
     return activeSync;
   }
 
-  activeSync = syncPendingLocalDataInternal();
+  const pendingSync = syncPendingLocalDataInternal(ownerUserId);
+  activeSyncs.set(ownerUserId, pendingSync);
   try {
-    return await activeSync;
+    return await pendingSync;
   } finally {
-    activeSync = null;
+    if (activeSyncs.get(ownerUserId) === pendingSync) activeSyncs.delete(ownerUserId);
   }
 }
 
-async function syncPendingLocalDataInternal() {
+async function syncPendingLocalDataInternal(ownerUserId: string) {
   if (Platform.OS === 'web') {
     return { processed: 0, synced: 0 };
   }
 
-  const events = getPendingOutboxEvents();
+  const events = getPendingOutboxEvents(ownerUserId);
   if (events.length === 0) {
     return { processed: 0, synced: 0 };
   }
@@ -49,6 +52,7 @@ async function syncPendingLocalDataInternal() {
       }),
     });
     if (!response.ok) {
+      console.warn(`Offline sync was rejected with HTTP ${response.status}; queued reports remain saved.`);
       return { processed: events.length, synced: 0 };
     }
 
@@ -57,15 +61,16 @@ async function syncPendingLocalDataInternal() {
     result.results?.forEach((item, index) => {
       const event = events[index];
       if (item.status === 'accepted') {
-        markOutboxEventSynced(event.id, event.entityType, event.entityId);
+        markOutboxEventSynced(event.id, event.entityType, event.entityId, ownerUserId);
         synced += 1;
       } else if (item.status === 'rejected' && item.permanent) {
-        markOutboxEventFailed(event.id, item.error ?? 'The server rejected this item.');
+        markOutboxEventFailed(event.id, item.error ?? 'The server rejected this item.', ownerUserId);
       }
     });
     if (synced > 0 || result.results?.some((item) => item.status === 'rejected')) notifySyncListeners();
     return { processed: events.length, synced };
-  } catch {
+  } catch (error) {
+    console.warn('Offline sync could not reach the HANDA API; queued reports remain saved.', error);
     return { processed: events.length, synced: 0 };
   }
 }

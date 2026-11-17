@@ -82,7 +82,8 @@ export function initializeLocalDatabase() {
       household_size INTEGER,
       barangay TEXT,
       sync_status TEXT NOT NULL DEFAULT 'pending',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      owner_user_id TEXT
     );
 
     CREATE TABLE IF NOT EXISTS incidents (
@@ -95,7 +96,8 @@ export function initializeLocalDatabase() {
       longitude REAL,
       photo_uris TEXT NOT NULL DEFAULT '[]',
       sync_status TEXT NOT NULL DEFAULT 'pending',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      owner_user_id TEXT
     );
 
     CREATE TABLE IF NOT EXISTS outbox (
@@ -106,15 +108,26 @@ export function initializeLocalDatabase() {
       payload TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
       attempts INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      owner_user_id TEXT
     );
   `);
+  ensureLocalColumn(db, 'incidents', 'owner_user_id', 'TEXT');
+  ensureLocalColumn(db, 'evacuees', 'owner_user_id', 'TEXT');
+  ensureLocalColumn(db, 'outbox', 'owner_user_id', 'TEXT');
   try { db.execSync('ALTER TABLE incidents ADD COLUMN latitude REAL;'); } catch { }
   try { db.execSync('ALTER TABLE incidents ADD COLUMN longitude REAL;'); } catch { }
   try { db.execSync('ALTER TABLE outbox ADD COLUMN last_error TEXT;'); } catch { }
 }
 
-export function saveLocalIncident(input: LocalIncidentInput) {
+function ensureLocalColumn(db: SQLite.SQLiteDatabase, table: string, column: string, definition: string) {
+  const columns = db.getAllSync<{ name: string }>(`PRAGMA table_info(${table})`);
+  if (!columns.some((item) => item.name === column)) {
+    db.execSync(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
+export function saveLocalIncident(input: LocalIncidentInput, ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return null;
@@ -128,8 +141,8 @@ export function saveLocalIncident(input: LocalIncidentInput) {
   db.withTransactionSync(() => {
     db.runSync(
       `INSERT INTO incidents
-        (id, type, description, severity, location, latitude, longitude, photo_uris, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, type, description, severity, location, latitude, longitude, photo_uris, created_at, owner_user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       input.type,
       input.description,
@@ -139,23 +152,25 @@ export function saveLocalIncident(input: LocalIncidentInput) {
       input.longitude ?? null,
       JSON.stringify(input.photoUris),
       createdAt,
+      ownerUserId,
     );
     db.runSync(
       `INSERT INTO outbox
-        (entity_type, entity_id, operation, payload, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
+      (entity_type, entity_id, operation, payload, created_at, owner_user_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
       'incident',
       id,
       'create',
       payload,
       createdAt,
+      ownerUserId,
     );
   });
 
   return id;
 }
 
-export function saveLocalEvacuee(input: LocalEvacueeInput) {
+export function saveLocalEvacuee(input: LocalEvacueeInput, ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return null;
@@ -170,8 +185,8 @@ export function saveLocalEvacuee(input: LocalEvacueeInput) {
     db.runSync(
       `INSERT INTO evacuees
         (id, first_name, middle_name, last_name, age, sex, contact_number,
-         address, household_size, barangay, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       address, household_size, barangay, created_at, owner_user_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id,
       input.firstName,
       input.middleName ?? null,
@@ -183,23 +198,25 @@ export function saveLocalEvacuee(input: LocalEvacueeInput) {
       input.householdSize ?? null,
       input.barangay ?? null,
       createdAt,
+      ownerUserId,
     );
     db.runSync(
       `INSERT INTO outbox
-        (entity_type, entity_id, operation, payload, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
+      (entity_type, entity_id, operation, payload, created_at, owner_user_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
       'evacuee',
       id,
       'create',
       payload,
       createdAt,
+      ownerUserId,
     );
   });
 
   return id;
 }
 
-export function getLocalEvacuees() {
+export function getLocalEvacuees(ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return [];
@@ -221,11 +238,13 @@ export function getLocalEvacuees() {
        sync_status AS syncStatus,
        created_at AS createdAt
      FROM evacuees
+     WHERE owner_user_id = ?
      ORDER BY created_at DESC`,
+    ownerUserId,
   );
 }
 
-export function getLocalIncidents() {
+export function getLocalIncidents(ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return [];
@@ -244,14 +263,16 @@ export function getLocalIncidents() {
        sync_status AS syncStatus,
        created_at AS createdAt
      FROM incidents
+     WHERE owner_user_id = ?
      ORDER BY created_at DESC`,
+    ownerUserId,
   ).map((incident) => ({
     ...incident,
     photoUris: typeof incident.photoUris === 'string' ? JSON.parse(incident.photoUris) as string[] : incident.photoUris,
   }));
 }
 
-export function getPendingSyncCount() {
+export function getPendingSyncCount(ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return 0;
@@ -259,12 +280,27 @@ export function getPendingSyncCount() {
 
   initializeLocalDatabase();
   const result = db.getFirstSync<{ count: number }>(
-    "SELECT COUNT(*) AS count FROM outbox WHERE status = 'pending'",
+    "SELECT COUNT(*) AS count FROM outbox WHERE status = 'pending' AND owner_user_id = ?",
+    ownerUserId,
   );
   return result?.count ?? 0;
 }
 
-export function getPendingOutboxEvents() {
+export function getFailedSyncCount(ownerUserId: string) {
+  const db = getDatabase();
+  if (!db) {
+    return 0;
+  }
+
+  initializeLocalDatabase();
+  const result = db.getFirstSync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM outbox WHERE status = 'failed' AND owner_user_id = ?",
+    ownerUserId,
+  );
+  return result?.count ?? 0;
+}
+
+export function getPendingOutboxEvents(ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return [];
@@ -274,13 +310,14 @@ export function getPendingOutboxEvents() {
   return db.getAllSync<{ id: number; entityType: string; entityId: string; operation: string; payload: string }>(
     `SELECT id, entity_type AS entityType, entity_id AS entityId, operation, payload
      FROM outbox
-     WHERE status = 'pending'
+     WHERE status = 'pending' AND owner_user_id = ?
      ORDER BY id ASC
      LIMIT 100`,
+    ownerUserId,
   );
 }
 
-export function markOutboxEventSynced(outboxId: number, entityType: string, entityId: string) {
+export function markOutboxEventSynced(outboxId: number, entityType: string, entityId: string, ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return;
@@ -288,20 +325,55 @@ export function markOutboxEventSynced(outboxId: number, entityType: string, enti
 
   initializeLocalDatabase();
   db.withTransactionSync(() => {
-    db.runSync("UPDATE outbox SET status = 'synced' WHERE id = ?", outboxId);
-    if (entityType === 'incident') db.runSync("UPDATE incidents SET sync_status = 'synced' WHERE id = ?", entityId);
-    else if (entityType === 'evacuee') db.runSync("UPDATE evacuees SET sync_status = 'synced' WHERE id = ?", entityId);
+    db.runSync("UPDATE outbox SET status = 'synced' WHERE id = ? AND owner_user_id = ?", outboxId, ownerUserId);
+    if (entityType === 'incident') db.runSync("UPDATE incidents SET sync_status = 'synced' WHERE id = ? AND owner_user_id = ?", entityId, ownerUserId);
+    else if (entityType === 'evacuee') db.runSync("UPDATE evacuees SET sync_status = 'synced' WHERE id = ? AND owner_user_id = ?", entityId, ownerUserId);
   });
 }
 
-export function markOutboxEventFailed(outboxId: number, reason: string) {
+export function markOutboxEventFailed(outboxId: number, reason: string, ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return;
   }
 
   initializeLocalDatabase();
-  db.runSync("UPDATE outbox SET status = 'failed', last_error = ?, attempts = attempts + 1 WHERE id = ?", reason, outboxId);
+  db.runSync("UPDATE outbox SET status = 'failed', last_error = ?, attempts = attempts + 1 WHERE id = ? AND owner_user_id = ?", reason, outboxId, ownerUserId);
+}
+
+export function getUnclaimedPendingOutboxCount() {
+  const db = getDatabase();
+  if (!db) return 0;
+  initializeLocalDatabase();
+  const result = db.getFirstSync<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM outbox WHERE owner_user_id IS NULL AND status IN ('pending', 'failed')",
+  );
+  return result?.count ?? 0;
+}
+
+export function claimUnassignedLocalData(ownerUserId: string) {
+  const db = getDatabase();
+  if (!db) return 0;
+  initializeLocalDatabase();
+  let claimed = 0;
+  db.withTransactionSync(() => {
+    db.runSync(
+      `UPDATE incidents SET owner_user_id = ?
+       WHERE owner_user_id IS NULL AND id IN (
+         SELECT entity_id FROM outbox WHERE owner_user_id IS NULL AND entity_type = 'incident'
+       )`,
+      ownerUserId,
+    );
+    db.runSync(
+      `UPDATE evacuees SET owner_user_id = ?
+       WHERE owner_user_id IS NULL AND id IN (
+         SELECT entity_id FROM outbox WHERE owner_user_id IS NULL AND entity_type = 'evacuee'
+       )`,
+      ownerUserId,
+    );
+    claimed = db.runSync("UPDATE outbox SET owner_user_id = ? WHERE owner_user_id IS NULL", ownerUserId).changes;
+  });
+  return claimed;
 }
 
 export interface LocalRegistrationInput {
@@ -328,7 +400,7 @@ export interface QueuedRegistration {
 }
 
 /** Queues an evacuation registration for upload; the client id keeps retries from creating duplicates. */
-export function saveLocalEvacuationRegistration(input: LocalRegistrationInput) {
+export function saveLocalEvacuationRegistration(input: LocalRegistrationInput, ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return null;
@@ -338,17 +410,18 @@ export function saveLocalEvacuationRegistration(input: LocalRegistrationInput) {
   const id = input.id ?? `evac-registration-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const createdAt = new Date().toISOString();
   db.runSync(
-    `INSERT INTO outbox (entity_type, entity_id, operation, payload, created_at) VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO outbox (entity_type, entity_id, operation, payload, created_at, owner_user_id) VALUES (?, ?, ?, ?, ?, ?)`,
     'evacuation_registration',
     id,
     'create',
     JSON.stringify({ ...input, id }),
     createdAt,
+    ownerUserId,
   );
   return id;
 }
 
-export function getQueuedRegistration(): QueuedRegistration | null {
+export function getQueuedRegistration(ownerUserId: string): QueuedRegistration | null {
   const db = getDatabase();
   if (!db) {
     return null;
@@ -358,20 +431,21 @@ export function getQueuedRegistration(): QueuedRegistration | null {
   const row = db.getFirstSync<{ id: number; status: 'pending' | 'failed'; lastError: string | null; createdAt: string; payload: string }>(
     `SELECT id, status, last_error AS lastError, created_at AS createdAt, payload
      FROM outbox
-     WHERE entity_type = 'evacuation_registration' AND status IN ('pending', 'failed')
+     WHERE entity_type = 'evacuation_registration' AND status IN ('pending', 'failed') AND owner_user_id = ?
      ORDER BY id DESC
      LIMIT 1`,
+    ownerUserId,
   );
   if (!row) return null;
   return { outboxId: row.id, status: row.status, error: row.lastError, createdAt: row.createdAt, registration: JSON.parse(row.payload) };
 }
 
-export function discardQueuedRegistration(outboxId: number) {
+export function discardQueuedRegistration(outboxId: number, ownerUserId: string) {
   const db = getDatabase();
   if (!db) {
     return;
   }
 
   initializeLocalDatabase();
-  db.runSync("DELETE FROM outbox WHERE id = ? AND entity_type = 'evacuation_registration'", outboxId);
+  db.runSync("DELETE FROM outbox WHERE id = ? AND entity_type = 'evacuation_registration' AND owner_user_id = ?", outboxId, ownerUserId);
 }

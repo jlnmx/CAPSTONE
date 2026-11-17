@@ -13,6 +13,7 @@ import { StartupLocationPermission } from '@components/StartupLocationPermission
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
 import { useResponderLive } from '@hooks/useRealtime';
+import { authenticatedFetch } from '@services/apiClient';
 import { resolveResponderLocationArea, type ResponderLocationArea } from '@services/responderLive';
 import { getResponsiveTabBarOptions, getResponsiveTabIconSize } from '@utils/responsiveTabBar';
 
@@ -39,6 +40,7 @@ function TabBarIcon({ name, color, size, focused }: TabBarIconProps) {
 
 const AREA_REFRESH_INTERVAL_MS = 60_000;
 const AREA_REFRESH_DISTANCE_METERS = 500;
+const PRESENCE_HEARTBEAT_INTERVAL_MS = 15_000;
 
 function distanceMeters(from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }): number {
   const latitudeMeters = (to.latitude - from.latitude) * 111_000;
@@ -47,57 +49,86 @@ function distanceMeters(from: { latitude: number; longitude: number }, to: { lat
 }
 
 function ResponderPresenceHeartbeat({ locationPermissionGranted }: { locationPermissionGranted: boolean }) {
-  const { status, publishLocation } = useResponderLive();
+  const { publishLocation } = useResponderLive();
 
   useEffect(() => {
-    if (!locationPermissionGranted || status !== 'SUBSCRIBED') return undefined;
     let active = true;
     let subscription: Location.LocationSubscription | null = null;
     let geocoding = false;
     let lastGeocodedAt = 0;
+    let lastApiHeartbeatAt = 0;
+    let presenceWarningLogged = false;
     let lastGeocodedCoordinates: { latitude: number; longitude: number } | null = null;
+    let latestCoordinates: { latitude: number; longitude: number; accuracy?: number } | null = null;
     const currentArea: ResponderLocationArea = {};
+    const sendApiHeartbeat = () => {
+      if (!active || Date.now() - lastApiHeartbeatAt < 12_000) return;
+      lastApiHeartbeatAt = Date.now();
+      const location = latestCoordinates
+        ? { ...latestCoordinates, city: currentArea.city, barangay: currentArea.barangay }
+        : {};
+      void authenticatedFetch('/api/v1/responders/me/presence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(location),
+      }).then((response) => {
+        if (!response.ok) throw new Error(`Presence update returned ${response.status}.`);
+        presenceWarningLogged = false;
+      }).catch((error: unknown) => {
+        if (!presenceWarningLogged) console.warn('Responder online status could not be refreshed.', error);
+        presenceWarningLogged = true;
+      });
+    };
 
-    void Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        const coordinates = { latitude, longitude };
-        publishLocation(latitude, longitude, accuracy ?? undefined, currentArea);
+    sendApiHeartbeat();
+    const heartbeat = setInterval(sendApiHeartbeat, PRESENCE_HEARTBEAT_INTERVAL_MS);
 
-        const now = Date.now();
-        const movedEnough = lastGeocodedCoordinates !== null
-          && distanceMeters(lastGeocodedCoordinates, coordinates) >= AREA_REFRESH_DISTANCE_METERS;
-        if (geocoding || (lastGeocodedAt && now - lastGeocodedAt < AREA_REFRESH_INTERVAL_MS && !movedEnough)) return;
+    if (locationPermissionGranted) {
+      void Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, timeInterval: 5000, distanceInterval: 10 },
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          const coordinates = { latitude, longitude };
+          latestCoordinates = { ...coordinates, accuracy: accuracy ?? undefined };
+          publishLocation(latitude, longitude, accuracy ?? undefined, currentArea);
+          sendApiHeartbeat();
 
-        geocoding = true;
-        lastGeocodedAt = now;
-        lastGeocodedCoordinates = coordinates;
-        void Location.reverseGeocodeAsync(coordinates)
-          .then((addresses) => {
-            if (!active) return;
-            const area = resolveResponderLocationArea(addresses[0]);
-            currentArea.city = area.city;
-            currentArea.barangay = area.barangay;
-            publishLocation(latitude, longitude, accuracy ?? undefined, area);
-          })
-          .catch((error: unknown) => {
-            console.warn('Responder location area could not be resolved.', error);
-          })
-          .finally(() => { geocoding = false; });
-      },
-    ).then((watcher) => {
-      if (active) subscription = watcher;
-      else watcher.remove();
-    }).catch((error: unknown) => {
-      console.warn('Responder live location could not start.', error);
-    });
+          const now = Date.now();
+          const movedEnough = lastGeocodedCoordinates !== null
+            && distanceMeters(lastGeocodedCoordinates, coordinates) >= AREA_REFRESH_DISTANCE_METERS;
+          if (geocoding || (lastGeocodedAt && now - lastGeocodedAt < AREA_REFRESH_INTERVAL_MS && !movedEnough)) return;
+
+          geocoding = true;
+          lastGeocodedAt = now;
+          lastGeocodedCoordinates = coordinates;
+          void Location.reverseGeocodeAsync(coordinates)
+            .then((addresses) => {
+              if (!active) return;
+              const area = resolveResponderLocationArea(addresses[0]);
+              currentArea.city = area.city;
+              currentArea.barangay = area.barangay;
+              publishLocation(latitude, longitude, accuracy ?? undefined, area);
+              sendApiHeartbeat();
+            })
+            .catch((error: unknown) => {
+              console.warn('Responder location area could not be resolved.', error);
+            })
+            .finally(() => { geocoding = false; });
+        },
+      ).then((watcher) => {
+        if (active) subscription = watcher;
+        else watcher.remove();
+      }).catch((error: unknown) => {
+        console.warn('Responder live location could not start.', error);
+      });
+    }
 
     return () => {
       active = false;
+      clearInterval(heartbeat);
       subscription?.remove();
     };
-  }, [locationPermissionGranted, publishLocation, status]);
+  }, [locationPermissionGranted, publishLocation]);
 
   return null;
 }

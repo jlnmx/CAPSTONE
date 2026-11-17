@@ -4,10 +4,8 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import psycopg
-from psycopg.rows import dict_row
 
-from .config import settings
-from .db import CONNECT_TIMEOUT_SECONDS
+from .db import CONNECT_TIMEOUT_SECONDS, open_connection_pool
 
 logger = logging.getLogger(__name__)
 EXPO_SEND_URL = "https://exp.host/--/api/v2/push/send"
@@ -91,7 +89,7 @@ def _retry(connection: psycopg.Connection, delivery: dict, reason: str) -> None:
 
 
 def process_one() -> bool:
-    with psycopg.connect(settings.database_url, row_factory=dict_row, connect_timeout=CONNECT_TIMEOUT_SECONDS) as connection:
+    with open_connection_pool().connection(timeout=CONNECT_TIMEOUT_SECONDS) as connection:
         # A row lock prevents multiple API instances from delivering the same alert concurrently.
         delivery = connection.execute(
             """SELECT d.* FROM push_deliveries d

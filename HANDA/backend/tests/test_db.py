@@ -1,12 +1,13 @@
 import json
 import unittest
 from datetime import date
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import psycopg
 from fastapi import HTTPException
+from psycopg_pool import PoolTimeout
 
-from app.db import CONNECT_ATTEMPTS, get_connection
+from app.db import get_connection
 from app.main import BINAN_CENTERS_FILE, create_center, create_evacuation_registration, create_incident, database_readiness, evacuation_center_status, get_resident_active_sos, health, lifespan, list_evacuation_registrations, resident_evacuation_status, seed_binan_evacuation_centers, update_center_details, update_current_profile, update_evacuee_status, write_evacuee
 from app.schemas import AdminEvacuationRegistrationCreate, CenterCreate, CenterDetailsUpdate, EvacueeCreate, EvacueeStatusUpdate, IncidentCreate, SelfProfileUpdate
 
@@ -175,53 +176,40 @@ class DatabaseDependencyTests(unittest.TestCase):
         self.assertEqual(connection.execute.call_args_list[1].args[1][3], "closed")
         connection.commit.assert_called_once()
 
-    @patch("app.db.time.sleep")
-    @patch("app.db.random.uniform", return_value=0.5)
-    @patch("app.db.psycopg.connect")
-    def test_retries_transient_connection_failure(self, connect, jitter, sleep):
+    @patch("app.db.open_connection_pool")
+    def test_connection_is_borrowed_from_pool_and_returned(self, open_pool):
         connection = MagicMock()
-        connect.side_effect = [psycopg.OperationalError("temporary timeout"), connection]
+        pool = open_pool.return_value
+        pool.connection.return_value.__enter__.return_value = connection
 
         dependency = get_connection()
         self.assertIs(next(dependency), connection)
         with self.assertRaises(StopIteration):
             next(dependency)
 
-        self.assertEqual(connect.call_count, 2)
-        self.assertEqual(connect.call_args.kwargs["connect_timeout"], 4)
-        self.assertEqual(sleep.call_args_list, [call(0.5)])
-        connection.__exit__.assert_called_once_with(None, None, None)
+        pool.connection.assert_called_once_with(timeout=4)
+        pool.connection.return_value.__exit__.assert_called_once_with(None, None, None)
 
-    @patch("app.db.time.sleep")
+    @patch("app.db.open_connection_pool")
     @patch("app.db.logger.warning")
-    @patch("app.db.psycopg.connect", side_effect=psycopg.OperationalError("pooler timeout"))
-    def test_returns_service_unavailable_after_retries(self, connect, log_warning, sleep):
+    def test_pool_timeout_returns_service_unavailable(self, log_warning, open_pool):
+        open_pool.return_value.connection.return_value.__enter__.side_effect = PoolTimeout("pooler timeout")
         with self.assertRaises(HTTPException) as error:
             next(get_connection())
 
         self.assertEqual(error.exception.status_code, 503)
-        self.assertEqual(connect.call_count, CONNECT_ATTEMPTS)
-        self.assertEqual(sleep.call_count, CONNECT_ATTEMPTS - 1)
-        self.assertEqual(log_warning.call_count, 2)
-        self.assertIn("Retrying database connection", log_warning.call_args_list[0].args[0])
-        self.assertIn("Database connection failed", log_warning.call_args_list[1].args[0])
+        open_pool.return_value.connection.assert_called_once_with(timeout=4)
+        log_warning.assert_called_once()
 
-    @patch("app.db.time.sleep")
-    @patch("app.db.psycopg.connect")
-    def test_does_not_retry_permanent_authentication_failure(self, connect, sleep):
-        class AuthenticationError(psycopg.OperationalError):
-            @property
-            def sqlstate(self):
-                return "28P01"
-
-        connect.side_effect = AuthenticationError("authentication failed")
+    @patch("app.db.open_connection_pool")
+    def test_connection_error_returns_service_unavailable(self, open_pool):
+        open_pool.return_value.connection.return_value.__enter__.side_effect = psycopg.OperationalError("authentication failed")
 
         with self.assertRaises(HTTPException) as error:
             next(get_connection())
 
         self.assertEqual(error.exception.status_code, 503)
-        connect.assert_called_once()
-        sleep.assert_not_called()
+        open_pool.return_value.connection.assert_called_once_with(timeout=4)
 
     def test_liveness_does_not_require_database(self):
         self.assertEqual(health(), {"status": "ok"})

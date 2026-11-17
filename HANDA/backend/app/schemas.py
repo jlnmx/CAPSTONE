@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -41,13 +42,24 @@ class MapRouteRequest(BaseModel):
 class IncidentCreate(BaseModel):
     id: str | None = None
     type: str = Field(min_length=1, max_length=120)
-    description: str = Field(min_length=1)
+    description: str = Field(min_length=1, max_length=2000)
     severity: Literal["low", "medium", "moderity", "high", "critical"] = "medium"
     location: str = Field(min_length=1, max_length=255)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
-    photoUris: list[str] = Field(default_factory=list)
+    photoUris: list[str] = Field(default_factory=list, max_length=4)
     createdAt: datetime | None = None
+
+    @field_validator("photoUris")
+    @classmethod
+    def validate_photos(cls, values: list[str]) -> list[str]:
+        for value in values:
+            if len(value) > 1_500_000 or not re.fullmatch(
+                r"data:image/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}",
+                value,
+            ):
+                raise ValueError("Incident photos must be JPEG, PNG, or WebP images no larger than 1.5 MB each.")
+        return values
 
 
 class EvacueeCreate(BaseModel):
@@ -310,10 +322,27 @@ class IncidentDispatch(BaseModel):
 
 
 class IncidentResponsePhotoCreate(BaseModel):
-    photoUri: str = Field(min_length=32, max_length=4_000_000)
+    photoUri: str = Field(min_length=32, max_length=1_500_000)
     caption: str | None = Field(default=None, max_length=300)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
+
+
+class ResponderPresenceUpdate(BaseModel):
+    availability: Literal["available", "busy"] = "available"
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    accuracy: float | None = Field(default=None, ge=0, le=100_000)
+    city: str | None = Field(default=None, max_length=100)
+    barangay: str | None = Field(default=None, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_coordinates(self):
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("Both location coordinates must be supplied together.")
+        if self.city and "binan" not in self.city.casefold().replace("ñ", "n"):
+            self.barangay = None
+        return self
 
 
 class EvacueeStatusUpdate(BaseModel):

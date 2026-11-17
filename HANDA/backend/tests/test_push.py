@@ -162,9 +162,10 @@ class PushDeliveryTests(unittest.TestCase):
         }
         self.connection = MagicMock()
         self.connection.execute.return_value.fetchone.return_value = self.delivery
-        self.connect = patch("app.push.psycopg.connect")
-        self.connect_mock = self.connect.start()
-        self.connect_mock.return_value.__enter__.return_value = self.connection
+        self.pool = MagicMock()
+        self.pool.connection.return_value.__enter__.return_value = self.connection
+        self.connect = patch("app.push.open_connection_pool", return_value=self.pool)
+        self.connect.start()
         self.addCleanup(self.connect.stop)
 
     def test_successful_send_saves_receipt_and_private_payload(self):

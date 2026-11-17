@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,6 +12,8 @@ import { Colors } from '@constants/colors';
 import RescueMascot from '@components/RescueMascot';
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
+import { claimUnassignedLocalData, getFailedSyncCount, getPendingSyncCount, getUnclaimedPendingOutboxCount } from '@services/localDatabase';
+import { syncPendingLocalData } from '@services/syncService';
 
 interface MoreMenuProps {
   roleLabel: string;
@@ -31,7 +33,27 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
   const { palette } = useTheme();
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isRecoveringOfflineData, setIsRecoveringOfflineData] = useState(false);
+  const [offlineCounts, setOfflineCounts] = useState({ accountPending: 0, accountFailed: 0, unclaimed: 0 });
+  const [offlineCountsLoaded, setOfflineCountsLoaded] = useState(false);
+  const [unclaimedDisposition, setUnclaimedDisposition] = useState<'unresolved' | 'claimed' | 'kept'>('unresolved');
   const displayName = user?.name || 'HANDA User';
+
+  useEffect(() => {
+    if (!isLogoutDialogOpen || !user?.id) return;
+    setOfflineCountsLoaded(false);
+    try {
+      setOfflineCounts({
+        accountPending: getPendingSyncCount(user.id),
+        accountFailed: getFailedSyncCount(user.id),
+        unclaimed: getUnclaimedPendingOutboxCount(),
+      });
+      setOfflineCountsLoaded(true);
+    } catch (error) {
+      console.error('Could not inspect saved offline reports:', error);
+      setOfflineCountsLoaded(true);
+    }
+  }, [isLogoutDialogOpen, user?.id]);
 
   const menuItems: MenuItem[] = [
     { title: 'Settings', description: 'Personalize your app experience', icon: 'cog-outline', onPress: () => router.push('/settings') },
@@ -47,6 +69,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
+    if (!offlineCountsLoaded || (offlineCounts.unclaimed > 0 && unclaimedDisposition === 'unresolved')) return;
     setIsLoggingOut(true);
     try {
       if (await logout()) {
@@ -58,6 +81,31 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
       Alert.alert('Unable to log out', 'Please try again.');
     } finally {
       setIsLoggingOut(false);
+    }
+  };
+
+  const claimOlderReports = async () => {
+    if (!user?.id || isRecoveringOfflineData) return;
+    setIsRecoveringOfflineData(true);
+    try {
+      claimUnassignedLocalData(user.id);
+      setUnclaimedDisposition('claimed');
+      setOfflineCounts({
+        accountPending: getPendingSyncCount(user.id),
+        accountFailed: getFailedSyncCount(user.id),
+        unclaimed: getUnclaimedPendingOutboxCount(),
+      });
+      await syncPendingLocalData(user.id);
+      setOfflineCounts({
+        accountPending: getPendingSyncCount(user.id),
+        accountFailed: getFailedSyncCount(user.id),
+        unclaimed: getUnclaimedPendingOutboxCount(),
+      });
+    } catch (error) {
+      console.error('Could not recover older offline reports:', error);
+      Alert.alert('Reports remain saved', 'The older reports were not removed. Try recovery again while signed in to the account that created them.');
+    } finally {
+      setIsRecoveringOfflineData(false);
     }
   };
 
@@ -152,11 +200,46 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
             </View>
             <Text style={[styles.dialogTitle, { color: palette.text }]}>Log out?</Text>
             <Text style={[styles.dialogMessage, { color: palette.textMuted }]}>Are you sure you want to log out of your account?</Text>
+            {offlineCounts.accountPending > 0 && <Text style={[styles.offlineWarning, { color: palette.textMuted }]}>
+              {offlineCounts.accountPending} report(s) are waiting to sync for this account. They will remain on this device and retry when you sign back in. Logging out will not erase them.
+            </Text>}
+            {offlineCounts.accountFailed > 0 && <Text style={[styles.offlineWarning, { color: palette.textMuted }]}>
+              {offlineCounts.accountFailed} report(s) were rejected by the server and need follow-up before they can sync. Their local copies remain saved; logging out will not erase them.
+            </Text>}
+            {offlineCounts.unclaimed > 0 && <View style={[styles.legacyWarning, { borderColor: palette.border }]}>
+              <Text style={[styles.offlineWarning, { color: palette.textMuted }]}>
+                {offlineCounts.unclaimed} older unsynced report(s) have no account owner. They stay on this device and will not sync automatically.
+              </Text>
+              {unclaimedDisposition === 'unresolved' ? <>
+                <AnimatedPressable
+                  style={[styles.recoveryButton, { borderColor: palette.border }]}
+                  onPress={() => void claimOlderReports()}
+                  disabled={isRecoveringOfflineData}
+                  accessibilityRole="button"
+                >
+                  {isRecoveringOfflineData
+                    ? <ActivityIndicator size="small" color={Colors.primary} />
+                    : <Text style={[styles.recoveryButtonText, { color: palette.text }]}>Claim for {displayName} and sync</Text>}
+                </AnimatedPressable>
+                <AnimatedPressable
+                  style={styles.keepButton}
+                  onPress={() => setUnclaimedDisposition('kept')}
+                  disabled={isRecoveringOfflineData}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.keepButtonText}>Keep unclaimed on this device</Text>
+                </AnimatedPressable>
+              </> : <Text style={[styles.offlineDisposition, { color: palette.textMuted }]}>
+                {unclaimedDisposition === 'claimed'
+                  ? 'Older reports are now assigned to this account and will retry syncing when possible.'
+                  : 'Older reports will remain unassigned on this device for later recovery.'}
+              </Text>}
+            </View>}
             <View style={styles.dialogActions}>
               <AnimatedPressable
                 style={[styles.cancelButton, { borderColor: palette.border }]}
-                onPress={() => setIsLogoutDialogOpen(false)}
-                disabled={isLoggingOut}
+                onPress={() => { setIsLogoutDialogOpen(false); setUnclaimedDisposition('unresolved'); }}
+                disabled={isLoggingOut || isRecoveringOfflineData}
                 accessibilityRole="button"
               >
                 <Text style={[styles.cancelButtonText, { color: palette.text }]}>Cancel</Text>
@@ -164,7 +247,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
               <AnimatedPressable
                 style={styles.confirmButton}
                 onPress={() => void handleLogout()}
-                disabled={isLoggingOut}
+                disabled={!offlineCountsLoaded || isLoggingOut || isRecoveringOfflineData || (offlineCounts.unclaimed > 0 && unclaimedDisposition === 'unresolved')}
                 accessibilityRole="button"
               >
                 {isLoggingOut ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.confirmButtonText}>Log out</Text>}
@@ -210,6 +293,13 @@ const styles = StyleSheet.create({
   dialogIcon: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center', borderRadius: 15, backgroundColor: 'rgba(217,45,32,0.1)', marginBottom: 15 },
   dialogTitle: { fontFamily: kitFonts.heading, fontSize: 20 },
   dialogMessage: { fontFamily: kitFonts.medium, fontSize: 14, lineHeight: 21, marginTop: 7 },
+  offlineWarning: { fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 18, marginTop: 12 },
+  legacyWarning: { marginTop: 12, padding: 12, borderWidth: 1, borderRadius: 12 },
+  recoveryButton: { minHeight: 40, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, marginTop: 10, borderWidth: 1, borderRadius: 10 },
+  recoveryButtonText: { fontFamily: kitFonts.semibold, fontSize: 12 },
+  keepButton: { minHeight: 38, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
+  keepButtonText: { color: Colors.primary, fontFamily: kitFonts.semibold, fontSize: 12 },
+  offlineDisposition: { fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 16, marginTop: 8 },
   dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 22 },
   cancelButton: { minWidth: 88, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1, borderRadius: 12 },
   cancelButtonText: { fontFamily: kitFonts.semibold, fontSize: 14 },

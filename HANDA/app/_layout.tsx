@@ -11,7 +11,7 @@ import { Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_8
 import { InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold, InstrumentSans_700Bold } from '@expo-google-fonts/instrument-sans';
 import { Stack, usePathname } from 'expo-router';
 import { DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
-import { AuthProvider } from '@hooks/useAuth';
+import { AuthProvider, useAuth } from '@hooks/useAuth';
 import { initializeLocalDatabase } from '@services/localDatabase';
 import { syncPendingLocalData } from '@services/syncService';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
@@ -32,27 +32,11 @@ function RootLayoutContent() {
   const { palette } = useTheme();
   const [fontsLoaded] = useFonts({ Sora_400Regular, Sora_500Medium, Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold, InstrumentSans_400Regular, InstrumentSans_500Medium, InstrumentSans_600SemiBold, InstrumentSans_700Bold });
 
-  useEffect(() => {
-    initializeLocalDatabase();
-    const sync = () => void syncPendingLocalData();
-    sync();
-    const retryTimer = setInterval(sync, 30_000);
-    const appStateSubscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        sync();
-      }
-    });
-
-    return () => {
-      clearInterval(retryTimer);
-      appStateSubscription.remove();
-    };
-  }, []);
-
   if (!fontsLoaded) return <View style={styles.fontLoading}><HandaLogoBadge size={96} style={styles.loadingLogo} /><ActivityIndicator color={Colors.secondary} /></View>;
 
   return (
       <AuthProvider>
+        <OfflineSyncManager />
         <PushNotificationManager />
         <View style={[styles.root, { backgroundColor: palette.background }, width >= 1024 && styles.desktopRoot]}>
         <NavigationThemeProvider value={{ ...DefaultTheme, colors: { ...DefaultTheme.colors, background: palette.surface, card: palette.surface } }}>
@@ -73,6 +57,28 @@ function RootLayoutContent() {
         </View>
       </AuthProvider>
   );
+}
+
+function OfflineSyncManager() {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    initializeLocalDatabase();
+    if (!user?.id) return undefined;
+    const sync = () => void syncPendingLocalData(user.id);
+    sync();
+    const retryTimer = setInterval(sync, 30_000);
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') sync();
+    });
+
+    return () => {
+      clearInterval(retryTimer);
+      appStateSubscription.remove();
+    };
+  }, [user?.id]);
+
+  return null;
 }
 
 function NavigationLoadingOverlay() {

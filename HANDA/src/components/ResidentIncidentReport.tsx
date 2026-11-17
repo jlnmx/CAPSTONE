@@ -7,11 +7,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@hooks/useAuth';
 import { AnimatedPressable } from '@components/Buttons';
 import CurrentLocationMap, { LocationCoordinate } from '@components/CurrentLocationMap';
 import { incidentTypeIcon, kitFonts, Reveal } from '@components/IncidentCardKit';
 import { authenticatedFetch } from '@services/apiClient';
 import { saveLocalIncident } from '@services/localDatabase';
+import { prepareIncidentPhoto } from '@services/incidentPhoto';
 import { syncPendingLocalData } from '@services/syncService';
 import AppBackArrow from '@components/AppBackArrow';
 import { PhotoViewer } from '@components/PhotoGallery';
@@ -21,6 +23,7 @@ const INCIDENT_TYPES = ['Fire', 'Flooding', 'Earthquake', 'Landslide', 'Typhoon'
 type Photo = { uri: string; name: string };
 
 export default function ResidentIncidentReport() {
+  const { user } = useAuth();
   const router = useRouter();
   const [incidentType, setIncidentType] = useState('');
   const [description, setDescription] = useState('');
@@ -79,16 +82,14 @@ export default function ResidentIncidentReport() {
         }
       }
       const result = source === 'camera'
-        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.55, base64: true })
-        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: 4 - photos.length, quality: 0.55, base64: true });
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'] })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: 4 - photos.length });
       if (result.canceled) return;
-      if (result.assets.some((asset) => !asset.base64)) {
-        setError('A photo could not be prepared for upload. Please try taking or selecting it again.');
-        return;
-      }
-      const selected = result.assets.map((asset, index) => ({
-        uri: `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`,
-        name: asset.fileName || `incident-photo-${Date.now()}-${index}.jpg`,
+      const selected = await Promise.all(result.assets.map(async (asset, index) => {
+        return {
+          uri: await prepareIncidentPhoto(asset.uri, asset.width),
+          name: asset.fileName || `incident-photo-${Date.now()}-${index}.jpg`,
+        };
       }));
       setPhotos((current) => [...current, ...selected].slice(0, 4));
     } catch (photoError) {
@@ -101,6 +102,10 @@ export default function ResidentIncidentReport() {
       setError('Choose an incident type, describe what happened, and allow location access.');
       return;
     }
+    if (!user?.id) {
+      setError('Sign in before saving an incident report.');
+      return;
+    }
     setError('');
     setIsConfirmationVisible(true);
   };
@@ -108,6 +113,11 @@ export default function ResidentIncidentReport() {
   const submitReport = async () => {
     if (!incidentType || !description.trim() || !coordinate) {
       setError('Choose an incident type, describe what happened, and allow location access.');
+      return;
+    }
+    const ownerUserId = user?.id;
+    if (!ownerUserId) {
+      setError('Sign in before saving an incident report.');
       return;
     }
     setIsSubmitting(true);
@@ -126,6 +136,10 @@ export default function ResidentIncidentReport() {
           detail = typeof result.detail === 'string' ? result.detail : '';
         } catch {
         }
+        if (response.status < 500) {
+          setError(detail || `The incident service returned ${response.status}.`);
+          return;
+        }
         throw new Error(detail || `The incident service returned ${response.status}.`);
       }
       setSuccessTitle('Incident reported successfully');
@@ -137,12 +151,13 @@ export default function ResidentIncidentReport() {
     } catch (submitError) {
       let localId: string | null = null;
       try {
-        localId = saveLocalIncident(payload);
-      } catch {
+        localId = saveLocalIncident(payload, ownerUserId);
+      } catch (storageError) {
+        console.error('The incident report could not be saved to local storage.', storageError);
         localId = null;
       }
       if (localId) {
-        void syncPendingLocalData();
+        void syncPendingLocalData(ownerUserId);
         const message = submitError instanceof Error && submitError.name === 'AbortError'
           ? 'The server took too long to respond. Your report was saved on this device and will sync when the connection returns.'
           : 'The report was saved on this device and will sync when the connection returns.';

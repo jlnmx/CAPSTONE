@@ -8,7 +8,7 @@ import logging
 import secrets
 import smtplib
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from html import escape
 from pathlib import Path
@@ -27,10 +27,10 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles, require_superadmin
 from .config import settings
 from .realtime import RealtimeNotConfigured, create_realtime_token
-from .db import CONNECT_TIMEOUT_SECONDS, get_connection
+from .db import CONNECT_TIMEOUT_SECONDS, close_connection_pool, get_connection, open_connection_pool
 from .typhoons import get_live_typhoon_report
 from .schemas import AdminEvacuationRegistrationCreate, AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, CenterDetailsUpdate, DisasterCreate, EmailChangeOtpRequest, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordChangeOtpRequest, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, RegistrationOtpRequest, RegistrationOtpVerification, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
-from .schemas import SelfProfileUpdate
+from .schemas import ResponderPresenceUpdate, SelfProfileUpdate
 from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
 from .schemas import MapPlaceSearch, MapRouteRequest
@@ -329,15 +329,7 @@ def write_incident(connection: psycopg.Connection, incident: IncidentCreate, rep
           (id, type, description, severity, location_text, latitude, longitude,
               photo_uris, created_at, reporter_user_id)
           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (id) DO UPDATE SET
-          type = EXCLUDED.type,
-          description = EXCLUDED.description,
-          severity = EXCLUDED.severity,
-          location_text = EXCLUDED.location_text,
-          latitude = EXCLUDED.latitude,
-          longitude = EXCLUDED.longitude,
-          photo_uris = EXCLUDED.photo_uris,
-          reporter_user_id = COALESCE(EXCLUDED.reporter_user_id, incidents.reporter_user_id)
+        ON CONFLICT (id) DO NOTHING
         """,
             (
                 incident_id,
@@ -421,18 +413,7 @@ def write_evacuee(connection: psycopg.Connection, evacuee: EvacueeCreate) -> dic
           (id, first_name, middle_name, last_name, age, sex, contact_number,
            address, household_size, barangay, latitude, longitude, created_at)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (id) DO UPDATE SET
-          first_name = EXCLUDED.first_name,
-          middle_name = EXCLUDED.middle_name,
-          last_name = EXCLUDED.last_name,
-          age = EXCLUDED.age,
-          sex = EXCLUDED.sex,
-          contact_number = EXCLUDED.contact_number,
-          address = EXCLUDED.address,
-          household_size = EXCLUDED.household_size,
-          barangay = EXCLUDED.barangay,
-          latitude = EXCLUDED.latitude,
-          longitude = EXCLUDED.longitude
+        ON CONFLICT (id) DO NOTHING
         """,
                 (
                         evacuee_id,
@@ -621,6 +602,24 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_one_superadmin_idx ON users (is_superadmin) WHERE is_superadmin")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS responder_live_presence (
+              responder_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+              availability TEXT NOT NULL DEFAULT 'available' CHECK (availability IN ('available', 'busy')),
+              online_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              latitude DOUBLE PRECISION CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+              longitude DOUBLE PRECISION CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
+              accuracy DOUBLE PRECISION,
+              city TEXT,
+              barangay TEXT,
+              location_updated_at TIMESTAMPTZ,
+              CHECK ((latitude IS NULL) = (longitude IS NULL))
+            )
+            """
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS responder_live_presence_seen_idx ON responder_live_presence (last_seen DESC)")
         connection.execute(INCIDENT_RESPONSE_SCHEMA_SQL)
         connection.execute(
             """
@@ -925,12 +924,14 @@ async def lifespan(_: FastAPI):
     try:
         ensure_operational_schema()
         ensure_default_users()
+        open_connection_pool()
     except psycopg.OperationalError as error:
         logger.warning(
             "Database unavailable during startup; starting API in degraded mode error_type=%s sqlstate=%s",
             type(error).__name__, getattr(error, "sqlstate", None),
         )
     async def push_worker():
+        last_presence_cleanup = 0.0
         while True:
             try:
                 processed = await asyncio.to_thread(process_one)
@@ -940,6 +941,13 @@ async def lifespan(_: FastAPI):
             except Exception:
                 logger.exception("Push delivery worker failed unexpectedly")
                 processed = False
+            loop = asyncio.get_running_loop()
+            if loop.time() - last_presence_cleanup >= 60:
+                try:
+                    await asyncio.to_thread(cleanup_expired_responder_presence)
+                except Exception:
+                    logger.exception("Expired responder presence could not be cleaned up.")
+                last_presence_cleanup = loop.time()
             await asyncio.sleep(0.1 if processed else 10)
 
     async def storm_advisory_worker():
@@ -957,6 +965,7 @@ async def lifespan(_: FastAPI):
     finally:
         worker.cancel()
         storm_worker.cancel()
+        close_connection_pool()
         try:
             await worker
         except asyncio.CancelledError:
@@ -1137,7 +1146,17 @@ def list_logs(category: str, connection: psycopg.Connection = Depends(get_connec
 
 
 @app.get("/api/v1/incidents")
-def list_incidents(connection: psycopg.Connection = Depends(get_connection)):
+def list_incidents(connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+    if user.role == "resident":
+        return connection.execute(
+            """
+            SELECT id, type, location_text AS location, created_at
+            FROM incidents
+            WHERE status <> 'resolved'
+            ORDER BY created_at DESC
+            """
+        ).fetchall()
+
     # photo_uris holds the reporter's photos; response_photo_uris holds photos responders took on scene.
     rows = connection.execute(
         """
@@ -1359,6 +1378,92 @@ def list_active_responders(connection: psycopg.Connection = Depends(get_connecti
         ORDER BY name
         """
     ).fetchall()
+
+
+@app.post("/api/v1/responders/me/presence")
+def update_responder_presence(
+    update: ResponderPresenceUpdate,
+    connection: psycopg.Connection = Depends(get_connection),
+    user: CurrentUser = Depends(require_roles("responder")),
+):
+    row = connection.execute(
+        """
+        INSERT INTO responder_live_presence
+          (responder_id, availability, online_at, last_seen, latitude, longitude,
+           accuracy, city, barangay, location_updated_at)
+        VALUES (%s, %s, NOW(), NOW(), %s, %s, %s, %s, %s,
+                CASE WHEN %s IS NULL THEN NULL ELSE NOW() END)
+        ON CONFLICT (responder_id) DO UPDATE SET
+          availability = EXCLUDED.availability,
+          last_seen = NOW(),
+          latitude = CASE WHEN EXCLUDED.latitude IS NULL THEN responder_live_presence.latitude ELSE EXCLUDED.latitude END,
+          longitude = CASE WHEN EXCLUDED.longitude IS NULL THEN responder_live_presence.longitude ELSE EXCLUDED.longitude END,
+          accuracy = CASE WHEN EXCLUDED.latitude IS NULL THEN responder_live_presence.accuracy ELSE EXCLUDED.accuracy END,
+          city = CASE WHEN EXCLUDED.latitude IS NULL THEN responder_live_presence.city ELSE EXCLUDED.city END,
+          barangay = CASE WHEN EXCLUDED.latitude IS NULL THEN responder_live_presence.barangay ELSE EXCLUDED.barangay END,
+          location_updated_at = CASE WHEN EXCLUDED.latitude IS NULL THEN responder_live_presence.location_updated_at ELSE NOW() END
+        RETURNING responder_id, availability, online_at, last_seen
+        """,
+        (
+            user.id, update.availability, update.latitude, update.longitude, update.accuracy,
+            update.city, update.barangay, update.latitude,
+        ),
+    ).fetchone()
+    connection.commit()
+    return row
+
+
+@app.get("/api/v1/responders/live")
+def list_live_responders(
+    connection: psycopg.Connection = Depends(get_connection),
+    _: CurrentUser = Depends(require_roles("admin")),
+):
+    rows = connection.execute(
+        """
+        SELECT presence.responder_id AS user_id, presence.availability, presence.online_at,
+               presence.latitude, presence.longitude, presence.accuracy,
+               presence.city, presence.barangay, presence.last_seen,
+               presence.location_updated_at
+        FROM responder_live_presence AS presence
+        JOIN users ON users.id = presence.responder_id
+        WHERE users.role = 'Responder' AND users.status = 'Active'
+          AND presence.last_seen > NOW() - INTERVAL '45 seconds'
+        ORDER BY presence.last_seen DESC
+        """
+    ).fetchall()
+    result = []
+    for row in rows:
+        responder = {
+            "user_id": row["user_id"],
+            "availability": row["availability"],
+            "online_at": row["online_at"],
+            "last_seen": row["last_seen"],
+            "location": None,
+        }
+        location_is_fresh = (
+            row["latitude"] is not None
+            and row["location_updated_at"] is not None
+            and row["location_updated_at"] > datetime.now(UTC) - timedelta(seconds=60)
+        )
+        if location_is_fresh:
+            responder["location"] = {
+                "user_id": row["user_id"],
+                "latitude": row["latitude"],
+                "longitude": row["longitude"],
+                "accuracy": row["accuracy"],
+                "city": row["city"],
+                "barangay": row["barangay"],
+                "ts": int(row["location_updated_at"].timestamp() * 1000),
+            }
+        result.append(responder)
+    return result
+
+
+def cleanup_expired_responder_presence() -> None:
+    with open_connection_pool().connection(timeout=CONNECT_TIMEOUT_SECONDS) as connection:
+        connection.execute(
+            "DELETE FROM responder_live_presence WHERE last_seen < NOW() - INTERVAL '2 minutes'"
+        )
 
 
 @app.post("/api/v1/incidents/{incident_id}/dispatch")
@@ -1788,7 +1893,7 @@ def mark_notification_read(notification_id: str, connection: psycopg.Connection 
 
 
 @app.get("/api/v1/evacuees")
-def list_evacuees(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+def list_evacuees(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
     rows = connection.execute(
         "SELECT id, first_name, middle_name, last_name, age, sex, contact_number, address, household_size, barangay, latitude, longitude, evacuation_status, verified_by, verified_at, created_at FROM evacuees ORDER BY created_at DESC"
     ).fetchall()
@@ -2677,6 +2782,11 @@ def request_password_reset(request: PasswordResetRequest, connection: psycopg.Co
     ).fetchone()
     response = {"message": "If the account exists, a one-time code has been sent to the selected contact."}
     if not user:
+        return response
+    if connection.execute(
+        "SELECT 1 FROM password_reset_requests WHERE user_id = %s AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1",
+        (user["id"],),
+    ).fetchone():
         return response
 
     otp = f"{secrets.randbelow(1_000_000):06d}"

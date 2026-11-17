@@ -5,7 +5,7 @@ import logging
 import psycopg
 
 from .config import settings
-from .db import CONNECT_TIMEOUT_SECONDS
+from .db import CONNECT_TIMEOUT_SECONDS, open_connection_pool
 from .sms import send_sms_to_many, sms_delivery_configured
 from .typhoons import get_live_typhoons
 
@@ -73,10 +73,7 @@ def process_live_storm_advisories() -> int:
         return 0
 
     notifications_sent = 0
-    with psycopg.connect(
-        settings.database_url,
-        connect_timeout=CONNECT_TIMEOUT_SECONDS,
-    ) as connection:
+    with open_connection_pool().connection(timeout=CONNECT_TIMEOUT_SECONDS) as connection:
         for storm in storms:
             try:
                 if notify_storm_advisory(connection, storm):

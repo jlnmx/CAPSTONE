@@ -1,61 +1,63 @@
 from collections.abc import Generator
 import logging
-import random
-import time
+import sys
+from threading import Lock
 
 import psycopg
 from fastapi import HTTPException
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool, PoolTimeout
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
-CONNECT_ATTEMPTS = 2
 CONNECT_TIMEOUT_SECONDS = 4
-RETRY_BACKOFF_SECONDS = 0.25
+_pool: ConnectionPool | None = None
+_pool_lock = Lock()
 
 
-def _is_transient_connection_error(error: psycopg.OperationalError) -> bool:
-    sqlstate = getattr(error, "sqlstate", None)
-    return sqlstate is None or sqlstate.startswith("08")
+def open_connection_pool() -> ConnectionPool:
+    global _pool
+    with _pool_lock:
+        if _pool is None:
+            _pool = ConnectionPool(
+                conninfo=settings.database_url,
+                min_size=1,
+                max_size=settings.db_pool_max_size,
+                timeout=CONNECT_TIMEOUT_SECONDS,
+                kwargs={"row_factory": dict_row, "connect_timeout": CONNECT_TIMEOUT_SECONDS},
+                open=False,
+                name="handa-api",
+            )
+        if _pool.closed:
+            _pool.open(wait=False)
+        return _pool
+
+
+def close_connection_pool() -> None:
+    global _pool
+    with _pool_lock:
+        if _pool is not None:
+            _pool.close()
+            _pool = None
 
 
 def get_connection() -> Generator[psycopg.Connection, None, None]:
-    connection = None
-    for attempt in range(CONNECT_ATTEMPTS):
-        started_at = time.monotonic()
-        try:
-            connection = psycopg.connect(
-                settings.database_url,
-                row_factory=dict_row,
-                connect_timeout=CONNECT_TIMEOUT_SECONDS,
-            )
-            break
-        except psycopg.OperationalError as error:
-            elapsed_ms = round((time.monotonic() - started_at) * 1000)
-            sqlstate = getattr(error, "sqlstate", None)
-            if not _is_transient_connection_error(error):
-                logger.error(
-                    "Database connection rejected error_type=%s sqlstate=%s elapsed_ms=%d",
-                    type(error).__name__, sqlstate, elapsed_ms,
-                )
-                raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry.") from error
-            if attempt == CONNECT_ATTEMPTS - 1:
-                logger.warning(
-                    "Database connection failed attempts=%d error_type=%s sqlstate=%s elapsed_ms=%d",
-                    CONNECT_ATTEMPTS, type(error).__name__, sqlstate, elapsed_ms,
-                )
-                raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry.") from error
-            backoff = RETRY_BACKOFF_SECONDS * (2 ** attempt)
-            delay = random.uniform(backoff, backoff * 2)
-            logger.warning(
-                "Retrying database connection attempt=%d/%d error_type=%s sqlstate=%s elapsed_ms=%d",
-                attempt + 1, CONNECT_ATTEMPTS, type(error).__name__, sqlstate, elapsed_ms,
-            )
-            time.sleep(delay)
+    pool = open_connection_pool()
+    context = pool.connection(timeout=CONNECT_TIMEOUT_SECONDS)
+    try:
+        connection = context.__enter__()
+    except (PoolTimeout, psycopg.OperationalError) as error:
+        logger.warning(
+            "Database connection unavailable error_type=%s sqlstate=%s",
+            type(error).__name__, getattr(error, "sqlstate", None),
+        )
+        raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry.") from error
 
-    if connection is None:
-        raise HTTPException(status_code=503, detail="Database temporarily unavailable. Please retry.")
-
-    with connection:
+    try:
         yield connection
+    except BaseException:
+        context.__exit__(*sys.exc_info())
+        raise
+    else:
+        context.__exit__(None, None, None)

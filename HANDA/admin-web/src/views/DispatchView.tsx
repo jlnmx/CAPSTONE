@@ -40,7 +40,13 @@ export default function DispatchView() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const { responders: liveResponders, status: realtimeStatus, errorMessage: realtimeError } = useResponderLive();
+  const {
+    responders: liveResponders,
+    status: realtimeStatus,
+    errorMessage: realtimeError,
+    apiStatus,
+    apiErrorMessage,
+  } = useResponderLive();
 
   const refresh = useCallback(async (quiet = false) => {
     if (quiet) setRefreshing(true);
@@ -143,25 +149,23 @@ export default function DispatchView() {
     }
   };
 
-  const realtimeMessage = realtimeStatus === 'SUBSCRIBED'
-    ? 'Responder locations are live'
-    : realtimeStatus === 'NOT_CONFIGURED'
-      ? 'Live locations are not configured'
-      : realtimeStatus === 'AUTH_ERROR'
-        ? 'Live location authorization unavailable'
-        : ['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(realtimeStatus)
-          ? 'Live updates unavailable; the responder roster refreshes every 15 seconds'
-          : 'Connecting to live responder locations';
+  const realtimeMessage = apiStatus === 'ready'
+    ? realtimeStatus === 'SUBSCRIBED'
+      ? 'Responder status and GPS are live (API backup active)'
+      : 'Responder status and GPS refresh through HANDA API'
+    : apiStatus === 'error'
+      ? 'Responder live status is unavailable; retrying'
+      : 'Connecting to live responder status';
 
   return <div className="page-content dispatch-page">
     <PageHeading eyebrow="FIELD OPERATIONS" title="Dispatch responders" description="Select an active incident, then choose active responders to deploy. Responders are ordered by their latest live GPS position relative to the incident." action={<button className="button-secondary" onClick={() => void refresh(true)} disabled={loading || refreshing}><RefreshCw size={15} /> Refresh</button>} />
     {error && <InlineNotice tone="error" onRetry={() => void refresh()}>{error}</InlineNotice>}
     {notice && <InlineNotice tone="success">{notice}</InlineNotice>}
-    <div className={`dispatch-live-banner ${realtimeStatus === 'SUBSCRIBED' ? 'dispatch-live-on' : ''}`}>
+    <div className={`dispatch-live-banner ${apiStatus === 'ready' ? 'dispatch-live-on' : ''}`}>
       <span className="dispatch-live-dot" />
       <span>{realtimeMessage}</span>
-      {realtimeStatus === 'SUBSCRIBED' && <small>GPS locations expire after 60 seconds</small>}
-      {realtimeStatus !== 'SUBSCRIBED' && realtimeError && <small>{realtimeError}</small>}
+      {apiStatus === 'ready' && <small>Online status expires after 45 seconds; GPS after 60 seconds</small>}
+      {apiStatus === 'error' && <small>{apiErrorMessage || realtimeError}</small>}
     </div>
 
     {loading ? <LoadingState label="Loading incidents and active responders" /> : <div className="dispatch-layout">

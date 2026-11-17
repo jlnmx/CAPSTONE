@@ -18,6 +18,7 @@ import {
   LOCATION_EVENT,
   NOTIFICATION_EVENT,
   NotificationCreated,
+  PUBLIC_INCIDENTS_TOPIC,
   RESPONDERS_TOPIC,
   RESPONDER_LIVE_ROLES,
   ResponderAvailability,
@@ -74,8 +75,12 @@ function useRealtimeEnabled(roles?: readonly string[], allowDemoResponder = fals
 }
 
 export function useIncidentFeed(onChange: (change: IncidentChange) => void) {
-  const { enabled } = useRealtimeEnabled();
-  return useRealtimeChannel({ enabled, topic: INCIDENTS_TOPIC, broadcast: { [INCIDENT_EVENT]: onChange } });
+  const { user, enabled } = useRealtimeEnabled();
+  return useRealtimeChannel({
+    enabled,
+    topic: user?.role === 'resident' ? PUBLIC_INCIDENTS_TOPIC : INCIDENTS_TOPIC,
+    broadcast: { [INCIDENT_EVENT]: onChange },
+  });
 }
 
 export function useEvacuationCenterFeed(onChange: (change: CenterChange) => void) {

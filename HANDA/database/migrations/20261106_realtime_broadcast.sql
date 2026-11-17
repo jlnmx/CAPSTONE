@@ -7,7 +7,8 @@
 --   app_role = 'resident' | 'responder' | 'admin'
 --
 -- Topics:
---   incidents:feed                 broadcast (database -> clients), resident/responder/admin read
+--   incidents:feed                 full incident feed, responder/admin read
+--   incidents:public_feed          type/location/time only, resident read
 --   evacuation_centers:feed        broadcast (database -> clients), resident/responder/admin read
 --   user:<users.id>:notifications  broadcast (database -> clients), only that user reads
 --   responders:live                presence + broadcast 'location' (transient, never stored);
@@ -30,6 +31,7 @@ AS $$
 DECLARE
   source public.incidents;
   body jsonb;
+  public_body jsonb;
 BEGIN
   source := CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
   body := CASE
@@ -47,6 +49,17 @@ BEGIN
     ))
   END;
   PERFORM realtime.send(body, 'incident_changed', 'incidents:feed', true);
+  public_body := CASE
+    WHEN TG_OP = 'DELETE' OR NEW.status = 'resolved'
+      THEN jsonb_build_object('op', 'DELETE', 'incident', jsonb_build_object('id', source.id))
+    ELSE jsonb_build_object('op', TG_OP, 'incident', jsonb_build_object(
+      'id', source.id,
+      'type', source.type,
+      'location', source.location_text,
+      'created_at', source.created_at
+    ))
+  END;
+  PERFORM realtime.send(public_body, 'incident_changed', 'incidents:public_feed', true);
   RETURN NULL;
 EXCEPTION WHEN OTHERS THEN
   RAISE WARNING 'incident broadcast failed: %', SQLERRM;
@@ -138,7 +151,21 @@ FOR SELECT TO authenticated
 USING (
   realtime.messages.extension = 'broadcast'
   AND (SELECT realtime.topic()) IN ('incidents:feed', 'evacuation_centers:feed')
-  AND (SELECT auth.jwt() ->> 'app_role') IN ('resident', 'responder', 'admin')
+  AND (
+    (SELECT realtime.topic()) = 'evacuation_centers:feed'
+    AND (SELECT auth.jwt() ->> 'app_role') IN ('resident', 'responder', 'admin')
+    OR (SELECT realtime.topic()) = 'incidents:feed'
+    AND (SELECT auth.jwt() ->> 'app_role') IN ('responder', 'admin')
+  )
+);
+
+DROP POLICY IF EXISTS "handa_public_incidents_receive" ON realtime.messages;
+CREATE POLICY "handa_public_incidents_receive" ON realtime.messages
+FOR SELECT TO authenticated
+USING (
+  realtime.messages.extension = 'broadcast'
+  AND (SELECT realtime.topic()) = 'incidents:public_feed'
+  AND (SELECT auth.jwt() ->> 'app_role') = 'resident'
 );
 
 DROP POLICY IF EXISTS "handa_user_notifications_receive" ON realtime.messages;
@@ -166,4 +193,8 @@ WITH CHECK (
   realtime.messages.extension IN ('broadcast', 'presence')
   AND (SELECT realtime.topic()) = 'responders:live'
   AND (SELECT auth.jwt() ->> 'app_role') = 'responder'
+  AND (
+    realtime.messages.extension = 'presence'
+    OR realtime.messages.payload ->> 'user_id' = (SELECT auth.jwt() ->> 'sub')
+  )
 );

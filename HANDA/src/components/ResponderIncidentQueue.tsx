@@ -14,6 +14,7 @@ import { incidentStatusColor, incidentStatusLabel } from '@constants/incidentSta
 import { parseOrganizations, RESPONDER_ORGANIZATIONS, ResponderOrganization } from '@constants/responderOrganizations';
 import { estimateResponseEta } from '@services/responderEta';
 import { addIncidentResponsePhoto, getIncidentReporterContacts, getIncidentResponders, getResponderData, IncidentReporterContact, IncidentResponderEntry, IncidentStatus, ResponderIncident, updateIncidentStatus } from '@services/responderData';
+import { prepareIncidentPhoto } from '@services/incidentPhoto';
 import { IncidentTypeBadge, KIT_GREEN as GREEN, ProgressSteps, Reveal, StatusPill, kitFonts } from '@components/IncidentCardKit';
 
 const STATUSES: IncidentStatus[] = ['reported', 'acknowledged', 'in_progress', 'resolved'];
@@ -114,10 +115,10 @@ export default function ResponderIncidentQueue() {
           return;
         }
       }
-      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.5, base64: true });
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'] });
       if (result.canceled) return;
       const asset = result.assets[0];
-      if (!asset?.base64) {
+      if (!asset) {
         Alert.alert('Photo not ready', 'The photo could not be prepared. Please try again.');
         return;
       }
@@ -133,7 +134,7 @@ export default function ResponderIncidentQueue() {
       } catch (error) {
         Alert.alert('Location unavailable', error instanceof Error ? error.message : 'Your photo will still be sent, but arrival coordinates could not be read.');
       }
-      await addIncidentResponsePhoto(incident.id, `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}`, coordinates);
+      await addIncidentResponsePhoto(incident.id, await prepareIncidentPhoto(asset.uri, asset.width), coordinates);
       Alert.alert('Arrival recorded', coordinates
         ? 'Your scene photo and GPS location were sent. This incident is now in progress.'
         : 'Your scene photo was sent and this incident is now in progress. Arrival GPS was unavailable.');

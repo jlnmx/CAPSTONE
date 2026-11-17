@@ -6,6 +6,7 @@
 import type { UserRole } from '@/types/index';
 
 export const INCIDENTS_TOPIC = 'incidents:feed';
+export const PUBLIC_INCIDENTS_TOPIC = 'incidents:public_feed';
 export const EVACUATION_CENTERS_TOPIC = 'evacuation_centers:feed';
 export const RESPONDERS_TOPIC = 'responders:live';
 export const notificationsTopic = (userId: string) => `user:${userId}:notifications`;

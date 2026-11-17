@@ -9,6 +9,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
     database_url: str = "postgresql://handa:handa_dev_password@localhost:5432/handa"
+    db_pool_max_size: int = Field(default=4, ge=1, le=20)
     cors_origins: str = "http://localhost:8081,http://localhost:19006,https://handa-admin-web.vercel.app"
     cors_origin_regex: str = ""
     auth_secret: str = "handa-development-auth-secret-change-me"

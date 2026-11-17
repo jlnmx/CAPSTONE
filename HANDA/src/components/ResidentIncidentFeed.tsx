@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { PhotoGallery } from '@components/PhotoGallery';
 import { Colors } from '@constants/colors';
 import { ActivityIndicator, Animated, Easing, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -7,38 +6,29 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { authenticatedFetch } from '@services/apiClient';
 import { useIncidentFeed } from '@hooks/useRealtime';
-import { incidentStatusColor } from '@constants/incidentStatus';
-import { IncidentTypeBadge, KIT_GREEN as GREEN, ProgressSteps, Reveal, StatusPill, kitFonts } from '@components/IncidentCardKit';
+import { KIT_GREEN as GREEN, Reveal, kitFonts } from '@components/IncidentCardKit';
 
 type ResidentIncident = {
   id: string;
   type: string;
-  description: string;
   location: string;
-  latitude?: number;
-  longitude?: number;
-  photoUris: string[];
-  responsePhotoUris: string[];
-  status: string;
   createdAt: string;
-  responseEtaMinutes?: number;
-  responseOrganizations: string;
 };
 
 function normalizeIncident(record: Record<string, unknown>): ResidentIncident {
-  const rawPhotos = record.photoUris ?? record.photo_uris;
-  const rawResponsePhotos = record.responsePhotoUris ?? record.response_photo_uris;
-  const rawEta = record.responseEtaMinutes ?? record.response_eta_minutes;
   return {
-    id: String(record.id), type: String(record.type ?? 'Incident'), description: String(record.description ?? ''), location: String(record.location ?? record.location_text ?? 'Location not provided'), latitude: record.latitude == null ? undefined : Number(record.latitude), longitude: record.longitude == null ? undefined : Number(record.longitude), photoUris: Array.isArray(rawPhotos) ? rawPhotos.map(String) : [], responsePhotoUris: Array.isArray(rawResponsePhotos) ? rawResponsePhotos.map(String) : [], status: String(record.status ?? 'reported'), createdAt: String(record.createdAt ?? record.created_at ?? ''),
-    responseEtaMinutes: rawEta == null ? undefined : Number(rawEta), responseOrganizations: String(record.responseOrganizations ?? record.response_organizations ?? ''),
+    id: String(record.id),
+    type: String(record.type ?? 'Incident'),
+    location: String(record.location ?? record.location_text ?? 'Location unavailable'),
+    createdAt: String(record.createdAt ?? record.created_at ?? ''),
   };
 }
 
-function displayLocationLabel(location: string, latitude?: number, longitude?: number): string {
-  const label = location.replace(/\s*[·,]\s*-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?\s*$/, '').trim();
-  if (label && !['location not provided', 'location unavailable'].includes(label.toLowerCase())) return label;
-  return latitude != null && longitude != null ? 'Pinned incident location' : 'Location unavailable';
+function displayLocationLabel(location: string): string {
+  const label = location.trim();
+  return label && !['location not provided', 'location unavailable'].includes(label.toLowerCase())
+    ? label
+    : 'Location unavailable';
 }
 
 export default function ResidentIncidentFeed() {
@@ -53,7 +43,7 @@ export default function ResidentIncidentFeed() {
       const response = await authenticatedFetch('/api/v1/incidents');
       if (!response.ok) throw new Error('Incident service unavailable.');
       const records = await response.json() as Array<Record<string, unknown>>;
-      setIncidents(records.map(normalizeIncident).filter((incident) => incident.status !== 'resolved'));
+      setIncidents(records.map(normalizeIncident));
       setError('');
     } catch {
       setError('Live incidents could not be loaded. Check your connection and try again.');
@@ -96,35 +86,23 @@ export default function ResidentIncidentFeed() {
       {!!error && <Text style={styles.error}>{error}</Text>}
       {!isLoading && !error && incidents.length === 0 && <Reveal index={1}><View style={styles.empty}><View style={styles.emptyIcon}><MaterialCommunityIcons name="shield-check-outline" size={34} color={GREEN} /></View><Text style={styles.emptyTitle}>No active incidents</Text><Text style={styles.emptyText}>New community reports will appear here as they are posted.</Text></View></Reveal>}
       {incidents.map((incident, index) => {
-        const color = incidentStatusColor(incident.status);
-        const hasResponders = incident.status === 'acknowledged' || incident.status === 'in_progress';
         return <Reveal index={index + 1} key={incident.id}>
           <View style={styles.card}>
-            <View style={[styles.accent, { backgroundColor: color }]} />
+            <View style={[styles.accent, { backgroundColor: GREEN }]} />
             <View style={styles.cardHeader}>
-              <IncidentTypeBadge type={incident.type} status={incident.status} />
+              <View style={styles.incidentIcon}><MaterialCommunityIcons name="alert-outline" size={18} color={GREEN} /></View>
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle} numberOfLines={1}>{incident.type}</Text>
                 <View style={styles.metaRow}><MaterialCommunityIcons name="clock-outline" size={12} color={Colors.textMuted} /><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></View>
               </View>
-              <StatusPill status={incident.status} />
             </View>
-            {hasResponders && <View style={[styles.responding, { backgroundColor: `${color}12`, borderColor: `${color}30` }]}>
-              <MaterialCommunityIcons name="run-fast" size={16} color={color} />
-              <Text style={[styles.respondingText, { color }]}>Responders are on the way{incident.responseEtaMinutes != null ? ` · ETA ${incident.responseEtaMinutes} min` : ''}{incident.responseOrganizations ? ` · ${incident.responseOrganizations}` : ''}</Text>
-            </View>}
             <View style={styles.location}>
               <View style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></View>
               <View style={styles.locationCopy}>
                 <Text style={styles.locationLabel}>INCIDENT LOCATION</Text>
-                <Text style={styles.locationText}>{displayLocationLabel(incident.location, incident.latitude, incident.longitude)}</Text>
-                {incident.latitude != null && incident.longitude != null && Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude) && <Text style={styles.coordinates}>GPS {incident.latitude.toFixed(6)}, {incident.longitude.toFixed(6)}</Text>}
+                <Text style={styles.locationText}>{displayLocationLabel(incident.location)}</Text>
               </View>
             </View>
-            {!!incident.description && <Text style={styles.description}>{incident.description}</Text>}
-            <ProgressSteps status={incident.status} />
-            {incident.photoUris.length > 0 && <><Text style={styles.photoLabel}>REPORTED PHOTOS</Text><PhotoGallery uris={incident.photoUris} style={styles.photos} thumbnailStyle={styles.photo} /></>}
-            {incident.responsePhotoUris.length > 0 && <><Text style={styles.photoLabel}>RESPONDER SCENE PHOTOS</Text><PhotoGallery uris={incident.responsePhotoUris} style={styles.photos} thumbnailStyle={styles.photo} /></>}
           </View>
         </Reveal>;
       })}
@@ -154,6 +132,7 @@ const styles = StyleSheet.create({
   emptyText: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 17, textAlign: 'center', marginTop: 5 },
   card: { padding: 14, paddingLeft: 18, marginBottom: 14, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, overflow: 'hidden', backgroundColor: Colors.surface, shadowColor: '#103A18', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 14, elevation: 3 },
   accent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5 },
+  incidentIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17, backgroundColor: '#FFF1F6' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cardCopy: { flex: 1, minWidth: 0 },
   cardTitle: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 16 },

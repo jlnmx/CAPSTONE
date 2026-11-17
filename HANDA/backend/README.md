@@ -53,6 +53,16 @@ Before starting the API, run `database/init.sql` in the Supabase SQL Editor so t
 
 For an existing Supabase database, also run `database/migrations/20261001_evacuation_status.sql` in the SQL Editor to add resident evacuation registrations and household members. The API adds the same tables at startup for local databases.
 
+For Supabase deployments, run `database/migrations/20261106_realtime_broadcast.sql` and `database/migrations/20261117_api_privacy_and_presence.sql` in the SQL Editor as the project database owner. The first migration separates the resident-safe incident feed from the operational responder/admin feed and restricts Realtime access by role. The second revokes direct Supabase Data API access to application tables and creates short-lived responder-presence storage. These policies assume clients use the HANDA API; do not apply them if another application is meant to access these tables directly. Review the grants and default privileges against the actual project roles before applying. No production database is changed by a code deployment.
+
+## Responder presence and database capacity
+
+The mobile app posts an authenticated responder heartbeat every 15 seconds. The Command Center polls the HANDA API every 15 seconds and also attempts Supabase Realtime; the API poll remains the fallback when the Realtime quota is exhausted. An API heartbeat is considered online for 45 seconds. GPS coordinates and locality are returned only while the location update is newer than 60 seconds; expired presence rows are deleted after two minutes. This location is briefly stored in PostgreSQL for the fallback, so the existing Realtime-only retention behavior no longer applies.
+
+`DB_POOL_MAX_SIZE` bounds the PostgreSQL connection pool per API process (default 4, range 1–20); Render sets it to 4. Total connections scale with the number of running processes/instances, so coordinate this value with the Supabase plan's connection limit. The pool does not increase Supabase quota or prevent a free Render service from sleeping. Realtime remains unavailable until its Supabase quota is restored; the API fallback provides online status but does not restore Realtime features.
+
+Resident incident reports allow up to four JPEG/PNG/WebP photos at 1.5 MB encoded each; responder scene photos use the same per-photo cap. Report descriptions are capped at 2,000 characters. Password-reset requests are throttled per account to one per 60 seconds. These application safeguards do not replace provider-side quota monitoring or broader edge-level request-rate limits.
+
 When using Docker Compose with Supabase, set `DATABASE_URL` in the shell before starting it; Compose will use that value instead of the local Postgres fallback. Use the Session pooler connection string copied from the Dashboard, not a constructed or placeholder host:
 
 ```powershell
@@ -85,11 +95,11 @@ To obtain the OAuth values, enable the Gmail API in Google Cloud, configure the 
 
 The same Gmail API delivers opted-in incident updates and evacuation-center status changes. Center status updates go only to users with alerts enabled who have an active registration at that center. Set `SMTP_FROM` to the Gmail account authorized by the refresh token. Add `GMAIL_API_CLIENT_ID`, `GMAIL_API_CLIENT_SECRET`, `GMAIL_API_REFRESH_TOKEN`, and `SMTP_FROM` to the Render `handa-api` environment; the blueprint declares these settings, but their values are not copied from local `backend/.env`. Add `SEMAPHORE_API_KEY` there to enable Semaphore SMS; set `SEMAPHORE_SENDER_NAME` only if a registered sender name should be used. Restart or redeploy the API after saving credentials. SMTP remains an optional fallback for hosts that permit SMTP.
 
-Responder data is available from `/api/v1/disasters`, `/api/v1/incidents`, `/api/v1/evacuees`, and `/api/v1/centers`. Administrators select responders from `/api/v1/responders/active` and dispatch them with `POST /api/v1/incidents/{id}/dispatch`; responders receive an incident-specific notification and can submit scene photos. Only administrators can change incident status with `PATCH /api/v1/incidents/{id}/status`. Responders can still update evacuee state with `PATCH /api/v1/evacuees/{id}/status` and household check-in state with `PATCH /api/v1/evacuation-registrations/{id}/status`.
+Responder and administrator data is available from `/api/v1/disasters`, `/api/v1/incidents`, `/api/v1/evacuees`, and `/api/v1/centers`; residents can read only the limited incident type, location, and time feed and cannot read the evacuee directory. Administrators select responders from `/api/v1/responders/active` and dispatch them with `POST /api/v1/incidents/{id}/dispatch`; responders receive an incident-specific notification and can submit scene photos. Only administrators can change incident status with `PATCH /api/v1/incidents/{id}/status`. Responders can still update evacuee state with `PATCH /api/v1/evacuees/{id}/status` and household check-in state with `PATCH /api/v1/evacuation-registrations/{id}/status`.
 
 ## Sync contract
 
-Send pending SQLite outbox events in batches of up to 100. The server uses the client ID as the primary key and `ON CONFLICT` upserts, so retrying a batch is safe. A future mobile sync worker should mark an outbox row complete only when its corresponding result has `status: "accepted"`.
+The signed-in mobile account sends its pending SQLite outbox events in batches of up to 100. SQLite rows are tagged with their owner, and queries, sync acknowledgements, and retries are scoped to that user ID. On the server, create retries use `ON CONFLICT (id) DO NOTHING`; a retry cannot overwrite an existing incident or evacuee record. The mobile app marks an outbox row complete only when its corresponding result has `status: "accepted"`. Logout never clears local data. Older rows created before owner tagging remain unclaimed and unsynced until a user explicitly chooses to claim them for the current account; otherwise they remain on the device for later recovery. Permanently rejected reports are retained and shown separately from reports awaiting sync; they are not retried automatically.
 
 ```json
 {

@@ -25,6 +25,8 @@ interface LiveResponder {
   location?: ResponderLocation;
 }
 
+type LivePresenceApiStatus = 'connecting' | 'ready' | 'error';
+
 type LivePresence = { availability?: string; online_at?: string };
 
 let client: SupabaseClient | null = null;
@@ -113,16 +115,54 @@ export function useResponderLive() {
   const [status, setStatus] = useState('connecting');
   const [errorMessage, setErrorMessage] = useState('');
   const [now, setNow] = useState(Date.now);
-  const responders = useMemo(() => mergeResponders(presence, locations, now), [presence, locations, now]);
+  const [apiResponders, setApiResponders] = useState<Record<string, LiveResponder>>({});
+  const [apiStatus, setApiStatus] = useState<LivePresenceApiStatus>('connecting');
+  const [apiErrorMessage, setApiErrorMessage] = useState('');
+  const responders = useMemo(
+    () => ({ ...apiResponders, ...mergeResponders(presence, locations, now) }),
+    [apiResponders, presence, locations, now],
+  );
 
   useEffect(() => {
+    let active = true;
+    const refreshApiPresence = async () => {
+      try {
+        const rows = await apiRequest<unknown[]>('/api/v1/responders/live');
+        if (!active) return;
+        const next: Record<string, LiveResponder> = {};
+        for (const row of rows) {
+          if (typeof row !== 'object' || row === null) continue;
+          const value = row as Record<string, unknown>;
+          if (typeof value.user_id !== 'string' || typeof value.online_at !== 'string') continue;
+          const location = parseLocation(value.location);
+          next[value.user_id] = {
+            user_id: value.user_id,
+            availability: value.availability === 'busy' ? 'busy' : 'available',
+            online_at: value.online_at,
+            ...(location ? { location } : {}),
+          };
+        }
+        setApiResponders(next);
+        setApiStatus('ready');
+        setApiErrorMessage('');
+      } catch (error) {
+        if (!active) return;
+        setApiStatus('error');
+        setApiErrorMessage(getErrorSummary(error));
+      }
+    };
+    void refreshApiPresence();
+    const apiTimer = window.setInterval(() => void refreshApiPresence(), 15_000);
+
     const supabase = getClient();
     if (!supabase) {
       setStatus('NOT_CONFIGURED');
-      return undefined;
+      return () => {
+        active = false;
+        window.clearInterval(apiTimer);
+      };
     }
 
-    let active = true;
     let channel: RealtimeChannel | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let tokenTimer: ReturnType<typeof setTimeout> | undefined;
@@ -203,11 +243,12 @@ export function useResponderLive() {
     return () => {
       active = false;
       clearInterval(clock);
+      window.clearInterval(apiTimer);
       if (retryTimer) clearTimeout(retryTimer);
       if (tokenTimer) clearTimeout(tokenTimer);
       if (channel) void supabase.removeChannel(channel);
     };
   }, []);
 
-  return { responders, status, errorMessage };
+  return { responders, status, errorMessage, apiStatus, apiErrorMessage };
 }

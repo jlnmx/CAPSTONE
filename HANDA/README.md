@@ -544,7 +544,7 @@ Online Mode:
 SQLite (Local) → Sync Queue → FastAPI Backend → PostgreSQL/PostGIS
 ```
 
-The mobile SQLite database and outbox are implemented. Incident reports and evacuee registrations are written locally first, then posted to `/api/v1/sync` when the device is online. The app retries the queue on startup, when returning to the foreground, and when network connectivity is restored; accepted rows are marked as synced only after the server acknowledges them.
+The mobile SQLite database and outbox are implemented. Incident reports and evacuee registrations are written locally first, tagged to the signed-in account, then posted to `/api/v1/sync` when that account is active and the device is online. The app retries the queue on startup, when returning to the foreground, and periodically; accepted rows are marked as synced only after the server acknowledges them. Logging out does not clear local records. Older unowned rows are retained and require an explicit account-recovery choice before they can sync.
 
 ### Start the backend locally
 

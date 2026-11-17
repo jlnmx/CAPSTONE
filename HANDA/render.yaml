@@ -12,6 +12,8 @@ services:
         value: "10000"
       - key: DATABASE_URL
         sync: false
+      - key: DB_POOL_MAX_SIZE
+        value: "4"
       - key: AUTH_SECRET
         generateValue: true
       - key: REALTIME_JWT_PRIVATE_KEY
