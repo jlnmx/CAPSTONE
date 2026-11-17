@@ -43,6 +43,22 @@ type ResidentEvacuationStatus = {
   members?: ResidentHouseholdMember[];
 };
 
+const MOCK_LIVE_TYPHOON: LiveTyphoon = {
+  id: 'development-mock-typhoon',
+  international_name: 'CHAMPI',
+  classification: 'Super Typhoon',
+  status: 'Active',
+  latitude: 14.5,
+  longitude: 125.7,
+  par_status: 'Inside PAR',
+  signal_no: null,
+  max_wind_kmh: 286,
+  gust_speed_kmh: null,
+  data_source: 'DEMO DATA',
+  source_url: 'https://www.pagasa.dost.gov.ph/tropical-cyclone/severe-weather-bulletin',
+  updated_at: new Date().toISOString(),
+};
+
 export default function ResidentDashboard() {
   const { user } = useAuth();
   const scrollRef = useRef<ScrollView>(null);
@@ -140,6 +156,10 @@ export default function ResidentDashboard() {
   }, [user?.householdMembers]);
 
   const disasterIsActive = activeDisaster?.status.toLowerCase() === 'active';
+  const typhoonCards = [
+    ...liveTyphoons.map((typhoon) => ({ typhoon, isMockPreview: false })),
+    ...(__DEV__ ? [{ typhoon: MOCK_LIVE_TYPHOON, isMockPreview: true }] : []),
+  ];
   const timePresentation = getTimeOfDayPresentation(now);
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -179,7 +199,9 @@ export default function ResidentDashboard() {
             description={disasterError ? 'Live status unavailable' : `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affected_areas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}`}
           />
         )}
-        {liveTyphoons.map((typhoon) => <TyphoonCard key={typhoon.id} typhoon={typhoon} />)}
+        {typhoonCards.map(({ typhoon, isMockPreview }) => (
+          <TyphoonCard key={typhoon.id} typhoon={typhoon} isMockPreview={isMockPreview} />
+        ))}
 
         <View ref={statusTargetRef} collapsable={false}>
           <StatusTile
