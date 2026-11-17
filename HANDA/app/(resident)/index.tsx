@@ -1,6 +1,6 @@
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
+import { Platform, SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -42,6 +42,8 @@ type ResidentEvacuationStatus = {
   householdCount: number;
   members?: ResidentHouseholdMember[];
 };
+
+const SHOW_MOCK_TYPHOON_ON_WEB = true;
 
 const MOCK_LIVE_TYPHOON: LiveTyphoon = {
   id: 'development-mock-typhoon',
@@ -158,7 +160,9 @@ export default function ResidentDashboard() {
   const disasterIsActive = activeDisaster?.status.toLowerCase() === 'active';
   const typhoonCards = [
     ...liveTyphoons.map((typhoon) => ({ typhoon, isMockPreview: false })),
-    ...(__DEV__ ? [{ typhoon: MOCK_LIVE_TYPHOON, isMockPreview: true }] : []),
+    ...(__DEV__ || (Platform.OS === 'web' && SHOW_MOCK_TYPHOON_ON_WEB)
+      ? [{ typhoon: MOCK_LIVE_TYPHOON, isMockPreview: true }]
+      : []),
   ];
   const timePresentation = getTimeOfDayPresentation(now);
   const formattedDate = new Intl.DateTimeFormat('en-US', {
