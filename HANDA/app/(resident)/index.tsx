@@ -1,6 +1,6 @@
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -41,24 +41,6 @@ type ResidentEvacuationStatus = {
   status: 'not_registered' | 'registered' | 'checked_in' | 'evacuated' | 'released';
   householdCount: number;
   members?: ResidentHouseholdMember[];
-};
-
-const SHOW_MOCK_TYPHOON_ON_WEB = true;
-
-const MOCK_LIVE_TYPHOON: LiveTyphoon = {
-  id: 'development-mock-typhoon',
-  international_name: 'CHAMPI',
-  classification: 'Super Typhoon',
-  status: 'Active',
-  latitude: 14.5,
-  longitude: 125.7,
-  par_status: 'Inside PAR',
-  signal_no: null,
-  max_wind_kmh: 286,
-  gust_speed_kmh: null,
-  data_source: 'DEMO DATA',
-  source_url: 'https://www.pagasa.dost.gov.ph/tropical-cyclone/severe-weather-bulletin',
-  updated_at: new Date().toISOString(),
 };
 
 export default function ResidentDashboard() {
@@ -158,12 +140,7 @@ export default function ResidentDashboard() {
   }, [user?.householdMembers]);
 
   const disasterIsActive = activeDisaster?.status.toLowerCase() === 'active';
-  const typhoonCards = [
-    ...liveTyphoons.map((typhoon) => ({ typhoon, isMockPreview: false })),
-    ...(__DEV__ || (Platform.OS === 'web' && SHOW_MOCK_TYPHOON_ON_WEB)
-      ? [{ typhoon: MOCK_LIVE_TYPHOON, isMockPreview: true }]
-      : []),
-  ];
+  const typhoonCards = liveTyphoons;
   const timePresentation = getTimeOfDayPresentation(now);
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -203,8 +180,8 @@ export default function ResidentDashboard() {
             description={disasterError ? 'Live status unavailable' : `${activeDisaster.status.toUpperCase()} · ${activeDisaster.severity.toUpperCase()} · ${activeDisaster.affected_areas} affected areas${activeDisaster.description ? ` · ${activeDisaster.description}` : ''}`}
           />
         )}
-        {typhoonCards.map(({ typhoon, isMockPreview }) => (
-          <TyphoonCard key={typhoon.id} typhoon={typhoon} isMockPreview={isMockPreview} />
+        {typhoonCards.map((typhoon) => (
+          <TyphoonCard key={typhoon.id} typhoon={typhoon} />
         ))}
 
         <View ref={statusTargetRef} collapsable={false}>
@@ -338,7 +315,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.surface },
   container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 22 },
-  header: { height: 86, paddingHorizontal: 18, backgroundColor: '#A84F7D', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.16)', shadowColor: '#7D567E', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.16, shadowRadius: 5, elevation: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { height: 86, paddingHorizontal: 18, backgroundColor: Colors.primary, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.16)', shadowColor: '#7D567E', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.16, shadowRadius: 5, elevation: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brand: { color: Colors.white, fontFamily: AppHeadingFontFamily, fontSize: 31, letterSpacing: 0.2 },
   notificationButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },

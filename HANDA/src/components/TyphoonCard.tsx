@@ -35,7 +35,7 @@ function StormMetric({ label, value, icon, wide }: { label: string; value: strin
   );
 }
 
-export function TyphoonCard({ typhoon, isMockPreview = false }: { typhoon: LiveTyphoon; isMockPreview?: boolean }) {
+export function TyphoonCard({ typhoon }: { typhoon: LiveTyphoon }) {
   const { width } = useWindowDimensions();
   const wide = width >= 620;
   const compact = width < 380;
@@ -72,8 +72,8 @@ export function TyphoonCard({ typhoon, isMockPreview = false }: { typhoon: LiveT
 
         <View style={styles.topRow}>
           <View style={styles.liveBadge}>
-            <PulseDot color={isMockPreview ? '#F3C66B' : '#FFA58F'} size={6} />
-            <Text style={styles.liveText}>{isMockPreview ? 'MOCK PREVIEW · NOT LIVE' : 'LIVE STORM TRACK'}</Text>
+            <PulseDot color="#FFA58F" size={6} />
+            <Text style={styles.liveText}>LIVE STORM TRACK</Text>
           </View>
           <View style={[styles.parBadge, isInsidePar ? styles.parBadgeInside : styles.parBadgeOutside]}>
             <MaterialCommunityIcons name={isInsidePar ? 'map-marker-alert-outline' : 'map-marker-outline'} size={13} color={isInsidePar ? '#FFD0C3' : '#B8DCF4'} />
@@ -93,9 +93,7 @@ export function TyphoonCard({ typhoon, isMockPreview = false }: { typhoon: LiveT
           </View>
         </View>
 
-        <Text style={styles.updated}>
-          {isMockPreview ? 'Sample storm values · preview only' : formatUpdateTime(typhoon.updated_at)}
-        </Text>
+        <Text style={styles.updated}>{formatUpdateTime(typhoon.updated_at)}</Text>
 
         <View style={styles.metrics}>
           <StormMetric
@@ -120,18 +118,16 @@ export function TyphoonCard({ typhoon, isMockPreview = false }: { typhoon: LiveT
         </View>
 
         <View style={styles.links}>
-          {!isMockPreview && (
-            <Pressable
-              style={styles.linkButton}
-              onPress={() => void Linking.openURL(typhoon.source_url)}
-              accessibilityRole="link"
-              accessibilityLabel="Open tropical storm track details"
-            >
-              <MaterialCommunityIcons name="map-search-outline" size={16} color="#D9EEFC" />
-              <Text style={styles.linkText}>Track details</Text>
-              <MaterialCommunityIcons name="open-in-new" size={13} color="#A8D4F1" />
-            </Pressable>
-          )}
+          <Pressable
+            style={styles.linkButton}
+            onPress={() => void Linking.openURL(typhoon.source_url)}
+            accessibilityRole="link"
+            accessibilityLabel="Open tropical storm track details"
+          >
+            <MaterialCommunityIcons name="map-search-outline" size={16} color="#D9EEFC" />
+            <Text style={styles.linkText}>Track details</Text>
+            <MaterialCommunityIcons name="open-in-new" size={13} color="#A8D4F1" />
+          </Pressable>
           <Pressable
             style={styles.linkButton}
             onPress={() => void Linking.openURL(PAGASA_BULLETIN_URL)}
