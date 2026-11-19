@@ -13,6 +13,8 @@ import Avatar from '@components/Avatar';
 import { pickProfilePicture, removeProfilePicture, saveProfilePicture } from '@services/profilePicture';
 import { AnimatedPressable } from '@components/Buttons';
 import { GradientHeader, kitFonts, Reveal } from '@components/ScreenKit';
+import { CurrentAddressFields } from '@components/CurrentAddressFields';
+import { formatCurrentAddress, isCurrentAddressComplete, parseCurrentAddress } from '@utils/currentAddress';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
@@ -63,7 +65,7 @@ export default function AccountSectionScreen() {
   const [isBirthdayPickerOpen, setIsBirthdayPickerOpen] = useState(false);
   const [sex, setSex] = useState(user?.sex || '');
   const [isSexPickerOpen, setIsSexPickerOpen] = useState(false);
-  const [address, setAddress] = useState(user?.currentAddress || '');
+  const [addressParts, setAddressParts] = useState(() => parseCurrentAddress(user?.currentAddress || ''));
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isPhotoBusy, setIsPhotoBusy] = useState(false);
@@ -83,7 +85,7 @@ export default function AccountSectionScreen() {
     const [year, month, day] = (user?.birthday || '').split('-').map(Number);
     if (year && month && day) setBirthdayDate(new Date(year, month - 1, day));
     setSex(user?.sex || '');
-    setAddress(user?.currentAddress || '');
+    setAddressParts(parseCurrentAddress(user?.currentAddress || ''));
   }, [user]);
 
   const save = async (endpoint: string, payload: Record<string, string | null>) => {
@@ -261,6 +263,10 @@ export default function AccountSectionScreen() {
       setError('Enter your first and last name.');
       return;
     }
+    if (!isCurrentAddressComplete(addressParts)) {
+      setError('Enter a house number, street, and barangay.');
+      return;
+    }
     const birthdayValue = birthday.trim();
     if (birthdayValue) {
       const parsedBirthday = new Date(`${birthdayValue}T00:00:00`);
@@ -277,7 +283,7 @@ export default function AccountSectionScreen() {
       lastName: lastName.trim(),
       birthday: birthdayValue || null,
       sex: sex || null,
-      currentAddress: address.trim(),
+      currentAddress: formatCurrentAddress(addressParts),
     });
   };
 
@@ -388,7 +394,14 @@ export default function AccountSectionScreen() {
             {isSexPickerOpen && <View style={[styles.sexOptions, { borderColor: palette.border, backgroundColor: palette.surface }]}>
               {['Male', 'Female'].map((option) => <Pressable key={option} onPress={() => { setSex(option); setIsSexPickerOpen(false); }} style={styles.sexOption} accessibilityRole="button"><Text style={[styles.selectText, { color: palette.text }]}>{option}</Text></Pressable>)}
             </View>}
-            <AccountField label="Current address" icon="map-marker-outline" value={address} onChangeText={setAddress} placeholder="Enter your current address" multiline textAlignVertical="top" palette={palette} />
+            <CurrentAddressFields
+              value={addressParts}
+              onChange={(parts) => {
+                setAddressParts(parts);
+                setError('');
+              }}
+              palette={{ text: palette.text, textMuted: palette.textMuted, surface: palette.surface, surfaceMuted: palette.surfaceMuted, border: palette.border, accent: Colors.primary }}
+            />
           </>}
             {!!notice && <Text style={[styles.notice, { color: '#D45B92' }]}>{notice}</Text>}
             {!!error && <View style={styles.error}><MaterialCommunityIcons name="alert-circle-outline" size={18} color={Colors.emergency} /><Text style={styles.errorText}>{error}</Text></View>}

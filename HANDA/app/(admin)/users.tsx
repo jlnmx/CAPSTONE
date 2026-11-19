@@ -5,9 +5,11 @@ import { AnimatedPressable as Pressable } from '@components/Buttons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { Colors, BorderRadius, Shadows, Spacing } from '@constants/colors';
+import { CurrentAddressFields } from '@components/CurrentAddressFields';
 import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { AdminUserInput, AdminUserRecord, createAdminUser, deleteAdminUser, getAdminUsers, getResponderVerificationDocument, ResponderVerificationDocument, reviewResponderApplication, updateAdminUser } from '@services/adminData';
+import { EMPTY_CURRENT_ADDRESS, formatCurrentAddress, isCurrentAddressComplete, parseCurrentAddress, type CurrentAddressParts } from '@utils/currentAddress';
 
 type AccountForm = AdminUserInput;
 
@@ -72,6 +74,7 @@ export default function AdminUsers() {
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState('');
   const [pageError, setPageError] = useState('');
+  const [addressParts, setAddressParts] = useState<CurrentAddressParts>(EMPTY_CURRENT_ADDRESS);
 
   const loadAccounts = useCallback(async () => {
     try {
@@ -87,6 +90,7 @@ export default function AdminUsers() {
   const openCreate = () => {
     setEditingAccount(null);
     setForm(EMPTY_FORM);
+    setAddressParts(EMPTY_CURRENT_ADDRESS);
     setShowPassword(false);
     setFormError('');
     setIsEditorOpen(true);
@@ -104,6 +108,7 @@ export default function AdminUsers() {
       currentAddress: account.currentAddress ?? '',
       password: '',
     });
+    setAddressParts(parseCurrentAddress(account.currentAddress ?? ''));
     setShowPassword(false);
     setFormError('');
     setIsEditorOpen(true);
@@ -111,7 +116,7 @@ export default function AdminUsers() {
 
   const saveAccount = async () => {
     setFormError('');
-    if (!form.name.trim() || !form.email.trim() || !form.birthday.trim() || !form.mobileNumber.trim() || !form.currentAddress.trim()) {
+    if (!form.name.trim() || !form.email.trim() || !form.birthday.trim() || !form.mobileNumber.trim() || !isCurrentAddressComplete(addressParts)) {
       setFormError('Complete all required account details.');
       return;
     }
@@ -136,7 +141,7 @@ export default function AdminUsers() {
 
     setIsSaving(true);
     try {
-      const profile = { ...form, name: form.name.trim(), email: form.email.trim().toLowerCase(), birthday, mobileNumber, currentAddress: form.currentAddress.trim() };
+      const profile = { ...form, name: form.name.trim(), email: form.email.trim().toLowerCase(), birthday, mobileNumber, currentAddress: formatCurrentAddress(addressParts) };
       if (editingAccount) {
         const changes: Partial<AccountForm> = {};
         if (profile.name !== editingAccount.name) changes.name = profile.name;
@@ -235,7 +240,7 @@ export default function AdminUsers() {
               <FormField label="Full name" value={form.name} onChangeText={(name) => setForm((current) => ({ ...current, name }))} />
               <FormField label="Email" value={form.email} onChangeText={(email) => setForm((current) => ({ ...current, email }))} keyboardType="email-address" autoCapitalize="none" />
               <View style={[styles.formRow, isCompact && styles.formRowStacked]}><View style={styles.halfField}><FormField label="Birthday" value={form.birthday} onChangeText={(birthday) => setForm((current) => ({ ...current, birthday }))} placeholder="YYYY-MM-DD" inputType={Platform.OS === 'web' ? 'date' : undefined} /></View><View style={styles.halfField}><FormField label="Mobile number" value={form.mobileNumber} onChangeText={(mobileNumber) => setForm((current) => ({ ...current, mobileNumber }))} keyboardType="phone-pad" placeholder="09XXXXXXXXX" /></View></View>
-              <FormField label="Current address" value={form.currentAddress} onChangeText={(currentAddress) => setForm((current) => ({ ...current, currentAddress }))} />
+              <CurrentAddressFields value={addressParts} onChange={(parts) => { setAddressParts(parts); setFormError(''); }} />
               {!(editingAccount?.id === user?.id) && <>
                 <ChoiceGroup label="Role" values={ROLES} selected={form.role} onSelect={(role) => setForm((current) => ({ ...current, role }))} />
                 <ChoiceGroup label="Account status" values={STATUSES} selected={form.status} onSelect={(status) => setForm((current) => ({ ...current, status }))} />
