@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
 import { Colors } from '@constants/colors';
+
+const AnimatedGroup = Animated.createAnimatedComponent(G);
 
 interface RescueMascotProps {
   size?: number;
@@ -11,6 +13,8 @@ interface RescueMascotProps {
 export default function RescueMascot({ size = 48, animated = false }: RescueMascotProps) {
   const bounce = useRef(new Animated.Value(0)).current;
   const sway = useRef(new Animated.Value(0)).current;
+  const tailWag = useRef(new Animated.Value(0)).current;
+  const armWave = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!animated) return undefined;
@@ -23,15 +27,30 @@ export default function RescueMascot({ size = 48, animated = false }: RescueMasc
       Animated.timing(sway, { toValue: 1, duration: 900, useNativeDriver: true }),
       Animated.timing(sway, { toValue: 0, duration: 900, useNativeDriver: true }),
     ]));
+    const tailLoop = Animated.loop(Animated.sequence([
+      Animated.timing(tailWag, { toValue: 1, duration: 550, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+      Animated.timing(tailWag, { toValue: 0, duration: 550, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+    ]));
+    const armLoop = Animated.loop(Animated.sequence([
+      Animated.timing(armWave, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+      Animated.timing(armWave, { toValue: 0, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+    ]));
 
     bounceLoop.start();
     swayLoop.start();
+    tailLoop.start();
+    armLoop.start();
 
     return () => {
       bounceLoop.stop();
       swayLoop.stop();
+      tailLoop.stop();
+      armLoop.stop();
     };
-  }, [animated, bounce, sway]);
+  }, [animated, armWave, bounce, sway, tailWag]);
+
+  const tailRotation = tailWag.interpolate({ inputRange: [0, 1], outputRange: [-8, 12] });
+  const armRotation = armWave.interpolate({ inputRange: [0, 1], outputRange: [-8, 9] });
 
   return (
     <Animated.View
@@ -53,12 +72,16 @@ export default function RescueMascot({ size = 48, animated = false }: RescueMasc
         <Circle cx="90" cy="96" r="85" fill="#FFF1F6" />
         <Circle cx="145" cy="37" r="13" fill="#E7F3FA" />
         <Circle cx="33" cy="74" r="5" fill={Colors.brandBlue} />
-        <Path d="M47 135 C26 147 27 121 37 116 C45 112 48 124 43 128" fill="none" stroke="#B77B56" strokeWidth="9" strokeLinecap="round" />
+        <AnimatedGroup rotation={tailRotation} originX={47} originY={135}>
+          <Path d="M47 135 C26 147 27 121 37 116 C45 112 48 124 43 128" fill="none" stroke="#B77B56" strokeWidth="9" strokeLinecap="round" />
+        </AnimatedGroup>
         <Path d="M54 110 C60 99 72 94 90 94 C108 94 121 100 127 113 L138 174 H42 L48 126 Z" fill="#F2D2AE" />
         <Path d="M56 116 C68 108 78 106 90 106 C103 106 114 109 124 117 L133 171 H47 Z" fill={Colors.brandPink} />
         <Path d="M83 108 H98 L105 171 H76 Z" fill={Colors.brandBlue} />
-        <Path d="M119 119 C130 110 135 94 143 84" fill="none" stroke="#E8C092" strokeWidth="13" strokeLinecap="round" />
-        <Circle cx="146" cy="78" r="10" fill="#E8C092" />
+        <AnimatedGroup rotation={armRotation} originX={119} originY={119}>
+          <Path d="M119 119 C130 110 135 94 143 84" fill="none" stroke="#E8C092" strokeWidth="13" strokeLinecap="round" />
+          <Circle cx="146" cy="78" r="10" fill="#E8C092" />
+        </AnimatedGroup>
         <Path d="M43 120 C49 115 56 114 62 117 L67 131 C60 137 52 137 46 131 Z" fill="#E8C092" />
         <Path d="M64 172 L61 182 H80 L82 172 M99 172 L101 182 H120 L117 171" fill="#A96756" />
         <Ellipse cx="53" cy="58" rx="14" ry="25" transform="rotate(-27 53 58)" fill="#A96756" />

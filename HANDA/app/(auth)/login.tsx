@@ -106,7 +106,9 @@ export default function LoginScreen() {
                   </Animated.View>
                 </View>
               </View>
-              <RescueMascot size={74} animated />
+              <View style={styles.heroMascot}>
+                <RescueMascot size={74} animated />
+              </View>
             </View>
           </Animated.View>
         </LinearGradient>
@@ -276,6 +278,9 @@ const styles = StyleSheet.create({
   heroWelcomeCopy: {
     flex: 1,
     minWidth: 0,
+  },
+  heroMascot: {
+    transform: [{ translateY: 30 }],
   },
   dialogueBubble: {
     position: 'relative',
