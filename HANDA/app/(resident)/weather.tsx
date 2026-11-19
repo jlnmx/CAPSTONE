@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -26,6 +26,128 @@ function displayHour(value: string): string {
 
 function formatTemperature(value: number): string {
   return `${Math.round(value)}°C`;
+}
+
+function HourlyForecastStrip({ hours }: { hours: GoogleWeatherSnapshot['hourly'] }) {
+  const scrollRef = useRef<ScrollView>(null);
+  const offsetRef = useRef(0);
+  const pausedRef = useRef(false);
+  const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didInitializeRef = useRef(false);
+  const [groupWidth, setGroupWidth] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const copyCount = groupWidth && viewportWidth
+    ? Math.max(3, Math.ceil(Math.max(0, viewportWidth - 20) / groupWidth) + 2)
+    : 3;
+
+  const pause = useCallback(() => {
+    pausedRef.current = true;
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = null;
+  }, []);
+
+  const resumeSoon = useCallback(() => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+    resumeTimerRef.current = setTimeout(() => {
+      pausedRef.current = false;
+      resumeTimerRef.current = null;
+    }, 1400);
+  }, []);
+
+  useEffect(() => {
+    if (!groupWidth || !hours.length) return;
+    if (!didInitializeRef.current) {
+      offsetRef.current = groupWidth;
+      scrollRef.current?.scrollTo({ x: groupWidth, animated: false });
+      didInitializeRef.current = true;
+    }
+  }, [groupWidth, hours.length]);
+
+  useEffect(() => {
+    if (!groupWidth || contentWidth <= viewportWidth || !viewportWidth || !hours.length) return;
+
+    let frame = 0;
+    let previousFrame = 0;
+    const start = groupWidth;
+    const end = groupWidth * 2;
+    const pixelsPerMillisecond = 0.024;
+
+    const tick = (time: number) => {
+      if (previousFrame && !pausedRef.current) {
+        let nextOffset = offsetRef.current + (time - previousFrame) * pixelsPerMillisecond;
+        if (nextOffset >= end) nextOffset = start + ((nextOffset - start) % groupWidth);
+        offsetRef.current = nextOffset;
+        scrollRef.current?.scrollTo({ x: nextOffset, animated: false });
+      }
+      previousFrame = time;
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [contentWidth, groupWidth, hours.length, viewportWidth]);
+
+  useEffect(() => () => {
+    if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+  }, []);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const x = event.nativeEvent.contentOffset.x;
+    if (!groupWidth) {
+      offsetRef.current = x;
+      return;
+    }
+
+    const start = groupWidth;
+    const end = groupWidth * 2;
+    if (x < start || x >= end) {
+      const wrappedOffset = start + ((x - start) % groupWidth + groupWidth) % groupWidth;
+      offsetRef.current = wrappedOffset;
+      scrollRef.current?.scrollTo({ x: wrappedOffset, animated: false });
+      return;
+    }
+    offsetRef.current = x;
+  }, [groupWidth]);
+
+  return (
+    <ScrollView
+      ref={scrollRef}
+      horizontal
+      bounces={false}
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.hourlyContent}
+      onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
+      onContentSizeChange={(width) => setContentWidth(width)}
+      onScroll={handleScroll}
+      onScrollBeginDrag={pause}
+      onScrollEndDrag={resumeSoon}
+      onMomentumScrollBegin={pause}
+      onMomentumScrollEnd={resumeSoon}
+      onTouchStart={pause}
+      onTouchEnd={resumeSoon}
+      scrollEventThrottle={16}
+      accessibilityLabel="Hourly weather forecast"
+      accessibilityHint="Moves slowly on its own. Swipe to browse the forecast."
+    >
+      {Array.from({ length: copyCount }, (_, copy) => (
+        <View
+          key={`hourly-copy-${copy}`}
+          style={styles.hourlyCopy}
+          onLayout={copy === 0 ? (event) => setGroupWidth(event.nativeEvent.layout.width) : undefined}
+        >
+          {hours.map((hour) => (
+            <View key={`${copy}-${hour.time}`} style={styles.hourItem}>
+              <Text style={styles.hourRain}>{hour.precipitationProbability == null ? '--' : `${hour.precipitationProbability}%`}</Text>
+              <Text style={styles.hourTime}>{displayHour(hour.time)}</Text>
+              <MaterialCommunityIcons name={getWeatherPresentation(hour.conditionType, hour.temperature, hour.isDay, hour.conditionDescription).icon} size={26} color={Colors.secondary} />
+              <Text style={styles.hourTemperature}>{formatTemperature(hour.temperature)}</Text>
+            </View>
+          ))}
+        </View>
+      ))}
+    </ScrollView>
+  );
 }
 
 export default function WeatherForecastScreen() {
@@ -104,16 +226,7 @@ export default function WeatherForecastScreen() {
                 : <View style={styles.riskUnavailable}><MaterialCommunityIcons name="information-outline" size={18} color={Colors.warning} /><Text style={styles.riskDetail}>Air-quality data is unavailable, so the combined environmental risk indicator could not be calculated.</Text></View>}
 
             <View style={styles.hourlyCard}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hourlyContent}>
-                {forecast.hourly.map((hour) => (
-                  <View key={hour.time} style={styles.hourItem}>
-                    <Text style={styles.hourRain}>{hour.precipitationProbability == null ? '--' : `${hour.precipitationProbability}%`}</Text>
-                    <Text style={styles.hourTime}>{displayHour(hour.time)}</Text>
-                    <MaterialCommunityIcons name={getWeatherPresentation(hour.conditionType, hour.temperature, hour.isDay, hour.conditionDescription).icon} size={26} color={Colors.secondary} />
-                    <Text style={styles.hourTemperature}>{formatTemperature(hour.temperature)}</Text>
-                  </View>
-                ))}
-              </ScrollView>
+              <HourlyForecastStrip hours={forecast.hourly} />
             </View>
 
             <View style={styles.section}>
@@ -183,7 +296,8 @@ const styles = StyleSheet.create({
   todayMeta: { color: Colors.white, fontSize: 11, marginTop: 8 },
   hourlyCard: { marginTop: 14, borderRadius: 14, backgroundColor: Colors.surface, paddingVertical: 12 },
   hourlyContent: { paddingHorizontal: 10 },
-  hourItem: { width: 58, alignItems: 'center', gap: 5 },
+  hourlyCopy: { flexDirection: 'row' },
+  hourItem: { width: 68, alignItems: 'center', gap: 5 },
   hourRain: { color: Colors.secondary, fontSize: 10, fontWeight: '700' },
   hourTime: { color: Colors.textMuted, fontSize: 10 },
   hourTemperature: { color: Colors.text, fontSize: 11, fontWeight: '700' },
