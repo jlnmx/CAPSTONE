@@ -43,9 +43,10 @@ class SecurityHardeningTests(unittest.TestCase):
         self.assertTrue(result[0]["is_own_report"])
         self.assertNotIn("reporter_user_id", result[0])
         query = connection.execute.call_args.args[0]
-        self.assertIn("status <> 'resolved' OR reporter_user_id = %s", query)
+        self.assertIn("WHERE status <> 'resolved'", query)
+        self.assertNotIn("OR reporter_user_id", query)
         self.assertIn("COALESCE(reporter_user_id = %s, FALSE) AS is_own_report", query)
-        self.assertEqual(connection.execute.call_args.args[1], ("resident-1", "resident-1"))
+        self.assertEqual(connection.execute.call_args.args[1], ("resident-1",))
         self.assertNotIn("description", query)
         self.assertNotIn("photo_uris", query)
         self.assertNotIn("latitude", query)

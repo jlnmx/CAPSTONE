@@ -1192,10 +1192,10 @@ def list_incidents(connection: psycopg.Connection = Depends(get_connection), use
             SELECT id, type, location_text AS location, status, created_at,
                    COALESCE(reporter_user_id = %s, FALSE) AS is_own_report
             FROM incidents
-            WHERE status <> 'resolved' OR reporter_user_id = %s
+            WHERE status <> 'resolved'
             ORDER BY created_at DESC
             """,
-            (user.id, user.id),
+            (user.id,),
         ).fetchall()
 
     # photo_uris holds the reporter's photos; response_photo_uris holds photos responders took on scene.
