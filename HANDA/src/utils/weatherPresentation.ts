@@ -14,10 +14,10 @@ export type WeatherPresentation = {
 
 export function getWeatherTileTimePresentation(date = new Date()) {
   const hour = date.getHours();
-  if (hour >= 5 && hour < 11) return { label: 'Morning', gradient: ['#67445F', '#A85F7C', '#8EAFC0'] as const };
-  if (hour >= 11 && hour < 14) return { label: 'Noon', gradient: ['#8C4B62', '#C47783', '#C59D81'] as const };
-  if (hour >= 14 && hour < 18) return { label: 'Afternoon', gradient: ['#5C4D68', '#95657F', '#7C9EB5'] as const };
-  return { label: 'Evening', gradient: ['#202F49', '#414762', '#765B75'] as const };
+  if (hour >= 5 && hour < 11) return { label: 'Morning', gradient: ['#704523', '#A65F2E', '#BF793B'] as const };
+  if (hour >= 11 && hour < 14) return { label: 'Noon', gradient: ['#80511F', '#B07422', '#C58C2D'] as const };
+  if (hour >= 14 && hour < 18) return { label: 'Afternoon', gradient: ['#753B26', '#B3522E', '#C96B3D'] as const };
+  return { label: 'Evening', gradient: ['#162B46', '#263F60', '#3D6288'] as const };
 }
 
 export function getSafetyTip(presentation: WeatherPresentation, timeLabel: string, disasterActive: boolean) {
