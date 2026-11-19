@@ -8,7 +8,7 @@ import AppBackArrow from '@components/AppBackArrow';
 import { useTheme } from '@hooks/useTheme';
 import { fetchGoogleWeatherForecast } from '@services/googleWeather';
 import type { GoogleWeatherSnapshot } from '@/types/weather';
-import { getWeatherPresentation } from '@utils/weatherPresentation';
+import { getWeatherPresentation, getWeatherTileTimePresentation } from '@utils/weatherPresentation';
 
 function parseLocalDate(value: string): Date {
   const [year, month, day] = value.slice(0, 10).split('-').map(Number);
@@ -34,6 +34,7 @@ export default function WeatherForecastScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
 
   const loadForecast = useCallback(async (signal?: AbortSignal) => {
     setIsLoading(true);
@@ -56,8 +57,14 @@ export default function WeatherForecastScreen() {
     return () => controller.abort();
   }, [loadForecast]);
 
+  useEffect(() => {
+    const clock = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(clock);
+  }, []);
+
   const today = forecast?.daily[0];
   const presentation = forecast && getWeatherPresentation(forecast.current.conditionType, forecast.current.temperature, forecast.current.isDay, forecast.current.conditionDescription);
+  const tileTimePresentation = getWeatherTileTimePresentation(now);
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
@@ -79,7 +86,7 @@ export default function WeatherForecastScreen() {
         )}
         {!isLoading && !error && forecast && today && presentation && (
           <>
-            <LinearGradient colors={presentation.gradient} style={styles.todayCard}>
+            <LinearGradient colors={tileTimePresentation.gradient} style={styles.todayCard}>
               <View style={styles.todayHeading}>
                 <View><Text darkText style={styles.todayLabel}>Today</Text><Text darkText style={styles.todayDate}>{displayDate(today.date, true)}</Text></View>
                 <MaterialCommunityIcons name={presentation.icon} size={42} color={Colors.white} />
