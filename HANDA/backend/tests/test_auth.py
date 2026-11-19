@@ -5,8 +5,8 @@ from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.auth import CurrentUser, create_access_token, get_current_user, require_roles, require_superadmin
-from app.main import app, list_users, login_user, mobile_login_candidates
-from app.schemas import UserLogin
+from app.main import app, list_users, login_user, logout_user, mobile_login_candidates, refresh_user_session
+from app.schemas import LogoutRequest, RefreshTokenInput, UserLogin
 
 
 class FakeResult:
@@ -28,12 +28,17 @@ class FakeConnection:
         self.executed = False
         self.parameters = None
         self.query = None
+        self.queries = []
 
     def execute(self, *_args):
         self.executed = True
         self.query = _args[0] if _args else None
         self.parameters = _args[1] if len(_args) > 1 else None
+        self.queries.append((_args[0] if _args else None, _args[1] if len(_args) > 1 else None))
         return FakeResult(self.row)
+
+    def commit(self):
+        pass
 
 
 def dependency_calls(dependant):
@@ -73,8 +78,9 @@ class AuthTests(unittest.TestCase):
 
         result = login_user(UserLogin(email="+63 (917) 123-4567", password="password", keepLoggedIn=True), connection)
 
-        self.assertEqual(connection.parameters, (["639171234567", "09171234567"],))
+        self.assertEqual(connection.queries[0][1], (["639171234567", "09171234567"],))
         self.assertEqual(result["accessToken"], "access-token")
+        self.assertTrue(result["refreshToken"])
         self.assertEqual(result["user"]["role"], "resident")
         _token.assert_called_once_with("resident-1", "resident", 0, True)
 
@@ -90,6 +96,40 @@ class AuthTests(unittest.TestCase):
 
         self.assertEqual(normal_lifetime, 8 * 60 * 60)
         self.assertEqual(remembered_lifetime, 30 * 24 * 60 * 60)
+
+    @patch("app.main.household_members_for_user", return_value=[])
+    @patch("app.main.resident_profile_payload", return_value={"id": "resident-1"})
+    @patch("app.main.create_access_token", return_value=("new-access-token", 3600))
+    def test_persistent_refresh_credential_issues_a_fresh_access_token(self, _token, _profile, _members):
+        connection = FakeConnection({
+            "id": "resident-1",
+            "name": "Resident",
+            "email": "resident@example.com",
+            "role": "Resident",
+            "status": "Active",
+            "token_version": 2,
+            "is_superadmin": False,
+        })
+
+        result = refresh_user_session(RefreshTokenInput(refreshToken="persistent-refresh-token-value-123456"), connection)
+
+        self.assertEqual(result["accessToken"], "new-access-token")
+        self.assertEqual(result["user"]["role"], "resident")
+        self.assertIn("refresh_tokens", connection.query)
+
+    def test_logout_preserves_only_the_requested_biometric_refresh_credential(self):
+        connection = FakeConnection({"valid": True})
+        user = CurrentUser("resident-1", "resident@example.com", "Resident", "resident", 0)
+
+        result = logout_user(
+            LogoutRequest(preserveRefreshToken="persistent-refresh-token-value-123456"),
+            user,
+            connection,
+        )
+
+        self.assertEqual(result, {"status": "signed_out"})
+        self.assertTrue(any("token_hash <>" in query for query, _ in connection.queries))
+        self.assertTrue(any("token_version = token_version + 1" in query for query, _ in connection.queries))
 
     def test_admin_resident_listing_can_include_saved_household_members(self):
         members = [{
@@ -201,6 +241,7 @@ class AuthTests(unittest.TestCase):
     def test_only_login_and_registration_are_public_api_routes(self):
         public_routes = {
             ("POST", "/api/v1/auth/login"),
+            ("POST", "/api/v1/auth/refresh"),
             ("POST", "/api/v1/auth/password-reset/request"),
             ("POST", "/api/v1/auth/password-reset/verify"),
             ("POST", "/api/v1/auth/password-reset/complete"),

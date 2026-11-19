@@ -187,7 +187,7 @@ export default function SettingsScreen() {
               <View style={styles.sectionIcon}><MaterialCommunityIcons name="fingerprint" size={20} color={Colors.secondary} /></View>
               <View style={styles.notificationHeading}>
                 <Text style={[styles.sectionTitle, { color: palette.text }]}>Biometric sign-in</Text>
-                <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Your device verifies biometrics locally; HANDA stores no biometric templates or face scans. Sign-out or session expiry requires password sign-in again.</Text>
+                <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Your device verifies biometrics locally; HANDA stores no biometric templates or face scans. After signing out, use biometrics or your password to sign back in.</Text>
               </View>
             </View>
             {isLoadingBiometric ? <ActivityIndicator style={styles.preferenceLoading} color={Colors.secondary} /> : (

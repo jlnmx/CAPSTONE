@@ -208,6 +208,14 @@ class UserLogin(BaseModel):
     keepLoggedIn: bool = False
 
 
+class RefreshTokenInput(BaseModel):
+    refreshToken: str = Field(min_length=32, max_length=256)
+
+
+class LogoutRequest(BaseModel):
+    preserveRefreshToken: str | None = Field(default=None, min_length=32, max_length=256)
+
+
 class ChatbotMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=4000)

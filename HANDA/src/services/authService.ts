@@ -4,7 +4,7 @@
  */
 
 import { AuthUser, UserRole } from '@/types/index';
-import { API_BASE_URL, ApiReadinessError, authenticatedFetch, clearAccessToken, fetchWithRetry, getAccessToken, setAccessToken, warmUpServer } from './apiClient';
+import { API_BASE_URL, ApiReadinessError, authenticatedFetch, clearAccessToken, fetchWithRetry, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken, warmUpServer } from './apiClient';
 
 const MOCK_USERS = {
   admin: {
@@ -82,7 +82,7 @@ export class AuthService {
       });
       apiReachable = true;
       if (response.ok) {
-        const result = await response.json() as { accessToken?: string; user?: AuthUser };
+        const result = await response.json() as { accessToken?: string; refreshToken?: string; user?: AuthUser };
         if (result.accessToken && result.user) {
             if (allowedRoles && !allowedRoles.includes(result.user.role)) {
               throw new Error(allowedRoles.includes('admin')
@@ -90,6 +90,7 @@ export class AuthService {
                 : 'Administrator accounts must sign in through the HANDA Command Center.');
             }
           await setAccessToken(result.accessToken, keepLoggedIn);
+          if (result.refreshToken) await setRefreshToken(result.refreshToken);
           return result.user;
         }
       }
@@ -134,14 +135,17 @@ export class AuthService {
   /**
    * Logout (cleanup any stored auth data)
    */
-  static async logout(): Promise<void> {
+  static async logout(preserveBiometric = false): Promise<void> {
     try {
       if (await getAccessToken()) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
         try {
+          const refreshToken = preserveBiometric ? await getRefreshToken() : null;
           await authenticatedFetch('/api/v1/auth/logout', {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ preserveRefreshToken: refreshToken }),
             signal: controller.signal,
           });
         } catch {
@@ -151,7 +155,7 @@ export class AuthService {
         }
       }
     } finally {
-      await clearAccessToken();
+      await clearAccessToken(preserveBiometric);
     }
   }
 

@@ -42,10 +42,10 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string, allowedRoles?: readonly UserRole[], stayLoggedIn?: boolean) => Promise<void>;
   loginWithBiometrics: () => Promise<void>;
-  enableBiometricLogin: (accessToken?: string) => Promise<void>;
+  enableBiometricLogin: (accessToken?: string, refreshToken?: string) => Promise<void>;
   disableBiometricLogin: () => Promise<void>;
   loginAsDemo: (role: UserRole) => Promise<void>;
-  setAuthenticatedUser: (user: AuthUser, accessToken?: string, options?: { stayLoggedIn?: boolean }) => Promise<void>;
+  setAuthenticatedUser: (user: AuthUser, accessToken?: string, options?: { stayLoggedIn?: boolean; refreshToken?: string }) => Promise<void>;
   logout: () => Promise<boolean>;
   error: string | null;
 }

@@ -8,7 +8,7 @@ import { Alert, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
-import { clearAccessToken, getAccessToken, subscribeToUnauthorized } from '@services/apiClient';
+import { clearAccessToken, createPersistentRefreshToken, getAccessToken, getRefreshToken, refreshAccessToken, setAccessToken, setRefreshToken, storeBiometricRefreshToken, subscribeToUnauthorized } from '@services/apiClient';
 import { disableBiometricLogin as disableDeviceBiometrics, enableBiometricLogin as enableDeviceBiometrics, getBiometricLoginToken, isBiometricLoginEnrolled } from '@services/biometricAuth';
 import { disposeRealtime } from '@services/realtimeClient';
 import { clearOfflineCache } from '@services/offlineCache';
@@ -22,9 +22,9 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-async function clearStoredSession() {
+async function clearStoredSession(preserveBiometric = false) {
   disposeRealtime();
-  await clearAccessToken().catch(() => undefined);
+  await clearAccessToken(preserveBiometric).catch(() => undefined);
   await Promise.all([
     AsyncStorage.removeItem('userId'),
     AsyncStorage.removeItem(AUTH_PROFILE_KEY),
@@ -42,6 +42,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     let mounted = true;
     void (async () => {
       try {
+        if (await isBiometricLoginEnrolled()) return;
         const stayLoggedIn = (await AsyncStorage.getItem(STAY_LOGGED_IN_KEY)) !== '0';
         if (!stayLoggedIn) {
           try {
@@ -52,12 +53,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           await clearStoredSession();
           return;
         }
-        if (await isBiometricLoginEnrolled()) return;
         const authUser = await AuthService.restoreSession();
         if (!mounted) return;
         if (authUser) {
           setUser(authUser);
           await AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser));
+          if (!(await getRefreshToken())) {
+            const refreshToken = await createPersistentRefreshToken();
+            await setRefreshToken(refreshToken);
+          }
           return;
         }
         // Offline or server unavailable: keep the user signed in with the last saved profile.
@@ -150,12 +154,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       const token = await getBiometricLoginToken();
       if (!token) throw new Error('No biometric session was found. Sign in with your password to continue.');
+      let accessToken: string | null;
+      if (token.includes('.')) {
+        await setAccessToken(token);
+        accessToken = token;
+      } else {
+        accessToken = await refreshAccessToken(token);
+      }
+      if (!accessToken) throw new Error('Your saved session expired or was revoked. Sign in with your password to continue.');
       const authUser = await AuthService.restoreSession();
       if (!authUser) {
         if (await getAccessToken()) {
           throw new Error('HANDA could not validate your saved session. Check your connection and try again.');
         }
         throw new Error('Your saved session expired. Sign in with your password to continue.');
+      }
+      if (token.includes('.')) {
+        const refreshToken = await createPersistentRefreshToken(accessToken);
+        await storeBiometricRefreshToken(refreshToken, accessToken);
       }
       await finishLogin(authUser);
     } catch (biometricError) {
@@ -165,8 +181,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const enableBiometricLogin = async (accessToken?: string) => {
-    await enableDeviceBiometrics(accessToken);
+  const enableBiometricLogin = async (accessToken?: string, refreshToken?: string) => {
+    await enableDeviceBiometrics(accessToken, refreshToken);
     try {
       await AsyncStorage.setItem(STAY_LOGGED_IN_KEY, '1');
     } catch (storageError) {
@@ -199,11 +215,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const setAuthenticatedUser = async (authUser: AuthUser, accessToken?: string, options?: { stayLoggedIn?: boolean }) => {
+  const setAuthenticatedUser = async (authUser: AuthUser, accessToken?: string, options?: { stayLoggedIn?: boolean; refreshToken?: string }) => {
     setError(null);
     if (accessToken) {
       const { setAccessToken } = await import('@services/apiClient');
       await setAccessToken(accessToken);
+    }
+    if (options?.refreshToken) {
+      const { setRefreshToken } = await import('@services/apiClient');
+      await setRefreshToken(options.refreshToken);
     }
     setUser(authUser);
     await Promise.all([
@@ -238,13 +258,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
     try {
-      await AuthService.logout();
+      const preserveBiometric = await isBiometricLoginEnrolled();
+      await AuthService.logout(preserveBiometric);
     } catch (e) {
       console.error('Logout error:', e);
     } finally {
       setUser(null);
       setUsingSavedSession(false);
-      await clearStoredSession();
+      await clearStoredSession(await isBiometricLoginEnrolled().catch(() => false));
       setIsLoading(false);
     }
     return true;

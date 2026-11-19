@@ -3,9 +3,11 @@ import * as SecureStore from 'expo-secure-store';
 import {
   clearAccessToken,
   getAccessToken,
-  getBiometricAccessToken,
+  getBiometricRefreshToken,
+  authenticatedFetch,
   setAccessToken,
-  storeBiometricAccessToken,
+  setRefreshToken,
+  storeBiometricRefreshToken,
 } from '../apiClient';
 
 jest.mock('expo-secure-store', () => ({
@@ -16,7 +18,7 @@ jest.mock('expo-secure-store', () => ({
 
 const originalPlatform = Platform.OS;
 
-describe('biometric access-token storage', () => {
+describe('biometric refresh-token storage', () => {
   beforeEach(() => {
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
     jest.clearAllMocks();
@@ -33,58 +35,93 @@ describe('biometric access-token storage', () => {
     Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatform });
   });
 
-  it('stores the token with OS authentication before enabling the biometric marker', async () => {
-    await storeBiometricAccessToken('session-token');
+  it('stores the refresh credential with OS authentication before enabling biometrics', async () => {
+    await storeBiometricRefreshToken('persistent-refresh-token', 'session-token');
 
     expect(SecureStore.setItemAsync).toHaveBeenNthCalledWith(
       1,
-      'handa.biometricAccessToken',
-      'session-token',
+      'handa.biometricRefreshToken',
+      'persistent-refresh-token',
       expect.objectContaining({ requireAuthentication: true }),
     );
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.accessToken');
-    expect(SecureStore.setItemAsync).toHaveBeenNthCalledWith(2, 'handa.biometricLoginEnabled', '1');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('handa.biometricLoginEnabled', '1');
   });
 
-  it('requires OS authentication to retrieve the protected token', async () => {
-    jest.mocked(SecureStore.getItemAsync).mockResolvedValue('session-token');
+  it('requires OS authentication to retrieve the biometric refresh credential', async () => {
+    jest.mocked(SecureStore.getItemAsync).mockResolvedValue('persistent-refresh-token');
 
-    await expect(getBiometricAccessToken()).resolves.toBe('session-token');
+    await expect(getBiometricRefreshToken()).resolves.toBe('persistent-refresh-token');
     expect(SecureStore.getItemAsync).toHaveBeenCalledWith(
-      'handa.biometricAccessToken',
+      'handa.biometricRefreshToken',
       expect.objectContaining({ requireAuthentication: true }),
     );
   });
 
-  it('updates the protected token instead of writing a plain token when enrollment is active', async () => {
+  it('keeps active access tokens in memory rather than plain secure storage while biometrics are enabled', async () => {
     jest.mocked(SecureStore.getItemAsync).mockImplementation(async (key) => (
       key === 'handa.biometricLoginEnabled' ? '1' : null
     ));
 
     await setAccessToken('new-session-token');
 
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-      'handa.biometricAccessToken',
-      'new-session-token',
-      expect.objectContaining({ requireAuthentication: true }),
-    );
     expect(SecureStore.setItemAsync).not.toHaveBeenCalledWith('handa.accessToken', 'new-session-token');
+    await expect(getAccessToken()).resolves.toBe('new-session-token');
   });
 
-  it('clears both ordinary and biometric tokens on session cleanup', async () => {
+  it('stores refresh-token updates under biometric protection when enrolled', async () => {
+    jest.mocked(SecureStore.getItemAsync).mockImplementation(async (key) => (
+      key === 'handa.biometricLoginEnabled' ? '1' : null
+    ));
+
+    await setRefreshToken('new-refresh-token');
+
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      'handa.biometricRefreshToken',
+      'new-refresh-token',
+      expect.objectContaining({ requireAuthentication: true }),
+    );
+    expect(SecureStore.setItemAsync).not.toHaveBeenCalledWith('handa.refreshToken', 'new-refresh-token');
+  });
+
+  it('clears only the active session while preserving enrolled biometric credentials on sign-out', async () => {
+    await clearAccessToken(true);
+
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.accessToken');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.refreshToken');
+    expect(SecureStore.deleteItemAsync).not.toHaveBeenCalledWith('handa.biometricRefreshToken');
+    expect(SecureStore.deleteItemAsync).not.toHaveBeenCalledWith('handa.biometricLoginEnabled');
+  });
+
+  it('clears remembered biometric credentials when a session is rejected', async () => {
     await clearAccessToken();
 
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.accessToken');
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.biometricAccessToken');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.refreshToken');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.biometricRefreshToken');
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.biometricLoginEnabled');
   });
 
-  it('uses the in-memory token after biometric unlock for authenticated API requests', async () => {
-    jest.mocked(SecureStore.getItemAsync).mockResolvedValue('session-token');
-    await getBiometricAccessToken();
-    jest.mocked(SecureStore.getItemAsync).mockClear();
+  it('renews an expired access token and retries the original request', async () => {
+    await setRefreshToken('persistent-refresh-token');
+    await setAccessToken('expired-access-token');
+    const fetchMock = jest.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/api/v1/auth/refresh')) {
+        return { ok: true, status: 200, json: async () => ({ accessToken: 'renewed-access-token' }) } as Response;
+      }
+      if (String(input).endsWith('/api/v1/protected')) {
+        const headerValue = new Headers(init?.headers).get('Authorization');
+        return headerValue === 'Bearer renewed-access-token'
+          ? { ok: true, status: 200 } as Response
+          : { ok: false, status: 401 } as Response;
+      }
+      throw new Error(`Unexpected request: ${String(input)}`);
+    });
 
-    await expect(getAccessToken()).resolves.toBe('session-token');
-    expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
+    const response = await authenticatedFetch('/api/v1/protected');
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    fetchMock.mockRestore();
   });
 });

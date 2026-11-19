@@ -194,6 +194,9 @@ export default function LoginScreen() {
                 <Text style={styles.forgotLink}>Forgot password?</Text>
               </Pressable>
             </View>
+            {stayLoggedIn && (
+              <Text style={styles.stayInfo}>Your session renews automatically until you sign out or change your password.</Text>
+            )}
 
             {(validationError || error || biometricCheckError) && (
               <View style={styles.errorContainer} accessibilityRole="alert">
@@ -451,6 +454,14 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontFamily: AppMediumFontFamily,
     fontSize: 13,
+  },
+  stayInfo: {
+    marginTop: -13,
+    marginBottom: 15,
+    color: Colors.textMuted,
+    fontFamily: AppFontFamily,
+    fontSize: 11,
+    lineHeight: 16,
   },
   forgotLink: {
     color: '#D45B92',

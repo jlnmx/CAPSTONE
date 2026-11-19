@@ -78,14 +78,17 @@ export async function fetchWithRetry(url: string, init: RequestInit, timeoutMs =
 
 const ACCESS_TOKEN_KEY = 'handa.accessToken';
 const BIOMETRIC_ACCESS_TOKEN_KEY = 'handa.biometricAccessToken';
+const REFRESH_TOKEN_KEY = 'handa.refreshToken';
+const BIOMETRIC_REFRESH_TOKEN_KEY = 'handa.biometricRefreshToken';
 const BIOMETRIC_ENABLED_KEY = 'handa.biometricLoginEnabled';
-const BIOMETRIC_ACCESS_TOKEN_OPTIONS: SecureStore.SecureStoreOptions = {
+const BIOMETRIC_TOKEN_OPTIONS: SecureStore.SecureStoreOptions = {
   requireAuthentication: true,
-  authenticationPrompt: 'Authenticate to sign in to HANDA',
+  authenticationPrompt: 'Authenticate to access your HANDA sign-in credential',
 };
 const unauthorizedListeners = new Set<() => void>();
 let unauthorizedHandled = false;
 let accessTokenCache: string | null = null;
+let refreshTokenCache: string | null = null;
 
 export function subscribeToUnauthorized(listener: () => void): () => void {
   unauthorizedListeners.add(listener);
@@ -121,13 +124,36 @@ export async function setAccessToken(token: string, keepLoggedIn = true): Promis
     }
     return;
   }
-  if (await isBiometricLoginEnabled()) {
-    await SecureStore.setItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY, token, BIOMETRIC_ACCESS_TOKEN_OPTIONS);
-    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-  } else {
-    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
-  }
+  if (await isBiometricLoginEnabled()) await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+  else await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
   accessTokenCache = token;
+}
+
+export async function getRefreshToken(): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return globalThis.localStorage?.getItem(REFRESH_TOKEN_KEY) ?? null;
+  }
+  if (refreshTokenCache) return refreshTokenCache;
+  if (await isBiometricLoginEnabled()) {
+    refreshTokenCache = await SecureStore.getItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY, BIOMETRIC_TOKEN_OPTIONS);
+    return refreshTokenCache;
+  }
+  refreshTokenCache = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  return refreshTokenCache;
+}
+
+export async function setRefreshToken(token: string): Promise<void> {
+  refreshTokenCache = token;
+  if (Platform.OS === 'web') {
+    globalThis.localStorage?.setItem(REFRESH_TOKEN_KEY, token);
+    return;
+  }
+  if (await isBiometricLoginEnabled()) {
+    await SecureStore.setItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY, token, BIOMETRIC_TOKEN_OPTIONS);
+    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+  } else {
+    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+  }
 }
 
 export async function isBiometricLoginEnabled(): Promise<boolean> {
@@ -137,54 +163,113 @@ export async function isBiometricLoginEnabled(): Promise<boolean> {
 
 export async function getBiometricAccessToken(): Promise<string | null> {
   if (Platform.OS === 'web') return null;
-  accessTokenCache = await SecureStore.getItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY, BIOMETRIC_ACCESS_TOKEN_OPTIONS);
-  return accessTokenCache;
+  return SecureStore.getItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY, BIOMETRIC_TOKEN_OPTIONS);
 }
 
-export async function storeBiometricAccessToken(token: string): Promise<void> {
+export async function storeBiometricRefreshToken(token: string, accessToken?: string): Promise<void> {
   if (Platform.OS === 'web') {
     throw new Error('Biometric sign-in is only available in the HANDA mobile app.');
   }
-  await SecureStore.setItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY, token, BIOMETRIC_ACCESS_TOKEN_OPTIONS);
+  await SecureStore.setItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY, token, BIOMETRIC_TOKEN_OPTIONS);
+  await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
   await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+  await SecureStore.deleteItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY);
   await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, '1');
-  accessTokenCache = token;
+  refreshTokenCache = token;
+  accessTokenCache = accessToken ?? null;
 }
 
 export async function disableBiometricAccessToken(): Promise<void> {
   if (Platform.OS === 'web') return;
-  const token = accessTokenCache ?? await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-  if (token) await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
+  const token = refreshTokenCache ?? await SecureStore.getItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY, BIOMETRIC_TOKEN_OPTIONS);
+  if (token) await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+  refreshTokenCache = token;
+  await SecureStore.deleteItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY);
   await SecureStore.deleteItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY);
   await SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY);
-  accessTokenCache = token;
 }
 
-export async function clearAccessToken(): Promise<void> {
+export async function clearAccessToken(preserveBiometric = false): Promise<void> {
   accessTokenCache = null;
+  refreshTokenCache = null;
   if (Platform.OS === 'web') {
     globalThis.localStorage?.removeItem(ACCESS_TOKEN_KEY);
     globalThis.sessionStorage?.removeItem(ACCESS_TOKEN_KEY);
+    globalThis.localStorage?.removeItem(REFRESH_TOKEN_KEY);
     return;
   }
-  await Promise.all([
+  const keysToDelete = [
     SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
-    SecureStore.deleteItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY),
-    SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY),
-  ]);
+    SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
+  ];
+  if (!preserveBiometric) {
+    keysToDelete.push(
+      SecureStore.deleteItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY),
+      SecureStore.deleteItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY),
+      SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY),
+    );
+  }
+  await Promise.all(keysToDelete);
+}
+
+export async function getBiometricRefreshToken(): Promise<string | null> {
+  if (Platform.OS === 'web') return null;
+  refreshTokenCache = await SecureStore.getItemAsync(BIOMETRIC_REFRESH_TOKEN_KEY, BIOMETRIC_TOKEN_OPTIONS);
+  if (refreshTokenCache) return refreshTokenCache;
+  return getBiometricAccessToken();
+}
+
+export async function refreshAccessToken(refreshToken?: string): Promise<string | null> {
+  const token = refreshToken ?? await getRefreshToken();
+  if (!token) return null;
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken: token }),
+  });
+  if (response.status === 401 || response.status === 403) {
+    await clearAccessToken();
+    unauthorizedHandled = true;
+    unauthorizedListeners.forEach((listener) => listener());
+    return null;
+  }
+  if (!response.ok) throw new Error(`Session refresh failed with status ${response.status}.`);
+  const result = await response.json() as { accessToken?: string };
+  if (!result.accessToken) throw new Error('Session refresh did not return an access token.');
+  await setAccessToken(result.accessToken);
+  return result.accessToken;
+}
+
+export async function createPersistentRefreshToken(accessToken?: string): Promise<string> {
+  const token = accessToken ?? await getAccessToken();
+  if (!token) throw new Error('Sign in before enabling persistent sign-in.');
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/remember`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) throw new Error('HANDA could not save a persistent sign-in credential. Please try again.');
+  const result = await response.json() as { refreshToken?: string };
+  if (!result.refreshToken) throw new Error('Persistent sign-in setup did not return a secure credential.');
+  return result.refreshToken;
 }
 
 export async function authenticatedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = await getAccessToken();
   const headers = new Headers(init.headers);
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
+  if (token) headers.set('Authorization', `Bearer ${token}`);
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  if (response.status === 401 && token && token === await getAccessToken() && !unauthorizedHandled) {
-    unauthorizedHandled = true;
-    await clearAccessToken();
-    unauthorizedListeners.forEach((listener) => listener());
+  if (response.status !== 401 || !token || token !== await getAccessToken() || unauthorizedHandled) return response;
+
+  const refreshedToken = await refreshAccessToken();
+  if (!refreshedToken) {
+    if (!unauthorizedHandled) {
+      unauthorizedHandled = true;
+      await clearAccessToken();
+      unauthorizedListeners.forEach((listener) => listener());
+    }
+    return response;
   }
-  return response;
+  const retryHeaders = new Headers(init.headers);
+  retryHeaders.set('Authorization', `Bearer ${refreshedToken}`);
+  return fetch(`${API_BASE_URL}${path}`, { ...init, headers: retryHeaders });
 }

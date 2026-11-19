@@ -1,11 +1,12 @@
 import { Platform } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import {
+  createPersistentRefreshToken,
   disableBiometricAccessToken,
   getAccessToken,
-  getBiometricAccessToken,
+  getBiometricRefreshToken,
   isBiometricLoginEnabled,
-  storeBiometricAccessToken,
+  storeBiometricRefreshToken,
 } from './apiClient';
 
 export interface BiometricAvailability {
@@ -52,13 +53,13 @@ export async function isBiometricLoginEnrolled(): Promise<boolean> {
   return isBiometricLoginEnabled();
 }
 
-export async function enableBiometricLogin(accessToken?: string): Promise<void> {
+export async function enableBiometricLogin(accessToken?: string, refreshToken?: string): Promise<void> {
   if (Platform.OS === 'web') {
     throw new Error('Biometric sign-in is only available in the HANDA mobile app.');
   }
 
-  const token = accessToken ?? await getAccessToken();
-  if (!token) throw new Error('Sign in with your password before enabling biometric sign-in.');
+  const activeToken = accessToken ?? await getAccessToken();
+  if (!activeToken) throw new Error('Sign in with your password before enabling biometric sign-in.');
 
   const availability = await getBiometricAvailability();
   if (!availability.available) {
@@ -76,11 +77,12 @@ export async function enableBiometricLogin(accessToken?: string): Promise<void> 
       : 'Biometric verification was unsuccessful. Try again or continue without it.');
   }
 
-  await storeBiometricAccessToken(token);
+  const persistentToken = refreshToken ?? await createPersistentRefreshToken(activeToken);
+  await storeBiometricRefreshToken(persistentToken, activeToken);
 }
 
 export async function getBiometricLoginToken(): Promise<string | null> {
-  return getBiometricAccessToken();
+  return getBiometricRefreshToken();
 }
 
 export async function disableBiometricLogin(): Promise<void> {

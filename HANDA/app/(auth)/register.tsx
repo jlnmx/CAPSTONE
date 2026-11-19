@@ -90,7 +90,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const cameraRef = useRef<CameraView>(null);
   const webIdInputRef = useRef<HTMLInputElement>(null);
   const [isPendingConfirmationOpen, setIsPendingConfirmationOpen] = useState(false);
-  const [pendingResident, setPendingResident] = useState<{ user: AuthUser; accessToken?: string } | null>(null);
+  const [pendingResident, setPendingResident] = useState<{ user: AuthUser; accessToken?: string; refreshToken?: string } | null>(null);
   const [isBiometricPromptOpen, setIsBiometricPromptOpen] = useState(false);
   const [biometricAvailability, setBiometricAvailability] = useState<BiometricAvailability | null>(null);
   const [isBiometricSetupBusy, setIsBiometricSetupBusy] = useState(false);
@@ -494,7 +494,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             : { members: householdMembers.map((member) => draftToMember(memberToDraft(member))) }),
         }),
       }, SLOW_NETWORK_TIMEOUT_MS, 1);
-      const result = await response.json() as { id?: string; status?: string; accessToken?: string; user?: AuthUser; detail?: unknown; message?: string };
+      const result = await response.json() as { id?: string; status?: string; accessToken?: string; refreshToken?: string; user?: AuthUser; detail?: unknown; message?: string };
       if (!response.ok) {
         setValidationErrors({ form: getRegistrationErrorMessage(result.detail) });
         setRegistrationToken('');
@@ -533,14 +533,14 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           reason: availabilityError instanceof Error ? availabilityError.message : 'Biometric availability could not be checked.',
         };
       }
-      if (!result.accessToken) {
+      if (!result.accessToken || !result.refreshToken) {
         availability = {
           available: false,
           label: 'Biometric sign-in',
-          reason: 'Biometric sign-in could not be set up for this registration. You can sign in with your password later.',
+          reason: 'Persistent sign-in could not be set up for this registration. You can sign in with your password later.',
         };
       }
-      setPendingResident({ user: newResident, accessToken: result.accessToken });
+      setPendingResident({ user: newResident, accessToken: result.accessToken, refreshToken: result.refreshToken });
       setBiometricAvailability(availability);
       setBiometricSetupError('');
       setIsBiometricPromptOpen(true);
@@ -559,12 +559,15 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     try {
       if (enableBiometrics) {
         if (!pendingResident.accessToken) throw new Error('Biometric sign-in requires a valid account session.');
-        await enableBiometricLogin(pendingResident.accessToken);
+        await enableBiometricLogin(pendingResident.accessToken, pendingResident.refreshToken);
       }
       await setAuthenticatedUser(
         pendingResident.user,
         enableBiometrics ? undefined : pendingResident.accessToken,
-        { stayLoggedIn: true },
+        {
+          stayLoggedIn: true,
+          refreshToken: enableBiometrics ? undefined : pendingResident.refreshToken,
+        },
       );
       setIsBiometricPromptOpen(false);
       router.replace('/(resident)');
@@ -1071,7 +1074,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
             <Text style={styles.pendingTitle}>Set up faster sign-in?</Text>
             <Text style={styles.pendingMessage}>
               {biometricAvailability?.available
-                ? `Enable ${biometricAvailability.label} on this device. Your device verifies you locally; HANDA stores no biometric templates or face scans. If your session expires or you sign out, use your password again.`
+                ? `Enable ${biometricAvailability.label} on this device. Your device verifies you locally; HANDA stores no biometric templates or face scans. You can use biometrics after signing out.`
                 : biometricAvailability?.reason || 'Checking whether this device supports biometric sign-in.'}
             </Text>
             {!!biometricSetupError && <Text style={styles.biometricSetupError}>{biometricSetupError}</Text>}

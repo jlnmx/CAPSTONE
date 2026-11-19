@@ -29,7 +29,7 @@ from .config import settings
 from .realtime import RealtimeNotConfigured, create_realtime_token
 from .db import CONNECT_TIMEOUT_SECONDS, close_connection_pool, get_connection, open_connection_pool
 from .typhoons import get_live_typhoon_report
-from .schemas import AdminEvacuationRegistrationCreate, AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, CenterDetailsUpdate, DisasterCreate, EmailChangeOtpRequest, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, NotificationPreferencesUpdate, PasswordChangeOtpRequest, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, RegistrationOtpRequest, RegistrationOtpVerification, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
+from .schemas import AdminEvacuationRegistrationCreate, AdminUserCreate, AdminUserUpdate, CenterCapacityUpdate, CenterCreate, CenterDetailsUpdate, DisasterCreate, EmailChangeOtpRequest, EvacuationRegistrationStatusUpdate, EvacueeCreate, EvacueeStatusUpdate, HouseholdMembersUpdate, IncidentCreate, IncidentDispatch, IncidentResponsePhotoCreate, IncidentStatusUpdate, LogoutRequest, NotificationPreferencesUpdate, PasswordChangeOtpRequest, PasswordResetCompletion, PasswordResetOtpVerification, PasswordResetRequest, RefreshTokenInput, RegistrationOtpRequest, RegistrationOtpVerification, ResponderApplicationReview, ProfilePictureUpdate, ResidentAccountUpdate, ResidentProfileUpdate, SyncBatch, UserLogin, UserRegistration
 from .schemas import ResponderPresenceUpdate, SelfProfileUpdate
 from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
@@ -77,6 +77,16 @@ def verify_password(password: str, stored_hash: str) -> bool:
 
 def hash_reset_otp(otp: str) -> str:
     return hmac.new(settings.auth_secret.encode(), otp.encode(), hashlib.sha256).hexdigest()
+
+
+def issue_persistent_refresh_token(connection: psycopg.Connection, user_id: str) -> str:
+    refresh_token = secrets.token_urlsafe(48)
+    token_hash = hashlib.sha256(refresh_token.encode()).hexdigest()
+    connection.execute(
+        "INSERT INTO refresh_tokens (token_hash, user_id) VALUES (%s, %s)",
+        (token_hash, user_id),
+    )
+    return refresh_token
 
 
 def mask_destination(value: str, channel: str) -> str:
@@ -593,6 +603,17 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS refresh_tokens (
+                token_hash CHAR(64) PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                revoked_at TIMESTAMPTZ
+            )
+            """
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS refresh_tokens_user_idx ON refresh_tokens (user_id)")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_type TEXT")
@@ -2456,6 +2477,8 @@ def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depen
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User account not found.")
+        if any(field in changes for field in ("password_hash", "role", "status")):
+            connection.execute("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = %s AND revoked_at IS NULL", (user_id,))
         write_log(connection, "audit", "update", user.id, "user", user_id, f"Updated account fields: {', '.join(changes.keys())}.")
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
@@ -2740,6 +2763,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         else:
             for member in registration.members:
                 insert_household_member(connection, "resident_household_members", "resident_user_id", f"resident-household-{uuid4()}", user_id, member)
+        refresh_token = None if is_responder else issue_persistent_refresh_token(connection, user_id)
         connection.execute("DELETE FROM registration_otp_requests WHERE token = %s", (registration.registrationToken,))
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
@@ -2766,6 +2790,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         "message": "Registration completed.",
         "accessToken": access_token,
         "expiresIn": expires_in,
+        "refreshToken": refresh_token,
         "user": resident_profile_payload(row, household_members_for_user(connection, user_id)),
     }
 
@@ -2966,6 +2991,7 @@ def complete_password_reset(request: PasswordResetCompletion, connection: psycop
         "UPDATE users SET password_hash = %s, token_version = token_version + 1, failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = %s",
         (hash_password(request.newPassword), reset["user_id"]),
     )
+    connection.execute("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = %s AND revoked_at IS NULL", (reset["user_id"],))
     connection.execute("DELETE FROM password_reset_requests WHERE token = %s", (request.resetToken,))
     connection.commit()
     return {"message": "Password updated. You can now sign in."}
@@ -3021,10 +3047,46 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
         connection.commit()
     role = normalize_role(row["role"])
     access_token, expires_in = create_access_token(row["id"], role, row["token_version"], credentials.keepLoggedIn)
+    refresh_token = issue_persistent_refresh_token(connection, row["id"]) if credentials.keepLoggedIn else None
+    if refresh_token:
+        connection.commit()
+    profile = resident_profile_payload(row, household_members_for_user(connection, row["id"]))
+    profile["role"] = role
+    profile["isSuperAdmin"] = bool(row.get("is_superadmin", False))
+    return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "refreshToken": refresh_token, "user": profile}
+
+
+@app.post("/api/v1/auth/refresh")
+def refresh_user_session(request: RefreshTokenInput, connection: psycopg.Connection = Depends(get_connection)):
+    token_hash = hashlib.sha256(request.refreshToken.encode()).hexdigest()
+    row = connection.execute(
+        """
+        SELECT users.id, users.name, users.first_name, users.middle_name, users.last_name,
+               users.email, users.birthday, users.sex, users.mobile_number, users.current_address,
+               users.role, users.status, users.responder_type, users.responder_organization,
+               users.responder_barangay, users.profile_picture, users.is_superadmin, users.token_version
+        FROM refresh_tokens
+        JOIN users ON users.id = refresh_tokens.user_id
+        WHERE refresh_tokens.token_hash = %s AND refresh_tokens.revoked_at IS NULL
+        """,
+        (token_hash,),
+    ).fetchone()
+    if not row or row["status"] != "Active":
+        raise HTTPException(status_code=401, detail="The remembered session is no longer valid.")
+
+    role = normalize_role(row["role"])
+    access_token, expires_in = create_access_token(row["id"], role, row["token_version"], True)
     profile = resident_profile_payload(row, household_members_for_user(connection, row["id"]))
     profile["role"] = role
     profile["isSuperAdmin"] = bool(row.get("is_superadmin", False))
     return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "user": profile}
+
+
+@app.post("/api/v1/auth/remember")
+def remember_user_session(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
+    refresh_token = issue_persistent_refresh_token(connection, user.id)
+    connection.commit()
+    return {"refreshToken": refresh_token}
 
 
 @app.get("/api/v1/auth/me")
@@ -3157,6 +3219,8 @@ def update_resident_account(
     values.append(user.id)
     try:
         connection.execute(f"UPDATE users SET {', '.join(assignments)} WHERE id = %s", values)
+        if credentials_changed:
+            connection.execute("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = %s AND revoked_at IS NULL", (user.id,))
         if account.newPassword and account.passwordChangeToken:
             connection.execute("DELETE FROM password_reset_requests WHERE token = %s", (account.passwordChangeToken,))
         if email_changed and account.emailChangeToken:
@@ -3177,7 +3241,22 @@ def update_resident_account(
 
 
 @app.post("/api/v1/auth/logout")
-def logout_user(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
+def logout_user(request: LogoutRequest | None = None, user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
+    preserved_hash = hashlib.sha256(request.preserveRefreshToken.encode()).hexdigest() if request and request.preserveRefreshToken else None
+    if preserved_hash:
+        preserved_token = connection.execute(
+            "SELECT 1 FROM refresh_tokens WHERE token_hash = %s AND user_id = %s AND revoked_at IS NULL",
+            (preserved_hash, user.id),
+        ).fetchone()
+        if preserved_token:
+            connection.execute(
+                "UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = %s AND revoked_at IS NULL AND token_hash <> %s",
+                (user.id, preserved_hash),
+            )
+        else:
+            connection.execute("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = %s AND revoked_at IS NULL", (user.id,))
+    else:
+        connection.execute("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = %s AND revoked_at IS NULL", (user.id,))
     connection.execute("UPDATE users SET token_version = token_version + 1, updated_at = NOW() WHERE id = %s", (user.id,))
     connection.commit()
     return {"status": "signed_out"}
