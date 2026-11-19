@@ -2,7 +2,7 @@
  * Login Screen
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -14,6 +14,14 @@ import { Colors, Typography, Spacing, BorderRadius } from '@constants/colors';
 import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 import { TextInput, PasswordInput } from '@components/TextInputs';
 import { PrimaryButton } from '@components/Buttons';
+import RescueMascot from '@components/RescueMascot';
+
+const kayaMessages = [
+  "Hi! I'm Kaya. Welcome back to HANDA.",
+  'Tip: Keep emergency contacts saved on your phone.',
+  'Tip: Check local weather and advisories before heading out.',
+  'Tip: Make sure your household knows its evacuation plan.',
+];
 
 export default function LoginScreen() {
   const { login, error, isLoading } = useAuth();
@@ -22,6 +30,14 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState('');
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
+  const [kayaMessageIndex, setKayaMessageIndex] = useState(0);
+
+  useEffect(() => {
+    const messageTimer = setInterval(() => {
+      setKayaMessageIndex((current) => (current + 1) % kayaMessages.length);
+    }, 6500);
+    return () => clearInterval(messageTimer);
+  }, []);
 
   const handleLogin = async () => {
     setValidationError('');
@@ -78,8 +94,20 @@ export default function LoginScreen() {
                 <Text style={styles.heroBrandCaption}>COMMUNITY SAFETY</Text>
               </View>
             </View>
-            <Text style={styles.heroTitle}>Welcome back</Text>
-            <Text style={styles.heroSubtitle}>Sign in to stay connected and ready.</Text>
+            <View style={styles.heroWelcomeRow}>
+              <View style={styles.heroWelcomeCopy}>
+                <Text style={styles.heroTitle}>Welcome back</Text>
+                <Text style={styles.heroSubtitle}>Sign in to stay connected and ready.</Text>
+                <View style={styles.dialogueBubble}>
+                  <View pointerEvents="none" style={styles.dialogueTail} />
+                  <MaterialCommunityIcons name="chat-processing-outline" size={16} color="#D45B92" />
+                  <Animated.View key={kayaMessageIndex} entering={FadeInDown.duration(260)} style={styles.dialogueCopy}>
+                    <Text style={styles.dialogueText}>{kayaMessages[kayaMessageIndex]}</Text>
+                  </Animated.View>
+                </View>
+              </View>
+              <RescueMascot size={74} animated />
+            </View>
           </Animated.View>
         </LinearGradient>
 
@@ -197,7 +225,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 11,
-    marginBottom: 24,
+    marginBottom: 14,
   },
   heroMark: {
     width: 44,
@@ -236,9 +264,47 @@ const styles = StyleSheet.create({
   heroSubtitle: {
     color: '#E1F3E4',
     fontFamily: AppFontFamily,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 19,
     marginTop: 5,
+  },
+  heroWelcomeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroWelcomeCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dialogueBubble: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    borderRadius: 13,
+    backgroundColor: '#FFF7FA',
+  },
+  dialogueTail: {
+    position: 'absolute',
+    top: 13,
+    right: -4,
+    width: 9,
+    height: 9,
+    backgroundColor: '#FFF7FA',
+    transform: [{ rotate: '45deg' }],
+  },
+  dialogueCopy: {
+    flex: 1,
+  },
+  dialogueText: {
+    color: Colors.text,
+    fontFamily: AppMediumFontFamily,
+    fontSize: 10,
+    lineHeight: 14,
   },
   heroOrbLarge: {
     position: 'absolute',
