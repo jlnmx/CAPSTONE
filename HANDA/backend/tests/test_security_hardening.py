@@ -25,20 +25,27 @@ class SecurityHardeningTests(unittest.TestCase):
                 guards.append(closure["allowed_roles"].cell_contents)
         return guards
 
-    def test_incident_list_returns_only_public_fields_to_residents(self):
+    def test_incident_list_returns_public_fields_and_report_status_to_residents(self):
         connection = MagicMock()
         connection.execute.return_value.fetchall.return_value = [{
             "id": "incident-1",
             "type": "Fire",
             "location": "Poblacion",
+            "status": "in_progress",
+            "is_own_report": True,
             "created_at": "2026-11-17T00:00:00Z",
         }]
 
         result = main.list_incidents(connection, CurrentUser("resident-1", "", "", "resident", 0))
 
-        self.assertEqual(set(result[0]), {"id", "type", "location", "created_at"})
+        self.assertEqual(set(result[0]), {"id", "type", "location", "status", "is_own_report", "created_at"})
+        self.assertEqual(result[0]["status"], "in_progress")
+        self.assertTrue(result[0]["is_own_report"])
+        self.assertNotIn("reporter_user_id", result[0])
         query = connection.execute.call_args.args[0]
-        self.assertIn("status <> 'resolved'", query)
+        self.assertIn("status <> 'resolved' OR reporter_user_id = %s", query)
+        self.assertIn("COALESCE(reporter_user_id = %s, FALSE) AS is_own_report", query)
+        self.assertEqual(connection.execute.call_args.args[1], ("resident-1", "resident-1"))
         self.assertNotIn("description", query)
         self.assertNotIn("photo_uris", query)
         self.assertNotIn("latitude", query)

@@ -12,6 +12,8 @@ type ResidentIncident = {
   id: string;
   type: string;
   location: string;
+  status: string;
+  isOwnReport: boolean;
   createdAt: string;
 };
 
@@ -20,6 +22,8 @@ function normalizeIncident(record: Record<string, unknown>): ResidentIncident {
     id: String(record.id),
     type: String(record.type ?? 'Incident'),
     location: String(record.location ?? record.location_text ?? 'Location unavailable'),
+    status: String(record.status ?? 'reported'),
+    isOwnReport: record.is_own_report === true || record.isOwnReport === true,
     createdAt: String(record.createdAt ?? record.created_at ?? ''),
   };
 }
@@ -75,7 +79,7 @@ export default function ResidentIncidentFeed() {
           <View style={styles.headingCopy}>
             <Text style={styles.eyebrow}>COMMUNITY WATCH</Text>
             <Text style={styles.title}>Current incidents</Text>
-            <Text style={styles.subtitle}>Live reports from residents and responders around Biñan City.</Text>
+            <Text style={styles.subtitle}>Live reports around Biñan City, including updates to incidents you reported.</Text>
           </View>
           <View style={styles.radar}>
             <Animated.View style={{ transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}><MaterialCommunityIcons name="radar" size={30} color={GREEN} /></Animated.View>
@@ -95,6 +99,10 @@ export default function ResidentIncidentFeed() {
                 <Text style={styles.cardTitle} numberOfLines={1}>{incident.type}</Text>
                 <View style={styles.metaRow}><MaterialCommunityIcons name="clock-outline" size={12} color={Colors.textMuted} /><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></View>
               </View>
+              {incident.isOwnReport && <View style={styles.reportBadges}>
+                <View style={styles.ownReportBadge}><MaterialCommunityIcons name="account-check-outline" size={12} color="#A84F7D" /><Text style={styles.ownReportText}>Your report</Text></View>
+                <View style={[styles.incidentStatusBadge, { backgroundColor: statusColors(incident.status).backgroundColor }]}><Text style={[styles.incidentStatusText, { color: statusColors(incident.status).color }]}>{formatStatus(incident.status)}</Text></View>
+              </View>}
             </View>
             <View style={styles.location}>
               <View style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></View>
@@ -116,6 +124,19 @@ function formatTime(value: string) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatStatus(status: string) {
+  return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function statusColors(status: string) {
+  switch (status.toLowerCase()) {
+    case 'acknowledged': return { color: '#976600', backgroundColor: '#FFF5D9' };
+    case 'in_progress': return { color: '#1768A5', backgroundColor: '#E8F4FC' };
+    case 'resolved': return { color: '#287747', backgroundColor: '#EAF6EE' };
+    default: return { color: '#A84F7D', backgroundColor: '#FFF1F6' };
+  }
+}
+
 const styles = StyleSheet.create({
   content: { padding: 14, paddingBottom: 26, backgroundColor: Colors.background },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
@@ -135,6 +156,11 @@ const styles = StyleSheet.create({
   incidentIcon: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17, backgroundColor: '#FFF1F6' },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   cardCopy: { flex: 1, minWidth: 0 },
+  reportBadges: { alignItems: 'flex-end', gap: 5, marginLeft: 4 },
+  ownReportBadge: { minHeight: 22, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, borderRadius: 11, backgroundColor: '#FFF1F6' },
+  ownReportText: { color: '#A84F7D', fontFamily: kitFonts.bold, fontSize: 9 },
+  incidentStatusBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 9 },
+  incidentStatusText: { fontFamily: kitFonts.bold, fontSize: 9 },
   cardTitle: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 16 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   time: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 11 },

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Check, Clock3, MapPin, Radio, RefreshCw, Send, Users } from 'lucide-react';
+import { Activity, Check, Clock3, MapPin, Radio, RefreshCw, Search, Send, Users } from 'lucide-react';
 import { dispatchIncident, getDispatchData, updateIncidentStatus } from '../api';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
 import type { IncidentAssignment, IncidentRecord } from '../types';
 import { useResponderLive } from '../responderLive';
 
 const ACTIVE_STATUSES = new Set(['reported', 'acknowledged', 'in_progress']);
+const STATUS_ORDER: Record<string, number> = { reported: 0, acknowledged: 1, in_progress: 2 };
+const SEVERITY_ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
 function distanceKm(from: { latitude?: number | null; longitude?: number | null }, to?: { latitude: number; longitude: number }) {
   if (from.latitude == null || from.longitude == null || !to) return null;
@@ -34,6 +36,10 @@ export default function DispatchView() {
   const [responders, setResponders] = useState<Awaited<ReturnType<typeof getDispatchData>>['responders']>([]);
   const [assignments, setAssignments] = useState<Record<string, IncidentAssignment[]>>({});
   const [selectedIncidentId, setSelectedIncidentId] = useState('');
+  const [incidentSearch, setIncidentSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
+  const [incidentSort, setIncidentSort] = useState('newest');
   const [selectedResponderIds, setSelectedResponderIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -77,7 +83,36 @@ export default function DispatchView() {
     setSelectedResponderIds([]);
   }, [selectedIncidentId]);
 
-  const incident = incidents.find((item) => item.id === selectedIncidentId);
+  const filteredIncidents = useMemo(() => {
+    const query = incidentSearch.trim().toLowerCase();
+    return incidents.filter((item) => {
+      if (statusFilter !== 'all' && item.status.toLowerCase() !== statusFilter) return false;
+      if (severityFilter !== 'all' && (item.severity || 'medium').toLowerCase() !== severityFilter) return false;
+      if (!query) return true;
+      return [item.type, item.location, item.description, item.status, item.severity]
+        .some((value) => value?.toLowerCase().includes(query));
+    }).sort((a, b) => {
+      if (incidentSort === 'oldest') return Date.parse(a.createdAt) - Date.parse(b.createdAt);
+      if (incidentSort === 'severity') {
+        const severityDelta = (SEVERITY_ORDER[(a.severity || 'medium').toLowerCase()] ?? 99)
+          - (SEVERITY_ORDER[(b.severity || 'medium').toLowerCase()] ?? 99);
+        if (severityDelta) return severityDelta;
+      }
+      if (incidentSort === 'status') {
+        const statusDelta = (STATUS_ORDER[a.status.toLowerCase()] ?? 99) - (STATUS_ORDER[b.status.toLowerCase()] ?? 99);
+        if (statusDelta) return statusDelta;
+      }
+      return Date.parse(b.createdAt) - Date.parse(a.createdAt);
+    });
+  }, [incidents, incidentSearch, statusFilter, severityFilter, incidentSort]);
+
+  useEffect(() => {
+    if (!filteredIncidents.some((item) => item.id === selectedIncidentId)) {
+      setSelectedIncidentId(filteredIncidents[0]?.id ?? '');
+    }
+  }, [filteredIncidents, selectedIncidentId]);
+
+  const incident = filteredIncidents.find((item) => item.id === selectedIncidentId) ?? filteredIncidents[0];
   const assigned = incident ? assignments[incident.id] ?? [] : [];
   const assignedIds = useMemo(() => new Set(assigned.map((item) => item.responder_id)), [assigned]);
   const sortedResponders = useMemo(() => [...responders].map((responder) => {
@@ -207,10 +242,34 @@ export default function DispatchView() {
       </section>
 
       <section className="surface-panel dispatch-incident-panel">
-        <div className="panel-heading"><div><p className="eyebrow">INCIDENT CONTROL</p><h2>Select an incident</h2><p className="panel-subtitle">Dispatch acknowledges responders. Their first scene photo records arrival and moves the incident in progress.</p></div><span className="dispatch-count"><Activity size={15} /> {incidents.length}</span></div>
+        <div className="panel-heading"><div><p className="eyebrow">INCIDENT CONTROL</p><h2>Select an incident</h2><p className="panel-subtitle">Dispatch acknowledges responders. Their first scene photo records arrival and moves the incident in progress.</p></div><span className="dispatch-count"><Activity size={15} /> {filteredIncidents.length} / {incidents.length}</span></div>
         {incidents.length === 0 ? <EmptyState title="No active incidents" detail="New reports will appear here for response planning." /> : <>
+          <div className="dispatch-incident-filters">
+            <label className="form-field dispatch-search-field"><span>Search incidents</span><span className="dispatch-search-input"><Search size={15} /><input type="search" placeholder="Type, location, or details" value={incidentSearch} onChange={(event) => setIncidentSearch(event.target.value)} /></span></label>
+            <label className="form-field"><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">All active statuses</option>
+              <option value="reported">Reported</option>
+              <option value="acknowledged">Acknowledged</option>
+              <option value="in_progress">In progress</option>
+            </select></label>
+            <label className="form-field"><span>Severity</span><select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}>
+              <option value="all">All severity levels</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select></label>
+            <label className="form-field"><span>Sort by</span><select value={incidentSort} onChange={(event) => setIncidentSort(event.target.value)}>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="severity">Highest severity</option>
+              <option value="status">Status</option>
+            </select></label>
+            {(incidentSearch || statusFilter !== 'all' || severityFilter !== 'all' || incidentSort !== 'newest') && <button className="button-secondary dispatch-clear-filters" onClick={() => { setIncidentSearch(''); setStatusFilter('all'); setSeverityFilter('all'); setIncidentSort('newest'); }}>Clear filters</button>}
+          </div>
+          {filteredIncidents.length === 0 ? <EmptyState title="No incidents match these filters" detail="Try changing your search or clearing one or more filters." /> : <>
           <label className="form-field dispatch-incident-select"><span>Active incident</span><select value={selectedIncidentId} onChange={(event) => { setSelectedIncidentId(event.target.value); setSelectedResponderIds([]); setNotice(''); }}>
-            {incidents.map((item) => <option value={item.id} key={item.id}>{item.type} · {item.status.replace(/_/g, ' ').toUpperCase()} · {locationLabel(item)}</option>)}
+            {filteredIncidents.map((item) => <option value={item.id} key={item.id}>{item.type} · {item.status.replace(/_/g, ' ').toUpperCase()} · {locationLabel(item)}</option>)}
           </select></label>
           {incident && <div className="dispatch-incident-detail">
             <div className="dispatch-incident-heading"><div><span className="dispatch-status-pill">{incident.status.replace(/_/g, ' ')}</span><h3>{incident.type}</h3></div><span className="dispatch-severity">{incident.severity || 'medium'} severity</span></div>
@@ -225,6 +284,7 @@ export default function DispatchView() {
           </div>
           {incident?.status === 'acknowledged' && assigned.length > 0 && <button className="button-secondary dispatch-resolve" onClick={() => void markIncidentInProgress()} disabled={busy}><Activity size={15} /> Mark in progress</button>}
           {incident?.status === 'in_progress' && <button className="button-danger dispatch-resolve" onClick={() => void resolveIncident()} disabled={busy}><Check size={15} /> Mark incident resolved</button>}
+          </>}
         </>}
       </section>
     </div>}

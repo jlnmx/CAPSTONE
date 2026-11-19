@@ -25,7 +25,7 @@
     "android": {
       "package": "com.handa.evacuation",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 23,
+      "versionCode": 24,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
@@ -85,9 +85,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "245b0a0b-fbb0-407f-a1b1-f13c573d1854"
+        "projectId": "4ab690a5-a38a-4250-8da5-d43eaadd7b4a"
       }
     },
-    "owner": "handa-devs"
+    "owner": "handadevs2s-team"
   }
 }
