@@ -77,8 +77,15 @@ export async function fetchWithRetry(url: string, init: RequestInit, timeoutMs =
 }
 
 const ACCESS_TOKEN_KEY = 'handa.accessToken';
+const BIOMETRIC_ACCESS_TOKEN_KEY = 'handa.biometricAccessToken';
+const BIOMETRIC_ENABLED_KEY = 'handa.biometricLoginEnabled';
+const BIOMETRIC_ACCESS_TOKEN_OPTIONS: SecureStore.SecureStoreOptions = {
+  requireAuthentication: true,
+  authenticationPrompt: 'Authenticate to sign in to HANDA',
+};
 const unauthorizedListeners = new Set<() => void>();
 let unauthorizedHandled = false;
+let accessTokenCache: string | null = null;
 
 export function subscribeToUnauthorized(listener: () => void): () => void {
   unauthorizedListeners.add(listener);
@@ -97,7 +104,9 @@ export async function getAccessToken(): Promise<string | null> {
   if (Platform.OS === 'web') {
     return webStorageGet();
   }
-  return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  if (accessTokenCache) return accessTokenCache;
+  accessTokenCache = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  return accessTokenCache;
 }
 
 export async function setAccessToken(token: string, keepLoggedIn = true): Promise<void> {
@@ -112,16 +121,57 @@ export async function setAccessToken(token: string, keepLoggedIn = true): Promis
     }
     return;
   }
-  await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
+  if (await isBiometricLoginEnabled()) {
+    await SecureStore.setItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY, token, BIOMETRIC_ACCESS_TOKEN_OPTIONS);
+    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+  } else {
+    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
+  }
+  accessTokenCache = token;
+}
+
+export async function isBiometricLoginEnabled(): Promise<boolean> {
+  if (Platform.OS === 'web') return false;
+  return (await SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY)) === '1';
+}
+
+export async function getBiometricAccessToken(): Promise<string | null> {
+  if (Platform.OS === 'web') return null;
+  accessTokenCache = await SecureStore.getItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY, BIOMETRIC_ACCESS_TOKEN_OPTIONS);
+  return accessTokenCache;
+}
+
+export async function storeBiometricAccessToken(token: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    throw new Error('Biometric sign-in is only available in the HANDA mobile app.');
+  }
+  await SecureStore.setItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY, token, BIOMETRIC_ACCESS_TOKEN_OPTIONS);
+  await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+  await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, '1');
+  accessTokenCache = token;
+}
+
+export async function disableBiometricAccessToken(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  const token = accessTokenCache ?? await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  if (token) await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
+  await SecureStore.deleteItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY);
+  await SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY);
+  accessTokenCache = token;
 }
 
 export async function clearAccessToken(): Promise<void> {
+  accessTokenCache = null;
   if (Platform.OS === 'web') {
     globalThis.localStorage?.removeItem(ACCESS_TOKEN_KEY);
     globalThis.sessionStorage?.removeItem(ACCESS_TOKEN_KEY);
     return;
   }
-  await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+  await Promise.all([
+    SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
+    SecureStore.deleteItemAsync(BIOMETRIC_ACCESS_TOKEN_KEY),
+    SecureStore.deleteItemAsync(BIOMETRIC_ENABLED_KEY),
+  ]);
 }
 
 export async function authenticatedFetch(path: string, init: RequestInit = {}): Promise<Response> {

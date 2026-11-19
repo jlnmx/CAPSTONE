@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import { useAuth } from '@hooks/useAuth';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { ThemeMode, useTheme } from '@hooks/useTheme';
 import { authenticatedFetch } from '@services/apiClient';
+import { getBiometricAvailability, isBiometricLoginEnrolled, type BiometricAvailability } from '@services/biometricAuth';
 import { GradientHeader, Reveal, kitFonts } from '@components/ScreenKit';
 
 const themeOptions: Array<{ value: ThemeMode; label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; detail: string }> = [
@@ -29,7 +30,7 @@ type NotificationPreferences = {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, enableBiometricLogin, disableBiometricLogin } = useAuth();
   const { gutter } = useResponsiveLayout();
   const { mode, palette, setMode } = useTheme();
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
@@ -37,6 +38,12 @@ export default function SettingsScreen() {
   const [savingChannel, setSavingChannel] = useState<'email' | 'sms' | null>(null);
   const [notificationPreferencesError, setNotificationPreferencesError] = useState('');
   const [notificationPreferencesMessage, setNotificationPreferencesMessage] = useState('');
+  const [biometricAvailability, setBiometricAvailability] = useState<BiometricAvailability | null>(null);
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [isLoadingBiometric, setIsLoadingBiometric] = useState(true);
+  const [isSavingBiometric, setIsSavingBiometric] = useState(false);
+  const [biometricError, setBiometricError] = useState('');
+  const [biometricMessage, setBiometricMessage] = useState('');
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.replace('/(auth)/login');
@@ -64,6 +71,26 @@ export default function SettingsScreen() {
     return () => { isMounted = false; };
   }, [isAuthenticated, isLoading]);
 
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) return undefined;
+    let isMounted = true;
+    void Promise.all([getBiometricAvailability(), isBiometricLoginEnrolled()])
+      .then(([availability, enabled]) => {
+        if (isMounted) {
+          setBiometricAvailability(availability);
+          setIsBiometricEnabled(enabled);
+          setBiometricError('');
+        }
+      })
+      .catch((error: unknown) => {
+        if (isMounted) setBiometricError(error instanceof Error ? error.message : 'Biometric settings could not be loaded.');
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingBiometric(false);
+      });
+    return () => { isMounted = false; };
+  }, [isAuthenticated, isLoading]);
+
   const updateNotificationPreference = async (channel: 'email' | 'sms', enabled: boolean) => {
     if (!notificationPreferences || savingChannel) return;
     setSavingChannel(channel);
@@ -82,6 +109,24 @@ export default function SettingsScreen() {
       setNotificationPreferencesError(error instanceof Error ? error.message : 'Your alert preference could not be saved. Try again.');
     } finally {
       setSavingChannel(null);
+    }
+  };
+
+  const updateBiometricPreference = async (enabled: boolean) => {
+    setIsSavingBiometric(true);
+    setBiometricError('');
+    setBiometricMessage('');
+    try {
+      if (enabled) await enableBiometricLogin();
+      else await disableBiometricLogin();
+      setIsBiometricEnabled(enabled);
+      setBiometricMessage(enabled
+        ? 'Biometric sign-in is enabled on this device. Password sign-in remains available.'
+        : 'Biometric sign-in is turned off.');
+    } catch (error) {
+      setBiometricError(error instanceof Error ? error.message : 'Biometric settings could not be updated.');
+    } finally {
+      setIsSavingBiometric(false);
     }
   };
 
@@ -137,6 +182,36 @@ export default function SettingsScreen() {
           </View>
         </Reveal>
         <Reveal index={2}>
+          <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+            <View style={styles.sectionHeading}>
+              <View style={styles.sectionIcon}><MaterialCommunityIcons name="fingerprint" size={20} color={Colors.secondary} /></View>
+              <View style={styles.notificationHeading}>
+                <Text style={[styles.sectionTitle, { color: palette.text }]}>Biometric sign-in</Text>
+                <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>Your device verifies biometrics locally; HANDA stores no biometric templates or face scans. Sign-out or session expiry requires password sign-in again.</Text>
+              </View>
+            </View>
+            {isLoadingBiometric ? <ActivityIndicator style={styles.preferenceLoading} color={Colors.secondary} /> : (
+              <View style={styles.preferenceList}>
+                <PreferenceSwitch
+                  title={isBiometricEnabled ? 'Enabled on this device' : 'Enable biometric sign-in'}
+                  detail={Platform.OS === 'web'
+                    ? 'Biometric sign-in is available in the HANDA mobile app, not in a browser.'
+                    : biometricAvailability?.available
+                      ? `Verify with ${biometricAvailability.label}. You can use your password at any time.`
+                      : biometricAvailability?.reason || 'Biometric availability could not be determined.'}
+                  icon="fingerprint"
+                  value={isBiometricEnabled}
+                  disabled={isSavingBiometric || (!isBiometricEnabled && !biometricAvailability?.available)}
+                  palette={palette}
+                  onValueChange={(enabled) => void updateBiometricPreference(enabled)}
+                />
+                {!!biometricError && <Text style={styles.preferenceError}>{biometricError}</Text>}
+                {!!biometricMessage && <Text style={styles.preferenceSaved}>{biometricMessage}</Text>}
+              </View>
+            )}
+          </View>
+        </Reveal>
+        <Reveal index={3}>
           <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <View style={styles.sectionHeading}>
               <View style={styles.sectionIcon}><MaterialCommunityIcons name="bell-outline" size={20} color={Colors.secondary} /></View>

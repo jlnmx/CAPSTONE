@@ -66,6 +66,12 @@
           "cameraPermission": "Allow HANDA to photograph responder IDs and capture a face photo for superadmin verification."
         }
       ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow HANDA to use Face ID to securely sign you in."
+        }
+      ],
       "@maplibre/maplibre-react-native",
       "expo-asset",
       "expo-notifications",

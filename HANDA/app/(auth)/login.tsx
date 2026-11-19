@@ -15,6 +15,7 @@ import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppMediumFontFa
 import { TextInput, PasswordInput } from '@components/TextInputs';
 import { PrimaryButton } from '@components/Buttons';
 import RescueMascot from '@components/RescueMascot';
+import { getBiometricAvailability, isBiometricLoginEnrolled } from '@services/biometricAuth';
 
 const kayaMessages = [
   "Hi! I'm Kaya. Welcome back to HANDA.",
@@ -24,13 +25,32 @@ const kayaMessages = [
 ];
 
 export default function LoginScreen() {
-  const { login, error, isLoading } = useAuth();
+  const { login, loginWithBiometrics, error, isLoading } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [validationError, setValidationError] = useState('');
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [kayaMessageIndex, setKayaMessageIndex] = useState(0);
+  const [biometricLoginEnabled, setBiometricLoginEnabled] = useState(false);
+  const [biometricLabel, setBiometricLabel] = useState('biometrics');
+  const [biometricCheckError, setBiometricCheckError] = useState('');
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return undefined;
+    let isMounted = true;
+    void Promise.all([isBiometricLoginEnrolled(), getBiometricAvailability()])
+      .then(([enabled, availability]) => {
+        if (isMounted) {
+          setBiometricLoginEnabled(enabled);
+          if (availability.available) setBiometricLabel(availability.label);
+        }
+      })
+      .catch((statusError: unknown) => {
+        if (isMounted) setBiometricCheckError(statusError instanceof Error ? statusError.message : 'Biometric sign-in status could not be checked.');
+      });
+    return () => { isMounted = false; };
+  }, []);
 
   useEffect(() => {
     const messageTimer = setInterval(() => {
@@ -120,6 +140,19 @@ export default function LoginScreen() {
               <Text style={styles.cardSubtitle}>Use your email or mobile number to continue.</Text>
             </View>
 
+            {biometricLoginEnabled && (
+              <Pressable
+                style={styles.biometricButton}
+                onPress={() => void loginWithBiometrics()}
+                disabled={isLoading}
+                accessibilityRole="button"
+                accessibilityLabel={`Sign in with ${biometricLabel}`}
+              >
+                <MaterialCommunityIcons name="fingerprint" size={22} color="#A84F7D" />
+                <Text style={styles.biometricButtonText}>Continue with {biometricLabel}</Text>
+              </Pressable>
+            )}
+
             <TextInput
               label="Email or mobile number"
               placeholder="Enter your email or mobile number"
@@ -162,10 +195,10 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
-            {(validationError || error) && (
+            {(validationError || error || biometricCheckError) && (
               <View style={styles.errorContainer} accessibilityRole="alert">
                 <MaterialCommunityIcons name="alert-circle-outline" size={19} color={Colors.emergency} />
-                <Text style={styles.errorMessage}>{validationError || error}</Text>
+                <Text style={styles.errorMessage}>{validationError || error || biometricCheckError}</Text>
               </View>
             )}
 
@@ -369,6 +402,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginTop: 4,
+  },
+  biometricButton: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    marginTop: -8,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#E8BDD0',
+    borderRadius: 13,
+    backgroundColor: '#FFF7FA',
+  },
+  biometricButtonText: {
+    color: '#A84F7D',
+    fontFamily: AppSemiboldFontFamily,
+    fontSize: 14,
   },
   inputContainer: {
     marginBottom: 17,

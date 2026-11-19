@@ -20,6 +20,7 @@ import { pickProfilePicture } from '@services/profilePicture';
 import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 import { CurrentAddressFields } from '@components/CurrentAddressFields';
 import { EMPTY_CURRENT_ADDRESS, formatCurrentAddress, isCurrentAddressComplete, type CurrentAddressParts } from '@utils/currentAddress';
+import { getBiometricAvailability, type BiometricAvailability } from '@services/biometricAuth';
 
 const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-native-community/datetimepicker').default;
 
@@ -45,7 +46,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const accent = GREEN;
   const isResponder = role === 'Responder';
   const router = useRouter();
-  const { setAuthenticatedUser } = useAuth();
+  const { setAuthenticatedUser, enableBiometricLogin } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -89,6 +90,11 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const cameraRef = useRef<CameraView>(null);
   const webIdInputRef = useRef<HTMLInputElement>(null);
   const [isPendingConfirmationOpen, setIsPendingConfirmationOpen] = useState(false);
+  const [pendingResident, setPendingResident] = useState<{ user: AuthUser; accessToken?: string } | null>(null);
+  const [isBiometricPromptOpen, setIsBiometricPromptOpen] = useState(false);
+  const [biometricAvailability, setBiometricAvailability] = useState<BiometricAvailability | null>(null);
+  const [isBiometricSetupBusy, setIsBiometricSetupBusy] = useState(false);
+  const [biometricSetupError, setBiometricSetupError] = useState('');
   const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false);
   const [editingMemberIndex, setEditingMemberIndex] = useState<number | null>(null);
   const [memberDraft, setMemberDraft] = useState<HouseholdMemberDraft>(EMPTY_MEMBER_DRAFT);
@@ -501,7 +507,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
         return;
       }
       const fullName = [firstName.trim(), middleName.trim(), lastName.trim()].filter(Boolean).join(' ');
-      await setAuthenticatedUser({
+      const newResident: AuthUser = {
         ...result.user,
         id: result.user?.id || result.id || `resident-${Date.now()}`,
         name: fullName,
@@ -516,13 +522,56 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
         currentAddress: result.user?.currentAddress || address,
         householdMembers: result.user?.householdMembers ?? householdMembers,
         profilePicture: result.user?.profilePicture ?? profilePicture,
-      }, result.accessToken);
-      router.replace('/(resident)');
+      };
+      let availability: BiometricAvailability;
+      try {
+        availability = await getBiometricAvailability();
+      } catch (availabilityError) {
+        availability = {
+          available: false,
+          label: 'Biometric sign-in',
+          reason: availabilityError instanceof Error ? availabilityError.message : 'Biometric availability could not be checked.',
+        };
+      }
+      if (!result.accessToken) {
+        availability = {
+          available: false,
+          label: 'Biometric sign-in',
+          reason: 'Biometric sign-in could not be set up for this registration. You can sign in with your password later.',
+        };
+      }
+      setPendingResident({ user: newResident, accessToken: result.accessToken });
+      setBiometricAvailability(availability);
+      setBiometricSetupError('');
+      setIsBiometricPromptOpen(true);
     } catch (error) {
       const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : '';
       setValidationErrors({ form: errorName === 'AbortError' ? 'The registration service timed out. Check your internet connection and try again.' : 'Unable to connect to the registration service.' });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const finishResidentRegistration = async (enableBiometrics: boolean) => {
+    if (!pendingResident || isBiometricSetupBusy) return;
+    setIsBiometricSetupBusy(true);
+    setBiometricSetupError('');
+    try {
+      if (enableBiometrics) {
+        if (!pendingResident.accessToken) throw new Error('Biometric sign-in requires a valid account session.');
+        await enableBiometricLogin(pendingResident.accessToken);
+      }
+      await setAuthenticatedUser(
+        pendingResident.user,
+        enableBiometrics ? undefined : pendingResident.accessToken,
+        { stayLoggedIn: true },
+      );
+      setIsBiometricPromptOpen(false);
+      router.replace('/(resident)');
+    } catch (setupError) {
+      setBiometricSetupError(setupError instanceof Error ? setupError.message : 'Biometric sign-in could not be set up. You can continue without it.');
+    } finally {
+      setIsBiometricSetupBusy(false);
     }
   };
 
@@ -1015,6 +1064,38 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </View>
         </View>
       </Modal>
+      <Modal transparent visible={isBiometricPromptOpen} animationType="fade" onRequestClose={() => void finishResidentRegistration(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.pendingDialog}>
+            <MaterialCommunityIcons name="fingerprint" size={42} color={GREEN} />
+            <Text style={styles.pendingTitle}>Set up faster sign-in?</Text>
+            <Text style={styles.pendingMessage}>
+              {biometricAvailability?.available
+                ? `Enable ${biometricAvailability.label} on this device. Your device verifies you locally; HANDA stores no biometric templates or face scans. If your session expires or you sign out, use your password again.`
+                : biometricAvailability?.reason || 'Checking whether this device supports biometric sign-in.'}
+            </Text>
+            {!!biometricSetupError && <Text style={styles.biometricSetupError}>{biometricSetupError}</Text>}
+            <View style={styles.biometricActions}>
+              <Pressable
+                style={[styles.biometricEnableButton, (!biometricAvailability?.available || isBiometricSetupBusy) && styles.addMemberButtonDisabled]}
+                onPress={() => void finishResidentRegistration(true)}
+                disabled={!biometricAvailability?.available || isBiometricSetupBusy}
+                accessibilityRole="button"
+              >
+                {isBiometricSetupBusy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Enable biometric sign-in</Text>}
+              </Pressable>
+              <Pressable
+                style={styles.biometricSkipButton}
+                onPress={() => void finishResidentRegistration(false)}
+                disabled={isBiometricSetupBusy}
+                accessibilityRole="button"
+              >
+                <Text style={styles.biometricSkipText}>Not now</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1211,4 +1292,9 @@ const styles = StyleSheet.create({
   pendingDialog: { width: '100%', maxWidth: 420, alignItems: 'center', padding: 24, borderRadius: 10, backgroundColor: SURFACE },
   pendingTitle: { marginTop: 12, color: TEXT, fontFamily: FONT_FAMILY, fontSize: 19, fontWeight: '800', textAlign: 'center' },
   pendingMessage: { marginTop: 8, color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  biometricSetupError: { marginTop: 10, color: '#D62828', fontFamily: FONT_FAMILY, fontSize: 12, lineHeight: 17, textAlign: 'center' },
+  biometricActions: { width: '100%', marginTop: 18, gap: 8 },
+  biometricEnableButton: { minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, borderRadius: 13, backgroundColor: GREEN },
+  biometricSkipButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  biometricSkipText: { color: TEXT_MUTED, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
 });

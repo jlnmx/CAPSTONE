@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
 import { clearAccessToken, getAccessToken, subscribeToUnauthorized } from '@services/apiClient';
+import { disableBiometricLogin as disableDeviceBiometrics, enableBiometricLogin as enableDeviceBiometrics, getBiometricLoginToken, isBiometricLoginEnrolled } from '@services/biometricAuth';
 import { disposeRealtime } from '@services/realtimeClient';
 import { clearOfflineCache } from '@services/offlineCache';
 import { unregisterPushDevice } from '@services/pushNotifications';
@@ -51,6 +52,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           await clearStoredSession();
           return;
         }
+        if (await isBiometricLoginEnrolled()) return;
         const authUser = await AuthService.restoreSession();
         if (!mounted) return;
         if (authUser) {
@@ -139,6 +141,44 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const loginWithBiometrics = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      if (!(await isBiometricLoginEnrolled())) {
+        throw new Error('Biometric sign-in is not enabled. Sign in with your password to continue.');
+      }
+      const token = await getBiometricLoginToken();
+      if (!token) throw new Error('No biometric session was found. Sign in with your password to continue.');
+      const authUser = await AuthService.restoreSession();
+      if (!authUser) {
+        if (await getAccessToken()) {
+          throw new Error('HANDA could not validate your saved session. Check your connection and try again.');
+        }
+        throw new Error('Your saved session expired. Sign in with your password to continue.');
+      }
+      await finishLogin(authUser);
+    } catch (biometricError) {
+      setError(biometricError instanceof Error ? biometricError.message : 'Biometric sign-in failed. Use your password instead.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const enableBiometricLogin = async (accessToken?: string) => {
+    await enableDeviceBiometrics(accessToken);
+    try {
+      await AsyncStorage.setItem(STAY_LOGGED_IN_KEY, '1');
+    } catch (storageError) {
+      await disableDeviceBiometrics();
+      throw storageError;
+    }
+  };
+
+  const disableBiometricLogin = async () => {
+    await disableDeviceBiometrics();
+  };
+
   const loginAsDemo = async (role: UserRole) => {
     try {
       setIsLoading(true);
@@ -159,7 +199,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const setAuthenticatedUser = async (authUser: AuthUser, accessToken?: string) => {
+  const setAuthenticatedUser = async (authUser: AuthUser, accessToken?: string, options?: { stayLoggedIn?: boolean }) => {
     setError(null);
     if (accessToken) {
       const { setAccessToken } = await import('@services/apiClient');
@@ -169,6 +209,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await Promise.all([
       AsyncStorage.setItem('userId', authUser.id),
       AsyncStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(authUser)),
+      ...(options?.stayLoggedIn === undefined ? [] : [AsyncStorage.setItem(STAY_LOGGED_IN_KEY, options.stayLoggedIn ? '1' : '0')]),
     ]);
   };
 
@@ -214,6 +255,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isAuthenticated: !!user,
     login,
+    loginWithBiometrics,
+    enableBiometricLogin,
+    disableBiometricLogin,
     loginAsDemo,
     setAuthenticatedUser,
     logout,
