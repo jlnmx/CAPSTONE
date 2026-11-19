@@ -7,8 +7,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
 import { useNotificationStream } from '@hooks/useRealtime';
+import { notifyActiveIncidentNotificationsChanged } from '@services/incidentNotifications';
 
-type Notification = { id: string; title: string; message: string; read_at?: string | null; created_at: string };
+type Notification = { id: string; incident_id?: string | null; title: string; message: string; read_at?: string | null; created_at: string };
 const GREEN = '#D45B92';
 
 export default function ResidentAlertsScreen() {
@@ -16,6 +17,7 @@ export default function ResidentAlertsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [readError, setReadError] = useState('');
 
   const load = async (refresh = false) => {
     if (refresh) setIsRefreshing(true);
@@ -42,14 +44,22 @@ export default function ResidentAlertsScreen() {
 
   const markRead = async (notification: Notification) => {
     if (notification.read_at) return;
-    await authenticatedFetch(`/api/v1/notifications/${encodeURIComponent(notification.id)}/read`, { method: 'PATCH' });
-    setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read_at: new Date().toISOString() } : item));
+    setReadError('');
+    try {
+      const response = await authenticatedFetch(`/api/v1/notifications/${encodeURIComponent(notification.id)}/read`, { method: 'PATCH' });
+      if (!response.ok) throw new Error('This alert could not be marked as read.');
+      setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read_at: new Date().toISOString() } : item));
+      if (notification.incident_id) notifyActiveIncidentNotificationsChanged();
+    } catch (cause) {
+      setReadError(cause instanceof Error ? cause.message : 'This alert could not be marked as read.');
+    }
   };
 
   return <SafeAreaView style={styles.container}><ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void load(true)} tintColor={GREEN} />}>
-    <View style={styles.header}><AppBackArrow /><View style={styles.headerCopy}><Text style={styles.eyebrow}>LIVE UPDATES</Text><Text style={styles.title}>ALERTS</Text><Text style={styles.subtitle}>Updates from responders about your reported incidents.</Text></View><MaterialCommunityIcons name="bell-alert-outline" size={30} color={GREEN} /></View>
+    <View style={styles.header}><AppBackArrow /><View style={styles.headerCopy}><Text style={styles.eyebrow}>LIVE UPDATES</Text><Text style={styles.title}>ALERTS</Text><Text style={styles.subtitle}>New community incidents and responder updates.</Text></View><MaterialCommunityIcons name="bell-alert-outline" size={30} color={GREEN} /></View>
     {isLoading && <ActivityIndicator color={GREEN} style={styles.loader} />}
     {!!error && <Text style={styles.error}>{error}</Text>}
+    {!!readError && <Text style={styles.error}>{readError}</Text>}
     {!isLoading && !error && notifications.length === 0 && <View style={styles.empty}><MaterialCommunityIcons name="bell-check-outline" size={35} color={GREEN} /><Text style={styles.emptyTitle}>No response updates</Text><Text style={styles.emptyText}>Responder acknowledgements and response details will appear here.</Text></View>}
     {notifications.map((notification) => <AnimatedPressable key={notification.id} style={[styles.card, !notification.read_at && styles.unread]} onPress={() => void markRead(notification)} accessibilityRole="button" accessibilityLabel={`Read alert: ${notification.title}`}><View style={styles.cardIcon}><MaterialCommunityIcons name="message-alert-outline" size={21} color={GREEN} /></View><View style={styles.cardCopy}><View style={styles.cardHeading}><Text style={styles.cardTitle}>{notification.title}</Text>{!notification.read_at && <View style={styles.dot} />}</View><Text style={styles.message}>{notification.message}</Text><Text style={styles.time}>{formatTime(notification.created_at)}</Text></View></AnimatedPressable>)}
   </ScrollView></SafeAreaView>;

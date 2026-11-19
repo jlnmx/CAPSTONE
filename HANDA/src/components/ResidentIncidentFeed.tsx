@@ -5,6 +5,7 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { authenticatedFetch } from '@services/apiClient';
+import { markActiveIncidentNotificationsRead } from '@services/incidentNotifications';
 import { useIncidentFeed } from '@hooks/useRealtime';
 import { KIT_GREEN as GREEN, Reveal, kitFonts } from '@components/IncidentCardKit';
 
@@ -61,6 +62,9 @@ export default function ResidentIncidentFeed() {
 
   useFocusEffect(useCallback(() => {
     void load();
+    void markActiveIncidentNotificationsRead().catch((error: unknown) => {
+      console.warn('Active incident notifications could not be marked as read.', error);
+    });
     const refresh = setInterval(() => void load(), 15000);
     return () => clearInterval(refresh);
   }, [load]));

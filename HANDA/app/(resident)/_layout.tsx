@@ -14,6 +14,7 @@ import { AnimatedPressable } from '@components/Buttons';
 import { StartupLocationPermission } from '@components/StartupLocationPermission';
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
+import { useUnreadActiveIncidentCount } from '@hooks/useUnreadActiveIncidentCount';
 import { getResponsiveTabBarOptions, getResponsiveTabIconSize } from '@utils/responsiveTabBar';
 
 interface TabBarIconProps {
@@ -21,9 +22,10 @@ interface TabBarIconProps {
   color: string;
   size: number;
   focused: boolean;
+  badgeCount?: number;
 }
 
-function TabBarIcon({ name, color, size, focused }: TabBarIconProps) {
+function TabBarIcon({ name, color, size, focused, badgeCount = 0 }: TabBarIconProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -33,6 +35,7 @@ function TabBarIcon({ name, color, size, focused }: TabBarIconProps) {
   return (
     <Animated.View style={[styles.tabIcon, focused && styles.tabIconActive, { transform: [{ scale }] }]}>
       <MaterialCommunityIcons name={name} size={size} color={color} />
+      {badgeCount > 0 && <View style={styles.incidentBadge}><Text style={styles.incidentBadgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text></View>}
     </Animated.View>
   );
 }
@@ -66,6 +69,7 @@ function SosTabIcon({ active, size }: { active: boolean; size: number }) {
 
 export default function ResidentLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const unreadIncidentCount = useUnreadActiveIncidentCount();
   const router = useRouter();
   const segments = useSegments();
   const { palette } = useTheme();
@@ -117,7 +121,7 @@ export default function ResidentLayout() {
         name="incidents"
         options={{
           title: 'Incidents',
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="alert-outline" color={color} size={tabIconSize} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="alert-outline" color={color} size={tabIconSize} focused={focused} badgeCount={unreadIncidentCount} />,
         }}
       />
       <Tabs.Screen
@@ -160,8 +164,10 @@ export default function ResidentLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabIcon: { width: 42, height: 32, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  tabIcon: { width: 42, height: 32, borderRadius: 13, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   tabIconActive: { backgroundColor: 'rgba(33,139,37,0.12)' },
+  incidentBadge: { position: 'absolute', top: -5, right: -5, minWidth: 17, height: 17, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: '#A83F70', borderWidth: 1.5, borderColor: '#FFFFFF', shadowColor: '#3D1730', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3 },
+  incidentBadgeText: { color: '#FFFFFF', fontSize: 8, lineHeight: 10, fontWeight: '900', textAlign: 'center', includeFontPadding: false },
   sosTabShell: { marginTop: Platform.OS === 'web' ? -10 : -1, borderRadius: 999, padding: 3, backgroundColor: '#FCE1E1', shadowColor: '#A51D27', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 6 },
   sosTab: { borderRadius: 999, borderWidth: 2, borderColor: '#FFFFFF', backgroundColor: '#D62828', alignItems: 'center', justifyContent: 'center', gap: 0 },
   sosTabText: { color: '#FFFFFF', fontSize: 11, lineHeight: 13, fontWeight: '900', letterSpacing: 0.7 },

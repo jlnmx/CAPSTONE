@@ -35,7 +35,7 @@ from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
 from .schemas import MapPlaceSearch, MapRouteRequest
 from .maps import compute_routes, search_places
-from .push import PUSH_SCHEMA_SQL, enqueue_evacuation_status, enqueue_responders, enqueue_user, process_one
+from .push import PUSH_SCHEMA_SQL, enqueue_evacuation_status, enqueue_responders, enqueue_residents, enqueue_user, process_one
 from .sms import normalize_sms_number, send_sms, send_sms_otp, send_sms_to_many, sms_delivery_configured
 from .storm_alerts import STORM_ADVISORY_POLL_SECONDS, process_live_storm_advisories
 from .weather import get_google_weather_snapshot
@@ -377,6 +377,22 @@ def notify_responders_of_new_incident(connection: psycopg.Connection, incident: 
         notify_responders(connection, incident_id, f"New incident: {incident.type}", f"A new incident was reported at {incident.location}.", exclude_user_id)
     severity = "medium" if incident.severity == "moderity" else incident.severity
     enqueue_responders(connection, incident_id, incident.type, severity, incident.location, exclude_user_id)
+
+
+def notify_residents_of_new_incident(connection: psycopg.Connection, incident: IncidentCreate, incident_id: str) -> None:
+    severity = "medium" if incident.severity == "moderity" else incident.severity
+    title = f"New community incident: {incident.type}"
+    message = f"A {severity.upper()} severity {incident.type} incident was reported at {incident.location}. Open HANDA to view details."
+    connection.execute(
+        """
+        INSERT INTO notifications (id, user_id, incident_id, title, message)
+        SELECT 'notification-' || gen_random_uuid()::text, id, %s, %s, %s
+        FROM users
+        WHERE role = 'Resident' AND status = 'Active'
+        """,
+        (incident_id, title, message),
+    )
+    enqueue_residents(connection, incident_id, incident.type, severity, incident.location)
 
 
 def notify_responders_of_new_incident_sms(
@@ -1113,6 +1129,7 @@ def create_incident(incident: IncidentCreate, connection: psycopg.Connection = D
     result = write_incident(connection, incident, user.id if user.role == "resident" else None)
     if is_new:
         notify_responders_of_new_incident(connection, incident, result["id"], user.id)
+        notify_residents_of_new_incident(connection, incident, result["id"])
     connection.commit()
     if is_new:
         notify_responders_of_new_incident_sms(connection, incident, result["id"], user.id)
@@ -1136,6 +1153,7 @@ def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_co
                     result = write_incident(connection, incident_payload, user.id if user.role == "resident" else None)
                     if is_new:
                         notify_responders_of_new_incident(connection, incident_payload, result["id"], user.id)
+                        notify_residents_of_new_incident(connection, incident_payload, result["id"])
                 elif event.entityType == "evacuation_registration":
                     raise HTTPException(status_code=403, detail="Evacuation registration is managed by City Social Welfare and Development.")
                 else:
@@ -1819,6 +1837,42 @@ def list_notifications(connection: psycopg.Connection = Depends(get_connection),
         "SELECT id, incident_id, title, message, read_at, created_at FROM notifications WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
         (user.id,),
     ).fetchall()
+
+
+@app.get("/api/v1/notifications/unread-active-incidents")
+def unread_active_incident_count(connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):
+    row = connection.execute(
+        """
+        SELECT COUNT(DISTINCT notifications.incident_id) AS count
+        FROM notifications
+        JOIN incidents ON incidents.id = notifications.incident_id
+        WHERE notifications.user_id = %s
+          AND notifications.read_at IS NULL
+          AND incidents.status IN ('reported', 'acknowledged', 'in_progress')
+        """,
+        (user.id,),
+    ).fetchone()
+    return {"count": row["count"]}
+
+
+@app.patch("/api/v1/notifications/active-incidents/read")
+def mark_active_incident_notifications_read(connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):
+    rows = connection.execute(
+        """
+        UPDATE notifications
+        SET read_at = NOW()
+        WHERE user_id = %s
+          AND read_at IS NULL
+          AND incident_id IN (
+            SELECT id FROM incidents WHERE status IN ('reported', 'acknowledged', 'in_progress')
+          )
+        RETURNING incident_id
+        """,
+        (user.id,),
+    ).fetchall()
+    connection.commit()
+    return {"updated": len(rows)}
+
 
 @app.post("/api/v1/push-devices")
 def register_push_device(device: PushDeviceInput, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):

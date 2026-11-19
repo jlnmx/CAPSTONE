@@ -112,6 +112,36 @@ class NotificationPreferencesTests(unittest.TestCase):
         )
         smtp_factory.assert_not_called()
 
+    def test_unread_incident_count_only_includes_active_incidents(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {"count": 2}
+
+        result = main.unread_active_incident_count(connection, self.user)
+
+        self.assertEqual(result, {"count": 2})
+        query = connection.execute.call_args.args[0]
+        self.assertIn("COUNT(DISTINCT notifications.incident_id)", query)
+        self.assertIn("notifications.read_at IS NULL", query)
+        self.assertIn("incidents.status IN ('reported', 'acknowledged', 'in_progress')", query)
+        self.assertEqual(connection.execute.call_args.args[1], ("resident-1",))
+
+    def test_visiting_incidents_marks_active_incident_notifications_read(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchall.return_value = [
+            {"incident_id": "incident-1"},
+            {"incident_id": "incident-2"},
+        ]
+
+        result = main.mark_active_incident_notifications_read(connection, self.user)
+
+        self.assertEqual(result, {"updated": 2})
+        query = connection.execute.call_args.args[0]
+        self.assertIn("UPDATE notifications", query)
+        self.assertIn("read_at IS NULL", query)
+        self.assertIn("status IN ('reported', 'acknowledged', 'in_progress')", query)
+        self.assertEqual(connection.execute.call_args.args[1], ("resident-1",))
+        connection.commit.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,15 +3,17 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, useWindowDimensions } from 'react-native';
+import { Animated, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import * as Location from 'expo-location';
+import { ThemedText as Text } from '@components/ThemedText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatedPressable } from '@components/Buttons';
 import { StartupLocationPermission } from '@components/StartupLocationPermission';
 import { useAuth } from '@hooks/useAuth';
 import { useTheme } from '@hooks/useTheme';
+import { useUnreadActiveIncidentCount } from '@hooks/useUnreadActiveIncidentCount';
 import { useResponderLive } from '@hooks/useRealtime';
 import { authenticatedFetch } from '@services/apiClient';
 import { resolveResponderLocationArea, type ResponderLocationArea } from '@services/responderLive';
@@ -22,9 +24,10 @@ interface TabBarIconProps {
   color: string;
   size: number;
   focused: boolean;
+  badgeCount?: number;
 }
 
-function TabBarIcon({ name, color, size, focused }: TabBarIconProps) {
+function TabBarIcon({ name, color, size, focused, badgeCount = 0 }: TabBarIconProps) {
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -34,6 +37,7 @@ function TabBarIcon({ name, color, size, focused }: TabBarIconProps) {
   return (
     <Animated.View style={[styles.tabIcon, focused && styles.tabIconActive, { transform: [{ scale }] }]}>
       <MaterialCommunityIcons name={name} size={size} color={color} />
+      {badgeCount > 0 && <View style={styles.incidentBadge}><Text style={styles.incidentBadgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text></View>}
     </Animated.View>
   );
 }
@@ -135,6 +139,7 @@ function ResponderPresenceHeartbeat({ locationPermissionGranted }: { locationPer
 
 export default function ResponderLayout() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const unreadIncidentCount = useUnreadActiveIncidentCount();
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const router = useRouter();
   const segments = useSegments();
@@ -195,7 +200,7 @@ export default function ResponderLayout() {
         name="incidents"
         options={{
           title: 'Incidents',
-          tabBarIcon: ({ color, focused }) => <TabBarIcon name="alert-outline" color={color} size={tabIconSize} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="alert-outline" color={color} size={tabIconSize} focused={focused} badgeCount={unreadIncidentCount} />,
         }}
       />
       <Tabs.Screen
@@ -223,6 +228,8 @@ export default function ResponderLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabIcon: { width: 42, height: 32, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  tabIcon: { width: 42, height: 32, borderRadius: 13, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   tabIconActive: { backgroundColor: 'rgba(33,139,37,0.12)' },
+  incidentBadge: { position: 'absolute', top: -5, right: -5, minWidth: 17, height: 17, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', borderRadius: 9, backgroundColor: '#A83F70', borderWidth: 1.5, borderColor: '#FFFFFF', shadowColor: '#3D1730', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 3 },
+  incidentBadgeText: { color: '#FFFFFF', fontSize: 8, lineHeight: 10, fontWeight: '900', textAlign: 'center', includeFontPadding: false },
 });

@@ -66,6 +66,17 @@ def enqueue_responders(connection: psycopg.Connection, incident_id: str, inciden
     )
 
 
+def enqueue_residents(connection: psycopg.Connection, incident_id: str, incident_type: str, severity: str, location: str) -> None:
+    connection.execute(
+        """INSERT INTO push_deliveries (token, user_id, title, body, incident_id)
+           SELECT devices.token, devices.user_id, %s, %s, %s
+           FROM push_devices AS devices JOIN users ON users.id = devices.user_id
+           WHERE users.role = 'Resident' AND users.status = 'Active'
+             AND devices.updated_at > NOW() - INTERVAL '30 days'""",
+        ("New community incident", f"{incident_type}: {severity.upper()} severity. Location: {location}.", incident_id),
+    )
+
+
 def _request(url: str, body: dict) -> dict:
     request = Request(url, data=json.dumps(body).encode("utf-8"), headers={
         "Content-Type": "application/json",

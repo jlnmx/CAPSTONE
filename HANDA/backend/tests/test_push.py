@@ -41,6 +41,28 @@ class PushDeviceTests(unittest.TestCase):
         self.assertEqual(connection.execute.call_args_list[1].args[1][1], "Fire: HIGH severity. Location: Biñan.")
         self.assertEqual(connection.execute.call_args_list[1].args[1][-2:], ("incident-1", "resident-1"))
 
+    def test_new_incident_notifies_all_active_residents_and_queues_push(self):
+        connection = MagicMock()
+        incident = IncidentCreate(type="Fire", description="Smoke", location="Biñan", severity="high")
+
+        main.notify_residents_of_new_incident(connection, incident, "incident-1")
+
+        notification_call, push_call = connection.execute.call_args_list
+        self.assertIn("INSERT INTO notifications", notification_call.args[0])
+        self.assertIn("role = 'Resident' AND status = 'Active'", notification_call.args[0])
+        self.assertEqual(notification_call.args[1], (
+            "incident-1",
+            "New community incident: Fire",
+            "A HIGH severity Fire incident was reported at Biñan. Open HANDA to view details.",
+        ))
+        self.assertIn("INSERT INTO push_deliveries", push_call.args[0])
+        self.assertIn("role = 'Resident' AND users.status = 'Active'", push_call.args[0])
+        self.assertEqual(push_call.args[1], (
+            "New community incident",
+            "Fire: HIGH severity. Location: Biñan.",
+            "incident-1",
+        ))
+
     def test_existing_incident_does_not_send_new_alert(self):
         connection = MagicMock()
         connection.execute.return_value.fetchone.return_value = {"id": "incident-1"}

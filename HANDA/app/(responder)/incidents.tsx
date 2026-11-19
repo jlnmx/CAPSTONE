@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Colors } from '@constants/colors';
 import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -6,8 +7,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ResponderIncidentQueue from '@components/ResponderIncidentQueue';
 import AppBackArrow from '@components/AppBackArrow';
 import { kitFonts } from '@components/IncidentCardKit';
+import { markActiveIncidentNotificationsRead } from '@services/incidentNotifications';
 
 export default function IncidentsScreen() {
+  useFocusEffect(useCallback(() => {
+    void markActiveIncidentNotificationsRead().catch((error: unknown) => {
+      console.warn('Active incident notifications could not be marked as read.', error);
+    });
+  }, []));
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

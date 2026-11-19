@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { DeviceEventEmitter, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,6 +12,7 @@ import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { useNotificationStream } from '@hooks/useRealtime';
 import { useWeather } from '@hooks/useWeather';
+import { ACTIVE_INCIDENT_NOTIFICATIONS_CHANGED, notifyActiveIncidentNotificationsChanged } from '@services/incidentNotifications';
 
 const GREEN = '#D45B92';
 const READ_IDS_KEY = 'handa.readNotificationIds';
@@ -23,7 +24,7 @@ const ROUTES = {
 } as const;
 
 type ServerNotification = { id: string; incident_id?: string | null; title: string; message: string; read_at?: string | null; created_at: string };
-type NotificationItem = { id: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string; title: string; detail: string; time: string; route: string; read: boolean; source: 'server' | 'local' };
+type NotificationItem = { id: string; incidentId?: string | null; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string; title: string; detail: string; time: string; route: string; read: boolean; source: 'server' | 'local' };
 
 function formatTime(value: string): string {
   const date = new Date(value);
@@ -79,9 +80,21 @@ export function NotificationBell() {
     return () => { mounted = false; clearInterval(refresh); };
   }, [user?.role]);
 
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(ACTIVE_INCIDENT_NOTIFICATIONS_CHANGED, () => {
+      void authenticatedFetch('/api/v1/notifications')
+        .then(async (response) => {
+          if (!response.ok) throw new Error('Notification service unavailable.');
+          setServerNotifications(await response.json() as ServerNotification[]);
+        })
+        .catch((error: unknown) => console.warn('Notifications could not be refreshed after a read update.', error));
+    });
+    return () => subscription.remove();
+  }, []);
+
   const notifications = useMemo<NotificationItem[]>(() => {
     const incidentRoute = user?.role === 'responder' ? '/(responder)/incidents' : ROUTES.incidents;
-    const items: NotificationItem[] = serverNotifications.map((notification) => ({ id: notification.id, icon: 'alert-circle-outline', color: Colors.emergency, title: notification.title, detail: notification.message, time: formatTime(notification.created_at), route: incidentRoute, read: !!notification.read_at, source: 'server' }));
+    const items: NotificationItem[] = serverNotifications.map((notification) => ({ id: notification.id, incidentId: notification.incident_id, icon: 'alert-circle-outline', color: Colors.emergency, title: notification.title, detail: notification.message, time: formatTime(notification.created_at), route: incidentRoute, read: !!notification.read_at, source: 'server' }));
     const active = disasters.find((disaster) => disaster.status.toLowerCase() === 'active');
     const upcoming = disasters.find((disaster) => disaster.status.toLowerCase() === 'upcoming');
     if (active) items.push({ id: `active-disaster-${active.id}`, icon: 'alert-octagon-outline', color: Colors.emergency, title: 'Active disaster', detail: `${active.name}${active.description ? ` · ${active.description}` : ''}`, time: 'Now', route: ROUTES.alerts, read: readIds.includes(`active-disaster-${active.id}`), source: 'local' });
@@ -115,6 +128,7 @@ export function NotificationBell() {
         setReadIds(nextReadIds);
       }
       setServerNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read_at: new Date().toISOString() } : item));
+      if (notification.incidentId) notifyActiveIncidentNotificationsChanged();
       return true;
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Unable to mark this notification as read. Please try again.');
@@ -154,6 +168,7 @@ export function NotificationBell() {
       const readAt = new Date().toISOString();
       const serverIds = new Set(serverItems.map((notification) => notification.id));
       setServerNotifications((current) => current.map((item) => serverIds.has(item.id) ? { ...item, read_at: readAt } : item));
+      if (serverItems.some((notification) => notification.incidentId)) notifyActiveIncidentNotificationsChanged();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : 'Unable to mark notifications as read. Please try again.');
     } finally {
@@ -166,11 +181,11 @@ export function NotificationBell() {
       <AnimatedPressable
         style={styles.button}
         onPress={() => setVisible(true)}
-        accessibilityLabel="Open notifications"
+        accessibilityLabel={`Open notifications${unreadCount ? `, ${unreadCount} unread` : ''}`}
         accessibilityRole="button"
       >
         <MaterialCommunityIcons name="bell-outline" size={29} color={Colors.white} />
-        {unreadCount > 0 && <View style={styles.dot}><Text style={styles.dotText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>}
+        {unreadCount > 0 && <View style={styles.dot}><Text style={styles.dotText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View>}
       </AnimatedPressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)} statusBarTranslucent>
@@ -276,8 +291,8 @@ export function NotificationBell() {
 
 const styles = StyleSheet.create({
   button: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
-  dot: { position: 'absolute', top: -1, right: -5, zIndex: 2, minWidth: 16, height: 16, paddingHorizontal: 3, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.warning, borderWidth: 1, borderColor: Colors.white },
-  dotText: { color: '#3D3100', fontSize: 8, fontWeight: '900' },
+  dot: { position: 'absolute', top: 0, right: -4, zIndex: 2, minWidth: 19, height: 19, paddingHorizontal: 4, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#A83F70', borderWidth: 2, borderColor: Colors.white, shadowColor: '#3D1730', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.24, shadowRadius: 3, elevation: 4 },
+  dotText: { color: '#FFFFFF', fontFamily: AppBoldFontFamily, fontSize: 9, lineHeight: 12, textAlign: 'center', includeFontPadding: false },
   backdrop: { flex: 1, backgroundColor: 'rgba(10, 22, 14, 0.48)', justifyContent: 'flex-start', alignItems: 'center' },
   backdropDismiss: { ...StyleSheet.absoluteFillObject },
   modal: { width: '100%', maxWidth: 500, backgroundColor: Colors.surface, borderRadius: 22, padding: 18, shadowColor: '#152A19', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.2, shadowRadius: 28, elevation: 10, overflow: 'hidden' },
@@ -286,8 +301,8 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 9 },
   title: { color: Colors.text, fontFamily: AppHeadingFontFamily, fontSize: 20, letterSpacing: -0.3 },
   subtitle: { color: Colors.textMuted, fontFamily: AppFontFamily, fontSize: 12, lineHeight: 18, marginTop: 3 },
-  unreadBadge: { backgroundColor: '#E7F5E9', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20 },
-  unreadBadgeText: { color: GREEN, fontFamily: AppSemiboldFontFamily, fontSize: 11 },
+  unreadBadge: { backgroundColor: '#FFF1F6', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: '#F1C7D9' },
+  unreadBadgeText: { color: '#A84F7D', fontFamily: AppSemiboldFontFamily, fontSize: 11 },
   closeButton: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F6F4' },
   markAllButton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 13, backgroundColor: '#EFF8F0', borderWidth: 1, borderColor: '#D5EBD7', marginTop: 14, marginBottom: 8 },
   markAllText: { color: GREEN, fontFamily: AppBoldFontFamily, fontSize: 14 },
