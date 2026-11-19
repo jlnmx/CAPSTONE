@@ -264,7 +264,7 @@ export default function AccountSectionScreen() {
       return;
     }
     if (!isCurrentAddressComplete(addressParts)) {
-      setError('Enter a house number, street, and barangay.');
+      setError('Enter a house number and select a barangay.');
       return;
     }
     const birthdayValue = birthday.trim();

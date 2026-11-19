@@ -48,7 +48,7 @@ export function CurrentAddressFields({ value, onChange, error, palette = default
       <Text style={[styles.sectionTitle, { color: palette.text }]}>Current Address</Text>
       <Text style={[styles.sectionHint, { color: palette.textMuted }]}>Use your Biñan City home address.</Text>
       <AddressTextField label="House No." required value={value.houseNumber} placeholder="House or unit number" maxLength={80} onChangeText={(text) => update('houseNumber', text)} palette={palette} />
-      <AddressTextField label="Street" required value={value.street} placeholder="Street name" maxLength={120} onChangeText={(text) => update('street', text)} palette={palette} />
+      <AddressTextField label="Street" optional value={value.street} placeholder="Street name (if any)" maxLength={120} onChangeText={(text) => update('street', text)} palette={palette} />
       <AddressTextField label="Village / Subdivision / Purok" optional value={value.village} placeholder="Village, subdivision, or purok" maxLength={160} onChangeText={(text) => update('village', text)} palette={palette} />
 
       <View style={styles.field}>

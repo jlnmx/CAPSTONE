@@ -110,7 +110,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
       if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday.trim())) errors.birthday = 'Select a valid birthday.';
       if (sex !== 'Male' && sex !== 'Female') errors.sex = 'Select Male or Female.';
       if (!/^(09\d{9}|\+639\d{9}|639\d{9})$/.test(mobileNumber.replace(/[\s()-]/g, ''))) errors.mobileNumber = 'Use a valid Philippine number, e.g. 09171234567.';
-      if (!isCurrentAddressComplete(addressParts)) errors.address = 'Enter a house number, street, and barangay.';
+      if (!isCurrentAddressComplete(addressParts)) errors.address = 'Enter a house number and select a barangay.';
     } else if (currentStep === 1) {
       if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email.trim())) errors.email = 'Enter a valid email address.';
       if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
@@ -398,7 +398,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birthday.trim())) errors.birthday = 'Select a valid birthday.';
     if (sex !== 'Male' && sex !== 'Female') errors.sex = 'Select Male or Female.';
     if (!/^(09\d{9}|\+639\d{9}|639\d{9})$/.test(normalizedMobile)) errors.mobileNumber = 'Use a valid Philippine number, e.g. 09171234567.';
-    if (!isCurrentAddressComplete(addressParts)) errors.address = 'Enter a house number, street, and barangay.';
+    if (!isCurrentAddressComplete(addressParts)) errors.address = 'Enter a house number and select a barangay.';
     if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(normalizedEmail)) errors.email = 'Enter a valid email address.';
     if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
       errors.password = 'Use 8+ characters with uppercase, lowercase, number, and symbol.';

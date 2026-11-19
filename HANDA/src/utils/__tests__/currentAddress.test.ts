@@ -24,6 +24,20 @@ describe('current address formatting', () => {
     expect(parseCurrentAddress(formatCurrentAddress(address))).toEqual(address);
   });
 
+  it('allows an empty street while still requiring a house number and barangay', () => {
+    const address = {
+      houseNumber: '12A',
+      street: '',
+      village: 'Purok 4',
+      barangay: 'Canlalay',
+    };
+
+    expect(isCurrentAddressComplete(address)).toBe(true);
+    expect(formatCurrentAddress(address)).toBe('12A, Purok 4, Brgy. Canlalay, Biñan City');
+    expect(isCurrentAddressComplete({ ...address, houseNumber: '' })).toBe(false);
+    expect(isCurrentAddressComplete({ ...address, barangay: '' })).toBe(false);
+  });
+
   it('keeps a legacy street line and recognizes its barangay', () => {
     expect(parseCurrentAddress('28 Rizal Street, Brgy. Canlalay, Biñan City')).toEqual({
       houseNumber: '',

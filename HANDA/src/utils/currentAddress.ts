@@ -61,7 +61,7 @@ export function formatCurrentAddress(parts: CurrentAddressParts): string {
 }
 
 export function isCurrentAddressComplete(parts: CurrentAddressParts): boolean {
-  return Boolean(parts.houseNumber.trim() && parts.street.trim() && parts.barangay.trim());
+  return Boolean(parts.houseNumber.trim() && parts.barangay.trim());
 }
 
 export function parseCurrentAddress(value: string): CurrentAddressParts {
