@@ -717,13 +717,14 @@ body { font-size: 14px; line-height: 1.5; letter-spacing: -.01em; }
 @media (max-width: 600px) {
   body { font-size: 13px; }
   .page-content { padding: 22px 14px 32px; }
+}
 
-  /* Command-center shell polish: preserve the HANDA pink and blue identity. */
-  :root {
-    --command-rose-wash: rgb(212 91 146 / 7%);
-    --command-blue-wash: rgb(145 188 221 / 12%);
-    --command-shadow: 0 10px 28px rgb(52 34 47 / 5%);
-  }
+/* Command-center shell polish: preserve the HANDA pink and blue identity. */
+:root {
+  --command-rose-wash: rgb(212 91 146 / 7%);
+  --command-blue-wash: rgb(145 188 221 / 12%);
+  --command-shadow: 0 10px 28px rgb(52 34 47 / 5%);
+}
 
   .app-frame { min-height: 100dvh; }
   .sidebar {
@@ -942,7 +943,6 @@ body { font-size: 14px; line-height: 1.5; letter-spacing: -.01em; }
   .photo-viewer-nav { width: 32px; height: 32px; }
   .photo-viewer-footer { align-items: flex-start; flex-direction: column; gap: 7px; }
   .photo-viewer-thumbnails { width: 100%; }
-}
 
 .incident-records-table {
   min-width: 1180px;
