@@ -1,4 +1,4 @@
-import { getWeatherPresentation, getWeatherTileTimePresentation } from '../weatherPresentation';
+import { getWeatherPresentation, getWeatherTileIcon, getWeatherTileTimePresentation } from '../weatherPresentation';
 
 describe('weather tile presentation', () => {
   it.each([
@@ -22,5 +22,16 @@ describe('weather tile presentation', () => {
       overlayIcon: 'water',
     });
     expect(getWeatherPresentation('THUNDERSTORMS', 25, true).icon).toBe('weather-lightning-rainy');
+  });
+
+  it('uses moon-based icons for clear and partly cloudy current conditions in the evening', () => {
+    const evening = new Date(2026, 0, 1, 19);
+    const afternoon = new Date(2026, 0, 1, 15);
+    const partlyCloudy = getWeatherPresentation('CLOUDY', 25, true, 'Mostly cloudy');
+    const clear = getWeatherPresentation('CLEAR', 25, true);
+
+    expect(getWeatherTileIcon(partlyCloudy, evening)).toBe('weather-night-partly-cloudy');
+    expect(getWeatherTileIcon(clear, evening)).toBe('weather-night');
+    expect(getWeatherTileIcon(partlyCloudy, afternoon)).toBe('weather-partly-cloudy');
   });
 });

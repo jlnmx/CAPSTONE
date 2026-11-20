@@ -20,6 +20,14 @@ export function getWeatherTileTimePresentation(date = new Date()) {
   return { label: 'Evening', gradient: ['#162B46', '#263F60', '#3D6288'] as const };
 }
 
+export function getWeatherTileIcon(presentation: WeatherPresentation, date = new Date()) {
+  const icon = presentation.tileIcon ?? presentation.icon;
+  if (getWeatherTileTimePresentation(date).label !== 'Evening') return icon;
+  if (icon === 'weather-partly-cloudy') return 'weather-night-partly-cloudy';
+  if (icon === 'weather-sunny') return 'weather-night';
+  return icon;
+}
+
 export function getSafetyTip(presentation: WeatherPresentation, timeLabel: string, disasterActive: boolean) {
   if (disasterActive) return { title: 'Active disaster advisory', detail: 'Follow official instructions, keep your phone charged, and be ready to move to a safe location.' };
   if (presentation.hazard === 'thunderstorm') return { title: `${timeLabel} lightning advisory`, detail: 'Stay indoors during lightning and keep emergency equipment charged.' };

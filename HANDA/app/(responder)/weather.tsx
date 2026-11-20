@@ -8,7 +8,7 @@ import AppBackArrow from '@components/AppBackArrow';
 import { useTheme } from '@hooks/useTheme';
 import { fetchGoogleWeatherForecast } from '@services/googleWeather';
 import type { GoogleWeatherSnapshot } from '@/types/weather';
-import { getWeatherPresentation, getWeatherTileTimePresentation } from '@utils/weatherPresentation';
+import { getWeatherPresentation, getWeatherTileIcon, getWeatherTileTimePresentation } from '@utils/weatherPresentation';
 
 function parseLocalDate(value: string): Date {
   const [year, month, day] = value.slice(0, 10).split('-').map(Number);
@@ -89,7 +89,7 @@ export default function WeatherForecastScreen() {
             <LinearGradient colors={tileTimePresentation.gradient} style={styles.todayCard}>
               <View style={styles.todayHeading}>
                 <View><Text darkText style={styles.todayLabel}>Today</Text><Text darkText style={styles.todayDate}>{displayDate(today.date, true)}</Text></View>
-                <MaterialCommunityIcons name={presentation.icon} size={42} color={Colors.white} />
+                <MaterialCommunityIcons name={getWeatherTileIcon(presentation, now)} size={42} color={Colors.white} />
               </View>
               <View style={styles.todayTemperatureRow}>
                 <Text darkText style={styles.todayTemperature}>{formatTemperature(forecast.current.temperature)}</Text>
