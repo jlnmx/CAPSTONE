@@ -65,6 +65,10 @@ class RealtimeTokenTests(unittest.TestCase):
 class RealtimeMigrationTests(unittest.TestCase):
     sql = MIGRATION.read_text(encoding="utf-8")
 
+    def test_notification_broadcast_includes_notification_type(self):
+        self.assertIn("ADD COLUMN IF NOT EXISTS notification_type", self.sql)
+        self.assertIn("'notification_type', NEW.notification_type", self.sql)
+
     def test_policies_are_scoped_and_never_open(self):
         lowered = self.sql.lower()
         self.assertNotIn("using (true)", lowered)

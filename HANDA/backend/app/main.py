@@ -39,6 +39,7 @@ from .push import PUSH_SCHEMA_SQL, enqueue_evacuation_status, enqueue_responders
 from .sms import normalize_sms_number, send_sms, send_sms_otp, send_sms_to_many, sms_delivery_configured
 from .storm_alerts import STORM_ADVISORY_POLL_SECONDS, process_live_storm_advisories
 from .weather import get_google_weather_snapshot
+from .weather_alerts import WEATHER_ALERT_POLL_SECONDS, process_weather_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -739,7 +740,18 @@ def ensure_operational_schema() -> None:
         connection.execute(
             "ALTER TABLE notifications ADD COLUMN IF NOT EXISTS incident_id TEXT REFERENCES incidents(id) ON DELETE CASCADE"
         )
+        connection.execute("ALTER TABLE notifications ADD COLUMN IF NOT EXISTS notification_type TEXT NOT NULL DEFAULT 'incident'")
         connection.execute("CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications (user_id, created_at DESC)")
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS weather_alert_state (
+                alert_key TEXT PRIMARY KEY,
+                forecast_date DATE NOT NULL,
+                severity INTEGER NOT NULL CHECK (severity > 0),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS storm_advisory_sms_events (
@@ -999,13 +1011,23 @@ async def lifespan(_: FastAPI):
                 logger.exception("Tropical storm advisory polling failed.")
             await asyncio.sleep(STORM_ADVISORY_POLL_SECONDS)
 
+    async def weather_alert_worker():
+        while True:
+            try:
+                await asyncio.to_thread(process_weather_alerts)
+            except Exception:
+                logger.exception("Weather alert polling failed.")
+            await asyncio.sleep(WEATHER_ALERT_POLL_SECONDS)
+
     worker = asyncio.create_task(push_worker())
     storm_worker = asyncio.create_task(storm_advisory_worker())
+    weather_worker = asyncio.create_task(weather_alert_worker())
     try:
         yield
     finally:
         worker.cancel()
         storm_worker.cancel()
+        weather_worker.cancel()
         close_connection_pool()
         try:
             await worker
@@ -1013,6 +1035,10 @@ async def lifespan(_: FastAPI):
             pass
         try:
             await storm_worker
+        except asyncio.CancelledError:
+            pass
+        try:
+            await weather_worker
         except asyncio.CancelledError:
             pass
 
@@ -1838,7 +1864,7 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
 @app.get("/api/v1/notifications")
 def list_notifications(connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):
     return connection.execute(
-        "SELECT id, incident_id, title, message, read_at, created_at FROM notifications WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
+        "SELECT id, incident_id, notification_type, title, message, read_at, created_at FROM notifications WHERE user_id = %s ORDER BY created_at DESC LIMIT 100",
         (user.id,),
     ).fetchall()
 

@@ -11,7 +11,6 @@ import { AnimatedPressable } from '@components/Buttons';
 import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { useNotificationStream } from '@hooks/useRealtime';
-import { useWeather } from '@hooks/useWeather';
 import { ACTIVE_INCIDENT_NOTIFICATIONS_CHANGED, notifyActiveIncidentNotificationsChanged } from '@services/incidentNotifications';
 
 const GREEN = '#D45B92';
@@ -20,10 +19,9 @@ const ROUTES = {
   incidents: '/(resident)/incidents',
   alerts: '/(resident)/alerts',
   status: '/(resident)/verify-status',
-  preparedness: '/(resident)/preparedness-guide',
 } as const;
 
-type ServerNotification = { id: string; incident_id?: string | null; title: string; message: string; read_at?: string | null; created_at: string };
+type ServerNotification = { id: string; incident_id?: string | null; notification_type?: string; title: string; message: string; read_at?: string | null; created_at: string };
 type NotificationItem = { id: string; incidentId?: string | null; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; color: string; title: string; detail: string; time: string; route: string; read: boolean; source: 'server' | 'local' };
 
 function formatTime(value: string): string {
@@ -41,7 +39,6 @@ export function NotificationBell() {
   const horizontalPadding = width < 500 ? 14 : Math.max(18, (width - 900) / 2 + 18);
   const router = useRouter();
   const { user } = useAuth();
-  const { presentation, isLoading: isWeatherLoading, isUnavailable: isWeatherUnavailable } = useWeather();
   const [visible, setVisible] = useState(false);
   const [serverNotifications, setServerNotifications] = useState<ServerNotification[]>([]);
   const [disasters, setDisasters] = useState<Array<{ id: string; name: string; description?: string; status: string; severity?: string; started_at?: string | null }>>([]);
@@ -94,7 +91,22 @@ export function NotificationBell() {
 
   const notifications = useMemo<NotificationItem[]>(() => {
     const incidentRoute = user?.role === 'responder' ? '/(responder)/incidents' : ROUTES.incidents;
-    const items: NotificationItem[] = serverNotifications.map((notification) => ({ id: notification.id, incidentId: notification.incident_id, icon: 'alert-circle-outline', color: Colors.emergency, title: notification.title, detail: notification.message, time: formatTime(notification.created_at), route: incidentRoute, read: !!notification.read_at, source: 'server' }));
+    const weatherRoute = user?.role === 'responder' ? '/(responder)/weather' : '/(resident)/weather';
+    const items: NotificationItem[] = serverNotifications.map((notification) => {
+      const isWeather = notification.notification_type === 'weather';
+      return {
+        id: notification.id,
+        incidentId: notification.incident_id,
+        icon: isWeather ? 'weather-lightning-rainy' : 'alert-circle-outline',
+        color: isWeather ? Colors.secondary : Colors.emergency,
+        title: notification.title,
+        detail: notification.message,
+        time: formatTime(notification.created_at),
+        route: isWeather ? weatherRoute : incidentRoute,
+        read: !!notification.read_at,
+        source: 'server',
+      };
+    });
     const active = disasters.find((disaster) => disaster.status.toLowerCase() === 'active');
     const upcoming = disasters.find((disaster) => disaster.status.toLowerCase() === 'upcoming');
     if (active) items.push({ id: `active-disaster-${active.id}`, icon: 'alert-octagon-outline', color: Colors.emergency, title: 'Active disaster', detail: `${active.name}${active.description ? ` · ${active.description}` : ''}`, time: 'Now', route: ROUTES.alerts, read: readIds.includes(`active-disaster-${active.id}`), source: 'local' });
@@ -104,12 +116,8 @@ export function NotificationBell() {
       const id = `evacuation-status-${evacuationStatus.status}`;
       items.push({ id, icon: 'account-check-outline', color: Colors.success, title: 'Evacuation status', detail: `Your household is currently ${statusLabel}.`, time: 'Live', route: ROUTES.status, read: readIds.includes(id), source: 'local' });
     }
-    if (!isWeatherLoading && !isWeatherUnavailable && /rain|thunder|storm|hot|fog/i.test(presentation.description)) {
-      const id = `weather-${presentation.description}`;
-      items.push({ id, icon: 'weather-partly-rainy', color: Colors.secondary, title: 'Weather advisory', detail: `${presentation.description} forecast for Biñan City. Review preparedness guidance before travelling.`, time: 'Live', route: ROUTES.preparedness, read: readIds.includes(id), source: 'local' });
-    }
     return items.sort((left, right) => Number(left.read) - Number(right.read));
-  }, [serverNotifications, disasters, evacuationStatus, readIds, isWeatherLoading, isWeatherUnavailable, presentation.description, user?.role]);
+  }, [serverNotifications, disasters, evacuationStatus, readIds, user?.role]);
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
 

@@ -26,6 +26,11 @@ export async function registerPushDevice(): Promise<void> {
       importance: Notifications.AndroidImportance.HIGH,
       sound: 'default',
     });
+    await Notifications.setNotificationChannelAsync('weather', {
+      name: 'Weather alerts',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: 'default',
+    });
     let permission = await Notifications.getPermissionsAsync();
     if (!permission.granted && permission.canAskAgain) permission = await Notifications.requestPermissionsAsync();
     if (!permission.granted) {

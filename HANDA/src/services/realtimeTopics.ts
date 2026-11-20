@@ -65,6 +65,7 @@ export interface CenterChange {
 export interface RealtimeNotification {
   id: string;
   incident_id: string | null;
+  notification_type?: string;
   title: string;
   message: string;
   created_at: string;

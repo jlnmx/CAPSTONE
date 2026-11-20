@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS push_deliveries (
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     body TEXT NOT NULL,
-    incident_id TEXT NOT NULL,
+    incident_id TEXT,
     notification_type TEXT NOT NULL DEFAULT 'incident',
     receipt_id TEXT,
     attempts INTEGER NOT NULL DEFAULT 0,
@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS push_deliveries (
 );
 CREATE INDEX IF NOT EXISTS push_deliveries_due_idx ON push_deliveries (next_attempt);
 ALTER TABLE push_deliveries ADD COLUMN IF NOT EXISTS notification_type TEXT NOT NULL DEFAULT 'incident';
+ALTER TABLE push_deliveries ALTER COLUMN incident_id DROP NOT NULL;
 """
 
 
@@ -51,6 +52,15 @@ def enqueue_evacuation_status(connection: psycopg.Connection, user_id: str, regi
            SELECT token, user_id, %s, %s, %s, 'evacuation'
            FROM push_devices WHERE user_id = %s AND updated_at > NOW() - INTERVAL '30 days'""",
         ("Evacuation status update", body, registration_id, user_id),
+    )
+
+
+def enqueue_weather_alert(connection: psycopg.Connection, user_id: str, title: str, body: str) -> None:
+    connection.execute(
+        """INSERT INTO push_deliveries (token, user_id, title, body, incident_id, notification_type)
+           SELECT token, user_id, %s, %s, NULL, 'weather' FROM push_devices
+           WHERE user_id = %s AND updated_at > NOW() - INTERVAL '30 days'""",
+        (title, body, user_id),
     )
 
 
@@ -128,10 +138,12 @@ def process_one() -> bool:
                     "body": delivery["body"],
                     "sound": "default",
                     "priority": "high",
-                    "channelId": "incidents",
+                    "channelId": "weather" if delivery["notification_type"] == "weather" else "incidents",
                     "data": (
                         {"type": "evacuation", "registrationId": delivery["incident_id"]}
                         if delivery["notification_type"] == "evacuation"
+                        else {"type": "weather"}
+                        if delivery["notification_type"] == "weather"
                         else {"type": "incident", "incidentId": delivery["incident_id"]}
                     ),
                 }).get("data")

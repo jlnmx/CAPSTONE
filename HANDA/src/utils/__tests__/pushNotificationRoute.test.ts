@@ -11,4 +11,9 @@ describe('push notification routing', () => {
     expect(pushNotificationRoute('evacuation', 'responder')).toBeNull();
     expect(pushNotificationRoute('unknown', 'resident')).toBeNull();
   });
+
+  it('opens the role-specific weather forecast for weather alerts', () => {
+    expect(pushNotificationRoute('weather', 'resident')).toBe('/(resident)/weather');
+    expect(pushNotificationRoute('weather', 'responder')).toBe('/(responder)/weather');
+  });
 });

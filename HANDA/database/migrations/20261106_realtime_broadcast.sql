@@ -22,6 +22,9 @@ BEGIN
 END
 $$;
 
+ALTER TABLE public.notifications
+  ADD COLUMN IF NOT EXISTS notification_type TEXT NOT NULL DEFAULT 'incident';
+
 CREATE OR REPLACE FUNCTION public.handa_broadcast_incident()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -111,6 +114,7 @@ BEGIN
     jsonb_build_object('notification', jsonb_build_object(
       'id', NEW.id,
       'incident_id', NEW.incident_id,
+      'notification_type', NEW.notification_type,
       'title', NEW.title,
       'message', NEW.message,
       'created_at', NEW.created_at
