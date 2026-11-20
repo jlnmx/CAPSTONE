@@ -3,19 +3,25 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Activity, AlertTriangle, BarChart3, Building2, ChevronDown, ClipboardList,
   LayoutDashboard, LogOut, Map, Menu, Radio, Settings, ShieldCheck,
-  Send, X,
+  Send,
 } from 'lucide-react';
 import { useAuth } from '../auth';
 
-const navigation = [
-  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/map', label: 'Live map', icon: Map },
-  { to: '/operations', label: 'Operations', icon: Activity },
-  { to: '/dispatch', label: 'Dispatch', icon: Send },
-  { to: '/centers', label: 'Centers', icon: Building2 },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/users', label: 'Users', icon: ShieldCheck },
-  { to: '/logs', label: 'Logs', icon: ClipboardList },
+const navigationGroups = [
+  { label: 'Command', items: [
+    { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
+    { to: '/map', label: 'Live map', icon: Map },
+    { to: '/operations', label: 'Operations', icon: Activity },
+    { to: '/dispatch', label: 'Dispatch', icon: Send },
+  ] },
+  { label: 'Resources', items: [
+    { to: '/centers', label: 'Centers', icon: Building2 },
+    { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+  ] },
+  { label: 'Administration', items: [
+    { to: '/users', label: 'Users', icon: ShieldCheck },
+    { to: '/logs', label: 'Logs', icon: ClipboardList },
+  ] },
 ];
 
 const pageNames: Record<string, string> = {
@@ -29,22 +35,47 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.matchMedia('(min-width: 821px) and (max-width: 1080px)').matches);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const pageTitle = location.pathname.startsWith('/centers/') ? 'Center management' : pageNames[location.pathname] || 'Command Center';
   const initials = (user?.name || 'HA').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
 
   useEffect(() => {
-    const breakpoint = window.matchMedia('(max-width: 820px)');
+    const mobileBreakpoint = window.matchMedia('(max-width: 820px)');
+    const compactBreakpoint = window.matchMedia('(min-width: 821px) and (max-width: 1080px)');
     const updateViewport = () => {
-      setIsMobileViewport(breakpoint.matches);
-      if (!breakpoint.matches) setMenuOpen(false);
+      setIsMobileViewport(mobileBreakpoint.matches);
+      setSidebarCollapsed(compactBreakpoint.matches);
+      if (mobileBreakpoint.matches) setMenuOpen(false);
     };
     updateViewport();
-    breakpoint.addEventListener('change', updateViewport);
-    return () => breakpoint.removeEventListener('change', updateViewport);
+    mobileBreakpoint.addEventListener('change', updateViewport);
+    compactBreakpoint.addEventListener('change', updateViewport);
+    return () => {
+      mobileBreakpoint.removeEventListener('change', updateViewport);
+      compactBreakpoint.removeEventListener('change', updateViewport);
+    };
   }, []);
+
+  useEffect(() => {
+    setMenuOpen(false);
+    setAccountOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [menuOpen]);
 
   const toggleNavigation = () => {
     if (isMobileViewport) {
@@ -61,28 +92,36 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
 
   return (
     <div className={`app-frame ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-      <div className={`sidebar-scrim ${menuOpen ? 'is-visible' : ''}`} onClick={() => setMenuOpen(false)} />
-      <aside id="command-center-sidebar" className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`}>
+      <button className={`sidebar-scrim ${menuOpen ? 'is-visible' : ''}`} onClick={() => setMenuOpen(false)} aria-label="Close navigation" tabIndex={menuOpen ? 0 : -1} />
+      <aside id="command-center-sidebar" className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`} aria-label="Command center navigation">
         <div className="brand-lockup">
           <div className="brand-emblem"><img src="/handa-logo.png" alt="HANDA logo" /></div>
           <div className="brand-copy"><strong>HANDA</strong><span>COMMAND CENTER</span></div>
-          <button className="icon-button sidebar-close" onClick={() => setMenuOpen(false)} aria-label="Close navigation"><X size={18} /></button>
         </div>
 
-        <div className="sidebar-caption">RESPONSE</div>
-        <nav className="primary-nav" aria-label="Command center">
-          {navigation.filter(({ to }) => to !== '/users' || user?.isSuperAdmin).map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} title={label} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
-              <Icon size={18} strokeWidth={1.9} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
+        <div className="sidebar-context"><span className="sidebar-context-mark"><Radio size={15} /></span><span><strong>RESPONSE NETWORK</strong><small>Biñan City · Laguna</small></span></div>
+
+        <nav className="sidebar-navigation" aria-label="Command center">
+          {navigationGroups.map((group) => {
+            const items = group.items.filter(({ to }) => to !== '/users' || user?.isSuperAdmin);
+            return items.length ? <section className="sidebar-nav-group" key={group.label}>
+              <div className="sidebar-caption">{group.label}</div>
+              <div className="primary-nav">
+                {items.map(({ to, label, icon: Icon, end }) => (
+                  <NavLink key={to} to={to} end={end} title={label} data-label={label} aria-label={label} onClick={() => setMenuOpen(false)} className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}>
+                    <Icon size={18} strokeWidth={1.9} />
+                    <span>{label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </section> : null;
+          })}
         </nav>
 
         <div className="sidebar-bottom">
           <div className="sidebar-caption">PREFERENCES</div>
-          <NavLink to="/system" title="System status" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Radio size={18} /><span>System status</span></NavLink>
-          <NavLink to="/settings" title="Settings" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Settings size={18} /><span>Settings</span></NavLink>
+          <NavLink to="/system" title="System status" data-label="System status" aria-label="System status" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Radio size={18} /><span>System status</span></NavLink>
+          <NavLink to="/settings" title="Settings" data-label="Settings" aria-label="Settings" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Settings size={18} /><span>Settings</span></NavLink>
           <div className="sidebar-presence"><span className="presence-indicator" /><div><strong>Secure console</strong><small>Administrator session</small></div></div>
         </div>
       </aside>
@@ -97,6 +136,7 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
               aria-controls="command-center-sidebar"
               aria-expanded={isMobileViewport ? menuOpen : !sidebarCollapsed}
               title={isMobileViewport ? 'Toggle navigation' : (sidebarCollapsed ? 'Expand navigation' : 'Collapse navigation')}
+              data-nav-toggle
             >
               <Menu size={20} />
             </button>

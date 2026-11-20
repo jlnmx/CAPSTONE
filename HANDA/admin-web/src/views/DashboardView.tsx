@@ -40,7 +40,13 @@ export default function DashboardView() {
   ];
 
   return <div className="page-content dashboard-page">
-    <PageHeading eyebrow="COMMAND OVERVIEW" title="Good morning" description="A live view of community readiness and field operations." action={<button className="button-secondary" onClick={() => void refresh()} disabled={loading}><Activity size={16} /> Refresh data</button>} />
+    <PageHeading eyebrow="DISASTER RESPONSE · BIÑAN CITY" title="Command overview" description="Coordinate incidents, responders, and evacuation capacity across the response network." action={<div className="heading-actions"><Link className="button-primary" to="/dispatch"><ArrowRight size={16} /> Open dispatch</Link><button className="button-secondary" onClick={() => void refresh()} disabled={loading}><Activity size={16} /> Refresh data</button></div>} />
+    <div className={`command-status-strip ${data.source === 'remote' ? 'command-status-live' : 'command-status-limited'}`} role="status">
+      <span className="command-status-indicator" />
+      <strong>{loading ? 'Syncing response data' : data.source === 'remote' ? 'Command network connected' : 'Limited data connection'}</strong>
+      <span>{loading ? 'Refreshing operational picture' : data.source === 'remote' ? 'Live operational picture' : 'Some operational data may be unavailable'}</span>
+      <span className="command-status-place">HANDA · RESPONSE NETWORK</span>
+    </div>
     {error && <InlineNotice onRetry={() => void refresh()}>{error}</InlineNotice>}
     {loading ? <LoadingState label="Syncing command data" /> : <>
       <div className="metric-grid">
