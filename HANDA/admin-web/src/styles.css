@@ -745,9 +745,9 @@ body { font-size: 14px; line-height: 1.5; letter-spacing: -.01em; }
     background: rgb(255 255 255 / 7%);
   }
   .sidebar-context-mark { display: grid; width: 30px; height: 30px; flex: 0 0 30px; place-items: center; border: 1px solid rgb(255 255 255 / 15%); border-radius: 9px; color: #fff; background: rgb(255 255 255 / 10%); }
-  .sidebar-context > span:last-child { display: grid; min-width: 0; gap: 2px; }
-  .sidebar-context strong { color: #fff; font-size: 8px; font-weight: 850; letter-spacing: 1px; white-space: nowrap; }
-  .sidebar-context small { color: #E8C2D3; font-size: 9px; }
+  .sidebar-context-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; align-items: flex-start; gap: 3px; overflow: hidden; }
+  .sidebar-context-copy strong { max-width: 100%; overflow: hidden; color: #fff; font-size: 8px; font-weight: 850; letter-spacing: 1px; text-overflow: ellipsis; white-space: nowrap; }
+  .sidebar-context-copy small { max-width: 100%; overflow: hidden; color: #E8C2D3; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
   .sidebar-navigation { min-height: 0; flex: 1; overflow-x: hidden; overflow-y: auto; scrollbar-color: rgb(255 255 255 / 22%) transparent; scrollbar-width: thin; }
   .sidebar-nav-group { display: grid; gap: 5px; margin-bottom: 17px; }
   .sidebar-caption { padding-left: 12px; margin-bottom: 2px; color: #E2B6CC; font-size: 8px; letter-spacing: 1.4px; }
@@ -869,9 +869,11 @@ body { font-size: 14px; line-height: 1.5; letter-spacing: -.01em; }
     font-size: 10px;
   }
   .command-status-strip strong { color: var(--ink); font-size: 10px; font-weight: 800; }
+  .command-status-copy { display: grid; min-width: 0; flex: 1; gap: 2px; line-height: 1.4; }
+  .command-status-copy > span { color: var(--muted); }
   .command-status-indicator { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 4px var(--amber-pale); }
   .command-status-live .command-status-indicator { background: var(--success); box-shadow: 0 0 0 4px var(--success-pale); animation: status-glow 2.4s ease-in-out infinite; }
-  .command-status-place { margin-left: auto; color: var(--brand-deep); font-family: 'IBM Plex Mono', monospace; font-size: 8px; font-weight: 500; letter-spacing: .3px; }
+  .command-status-place { flex: 0 0 auto; margin-left: auto; color: var(--brand-deep); font-family: 'IBM Plex Mono', monospace; font-size: 8px; font-weight: 500; letter-spacing: .3px; white-space: nowrap; }
   .dashboard-page .metric-grid { gap: 15px; }
   .dashboard-page .dashboard-grid { gap: 16px; }
   .dashboard-page .activity-panel, .dashboard-page .incident-panel { padding: 20px; }
@@ -915,7 +917,7 @@ body { font-size: 14px; line-height: 1.5; letter-spacing: -.01em; }
     .heading-actions { width: 100%; }
     .heading-actions > * { flex: 1; }
     .command-status-strip { flex-wrap: wrap; gap: 7px 9px; padding: 10px 11px; }
-    .command-status-strip > span:nth-last-child(2) { flex: 1 1 calc(100% - 24px); }
+    .command-status-copy { flex-basis: calc(100% - 24px); }
     .command-status-place { width: 100%; margin-left: 17px; }
     .dashboard-page .metric-grid { gap: 9px; }
     .dashboard-page .dashboard-grid { gap: 11px; }
@@ -941,3 +943,30 @@ body { font-size: 14px; line-height: 1.5; letter-spacing: -.01em; }
   .photo-viewer-footer { align-items: flex-start; flex-direction: column; gap: 7px; }
   .photo-viewer-thumbnails { width: 100%; }
 }
+
+.incident-records-table {
+  min-width: 1180px;
+  table-layout: fixed;
+}
+.incident-records-table th,
+.incident-records-table td { padding-right: 10px; padding-left: 10px; }
+.incident-records-table th:nth-child(1) { width: 14%; }
+.incident-records-table th:nth-child(2) { width: 18%; }
+.incident-records-table th:nth-child(3) { width: 16%; }
+.incident-records-table th:nth-child(4) { width: 11%; }
+.incident-records-table th:nth-child(5) { width: 14%; }
+.incident-records-table th:nth-child(6) { width: 9%; }
+.incident-records-table th:nth-child(7) { width: 10%; }
+.incident-records-table th:nth-child(8) { width: 8%; }
+.incident-records-table .incident-location-cell {
+  display: -webkit-box;
+  overflow: hidden;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.incident-records-table .person-cell > span:last-child { display: grid; min-width: 0; gap: 3px; }
+.incident-records-table .person-cell strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.incident-records-table .person-cell .cell-subtitle { white-space: nowrap; }
+.incident-records-table .incident-date-cell { white-space: nowrap; }

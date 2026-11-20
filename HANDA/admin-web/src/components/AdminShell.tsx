@@ -99,7 +99,10 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
           <div className="brand-copy"><strong>HANDA</strong><span>COMMAND CENTER</span></div>
         </div>
 
-        <div className="sidebar-context"><span className="sidebar-context-mark"><Radio size={15} /></span><span><strong>RESPONSE NETWORK</strong><small>Biñan City · Laguna</small></span></div>
+        <div className="sidebar-context">
+          <span className="sidebar-context-mark"><Radio size={15} /></span>
+          <div className="sidebar-context-copy"><strong>RESPONSE NETWORK</strong><small>Biñan City · Laguna</small></div>
+        </div>
 
         <nav className="sidebar-navigation" aria-label="Command center">
           {navigationGroups.map((group) => {

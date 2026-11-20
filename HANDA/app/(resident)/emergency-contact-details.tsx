@@ -72,7 +72,7 @@ export default function EmergencyContactDetailsScreen() {
         <View style={styles.body}>
           <Text style={[styles.title, compact && styles.titleCompact]}>{contact.title}</Text>
           <View style={styles.addressRow}>
-            <MaterialCommunityIcons name="map-marker-outline" size={15} color={Colors.textMuted} />
+            <View style={styles.addressIcon}><MaterialCommunityIcons name="map-marker-outline" size={15} color={Colors.textMuted} /></View>
             <Text style={styles.addressText}>{contact.address}</Text>
           </View>
 
@@ -115,8 +115,9 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: 20 },
   title: { color: Colors.primary, fontFamily: AppHeadingFontFamily, fontSize: 21, lineHeight: 28, textAlign: 'center' },
   titleCompact: { fontSize: 18, lineHeight: 24 },
-  addressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, marginTop: 8 },
-  addressText: { flexShrink: 1, color: Colors.textMuted, fontFamily: AppMediumFontFamily, fontSize: 12, textAlign: 'center' },
+  addressRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 5, marginTop: 8 },
+  addressIcon: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  addressText: { flexShrink: 1, color: Colors.textMuted, fontFamily: AppMediumFontFamily, fontSize: 12, lineHeight: 18, textAlign: 'center', includeFontPadding: false },
   actions: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', gap: 20, marginTop: 22 },
   action: { width: 64, alignItems: 'center', gap: 7 },
   actionCircle: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },

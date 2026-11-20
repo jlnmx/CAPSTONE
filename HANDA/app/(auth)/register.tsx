@@ -530,6 +530,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
         availability = {
           available: false,
           label: 'Biometric sign-in',
+          icon: 'fingerprint',
           reason: availabilityError instanceof Error ? availabilityError.message : 'Biometric availability could not be checked.',
         };
       }
@@ -537,6 +538,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
         availability = {
           available: false,
           label: 'Biometric sign-in',
+          icon: 'fingerprint',
           reason: 'Persistent sign-in could not be set up for this registration. You can sign in with your password later.',
         };
       }

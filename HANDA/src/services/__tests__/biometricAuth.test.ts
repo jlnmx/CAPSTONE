@@ -42,6 +42,21 @@ describe('biometric sign-in', () => {
     await expect(getBiometricAvailability()).resolves.toEqual({
       available: true,
       label: 'Fingerprint',
+      icon: 'fingerprint',
+    });
+  });
+
+  it('uses the facial recognition icon on face-only devices', async () => {
+    jest.mocked(LocalAuthentication.hasHardwareAsync).mockResolvedValue(true);
+    jest.mocked(LocalAuthentication.isEnrolledAsync).mockResolvedValue(true);
+    jest.mocked(LocalAuthentication.supportedAuthenticationTypesAsync).mockResolvedValue([
+      LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION,
+    ]);
+
+    await expect(getBiometricAvailability()).resolves.toEqual({
+      available: true,
+      label: 'Face recognition',
+      icon: 'face-recognition',
     });
   });
 

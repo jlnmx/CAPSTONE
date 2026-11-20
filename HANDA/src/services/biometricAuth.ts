@@ -12,6 +12,7 @@ import {
 export interface BiometricAvailability {
   available: boolean;
   label: string;
+  icon: 'face-recognition' | 'fingerprint';
   reason?: string;
 }
 
@@ -20,6 +21,7 @@ export async function getBiometricAvailability(): Promise<BiometricAvailability>
     return {
       available: false,
       label: 'Biometric sign-in',
+      icon: 'fingerprint',
       reason: 'Biometric sign-in is only available in the HANDA mobile app.',
     };
   }
@@ -30,10 +32,10 @@ export async function getBiometricAvailability(): Promise<BiometricAvailability>
     LocalAuthentication.supportedAuthenticationTypesAsync(),
   ]);
   if (!hasHardware) {
-    return { available: false, label: 'Biometric sign-in', reason: 'This device does not have biometric hardware.' };
+    return { available: false, label: 'Biometric sign-in', icon: 'fingerprint', reason: 'This device does not have biometric hardware.' };
   }
   if (!isEnrolled) {
-    return { available: false, label: 'Biometric sign-in', reason: 'Set up Face ID or a fingerprint in your device settings first.' };
+    return { available: false, label: 'Biometric sign-in', icon: 'fingerprint', reason: 'Set up Face ID or a fingerprint in your device settings first.' };
   }
 
   const hasFaceRecognition = types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
@@ -46,7 +48,7 @@ export async function getBiometricAvailability(): Promise<BiometricAvailability>
         ? 'Fingerprint'
         : 'Device biometrics';
 
-  return { available: true, label };
+  return { available: true, label, icon: hasFaceRecognition ? 'face-recognition' : 'fingerprint' };
 }
 
 export async function isBiometricLoginEnrolled(): Promise<boolean> {

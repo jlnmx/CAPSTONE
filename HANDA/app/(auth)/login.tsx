@@ -33,7 +33,7 @@ export default function LoginScreen() {
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [kayaMessageIndex, setKayaMessageIndex] = useState(0);
   const [biometricLoginEnabled, setBiometricLoginEnabled] = useState(false);
-  const [biometricLabel, setBiometricLabel] = useState('biometrics');
+  const [biometricIcon, setBiometricIcon] = useState<'face-recognition' | 'fingerprint'>('fingerprint');
   const [biometricCheckError, setBiometricCheckError] = useState('');
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function LoginScreen() {
       .then(([enabled, availability]) => {
         if (isMounted) {
           setBiometricLoginEnabled(enabled);
-          if (availability.available) setBiometricLabel(availability.label);
+          if (availability.available) setBiometricIcon(availability.icon);
         }
       })
       .catch((statusError: unknown) => {
@@ -146,10 +146,10 @@ export default function LoginScreen() {
                 onPress={() => void loginWithBiometrics()}
                 disabled={isLoading}
                 accessibilityRole="button"
-                accessibilityLabel={`Sign in with ${biometricLabel}`}
+                accessibilityLabel="Biometric sign-in"
               >
-                <MaterialCommunityIcons name="fingerprint" size={22} color="#A84F7D" />
-                <Text style={styles.biometricButtonText}>Continue with {biometricLabel}</Text>
+                <MaterialCommunityIcons name={biometricIcon} size={22} color="#A84F7D" />
+                <Text style={styles.biometricButtonText}>Biometric sign-in</Text>
               </Pressable>
             )}
 

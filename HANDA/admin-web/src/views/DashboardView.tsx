@@ -43,8 +43,10 @@ export default function DashboardView() {
     <PageHeading eyebrow="DISASTER RESPONSE · BIÑAN CITY" title="Command overview" description="Coordinate incidents, responders, and evacuation capacity across the response network." action={<div className="heading-actions"><Link className="button-primary" to="/dispatch"><ArrowRight size={16} /> Open dispatch</Link><button className="button-secondary" onClick={() => void refresh()} disabled={loading}><Activity size={16} /> Refresh data</button></div>} />
     <div className={`command-status-strip ${data.source === 'remote' ? 'command-status-live' : 'command-status-limited'}`} role="status">
       <span className="command-status-indicator" />
-      <strong>{loading ? 'Syncing response data' : data.source === 'remote' ? 'Command network connected' : 'Limited data connection'}</strong>
-      <span>{loading ? 'Refreshing operational picture' : data.source === 'remote' ? 'Live operational picture' : 'Some operational data may be unavailable'}</span>
+      <div className="command-status-copy">
+        <strong>{loading ? 'Syncing response data' : data.source === 'remote' ? 'Command network connected' : 'Limited data connection'}</strong>
+        <span>{loading ? 'Refreshing operational picture' : data.source === 'remote' ? 'Live operational picture' : 'Some operational data may be unavailable'}</span>
+      </div>
       <span className="command-status-place">HANDA · RESPONSE NETWORK</span>
     </div>
     {error && <InlineNotice onRetry={() => void refresh()}>{error}</InlineNotice>}

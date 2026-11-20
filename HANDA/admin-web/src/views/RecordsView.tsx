@@ -356,7 +356,22 @@ function Field({ label, value, onChange, required = false, type = 'text', min, m
 
 function IncidentTable({ rows, filtered }: { rows: IncidentRecord[]; filtered: boolean }) {
   if (!rows.length) return <EmptyState title={filtered ? 'No matching incident records' : 'No incident records found'} detail={filtered ? 'Try another search or time period.' : 'Incident reports will appear here when they are submitted.'} />;
-  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Incident</th><th>Location</th><th>Reporter</th><th>Reported photos</th><th>Scene photos (responders)</th><th>Reported</th><th>Status</th><th>Sync</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td><strong>{row.type}</strong><small className="cell-subtitle">{row.description}</small></td><td>{row.location || 'Location unavailable'}</td><td>{row.reporterContact ? <div className="person-cell"><span className="avatar avatar-table" style={row.reporterPicture ? { padding: 0, overflow: 'hidden' } : undefined}>{row.reporterPicture ? <img src={row.reporterPicture} alt={`${row.reporterName || 'Resident'} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : (row.reporterName || 'R').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><span><strong>{row.reporterName || 'Resident'}</strong><small className="cell-subtitle">{row.reporterContact}</small></span></div> : '—'}</td><td><PhotoCell photos={row.photoUris || []} title={`${row.type} reported`} /></td><td><PhotoCell photos={row.responsePhotoUris || []} title={`${row.type} scene`} /></td><td>{formatDate(row.createdAt)}</td><td><StatusPill value={row.status} /></td><td><span className="sync-state"><i />{row.syncStatus}</span></td></tr>)}</tbody></table></div>;
+  return <div className="table-scroll"><table className="data-table incident-records-table">
+    <thead><tr><th>Incident</th><th>Location</th><th>Reporter</th><th>Reported photos</th><th>Scene photos (responders)</th><th>Reported</th><th>Status</th><th>Sync</th></tr></thead>
+    <tbody>{rows.map((row) => <tr key={row.id}>
+      <td><strong>{row.type}</strong><small className="cell-subtitle">{row.description}</small></td>
+      <td><span className="incident-location-cell">{row.location || 'Location unavailable'}</span></td>
+      <td>{row.reporterContact ? <div className="person-cell">
+        <span className="avatar avatar-table" style={row.reporterPicture ? { padding: 0, overflow: 'hidden' } : undefined}>{row.reporterPicture ? <img src={row.reporterPicture} alt={`${row.reporterName || 'Resident'} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : (row.reporterName || 'R').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span>
+        <span><strong>{row.reporterName || 'Resident'}</strong><small className="cell-subtitle">{row.reporterContact}</small></span>
+      </div> : '—'}</td>
+      <td><PhotoCell photos={row.photoUris || []} title={`${row.type} reported`} /></td>
+      <td><PhotoCell photos={row.responsePhotoUris || []} title={`${row.type} scene`} /></td>
+      <td className="incident-date-cell">{formatDate(row.createdAt)}</td>
+      <td><StatusPill value={row.status} /></td>
+      <td><span className="sync-state"><i />{row.syncStatus}</span></td>
+    </tr>)}</tbody>
+  </table></div>;
 }
 
 function PhotoCell({ photos, title }: { photos: string[]; title: string }) {
