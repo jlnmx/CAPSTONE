@@ -50,6 +50,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [suffix, setSuffix] = useState('');
   const [birthday, setBirthday] = useState('');
   const [birthdayDate, setBirthdayDate] = useState(new Date(2000, 0, 1));
   const [isBirthdayPickerOpen, setIsBirthdayPickerOpen] = useState(false);
@@ -470,6 +471,7 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           firstName: firstName.trim(),
           middleName: middleName.trim() || null,
           lastName: lastName.trim(),
+          suffix: suffix.trim() || null,
           birthday,
           sex,
           mobileNumber: normalizedMobile,
@@ -668,6 +670,9 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
           </FormField>
           <FormField label="Last Name" error={validationErrors.lastName}>
             <NativeTextInput style={styles.input} placeholder="Enter Name" placeholderTextColor={PLACEHOLDER_COLOR} value={lastName} onChangeText={setLastName} autoCapitalize="words" returnKeyType="next" selectionColor={GREEN} />
+          </FormField>
+          <FormField label="Suffix" required={false} optional>
+            <NativeTextInput style={styles.input} placeholder="Jr., Sr., III (optional)" placeholderTextColor={PLACEHOLDER_COLOR} value={suffix} onChangeText={setSuffix} autoCapitalize="words" returnKeyType="next" selectionColor={GREEN} />
           </FormField>
           <View style={[styles.row, isCompact && styles.rowStacked]}>
             <FormField compact={isCompact} label="Birthdate" error={validationErrors.birthday}>

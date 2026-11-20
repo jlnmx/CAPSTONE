@@ -311,7 +311,18 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .utilization-panel h2 { margin: 0; }.utilization-number { margin: 37px 0 18px; color: var(--brand-deep); font-family: 'IBM Plex Mono', monospace; font-size: 43px; }.utilization-meta { display: flex; justify-content: space-between; margin-top: 14px; color: var(--muted); font-size: 9px; }.utilization-meta strong { margin-left: 4px; color: var(--ink); font-family: 'IBM Plex Mono', monospace; }
 
 .settings-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(270px, .75fr); align-items: start; gap: 14px; }
+.settings-credentials-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 14px; margin-top: 14px; }
 .settings-panel { padding: 17px; }.settings-panel .panel-heading { margin-bottom: 16px; }
+.settings-avatar-row { display: flex; align-items: center; gap: 13px; padding: 12px; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-soft); }
+.settings-avatar { display: grid; width: 58px; height: 58px; flex: 0 0 58px; place-items: center; overflow: hidden; border-radius: 50%; color: var(--brand-deep); background: var(--brand-pale); font-size: 21px; font-weight: 800; }
+.settings-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.settings-avatar-actions { display: grid; min-width: 0; gap: 4px; }.settings-avatar-actions > strong { color: var(--ink); font-size: 10px; }.settings-avatar-actions > small { color: var(--muted); font-size: 9px; }
+.settings-avatar-buttons { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 4px; }.settings-avatar-buttons > button, .settings-upload-button { min-height: 31px; padding: 0 9px; font-size: 9px; }
+.settings-upload-button { position: relative; overflow: hidden; cursor: pointer; }.settings-upload-button input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.field-label-text { color: #526156; font-size: 9px; font-weight: 800; }
+.credential-channel-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.credential-channel-option { min-height: 36px; padding: 7px; border: 1px solid var(--line); border-radius: 4px; color: #627166; background: var(--surface); cursor: pointer; font-size: 9px; font-weight: 700; }
+.credential-channel-option:hover, .credential-channel-option.selected { border-color: #F1C7D9; color: var(--brand-deep); background: #FFF7FA; }.credential-channel-option:disabled { cursor: not-allowed; opacity: .5; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
 .heading-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .household-form-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
@@ -489,7 +500,7 @@ button:disabled { cursor: not-allowed; opacity: .64; }
   .main-frame { margin-left: 0; }
   .menu-toggle { display: inline-grid; margin-right: 9px; border-color: var(--line); }
   .topbar { min-height: 60px; padding: 0 15px; }
-  .dashboard-grid, .analytics-grid, .settings-layout { grid-template-columns: 1fr; }
+  .dashboard-grid, .analytics-grid, .settings-layout, .settings-credentials-grid { grid-template-columns: 1fr; }
   .activity-panel, .incident-panel, .utilization-panel, .pie-panel { min-height: 260px; }
   .analytics-registration-panel { grid-column: auto; }
   .incident-total { margin-top: 22px; }

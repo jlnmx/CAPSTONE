@@ -121,6 +121,7 @@ class UserRegistration(BaseModel):
     firstName: str = Field(min_length=1, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)
     lastName: str = Field(min_length=1, max_length=120)
+    suffix: str | None = Field(default=None, max_length=20)
     birthday: date
     sex: Literal["Male", "Female"]
     mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
@@ -160,6 +161,7 @@ class ResidentProfileUpdate(BaseModel):
     firstName: str = Field(min_length=1, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)
     lastName: str = Field(min_length=1, max_length=120)
+    suffix: str | None = Field(default=None, max_length=20)
     birthday: date
     sex: Literal["Male", "Female"]
     mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
@@ -182,6 +184,8 @@ class SelfProfileUpdate(BaseModel):
     firstName: str = Field(min_length=1, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)
     lastName: str = Field(min_length=1, max_length=120)
+    suffix: str | None = Field(default=None, max_length=20)
+    position: str | None = Field(default=None, max_length=120)
     birthday: date | None = None
     sex: Literal["Male", "Female"] | None = None
     currentAddress: str | None = Field(default=None, max_length=500)
@@ -191,6 +195,7 @@ class ResidentProfileUpdate(BaseModel):
     firstName: str = Field(min_length=1, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)
     lastName: str = Field(min_length=1, max_length=120)
+    suffix: str | None = Field(default=None, max_length=20)
     birthday: date
     sex: Literal["Male", "Female"]
     mobileNumber: str = Field(pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
@@ -266,6 +271,7 @@ class PasswordChangeOtpRequest(BaseModel):
 class EmailChangeOtpRequest(BaseModel):
     newEmail: str = Field(pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$", max_length=255)
     currentPassword: str = Field(min_length=1, max_length=128)
+    channel: Literal["email", "sms"] = "sms"
 
 
 class AdminUserCreate(BaseModel):

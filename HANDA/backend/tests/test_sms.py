@@ -132,7 +132,7 @@ class SemaphoreSmsTests(unittest.TestCase):
         with patch.object(main, "settings", configuration), \
                 patch.object(main, "verify_password", return_value=True), \
                 patch.object(main, "assert_unique_contact"), \
-                patch.object(main, "sms_delivery_configured", return_value=True), \
+                patch.object(main, "otp_channel_configured", return_value=True), \
                 patch.object(main, "deliver_password_reset_otp") as deliver:
             response = main.request_email_change_otp(
                 main.EmailChangeOtpRequest(newEmail="new@example.com", currentPassword="Current#123"),
@@ -147,6 +147,41 @@ class SemaphoreSmsTests(unittest.TestCase):
         self.assertEqual(deliver.call_args.args[0:2], ("09171234567", "sms"))
         self.assertRegex(deliver.call_args.args[2], r"^\d{6}$")
         self.assertEqual(deliver.call_args.args[3], "email change")
+
+    def test_email_change_code_can_be_sent_to_the_existing_email(self):
+        user = main.CurrentUser("resident-1", "old@example.com", "Resident", "resident", 1)
+
+        class Connection:
+            def execute(self, query, _params=()):
+                if "SELECT password_hash, email, mobile_number FROM users" in query:
+                    return FakeResult({
+                        "password_hash": "stored-password",
+                        "email": "old@example.com",
+                        "mobile_number": "09171234567",
+                    })
+                return FakeResult(None)
+
+            def commit(self):
+                pass
+
+        configuration = SimpleNamespace(
+            auth_secret="test-secret",
+            password_reset_expiry_minutes=10,
+        )
+        with patch.object(main, "settings", configuration), \
+                patch.object(main, "verify_password", return_value=True), \
+                patch.object(main, "assert_unique_contact"), \
+                patch.object(main, "otp_channel_configured", return_value=True), \
+                patch.object(main, "deliver_password_reset_otp") as deliver:
+            response = main.request_email_change_otp(
+                main.EmailChangeOtpRequest(newEmail="new@example.com", currentPassword="Current#123", channel="email"),
+                user,
+                Connection(),
+            )
+
+        self.assertEqual(response["destination"], "o***@example.com")
+        self.assertEqual(deliver.call_args.args[0:2], ("old@example.com", "email"))
+        self.assertRegex(deliver.call_args.args[2], r"^\d{6}$")
 
     def test_new_incident_sms_is_batched_to_active_opted_in_responders(self):
         connection = MagicMock()

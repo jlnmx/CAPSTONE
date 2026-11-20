@@ -613,6 +613,8 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_by TEXT")
         connection.execute("ALTER TABLE evacuees ADD COLUMN IF NOT EXISTS verified_at TIMESTAMPTZ")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS middle_name TEXT")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS suffix TEXT NOT NULL DEFAULT ''")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS job_position TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture TEXT")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT ''")
         connection.execute("ALTER TABLE users ALTER COLUMN current_address SET DEFAULT ''")
@@ -801,6 +803,7 @@ def ensure_operational_schema() -> None:
                 token TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 new_email TEXT NOT NULL,
+                channel TEXT NOT NULL DEFAULT 'sms' CHECK (channel IN ('email', 'sms')),
                 otp_hash TEXT NOT NULL,
                 expires_at TIMESTAMPTZ NOT NULL,
                 attempts INTEGER NOT NULL DEFAULT 0,
@@ -808,6 +811,7 @@ def ensure_operational_schema() -> None:
             )
             """
         )
+        connection.execute("ALTER TABLE email_change_requests ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'sms'")
         connection.execute("CREATE INDEX IF NOT EXISTS email_change_requests_user_idx ON email_change_requests (user_id, created_at DESC)")
         connection.execute(
             """
@@ -2566,11 +2570,21 @@ def household_members_for_user(connection: psycopg.Connection, user_id: str) -> 
     ).fetchall()
 
 
+def compose_profile_name(first_name: str, middle_name: str | None, last_name: str, suffix: str | None = None) -> str:
+    return " ".join(part.strip() for part in (first_name, middle_name or "", last_name, suffix or "") if part and part.strip())
+
+
 def resident_profile_payload(row: dict, members: list[dict] | None = None) -> dict:
     name_parts = row["name"].split()
     middle_name = row.get("middle_name") or ""
     first_name = row.get("first_name") or (name_parts[0] if name_parts else "")
-    last_name = row.get("last_name") or " ".join(part for part in name_parts[1:] if part != middle_name)
+    suffix = row.get("suffix") or ""
+    remaining_name_parts = name_parts[1:]
+    if middle_name in remaining_name_parts:
+        remaining_name_parts.remove(middle_name)
+    if suffix and remaining_name_parts and remaining_name_parts[-1].casefold() == suffix.casefold():
+        remaining_name_parts.pop()
+    last_name = row.get("last_name") or " ".join(remaining_name_parts)
     birthday = row.get("birthday")
     return {
         "id": row["id"],
@@ -2580,6 +2594,8 @@ def resident_profile_payload(row: dict, members: list[dict] | None = None) -> di
         "firstName": first_name,
         "middleName": middle_name,
         "lastName": last_name,
+        "suffix": suffix,
+        "position": row.get("job_position") or "",
         "birthday": birthday.isoformat() if birthday else "",
         "sex": row.get("sex") or "",
         "mobileNumber": row.get("mobile_number") or "",
@@ -2774,17 +2790,18 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         connection.execute(
             """
             INSERT INTO users
-              (id, name, first_name, middle_name, last_name, email, birthday, mobile_number,
+              (id, name, first_name, middle_name, last_name, suffix, email, birthday, mobile_number,
                current_address, sex, password_hash, role, status, responder_type,
                responder_organization, responder_barangay, profile_picture)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 user_id,
-                " ".join(part for part in (registration.firstName.strip(), (registration.middleName or "").strip(), registration.lastName.strip()) if part),
+                " ".join(part for part in (registration.firstName.strip(), (registration.middleName or "").strip(), registration.lastName.strip(), (registration.suffix or "").strip()) if part),
                 registration.firstName.strip(),
                 (registration.middleName or "").strip() or None,
                 registration.lastName.strip(),
+                (registration.suffix or "").strip(),
                 registration.email.strip().lower(),
                 registration.birthday,
                 registration.mobileNumber,
@@ -2827,7 +2844,7 @@ def register_user(registration: UserRegistration, connection: psycopg.Connection
         raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
 
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number,         current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture FROM users WHERE id = %s",
         (user_id,),
     ).fetchone()
     if is_responder:
@@ -2956,10 +2973,11 @@ def request_email_change_otp(
     if new_email == row["email"].strip().lower():
         raise HTTPException(status_code=400, detail="This is already your current email address.")
     assert_unique_contact(connection, new_email, None, user.id)
-    if not row["mobile_number"]:
-        raise HTTPException(status_code=400, detail="Add a mobile number before changing your email address.")
-    if not sms_delivery_configured(settings):
-        raise HTTPException(status_code=503, detail="SMS code delivery is not configured.")
+    destination = row["email"] if request.channel == "email" else row["mobile_number"]
+    if not destination:
+        raise HTTPException(status_code=400, detail=f"Add a current {request.channel} contact before changing your email address.")
+    if not otp_channel_configured(request.channel):
+        raise HTTPException(status_code=503, detail=f"{request.channel.upper()} code delivery is not configured.")
     if connection.execute(
         "SELECT 1 FROM email_change_requests WHERE user_id = %s AND created_at > NOW() - INTERVAL '60 seconds' LIMIT 1",
         (user.id,),
@@ -2971,14 +2989,14 @@ def request_email_change_otp(
     connection.execute("DELETE FROM email_change_requests WHERE user_id = %s", (user.id,))
     connection.execute(
         """
-        INSERT INTO email_change_requests (token, user_id, new_email, otp_hash, expires_at)
-        VALUES (%s, %s, %s, %s, NOW() + (%s * INTERVAL '1 minute'))
+        INSERT INTO email_change_requests (token, user_id, new_email, channel, otp_hash, expires_at)
+        VALUES (%s, %s, %s, %s, %s, NOW() + (%s * INTERVAL '1 minute'))
         """,
-        (email_change_token, user.id, new_email, hash_reset_otp(otp), settings.password_reset_expiry_minutes),
+        (email_change_token, user.id, new_email, request.channel, hash_reset_otp(otp), settings.password_reset_expiry_minutes),
     )
     connection.commit()
     try:
-        deliver_password_reset_otp(row["mobile_number"], "sms", otp, "email change")
+        deliver_password_reset_otp(destination, request.channel, otp, "email change")
     except Exception as error:
         logger.exception("Email change verification code could not be delivered.")
         connection.execute("DELETE FROM email_change_requests WHERE token = %s", (email_change_token,))
@@ -2986,8 +3004,8 @@ def request_email_change_otp(
         raise HTTPException(status_code=503, detail="The verification code could not be delivered. Try again later.") from error
     return {
         "emailChangeToken": email_change_token,
-        "destination": mask_destination(row["mobile_number"], "sms"),
-        "message": "A verification code was sent to your current mobile number.",
+        "destination": mask_destination(destination, request.channel),
+        "message": f"A verification code was sent to your current {request.channel}.",
     }
 
 
@@ -3067,12 +3085,12 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
     mobile_candidates = mobile_login_candidates(credentials.email.strip())
     if mobile_candidates:
         rows = connection.execute(
-            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE regexp_replace(mobile_number, '[^0-9]', '', 'g') = ANY(%s) LIMIT 2",
+            "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE regexp_replace(mobile_number, '[^0-9]', '', 'g') = ANY(%s) LIMIT 2",
             (mobile_candidates,),
         ).fetchall()
     else:
         rows = connection.execute(
-            "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s) LIMIT 2",
+            "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s) LIMIT 2",
             (credentials.email.strip(),),
         ).fetchall()
     if len(rows) != 1:
@@ -3118,6 +3136,7 @@ def refresh_user_session(request: RefreshTokenInput, connection: psycopg.Connect
     row = connection.execute(
         """
         SELECT users.id, users.name, users.first_name, users.middle_name, users.last_name,
+               users.suffix, users.job_position,
                users.email, users.birthday, users.sex, users.mobile_number, users.current_address,
                users.role, users.status, users.responder_type, users.responder_organization,
                users.responder_barangay, users.profile_picture, users.is_superadmin, users.token_version
@@ -3148,7 +3167,7 @@ def remember_user_session(user: CurrentUser = Depends(get_current_user), connect
 @app.get("/api/v1/auth/me")
 def current_user(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, responder_type,         responder_organization, responder_barangay, profile_picture, is_superadmin FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin FROM users WHERE id = %s",
         (user.id,),
     ).fetchone()
     profile = resident_profile_payload(row, household_members_for_user(connection, user.id))
@@ -3165,10 +3184,18 @@ def update_current_profile(
     first_name = profile.firstName.strip()
     middle_name = (profile.middleName or "").strip() or None
     last_name = profile.lastName.strip()
-    full_name = " ".join(part for part in (first_name, middle_name, last_name) if part)
+    existing = connection.execute(
+        "SELECT suffix, job_position FROM users WHERE id = %s",
+        (user.id,),
+    ).fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="User account not found.")
+    suffix = ((profile.suffix or "").strip() if "suffix" in profile.model_fields_set else existing.get("suffix") or "")
+    position = ((profile.position or "").strip() if "position" in profile.model_fields_set else existing.get("job_position") or "")
+    full_name = compose_profile_name(first_name, middle_name, last_name, suffix)
     row = connection.execute(
-        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, birthday = COALESCE(%s, birthday), sex = COALESCE(%s, sex), current_address = COALESCE(%s, current_address), updated_at = NOW() WHERE id = %s         RETURNING id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number, current_address, role, responder_type, responder_organization, responder_barangay, profile_picture",
-        (full_name, first_name, middle_name, last_name, profile.birthday, profile.sex, profile.currentAddress, user.id),
+        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, suffix = %s, job_position = %s, birthday = COALESCE(%s, birthday), sex = COALESCE(%s, sex), current_address = COALESCE(%s, current_address), updated_at = NOW() WHERE id = %s RETURNING id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, responder_type, responder_organization, responder_barangay, profile_picture",
+        (full_name, first_name, middle_name, last_name, suffix, position, profile.birthday, profile.sex, profile.currentAddress, user.id),
     ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="User account not found.")
@@ -3199,18 +3226,20 @@ def update_resident_profile(
     resident: CurrentUser = Depends(require_roles("resident")),
     connection: psycopg.Connection = Depends(get_connection),
 ):
-    full_name = " ".join(part for part in (profile.firstName.strip(), (profile.middleName or "").strip(), profile.lastName.strip()) if part)
+    existing = connection.execute("SELECT suffix FROM users WHERE id = %s", (resident.id,)).fetchone()
+    suffix = ((profile.suffix or "").strip() if "suffix" in profile.model_fields_set else (existing.get("suffix") if existing else "") or "")
+    full_name = compose_profile_name(profile.firstName.strip(), profile.middleName, profile.lastName.strip(), suffix)
     assert_unique_contact(connection, None, profile.mobileNumber, resident.id)
     connection.execute(
-        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, birthday = %s, sex = %s, mobile_number = %s, current_address = %s, updated_at = NOW() WHERE id = %s",
-        (full_name, profile.firstName.strip(), (profile.middleName or "").strip() or None, profile.lastName.strip(), profile.birthday, profile.sex, profile.mobileNumber, profile.currentAddress.strip(), resident.id),
+        "UPDATE users SET name = %s, first_name = %s, middle_name = %s, last_name = %s, suffix = %s, birthday = %s, sex = %s, mobile_number = %s, current_address = %s, updated_at = NOW() WHERE id = %s",
+        (full_name, profile.firstName.strip(), (profile.middleName or "").strip() or None, profile.lastName.strip(), suffix, profile.birthday, profile.sex, profile.mobileNumber, profile.currentAddress.strip(), resident.id),
     )
     connection.execute("DELETE FROM resident_household_members WHERE resident_user_id = %s", (resident.id,))
     for member in profile.members:
         insert_household_member(connection, "resident_household_members", "resident_user_id", f"resident-household-{uuid4()}", resident.id, member)
     connection.commit()
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number,         current_address, role, profile_picture FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, profile_picture FROM users WHERE id = %s",
         (resident.id,),
     ).fetchone()
     return resident_profile_payload(row, household_members_for_user(connection, resident.id))
@@ -3286,7 +3315,7 @@ def update_resident_account(
         connection.rollback()
         raise HTTPException(status_code=409, detail="That email address is already in use.") from error
     updated = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, email, birthday, sex, mobile_number,         current_address, role, profile_picture FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, profile_picture FROM users WHERE id = %s",
         (user.id,),
     ).fetchone()
     response = resident_profile_payload(updated, household_members_for_user(connection, user.id))

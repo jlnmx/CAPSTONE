@@ -25,6 +25,8 @@ export interface AuthUser {
   firstName?: string;
   middleName?: string;
   lastName?: string;
+  suffix?: string;
+  position?: string;
   birthday?: string;
   sex?: string;
   mobileNumber?: string;

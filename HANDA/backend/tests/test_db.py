@@ -341,10 +341,12 @@ class DatabaseDependencyTests(unittest.TestCase):
         connection = MagicMock()
         connection.execute.return_value.fetchone.return_value = {
             "id": "user-1",
-            "name": "Alex Marie Rivera",
+            "name": "Alex Marie Rivera III",
             "first_name": "Alex",
             "middle_name": "Marie",
             "last_name": "Rivera",
+            "suffix": "III",
+            "job_position": "Coordinator",
             "email": "alex@example.org",
             "birthday": date(1990, 1, 2),
             "sex": "Female",
@@ -358,6 +360,8 @@ class DatabaseDependencyTests(unittest.TestCase):
                 firstName="Alex",
                 middleName="Marie",
                 lastName="Rivera",
+                suffix="III",
+                position="Coordinator",
                 birthday=date(1990, 1, 2),
                 sex="Female",
                 currentAddress="123 Main Street",
@@ -366,9 +370,48 @@ class DatabaseDependencyTests(unittest.TestCase):
             connection,
         )
 
-        self.assertEqual(result["name"], "Alex Marie Rivera")
-        self.assertEqual(connection.execute.call_args_list[0].args[1], ("Alex Marie Rivera", "Alex", "Marie", "Rivera", date(1990, 1, 2), "Female", "123 Main Street", "user-1"))
+        self.assertEqual(result["name"], "Alex Marie Rivera III")
+        self.assertEqual(result["suffix"], "III")
+        self.assertEqual(result["position"], "Coordinator")
+        self.assertEqual(connection.execute.call_args_list[1].args[1], ("Alex Marie Rivera III", "Alex", "Marie", "Rivera", "III", "Coordinator", date(1990, 1, 2), "Female", "123 Main Street", "user-1"))
         connection.commit.assert_called_once()
+
+    def test_update_current_profile_preserves_suffix_and_position_for_older_clients(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.side_effect = [
+            {"suffix": "Jr.", "job_position": "Coordinator"},
+            {
+                "id": "user-1",
+                "name": "Alex Marie Rivera Jr.",
+                "first_name": "Alex",
+                "middle_name": "Marie",
+                "last_name": "Rivera",
+                "suffix": "Jr.",
+                "job_position": "Coordinator",
+                "email": "alex@example.org",
+                "birthday": date(1990, 1, 2),
+                "sex": "Female",
+                "mobile_number": "",
+                "current_address": "123 Main Street",
+                "role": "Responder",
+            },
+        ]
+        connection.execute.return_value.fetchall.return_value = []
+
+        update_current_profile(
+            SelfProfileUpdate(
+                firstName="Alex",
+                middleName="Marie",
+                lastName="Rivera",
+                birthday=date(1990, 1, 2),
+                sex="Female",
+                currentAddress="123 Main Street",
+            ),
+            MagicMock(id="user-1"),
+            connection,
+        )
+
+        self.assertEqual(connection.execute.call_args_list[1].args[1][4:6], ("Jr.", "Coordinator"))
 
 
 class DatabaseStartupTests(unittest.IsolatedAsyncioTestCase):

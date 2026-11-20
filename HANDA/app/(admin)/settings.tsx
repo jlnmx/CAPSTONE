@@ -8,7 +8,6 @@ import { useAuth } from '@hooks/useAuth';
 import AppBackArrow from '@components/AppBackArrow';
 import { ThemeMode, useTheme } from '@hooks/useTheme';
 import { authenticatedFetch } from '@services/apiClient';
-import { updateAdminUser } from '@services/adminData';
 import { AuthUser } from '@/types/index';
 
 const themeOptions: Array<{ value: ThemeMode; label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; detail: string }> = [
@@ -21,12 +20,11 @@ export default function AdminSettings() {
   const router = useRouter();
   const { user, setAuthenticatedUser } = useAuth();
   const { mode, palette, setMode } = useTheme();
-  const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>('sms');
+  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>(user?.mobileNumber ? 'sms' : 'email');
   const [passwordChangeToken, setPasswordChangeToken] = useState('');
   const [passwordChangeOtp, setPasswordChangeOtp] = useState('');
   const [passwordChangeDestination, setPasswordChangeDestination] = useState('');
@@ -34,21 +32,8 @@ export default function AdminSettings() {
   const [emailChangeToken, setEmailChangeToken] = useState('');
   const [emailChangeOtp, setEmailChangeOtp] = useState('');
   const [emailChangeDestination, setEmailChangeDestination] = useState('');
+  const [emailChangeChannel, setEmailChangeChannel] = useState<'email' | 'sms'>(user?.mobileNumber ? 'sms' : 'email');
   const [isRequestingEmailOtp, setIsRequestingEmailOtp] = useState(false);
-
-  const saveProfile = async () => {
-    if (!user || !name.trim()) {
-      Alert.alert('Name required', 'Enter a name before saving your profile.');
-      return;
-    }
-    try {
-      await updateAdminUser(user.id, { name: name.trim() });
-      await setAuthenticatedUser({ ...user, name: name.trim() });
-      Alert.alert('Profile updated', 'Your profile name has been saved.');
-    } catch (error) {
-      Alert.alert('Update failed', error instanceof Error ? error.message : 'Your profile could not be saved.');
-    }
-  };
 
   const saveEmail = async () => {
     if (isRequestingEmailOtp) return;
@@ -67,15 +52,15 @@ export default function AdminSettings() {
         const response = await authenticatedFetch('/api/v1/auth/email-change/request', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newEmail: nextEmail, currentPassword }),
+          body: JSON.stringify({ newEmail: nextEmail, currentPassword, channel: emailChangeChannel }),
         });
         const result = await response.json() as { emailChangeToken?: string; destination?: string; detail?: unknown };
         if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'An email-change code could not be sent.');
         if (!result.emailChangeToken) throw new Error('The verification request did not return a token.');
         setEmailChangeToken(result.emailChangeToken);
         setEmailChangeOtp('');
-        setEmailChangeDestination(result.destination || '');
-        Alert.alert('SMS code sent', `Enter the verification code sent to ${result.destination || 'your current mobile number'}.`);
+        setEmailChangeDestination(result.destination || (emailChangeChannel === 'email' ? user.email : user.mobileNumber) || '');
+        Alert.alert('Code sent', `Enter the verification code sent to ${result.destination || 'your selected contact'}.`);
       } catch (error) {
         Alert.alert('Could not send code', error instanceof Error ? error.message : 'An email-change code could not be sent.');
       } finally {
@@ -84,7 +69,7 @@ export default function AdminSettings() {
       return;
     }
     if (!/^\d{6}$/.test(emailChangeOtp)) {
-      Alert.alert('Check verification code', 'Enter the 6-digit SMS code you received.');
+      Alert.alert('Check verification code', 'Enter the 6-digit code you received.');
       return;
     }
     setIsRequestingEmailOtp(true);
@@ -195,13 +180,12 @@ export default function AdminSettings() {
         </View>
 
         <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-          <SectionHeading icon="account-edit-outline" title="Edit profile" detail="Update the name shown in the console" palette={palette} />
-          <Field label="Full name" value={name} onChangeText={setName} palette={palette} />
-          <ActionButton label="Save profile" icon="content-save-outline" onPress={() => void saveProfile()} />
+          <SectionHeading icon="account-edit-outline" title="Personal information" detail="Manage your name, photo, birthdate, address, and position" palette={palette} />
+          <ActionButton label="Edit profile details" icon="account-edit-outline" onPress={() => router.push('/account/profile')} />
         </View>
 
         <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-          <SectionHeading icon="email-edit-outline" title="Change email" detail="Verify with an SMS code sent to your current mobile number" palette={palette} />
+          <SectionHeading icon="email-edit-outline" title="Change email" detail="Verify with a code sent to your currently registered email or mobile" palette={palette} />
           <Field label="New email address" value={email} onChangeText={(value) => {
             setEmail(value);
             setEmailChangeToken('');
@@ -209,8 +193,21 @@ export default function AdminSettings() {
             setEmailChangeDestination('');
           }} keyboardType="email-address" autoCapitalize="none" palette={palette} />
           <Field label="Current password" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry palette={palette} />
-          {!!emailChangeToken && <Field label={`6-digit SMS code sent to ${emailChangeDestination}`} value={emailChangeOtp} onChangeText={(value) => setEmailChangeOtp(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" palette={palette} />}
-          <ActionButton label={isRequestingEmailOtp ? 'Please wait...' : emailChangeToken ? 'Verify and save email' : 'Send SMS verification code'} icon="email-check-outline" onPress={() => void saveEmail()} />
+          <View style={styles.otpChannelOptions}>
+            {(['email', 'sms'] as const).map((channel) => (
+              <Pressable key={channel} disabled={channel === 'sms' && !user?.mobileNumber} onPress={() => {
+                setEmailChangeChannel(channel);
+                setEmailChangeToken('');
+                setEmailChangeOtp('');
+                setEmailChangeDestination('');
+              }} style={[styles.otpChannelOption, { borderColor: emailChangeChannel === channel ? Colors.secondary : palette.border, backgroundColor: palette.surface }, channel === 'sms' && !user?.mobileNumber && styles.disabled]} accessibilityRole="radio" accessibilityState={{ selected: emailChangeChannel === channel }}>
+                <MaterialCommunityIcons name={emailChangeChannel === channel ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={emailChangeChannel === channel ? Colors.secondary : palette.textMuted} />
+                <Text style={[styles.themeLabel, { color: palette.text }]}>{channel === 'email' ? 'Current email' : 'Current mobile (SMS)'}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {!!emailChangeToken && <Field label={`6-digit code sent to ${emailChangeDestination}`} value={emailChangeOtp} onChangeText={(value) => setEmailChangeOtp(value.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" palette={palette} />}
+          <ActionButton label={isRequestingEmailOtp ? 'Please wait...' : emailChangeToken ? 'Verify and save email' : 'Send verification code'} icon="email-check-outline" onPress={() => void saveEmail()} />
         </View>
 
         <View style={[styles.section, { backgroundColor: palette.surface, borderColor: palette.border }]}>
@@ -220,11 +217,11 @@ export default function AdminSettings() {
           <Field label="Confirm new password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry palette={palette} />
           <View style={styles.otpChannelOptions}>
             {(['email', 'sms'] as const).map((channel) => (
-              <Pressable key={channel} onPress={() => {
+              <Pressable key={channel} disabled={channel === 'sms' && !user?.mobileNumber} onPress={() => {
                 setPasswordChangeChannel(channel);
                 setPasswordChangeToken('');
                 setPasswordChangeOtp('');
-              }} style={[styles.otpChannelOption, { borderColor: passwordChangeChannel === channel ? Colors.secondary : palette.border, backgroundColor: palette.surface }]} accessibilityRole="radio" accessibilityState={{ selected: passwordChangeChannel === channel }}>
+              }} style={[styles.otpChannelOption, { borderColor: passwordChangeChannel === channel ? Colors.secondary : palette.border, backgroundColor: palette.surface }, channel === 'sms' && !user?.mobileNumber && styles.disabled]} accessibilityRole="radio" accessibilityState={{ selected: passwordChangeChannel === channel }}>
                 <MaterialCommunityIcons name={passwordChangeChannel === channel ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={passwordChangeChannel === channel ? Colors.secondary : palette.textMuted} />
                 <Text style={[styles.themeLabel, { color: palette.text }]}>{channel === 'email' ? 'Email code' : 'SMS code'}</Text>
               </Pressable>
@@ -257,5 +254,6 @@ const styles = StyleSheet.create({
   section: { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg, padding: Spacing.lg, borderWidth: 1, borderRadius: BorderRadius.md }, sectionHeading: { flexDirection: 'row', alignItems: 'center' }, sectionIcon: { width: 38, height: 38, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceMuted }, sectionTitle: { marginLeft: Spacing.md, fontSize: 16, fontWeight: '800' }, sectionDetail: { marginLeft: Spacing.md, marginTop: 2, fontSize: 11 },
   themeList: { marginTop: Spacing.lg, gap: Spacing.sm }, themeOption: { minHeight: 64, paddingHorizontal: Spacing.md, borderWidth: 1, borderRadius: BorderRadius.md, flexDirection: 'row', alignItems: 'center' }, themeCopy: { flex: 1, marginLeft: Spacing.md }, themeLabel: { fontSize: 14, fontWeight: '700' }, themeDetail: { marginTop: 3, fontSize: 11 },
   otpChannelOptions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.md }, otpChannelOption: { flex: 1, minHeight: 46, paddingHorizontal: Spacing.sm, borderWidth: 1, borderRadius: BorderRadius.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs },
+  disabled: { opacity: 0.5 },
   field: { marginTop: Spacing.lg }, fieldLabel: { marginBottom: Spacing.sm, fontSize: 12, fontWeight: '700' }, input: { height: 46, paddingHorizontal: Spacing.md, borderWidth: 1, borderRadius: BorderRadius.md, fontSize: 14 }, actionButton: { height: 44, marginTop: Spacing.lg, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: Spacing.sm, backgroundColor: Colors.primary }, actionButtonText: { color: Colors.white, fontSize: 13, fontWeight: '800' }, pressed: { opacity: 0.78 },
 });

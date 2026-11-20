@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Archive, ArrowRight, Check, Cloud, Download, FileClock, RefreshCw, Save, ShieldCheck, Sun, Moon, SunMoon } from 'lucide-react';
+import { Activity, AlertTriangle, Archive, ArrowRight, Camera, Check, Cloud, Download, FileClock, LockKeyhole, Mail, RefreshCw, Save, ShieldCheck, Sun, Moon, SunMoon, Trash2 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getAdminSnapshot, getLogs, updateUser } from '../api';
+import { ACCESS_TOKEN_KEY, apiRequest, getAdminSnapshot, getLogs } from '../api';
 import type { AdminSnapshot, LogRecord } from '../types';
 import { useAuth } from '../auth';
 import { EmptyState, InlineNotice, LoadingState, MetricCard, PageHeading } from '../components/UI';
@@ -105,41 +105,302 @@ export function SystemView() {
 }
 
 export function SettingsView() {
-  const { user } = useAuth();
-  const [name, setName] = useState(user?.name || '');
+  const { user, refreshUser } = useAuth();
+  const [firstName, setFirstName] = useState(user?.firstName || '');
+  const [middleName, setMiddleName] = useState(user?.middleName || '');
+  const [lastName, setLastName] = useState(user?.lastName || '');
+  const [suffix, setSuffix] = useState(user?.suffix || '');
+  const [birthday, setBirthday] = useState(user?.birthday || '');
+  const [address, setAddress] = useState(user?.currentAddress || '');
+  const [position, setPosition] = useState(user?.position || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [emailMessage, setEmailMessage] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [photoSaving, setPhotoSaving] = useState(false);
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [emailCurrentPassword, setEmailCurrentPassword] = useState('');
+  const [emailChannel, setEmailChannel] = useState<'email' | 'sms'>(user?.mobileNumber ? 'sms' : 'email');
+  const [emailChangeToken, setEmailChangeToken] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [emailDestination, setEmailDestination] = useState('');
+  const [passwordCurrentPassword, setPasswordCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordChannel, setPasswordChannel] = useState<'email' | 'sms'>(user?.mobileNumber ? 'sms' : 'email');
+  const [passwordChangeToken, setPasswordChangeToken] = useState('');
+  const [passwordOtp, setPasswordOtp] = useState('');
+  const [passwordDestination, setPasswordDestination] = useState('');
   const [theme, setTheme] = useState(() => localStorage.getItem('handa.adminTheme') || 'light');
+
+  useEffect(() => {
+    if (!user) return;
+    const nameParts = user.name.split(' ');
+    setFirstName(user.firstName || nameParts[0] || '');
+    setMiddleName(user.middleName || '');
+    setLastName(user.lastName || nameParts.slice(1).join(' '));
+    setSuffix(user.suffix || '');
+    setBirthday(user.birthday || '');
+    setAddress(user.currentAddress || '');
+    setPosition(user.position || '');
+    setEmail(user.email);
+    setEmailChannel(user.mobileNumber ? 'sms' : 'email');
+    setPasswordChannel(user.mobileNumber ? 'sms' : 'email');
+  }, [user]);
+
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('handa.adminTheme', theme); }, [theme]);
+
   async function saveProfile(event: FormEvent) {
-    event.preventDefault(); setSaving(true); setMessage(''); setError('');
+    event.preventDefault();
+    setProfileSaving(true);
+    setProfileMessage('');
+    setProfileError('');
     try {
       if (!user) throw new Error('Administrator session is unavailable.');
-      const patch: { name?: string; email?: string; password?: string } = {};
-      if (name.trim() !== user.name) patch.name = name.trim();
-      if (email.trim().toLowerCase() !== user.email) patch.email = email.trim().toLowerCase();
-      if (newPassword) patch.password = newPassword;
-      if (!Object.keys(patch).length) { setMessage('Your account details are up to date.'); return; }
-      if (patch.password && patch.password.length < 8) throw new Error('Password must contain at least 8 characters.');
-      await updateUser(user.id, patch);
-      setMessage('Account settings saved. Sign in again if you changed your password.');
-      setNewPassword('');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Settings could not be saved.'); }
-    finally { setSaving(false); }
+      if (!firstName.trim() || !lastName.trim()) throw new Error('Enter your first and last name.');
+      await apiRequest('/api/v1/auth/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: firstName.trim(),
+          middleName: middleName.trim() || null,
+          lastName: lastName.trim(),
+          suffix: suffix.trim() || null,
+          position: position.trim() || null,
+          birthday: birthday || null,
+          currentAddress: address.trim(),
+        }),
+      });
+      await refreshUser();
+      setProfileMessage('Profile details saved.');
+    } catch (cause) {
+      setProfileError(cause instanceof Error ? cause.message : 'Profile details could not be saved.');
+    } finally {
+      setProfileSaving(false);
+    }
   }
-  return <div className="page-content"><PageHeading eyebrow="PREFERENCES" title="Settings" description="Manage your administrator profile and console appearance." />
-    <div className="settings-layout"><section className="surface-panel settings-panel"><div className="panel-heading"><div><p className="eyebrow">ACCOUNT</p><h2>Administrator profile</h2></div></div><form className="form-grid" onSubmit={(event) => void saveProfile(event)}>
-      <label className="form-field form-field-wide"><span>Full name</span><input value={name} onChange={(event) => setName(event.target.value)} required /></label>
-      <label className="form-field form-field-wide"><span>Email address</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-      <label className="form-field form-field-wide"><span>New password <small>(leave blank to keep current)</small></span><input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
-      {message && <InlineNotice tone="success">{message}</InlineNotice>}{error && <InlineNotice tone="error">{error}</InlineNotice>}
-      <div className="modal-actions form-field-wide"><button className="button-primary" disabled={saving}>{saving && <span className="button-spinner" />}<Save size={16} /> Save account</button></div>
-    </form></section>
+
+  async function savePicture(file?: File) {
+    if (!file) return;
+    setPhotoSaving(true);
+    setProfileMessage('');
+    setProfileError('');
+    try {
+      const picture = await profilePictureDataUri(file);
+      await apiRequest('/api/v1/auth/profile-picture', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profilePicture: picture }),
+      });
+      await refreshUser();
+      setProfileMessage('Profile picture updated.');
+    } catch (cause) {
+      setProfileError(cause instanceof Error ? cause.message : 'Profile picture could not be updated.');
+    } finally {
+      setPhotoSaving(false);
+    }
+  }
+
+  async function removePicture() {
+    setPhotoSaving(true);
+    setProfileMessage('');
+    setProfileError('');
+    try {
+      await apiRequest('/api/v1/auth/profile-picture', { method: 'DELETE' });
+      await refreshUser();
+      setProfileMessage('Profile picture removed.');
+    } catch (cause) {
+      setProfileError(cause instanceof Error ? cause.message : 'Profile picture could not be removed.');
+    } finally {
+      setPhotoSaving(false);
+    }
+  }
+
+  async function saveEmail(event: FormEvent) {
+    event.preventDefault();
+    setEmailSaving(true);
+    setEmailMessage('');
+    setEmailError('');
+    try {
+      if (!user) throw new Error('Administrator session is unavailable.');
+      if (!emailCurrentPassword) throw new Error('Enter your current password.');
+      if (email.trim().toLowerCase() === user.email.toLowerCase()) throw new Error('Enter an email address different from your current one.');
+      if (!emailChangeToken) {
+        const result = await apiRequest<{ emailChangeToken?: string; destination?: string }>('/api/v1/auth/email-change/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newEmail: email.trim().toLowerCase(), currentPassword: emailCurrentPassword, channel: emailChannel }),
+        });
+        if (!result.emailChangeToken) throw new Error('The verification request did not return a token.');
+        setEmailChangeToken(result.emailChangeToken);
+        setEmailDestination(result.destination || (emailChannel === 'email' ? user.email : user.mobileNumber || ''));
+        setEmailOtp('');
+        setEmailMessage(`A verification code was sent to ${result.destination || 'your selected contact'}.`);
+        return;
+      }
+      if (!/^\d{6}$/.test(emailOtp)) throw new Error('Enter the 6-digit verification code.');
+      const result = await apiRequest<{ accessToken?: string }>('/api/v1/resident/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          currentPassword: emailCurrentPassword,
+          emailChangeToken,
+          emailChangeOtp: emailOtp,
+        }),
+      });
+      if (result.accessToken) sessionStorage.setItem(ACCESS_TOKEN_KEY, result.accessToken);
+      await refreshUser();
+      setEmailCurrentPassword('');
+      setEmailChangeToken('');
+      setEmailOtp('');
+      setEmailDestination('');
+      setEmailMessage('Email address updated.');
+    } catch (cause) {
+      setEmailError(cause instanceof Error ? cause.message : 'Email address could not be updated.');
+    } finally {
+      setEmailSaving(false);
+    }
+  }
+
+  async function savePassword(event: FormEvent) {
+    event.preventDefault();
+    setPasswordSaving(true);
+    setPasswordMessage('');
+    setPasswordError('');
+    try {
+      if (!user) throw new Error('Administrator session is unavailable.');
+      if (!passwordCurrentPassword) throw new Error('Enter your current password.');
+      if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[a-z]/.test(newPassword) || !/\d/.test(newPassword) || !/[^A-Za-z0-9]/.test(newPassword)) {
+        throw new Error('Use at least 8 characters with uppercase, lowercase, a number, and a symbol.');
+      }
+      if (newPassword !== confirmPassword) throw new Error('The new passwords do not match.');
+      if (newPassword === passwordCurrentPassword) throw new Error('Choose a password different from your current password.');
+      if (!passwordChangeToken) {
+        const result = await apiRequest<{ resetToken?: string; destination?: string }>('/api/v1/auth/password-change/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword: passwordCurrentPassword, channel: passwordChannel }),
+        });
+        if (!result.resetToken) throw new Error('The verification request did not return a token.');
+        setPasswordChangeToken(result.resetToken);
+        setPasswordDestination(result.destination || (passwordChannel === 'email' ? user?.email || '' : user?.mobileNumber || ''));
+        setPasswordOtp('');
+        setPasswordMessage(`A verification code was sent to ${result.destination || 'your selected contact'}.`);
+        return;
+      }
+      if (!/^\d{6}$/.test(passwordOtp)) throw new Error('Enter the 6-digit verification code.');
+      const result = await apiRequest<{ accessToken?: string }>('/api/v1/resident/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: passwordCurrentPassword,
+          newPassword,
+          passwordChangeToken,
+          passwordChangeOtp: passwordOtp,
+        }),
+      });
+      if (result.accessToken) sessionStorage.setItem(ACCESS_TOKEN_KEY, result.accessToken);
+      await refreshUser();
+      setPasswordCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordChangeToken('');
+      setPasswordOtp('');
+      setPasswordDestination('');
+      setPasswordMessage('Password updated.');
+    } catch (cause) {
+      setPasswordError(cause instanceof Error ? cause.message : 'Password could not be updated.');
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
+  function chooseEmailChannel(channel: 'email' | 'sms') {
+    setEmailChannel(channel);
+    setEmailChangeToken('');
+    setEmailOtp('');
+    setEmailDestination('');
+    setEmailMessage('');
+  }
+
+  function choosePasswordChannel(channel: 'email' | 'sms') {
+    setPasswordChannel(channel);
+    setPasswordChangeToken('');
+    setPasswordOtp('');
+    setPasswordDestination('');
+    setPasswordMessage('');
+  }
+
+  return <div className="page-content"><PageHeading eyebrow="PREFERENCES" title="Settings" description="Manage your profile, sign-in credentials, and console appearance." />
+    <div className="settings-layout"><section className="surface-panel settings-panel"><div className="panel-heading"><div><p className="eyebrow">ACCOUNT</p><h2>Administrator profile</h2><p className="panel-subtitle">Update the personal information shown on your account.</p></div></div>
+      <div className="settings-avatar-row">
+        <div className="settings-avatar">{user?.profilePicture ? <img src={user.profilePicture} alt="Profile" /> : <span>{(firstName[0] || user?.name[0] || 'A').toUpperCase()}</span>}</div>
+        <div className="settings-avatar-actions"><strong>Profile picture</strong><small>Square images are cropped and optimized automatically.</small><div className="settings-avatar-buttons"><label className="button-secondary settings-upload-button"><Camera size={15} />{photoSaving ? 'Uploading…' : user?.profilePicture ? 'Change photo' : 'Upload photo'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={photoSaving} onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ''; void savePicture(file); }} /></label>{user?.profilePicture && <button className="button-secondary" type="button" disabled={photoSaving} onClick={() => void removePicture()}><Trash2 size={15} /> Remove</button>}</div></div>
+      </div>
+      <form className="form-grid" onSubmit={(event) => void saveProfile(event)}>
+        <label className="form-field"><span>First name</span><input value={firstName} onChange={(event) => setFirstName(event.target.value)} autoComplete="given-name" required /></label>
+        <label className="form-field"><span>Middle name <small>(optional)</small></span><input value={middleName} onChange={(event) => setMiddleName(event.target.value)} autoComplete="additional-name" /></label>
+        <label className="form-field"><span>Surname</span><input value={lastName} onChange={(event) => setLastName(event.target.value)} autoComplete="family-name" required /></label>
+        <label className="form-field"><span>Suffix <small>(optional)</small></span><input value={suffix} onChange={(event) => setSuffix(event.target.value)} placeholder="Jr., Sr., III" /></label>
+        <label className="form-field"><span>Birthdate</span><input type="date" value={birthday} max={new Date().toISOString().slice(0, 10)} onChange={(event) => setBirthday(event.target.value)} /></label>
+        <label className="form-field"><span>Position</span><input value={position} onChange={(event) => setPosition(event.target.value)} placeholder="Position or job title" /></label>
+        <label className="form-field form-field-wide"><span>Address</span><textarea value={address} onChange={(event) => setAddress(event.target.value)} rows={3} /></label>
+        {profileMessage && <InlineNotice tone="success">{profileMessage}</InlineNotice>}{profileError && <InlineNotice tone="error">{profileError}</InlineNotice>}
+        <div className="modal-actions form-field-wide"><button className="button-primary" disabled={profileSaving}>{profileSaving && <span className="button-spinner" />}<Save size={16} /> Save profile</button></div>
+      </form>
+    </section>
     <section className="surface-panel settings-panel"><div className="panel-heading"><div><p className="eyebrow">DISPLAY</p><h2>Appearance</h2><p className="panel-subtitle">Choose a console theme for this browser.</p></div></div><div className="theme-options">{[{ id: 'light', label: 'Light', icon: Sun }, { id: 'dark', label: 'Dark', icon: Moon }, { id: 'system', label: 'System', icon: SunMoon }].map(({ id, label, icon: Icon }) => <button key={id} className={`theme-option ${theme === id ? 'theme-selected' : ''}`} onClick={() => setTheme(id)} aria-pressed={theme === id}><Icon size={18} /><span>{label}</span>{theme === id && <Check size={15} />}</button>)}</div></section></div>
+    <div className="settings-credentials-grid">
+      <section className="surface-panel settings-panel">
+        <div className="panel-heading"><div><p className="eyebrow">SIGN-IN SECURITY</p><h2>Change email address</h2><p className="panel-subtitle">A one-time code goes to your currently registered contact.</p></div><Mail size={18} /></div>
+        <form className="form-grid" onSubmit={(event) => void saveEmail(event)}>
+          <label className="form-field form-field-wide"><span>New email address</span><input type="email" autoComplete="email" value={email} onChange={(event) => { setEmail(event.target.value); setEmailChangeToken(''); setEmailOtp(''); setEmailDestination(''); setEmailMessage(''); }} required /></label>
+          <label className="form-field form-field-wide"><span>Current password</span><input type="password" autoComplete="current-password" value={emailCurrentPassword} onChange={(event) => setEmailCurrentPassword(event.target.value)} required /></label>
+          <div className="form-field form-field-wide"><span className="field-label-text">Send code to</span><div className="credential-channel-options">{(['email', 'sms'] as const).map((channel) => <button type="button" key={channel} disabled={channel === 'sms' && !user?.mobileNumber} className={`credential-channel-option ${emailChannel === channel ? 'selected' : ''}`} onClick={() => chooseEmailChannel(channel)} aria-pressed={emailChannel === channel}>{channel === 'email' ? 'Current email' : 'Current mobile (SMS)'}</button>)}</div></div>
+          {emailChangeToken && <label className="form-field form-field-wide"><span>6-digit verification code <small>sent to {emailDestination}</small></span><input inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" value={emailOtp} onChange={(event) => setEmailOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} required /></label>}
+          {emailMessage && <InlineNotice tone="success">{emailMessage}</InlineNotice>}{emailError && <InlineNotice tone="error">{emailError}</InlineNotice>}
+          <div className="modal-actions form-field-wide"><button className="button-primary" disabled={emailSaving}>{emailSaving && <span className="button-spinner" />}<Mail size={16} /> {emailChangeToken ? 'Verify and update email' : 'Send verification code'}</button></div>
+        </form>
+      </section>
+      <section className="surface-panel settings-panel">
+        <div className="panel-heading"><div><p className="eyebrow">SIGN-IN SECURITY</p><h2>Change password</h2><p className="panel-subtitle">Use a strong password and verify the change with a one-time code.</p></div><LockKeyhole size={18} /></div>
+        <form className="form-grid" onSubmit={(event) => void savePassword(event)}>
+          <label className="form-field form-field-wide"><span>Current password</span><input type="password" autoComplete="current-password" value={passwordCurrentPassword} onChange={(event) => setPasswordCurrentPassword(event.target.value)} required /></label>
+          <label className="form-field form-field-wide"><span>New password</span><input type="password" autoComplete="new-password" value={newPassword} onChange={(event) => { setNewPassword(event.target.value); setPasswordChangeToken(''); setPasswordOtp(''); setPasswordMessage(''); }} required /></label>
+          <label className="form-field form-field-wide"><span>Confirm new password</span><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required /></label>
+          <div className="form-field form-field-wide"><span className="field-label-text">Send code to</span><div className="credential-channel-options">{(['email', 'sms'] as const).map((channel) => <button type="button" key={channel} disabled={channel === 'sms' && !user?.mobileNumber} className={`credential-channel-option ${passwordChannel === channel ? 'selected' : ''}`} onClick={() => choosePasswordChannel(channel)} aria-pressed={passwordChannel === channel}>{channel === 'email' ? 'Current email' : 'Current mobile (SMS)'}</button>)}</div></div>
+          {passwordChangeToken && <label className="form-field form-field-wide"><span>6-digit verification code <small>sent to {passwordDestination}</small></span><input inputMode="numeric" autoComplete="one-time-code" maxLength={6} pattern="[0-9]{6}" value={passwordOtp} onChange={(event) => setPasswordOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} required /></label>}
+          {passwordMessage && <InlineNotice tone="success">{passwordMessage}</InlineNotice>}{passwordError && <InlineNotice tone="error">{passwordError}</InlineNotice>}
+          <div className="modal-actions form-field-wide"><button className="button-primary" disabled={passwordSaving}>{passwordSaving && <span className="button-spinner" />}<LockKeyhole size={16} /> {passwordChangeToken ? 'Verify and update password' : 'Send verification code'}</button></div>
+        </form>
+      </section>
+    </div>
   </div>;
+}
+
+async function profilePictureDataUri(file: File): Promise<string> {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Choose a JPEG, PNG, or WebP image.');
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  canvas.width = 320;
+  canvas.height = 320;
+  try {
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('The profile picture could not be processed by this browser.');
+    const side = Math.min(bitmap.width, bitmap.height);
+    context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 320, 320);
+    const dataUri = canvas.toDataURL('image/jpeg', 0.7);
+    if (dataUri.length > 400_000) throw new Error('This image is too large after compression. Choose a smaller image.');
+    return dataUri;
+  } finally {
+    bitmap.close();
+  }
 }
 
 function SettingRow({ icon: Icon, title, detail, to }: { icon: LucideIcon; title: string; detail: string; to: string }) {

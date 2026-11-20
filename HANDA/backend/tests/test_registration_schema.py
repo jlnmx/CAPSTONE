@@ -26,6 +26,7 @@ class UserRegistrationSchemaTests(unittest.TestCase):
             "firstName": "Ana",
             "middleName": "Maria",
             "lastName": "Santos",
+            "suffix": "Jr.",
             "birthday": "2000-01-01",
             "sex": "Female",
             "mobileNumber": "09171234567",
@@ -35,6 +36,7 @@ class UserRegistrationSchemaTests(unittest.TestCase):
         })
 
         self.assertEqual(registration.middleName, "Maria")
+        self.assertEqual(registration.suffix, "Jr.")
         self.assertEqual(registration.sex, "Female")
 
     def test_account_registration_accepts_household_members(self):

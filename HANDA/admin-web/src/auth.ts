@@ -8,6 +8,7 @@ interface AuthContextValue {
   error: string;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<AuthUser>;
   clearError: () => void;
 }
 
@@ -65,7 +66,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  return React.createElement(AuthContext.Provider, { value: { user, isLoading, error, signIn, signOut, clearError: () => setError('') } }, children);
+  const refreshUser = async () => {
+    const profile = await apiRequest<AuthUser>('/api/v1/auth/me');
+    if (profile.role !== 'admin') {
+      clearAccessToken();
+      setUser(null);
+      throw new Error('Only administrator accounts can access the Command Center.');
+    }
+    setUser(profile);
+    return profile;
+  };
+
+  return React.createElement(AuthContext.Provider, { value: { user, isLoading, error, signIn, signOut, refreshUser, clearError: () => setError('') } }, children);
 }
 
 export function useAuth() {

@@ -6,6 +6,16 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   isSuperAdmin: boolean;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  suffix?: string;
+  position?: string;
+  birthday?: string;
+  sex?: string;
+  mobileNumber?: string;
+  currentAddress?: string;
+  profilePicture?: string | null;
 }
 
 export interface IncidentRecord {

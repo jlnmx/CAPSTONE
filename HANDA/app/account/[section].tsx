@@ -20,7 +20,7 @@ const NativeDateTimePicker = Platform.OS === 'web' ? null : require('@react-nati
 
 const sections = {
   'contact-number': { title: 'Contact number', detail: 'Keep your phone number current.' },
-  email: { title: 'Change email', detail: 'Confirm your identity with an SMS code sent to your current mobile number.' },
+  email: { title: 'Change email', detail: 'Confirm your identity with a code sent to your current email or mobile number.' },
   password: { title: 'Change password', detail: 'Use at least 8 characters with uppercase, lowercase, a number, and a symbol.' },
   profile: { title: 'Personal information', detail: 'Update the details attached to your account.' },
 } as const;
@@ -48,10 +48,11 @@ export default function AccountSectionScreen() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>('sms');
+  const [passwordChangeChannel, setPasswordChangeChannel] = useState<'email' | 'sms'>(user?.mobileNumber ? 'sms' : 'email');
   const [passwordChangeToken, setPasswordChangeToken] = useState('');
   const [passwordChangeOtp, setPasswordChangeOtp] = useState('');
   const [passwordChangeDestination, setPasswordChangeDestination] = useState('');
+  const [emailChangeChannel, setEmailChangeChannel] = useState<'email' | 'sms'>(user?.mobileNumber ? 'sms' : 'email');
   const [emailChangeToken, setEmailChangeToken] = useState('');
   const [emailChangeOtp, setEmailChangeOtp] = useState('');
   const [emailChangeDestination, setEmailChangeDestination] = useState('');
@@ -60,6 +61,8 @@ export default function AccountSectionScreen() {
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [middleName, setMiddleName] = useState(user?.middleName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
+  const [suffix, setSuffix] = useState(user?.suffix || '');
+  const [position, setPosition] = useState(user?.position || '');
   const [birthday, setBirthday] = useState(user?.birthday || '');
   const [birthdayDate, setBirthdayDate] = useState(new Date(2000, 0, 1));
   const [isBirthdayPickerOpen, setIsBirthdayPickerOpen] = useState(false);
@@ -81,6 +84,8 @@ export default function AccountSectionScreen() {
     setFirstName(user?.firstName || '');
     setMiddleName(user?.middleName || '');
     setLastName(user?.lastName || '');
+    setSuffix(user?.suffix || '');
+    setPosition(user?.position || '');
     setBirthday(user?.birthday || '');
     const [year, month, day] = (user?.birthday || '').split('-').map(Number);
     if (year && month && day) setBirthdayDate(new Date(year, month - 1, day));
@@ -172,15 +177,15 @@ export default function AccountSectionScreen() {
       const response = await authenticatedFetch('/api/v1/auth/email-change/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newEmail: email.trim().toLowerCase(), currentPassword }),
+        body: JSON.stringify({ newEmail: email.trim().toLowerCase(), currentPassword, channel: emailChangeChannel }),
       });
       const result = await response.json() as { emailChangeToken?: string; destination?: string; detail?: unknown };
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'An email-change code could not be sent.');
       if (!result.emailChangeToken) throw new Error('The verification request did not return a token.');
       setEmailChangeToken(result.emailChangeToken);
-      setEmailChangeDestination(result.destination || user?.mobileNumber || '');
+      setEmailChangeDestination(result.destination || (emailChangeChannel === 'email' ? user?.email : user?.mobileNumber) || '');
       setEmailChangeOtp('');
-      setNotice(`A verification code was sent by SMS to ${result.destination || 'your mobile number'}.`);
+      setNotice(`A verification code was sent to ${result.destination || 'your selected contact'}.`);
       setIsPasswordOtpModalOpen(true);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'An email-change code could not be sent.');
@@ -215,7 +220,7 @@ export default function AccountSectionScreen() {
         return;
       }
       if (!/^\d{6}$/.test(emailChangeOtp)) {
-        setError('Enter the 6-digit SMS verification code.');
+        setError('Enter the 6-digit verification code.');
         return;
       }
       void save('/api/v1/resident/account', {
@@ -263,7 +268,7 @@ export default function AccountSectionScreen() {
       setError('Enter your first and last name.');
       return;
     }
-    if (!isCurrentAddressComplete(addressParts)) {
+    if (user?.role !== 'admin' && !isCurrentAddressComplete(addressParts)) {
       setError('Enter a house number and select a barangay.');
       return;
     }
@@ -281,6 +286,8 @@ export default function AccountSectionScreen() {
       firstName: firstName.trim(),
       middleName: middleName.trim() || null,
       lastName: lastName.trim(),
+      suffix: suffix.trim() || null,
+      position: position.trim() || null,
       birthday: birthdayValue || null,
       sex: sex || null,
       currentAddress: formatCurrentAddress(addressParts),
@@ -322,6 +329,31 @@ export default function AccountSectionScreen() {
               setError('');
             }} placeholder="name@example.com" keyboardType="email-address" autoCapitalize="none" autoComplete="email" palette={palette} />
             <PasswordField label="Current password" value={currentPassword} onChangeText={setCurrentPassword} palette={palette} />
+            <View style={styles.otpChannelSection}>
+              <Text style={[styles.fieldLabelStandalone, { color: palette.text }]}>Send verification code to</Text>
+              <View style={styles.otpChannelOptions}>
+                {(['email', 'sms'] as const).map((channel) => (
+                  <Pressable
+                    key={channel}
+                    disabled={channel === 'sms' && !user?.mobileNumber}
+                    onPress={() => {
+                      setEmailChangeChannel(channel);
+                      setEmailChangeToken('');
+                      setEmailChangeOtp('');
+                      setEmailChangeDestination('');
+                      setIsPasswordOtpModalOpen(false);
+                      setNotice('');
+                    }}
+                    style={[styles.otpChannelOption, { borderColor: emailChangeChannel === channel ? '#D45B92' : palette.border, backgroundColor: palette.surfaceMuted }, channel === 'sms' && !user?.mobileNumber && styles.disabled]}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: emailChangeChannel === channel }}
+                  >
+                    <MaterialCommunityIcons name={emailChangeChannel === channel ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={emailChangeChannel === channel ? '#D45B92' : palette.textMuted} />
+                    <Text style={[styles.otpChannelText, { color: palette.text }]}>{channel === 'email' ? 'Email' : 'SMS'}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           </>}
           {sectionKey === 'password' && <>
             <PasswordField label="Current password" value={currentPassword} onChangeText={setCurrentPassword} palette={palette} />
@@ -333,6 +365,7 @@ export default function AccountSectionScreen() {
                 {(['email', 'sms'] as const).map((channel) => (
                   <Pressable
                     key={channel}
+                    disabled={channel === 'sms' && !user?.mobileNumber}
                     onPress={() => {
                       setPasswordChangeChannel(channel);
                       setPasswordChangeToken('');
@@ -340,7 +373,7 @@ export default function AccountSectionScreen() {
                       setIsPasswordOtpModalOpen(false);
                       setNotice('');
                     }}
-                    style={[styles.otpChannelOption, { borderColor: passwordChangeChannel === channel ? '#D45B92' : palette.border, backgroundColor: palette.surfaceMuted }]}
+                    style={[styles.otpChannelOption, { borderColor: passwordChangeChannel === channel ? '#D45B92' : palette.border, backgroundColor: palette.surfaceMuted }, channel === 'sms' && !user?.mobileNumber && styles.disabled]}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: passwordChangeChannel === channel }}
                   >
@@ -372,6 +405,8 @@ export default function AccountSectionScreen() {
             <AccountField label="First name" icon="account-outline" value={firstName} onChangeText={setFirstName} placeholder="First name" autoCapitalize="words" palette={palette} required />
             <AccountField label="Middle name" icon="account-outline" value={middleName} onChangeText={setMiddleName} placeholder="Optional" autoCapitalize="words" palette={palette} />
             <AccountField label="Last name" icon="account-outline" value={lastName} onChangeText={setLastName} placeholder="Last name" autoCapitalize="words" palette={palette} required />
+            <AccountField label="Suffix" icon="account-outline" value={suffix} onChangeText={setSuffix} placeholder="Jr., Sr., III (optional)" autoCapitalize="words" palette={palette} />
+            <AccountField label="Position" icon="briefcase-outline" value={position} onChangeText={setPosition} placeholder="Position or job title (optional)" autoCapitalize="words" palette={palette} />
             {Platform.OS === 'web' ? <AccountField label="Birthdate" icon="calendar-blank-outline" value={birthday} onChangeText={setBirthday} placeholder="Select birthdate" accessibilityLabel="Select birthdate from calendar" palette={palette} {...({ type: 'date', max: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` } as object)} /> : <>
               <Pressable style={[styles.select, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]} onPress={() => setIsBirthdayPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Choose birthdate">
                 <View style={styles.selectLeading}><MaterialCommunityIcons name="calendar-blank-outline" size={18} color="#D45B92" /><Text style={[styles.fieldLabel, { color: palette.text }]}>Birthdate</Text></View>
@@ -418,7 +453,7 @@ export default function AccountSectionScreen() {
               style={[styles.saveButton, isSaving && styles.disabled]}
               accessibilityRole="button"
             >
-              {isSaving ? <ActivityIndicator color={Colors.white} /> : <><Text style={styles.saveButtonText}>{sectionKey === 'password' ? passwordChangeToken ? 'Enter verification code' : 'Send verification code' : sectionKey === 'email' ? emailChangeToken ? 'Enter verification code' : 'Send SMS verification code' : 'Save changes'}</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
+              {isSaving ? <ActivityIndicator color={Colors.white} /> : <><Text style={styles.saveButtonText}>{sectionKey === 'password' ? passwordChangeToken ? 'Enter verification code' : 'Send verification code' : sectionKey === 'email' ? emailChangeToken ? 'Enter verification code' : 'Send verification code' : 'Save changes'}</Text><MaterialCommunityIcons name="arrow-right" size={19} color={Colors.white} /></>}
             </AnimatedPressable>
           </View>
         </Reveal>
@@ -459,7 +494,7 @@ export default function AccountSectionScreen() {
               </Pressable>
               <View style={[styles.otpDialogIcon, { backgroundColor: palette.surfaceMuted }]}>
                 <MaterialCommunityIcons
-                  name={sectionKey === 'email' || passwordChangeChannel === 'sms' ? 'message-text-outline' : 'email-outline'}
+                  name={sectionKey === 'email' ? (emailChangeChannel === 'sms' ? 'message-text-outline' : 'email-outline') : passwordChangeChannel === 'sms' ? 'message-text-outline' : 'email-outline'}
                   size={28}
                   color="#D45B92"
                 />
@@ -467,7 +502,7 @@ export default function AccountSectionScreen() {
               <Text style={[styles.otpDialogTitle, { color: palette.text }]}>Verify it's you</Text>
               <Text style={[styles.otpDialogDescription, { color: palette.textMuted }]}>
                 {sectionKey === 'email'
-                  ? `Enter the 6-digit SMS code sent to ${emailChangeDestination || 'your current mobile number'} to confirm your email change.`
+                  ? `Enter the 6-digit code sent to ${emailChangeDestination || 'your selected contact'} to confirm your email change.`
                   : `Enter the 6-digit code we sent to ${passwordChangeDestination || 'your selected contact'} to confirm your password change.`}
               </Text>
               <Text style={[styles.fieldLabelStandalone, { color: palette.text }]}>Verification code</Text>
