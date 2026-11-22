@@ -174,6 +174,48 @@ class PushDeviceTests(unittest.TestCase):
         self.assertFalse(any("INSERT INTO push_deliveries" in call.args[0] for call in connection.execute.call_args_list))
         connection.commit.assert_called_once()
 
+    def test_evacuation_center_status_change_queues_push_for_registered_residents(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchall.return_value = [{
+            "id": "resident-1",
+            "email": "r@example.com",
+            "mobile_number": "",
+            "email_alerts_enabled": False,
+            "sms_alerts_enabled": False,
+        }]
+        center = {
+            "id": "center-1",
+            "name": "Biñan Central School",
+            "status": "closed",
+            "current_occupancy": 10,
+            "capacity": 10,
+        }
+
+        with patch("app.main.enqueue_evacuation_status") as enqueue, patch("app.main.deliver_incident_alert") as deliver:
+            main.notify_center_status_change(connection, "available", center)
+
+        enqueue.assert_called_once_with(
+            connection,
+            "resident-1",
+            "center-1",
+            "The evacuation center Biñan Central School is now closed. Current occupancy: 10 of 10.",
+        )
+        deliver.assert_called_once_with(
+            "r@example.com",
+            "",
+            "Biñan Central School status changed to CLOSED",
+            "The evacuation center Biñan Central School is now closed. Current occupancy: 10 of 10.",
+            False,
+            False,
+        )
+
+    def test_unchanged_evacuation_center_status_sends_no_push(self):
+        connection = MagicMock()
+        with patch("app.main.enqueue_evacuation_status") as enqueue:
+            main.notify_center_status_change(connection, "available", {"status": "available"})
+        connection.execute.assert_not_called()
+        enqueue.assert_not_called()
+
 
 class PushDeliveryTests(unittest.TestCase):
     def setUp(self):

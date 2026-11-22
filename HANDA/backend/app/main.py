@@ -297,19 +297,24 @@ def deliver_incident_alert(
                 logger.exception("Incident SMS alert could not be delivered.")
 
 
-def notify_center_status_change(connection: psycopg.Connection, previous_status: str, center: dict) -> None:
+def notify_center_status_change(
+    connection: psycopg.Connection,
+    previous_status: str,
+    center: dict,
+    exclude_user_id: str | None = None,
+) -> None:
     if center["status"] == previous_status:
         return
     recipients = connection.execute(
         """
-        SELECT DISTINCT users.email, users.mobile_number, users.email_alerts_enabled, users.sms_alerts_enabled
+        SELECT DISTINCT users.id, users.email, users.mobile_number, users.email_alerts_enabled, users.sms_alerts_enabled
         FROM evacuation_registrations AS registrations
         JOIN users ON users.id = registrations.resident_user_id
         WHERE registrations.center_id = %s
           AND registrations.status IN ('registered', 'checked_in', 'evacuated')
-          AND (users.email_alerts_enabled OR users.sms_alerts_enabled)
+          AND users.id <> COALESCE(%s, '')
         """,
-        (center["id"],),
+        (center["id"], exclude_user_id),
     ).fetchall()
     title = f"{center['name']} status changed to {center['status'].replace('_', ' ').upper()}"
     message = (
@@ -317,6 +322,7 @@ def notify_center_status_change(connection: psycopg.Connection, previous_status:
         f"Current occupancy: {center['current_occupancy']} of {center['capacity']}."
     )
     for recipient in recipients:
+        enqueue_evacuation_status(connection, recipient["id"], center["id"], message)
         deliver_incident_alert(
             recipient["email"],
             recipient["mobile_number"] or "",
@@ -2380,7 +2386,12 @@ def update_evacuation_registration_status(
             "SELECT id, name, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s",
             (registration["center_id"],),
         ).fetchone()
-        notify_center_status_change(connection, center_before["status"], center_after)
+        notify_center_status_change(
+            connection,
+            center_before["status"],
+            center_after,
+            registration["resident_user_id"],
+        )
     return {"id": registration_id, "status": update.status}
 
 

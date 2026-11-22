@@ -1,11 +1,13 @@
 import hashlib
 import json
 import logging
+from uuid import uuid4
 
 import psycopg
 
 from .config import settings
 from .db import CONNECT_TIMEOUT_SECONDS, open_connection_pool
+from .push import enqueue_weather_alert
 from .sms import send_sms_to_many, sms_delivery_configured
 from .typhoons import get_live_typhoons
 
@@ -51,6 +53,22 @@ def notify_storm_advisory(connection: psycopg.Connection, storm: dict) -> bool:
         if not inserted:
             return False
 
+        title = f"Tropical storm advisory: {storm['international_name']}"
+        message = storm_advisory_message(storm)
+        recipients = connection.execute(
+            "SELECT id FROM users WHERE status = 'Active' AND role IN ('Resident', 'Responder')"
+        ).fetchall()
+        for recipient in recipients:
+            user_id = recipient["id"]
+            connection.execute(
+                """
+                INSERT INTO notifications (id, user_id, incident_id, title, message, notification_type)
+                VALUES (%s, %s, NULL, %s, %s, 'weather')
+                """,
+                (f"weather-{uuid4()}", user_id, title, message),
+            )
+            enqueue_weather_alert(connection, user_id, title, message)
+
         recipients = connection.execute(
             """
             SELECT mobile_number FROM users
@@ -59,15 +77,12 @@ def notify_storm_advisory(connection: psycopg.Connection, storm: dict) -> bool:
             """
         ).fetchall()
         numbers = [recipient[0] for recipient in recipients]
-        if numbers:
-            send_sms_to_many(numbers, storm_advisory_message(storm), configuration=settings)
+        if numbers and sms_delivery_configured(settings):
+            send_sms_to_many(numbers, message, configuration=settings)
     return True
 
 
 def process_live_storm_advisories() -> int:
-    if not sms_delivery_configured(settings):
-        return 0
-
     storms = get_live_typhoons()
     if not storms:
         return 0

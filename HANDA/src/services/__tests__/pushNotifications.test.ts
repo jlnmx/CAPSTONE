@@ -20,9 +20,11 @@ jest.mock('expo-notifications', () => ({
 
 const fetchMock = jest.mocked(authenticatedFetch);
 const storedToken = jest.mocked(SecureStore.getItemAsync);
+const mockPlatform = jest.requireMock('react-native').Platform as { OS: string };
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPlatform.OS = 'android';
   storedToken.mockResolvedValue(null);
   fetchMock.mockResolvedValue({ ok: true } as Response);
   jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue({ granted: false, canAskAgain: true } as Notifications.NotificationPermissionsStatus);
@@ -36,6 +38,16 @@ it('requests permission, creates the high-importance channel and registers the t
   expect(Notifications.requestPermissionsAsync).toHaveBeenCalled();
   expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({ projectId: 'project-id' });
   expect(SecureStore.setItemAsync).toHaveBeenCalledWith('handa.pushToken', 'ExpoPushToken[abc123]');
+  expect(fetchMock).toHaveBeenCalledWith('/api/v1/push-devices', expect.objectContaining({
+    method: 'POST', body: JSON.stringify({ token: 'ExpoPushToken[abc123]' }),
+  }));
+});
+
+it('registers iOS devices without creating Android notification channels', async () => {
+  mockPlatform.OS = 'ios';
+  await registerPushDevice();
+  expect(Notifications.setNotificationChannelAsync).not.toHaveBeenCalled();
+  expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({ projectId: 'project-id' });
   expect(fetchMock).toHaveBeenCalledWith('/api/v1/push-devices', expect.objectContaining({
     method: 'POST', body: JSON.stringify({ token: 'ExpoPushToken[abc123]' }),
   }));
@@ -55,4 +67,12 @@ it('keeps the saved token if removal fails during sign-out', async () => {
   fetchMock.mockResolvedValue({ ok: false, status: 503 } as Response);
   await expect(unregisterPushDevice()).rejects.toThrow('HTTP 503');
   expect(SecureStore.deleteItemAsync).not.toHaveBeenCalled();
+});
+
+it('unregisters iOS devices on sign-out', async () => {
+  mockPlatform.OS = 'ios';
+  storedToken.mockResolvedValue('ExpoPushToken[abc123]');
+  await unregisterPushDevice();
+  expect(fetchMock).toHaveBeenCalledWith('/api/v1/push-devices/remove', expect.anything());
+  expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.pushToken');
 });

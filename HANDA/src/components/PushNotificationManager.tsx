@@ -11,7 +11,7 @@ export default function PushNotificationManager() {
   const lastHandled = useRef<string | null>(null);
 
   useEffect(() => {
-    if (Platform.OS !== 'android' || !user || user.isDemo || isLoading || (user.role !== 'resident' && user.role !== 'responder')) return undefined;
+    if (Platform.OS === 'web' || !user || user.isDemo || isLoading || (user.role !== 'resident' && user.role !== 'responder')) return undefined;
     let active = true;
     let warned = false;
     let removeListeners = () => {};

@@ -18,19 +18,21 @@ async function updateDevice(path: string, token: string): Promise<void> {
 }
 
 export async function registerPushDevice(): Promise<void> {
-  if (Platform.OS !== 'android' || !Device.isDevice) return;
+  if (Platform.OS === 'web' || !Device.isDevice) return;
   if (pendingRegistration) return pendingRegistration;
   pendingRegistration = (async () => {
-    await Notifications.setNotificationChannelAsync('incidents', {
-      name: 'Incident alerts',
-      importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
-    });
-    await Notifications.setNotificationChannelAsync('weather', {
-      name: 'Weather alerts',
-      importance: Notifications.AndroidImportance.HIGH,
-      sound: 'default',
-    });
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('incidents', {
+        name: 'Incident alerts',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+      });
+      await Notifications.setNotificationChannelAsync('weather', {
+        name: 'Weather alerts',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+      });
+    }
     let permission = await Notifications.getPermissionsAsync();
     if (!permission.granted && permission.canAskAgain) permission = await Notifications.requestPermissionsAsync();
     if (!permission.granted) {
@@ -57,7 +59,7 @@ export async function registerPushDevice(): Promise<void> {
 }
 
 export async function unregisterPushDevice(): Promise<void> {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS === 'web') return;
   if (pendingRegistration) {
     try {
       await pendingRegistration;

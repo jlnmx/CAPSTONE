@@ -36,19 +36,44 @@ class StormAdvisoryTests(unittest.TestCase):
         self.assertEqual(original, moved)
         self.assertNotEqual(original, intensified)
 
-    def test_only_new_inside_par_advisory_sends_to_sms_opted_in_recipients(self):
+    def test_new_inside_par_advisory_sends_push_and_sms(self):
         connection = MagicMock()
-        connection.execute.side_effect = [
-            FakeResult(row=("gdacs-42",)),
-            FakeResult(rows=[("+639171234567",), ("+639181234567",)]),
-        ]
+
+        def execute(sql, _params=None):
+            if "INSERT INTO storm_advisory_sms_events" in sql:
+                return FakeResult(row=("gdacs-42",))
+            if "SELECT id FROM users" in sql:
+                return FakeResult(rows=[{"id": "resident-1"}, {"id": "responder-1"}])
+            if "SELECT mobile_number FROM users" in sql:
+                return FakeResult(rows=[("+639171234567",), ("+639181234567",)])
+            return FakeResult()
+
+        connection.execute.side_effect = execute
         with patch.object(storm_alerts, "settings") as settings, \
-                patch.object(storm_alerts, "send_sms_to_many") as send_sms:
+                patch.object(storm_alerts, "sms_delivery_configured", return_value=True), \
+                patch.object(storm_alerts, "send_sms_to_many") as send_sms, \
+                patch.object(storm_alerts, "enqueue_weather_alert") as enqueue:
             sent = storm_alerts.notify_storm_advisory(connection, self.storm)
 
         self.assertTrue(sent)
-        sql = connection.execute.call_args_list[1].args[0]
+        sql = next(
+            call.args[0] for call in connection.execute.call_args_list
+            if "SELECT mobile_number FROM users" in call.args[0]
+        )
         self.assertIn("sms_alerts_enabled", sql)
+        notification_calls = [
+            call for call in connection.execute.call_args_list
+            if "INSERT INTO notifications" in call.args[0]
+        ]
+        self.assertEqual(len(notification_calls), 2)
+        self.assertIn("'weather'", notification_calls[0].args[0])
+        self.assertEqual(enqueue.call_count, 2)
+        enqueue.assert_any_call(
+            connection,
+            "resident-1",
+            "Tropical storm advisory: Kiko",
+            storm_alerts.storm_advisory_message(self.storm),
+        )
         send_sms.assert_called_once_with(
             ["+639171234567", "+639181234567"],
             storm_alerts.storm_advisory_message(self.storm),
