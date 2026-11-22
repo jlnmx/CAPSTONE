@@ -49,11 +49,11 @@ type Props = {
   locationLabel: string;
   sentAt: Date | null;
   etaMinutes: number | null;
-  onReturnHome: () => void;
+  onReturnToSos: () => void;
   onOpenContacts: () => void;
 };
 
-export function SosStatusView({ status, emergencyType, locationLabel, sentAt, etaMinutes, onReturnHome, onOpenContacts }: Props) {
+export function SosStatusView({ status, emergencyType, locationLabel, sentAt, etaMinutes, onReturnToSos, onOpenContacts }: Props) {
   const { width } = useWindowDimensions();
   const isWide = width >= 760;
   const stageIndex = getSosStage(status);
@@ -179,23 +179,24 @@ export function SosStatusView({ status, emergencyType, locationLabel, sentAt, et
     </View>
   );
 
-  const actions = isResolved ? (
-    <AnimatedPressable style={styles.primaryButton} onPress={onReturnHome} accessibilityRole="button" accessibilityLabel="Return to the home screen">
-      <MaterialCommunityIcons name="home-outline" size={20} color={Colors.white} />
-      <Text darkText style={styles.primaryButtonText}>Return Home</Text>
+  const resolvedAction = isResolved ? (
+    <AnimatedPressable style={styles.primaryButton} onPress={onReturnToSos} accessibilityRole="button" accessibilityLabel="Finish and return to the SOS button">
+      <MaterialCommunityIcons name="alarm-light-outline" size={20} color={Colors.white} />
+      <Text darkText style={styles.primaryButtonText}>Done · Return to SOS</Text>
     </AnimatedPressable>
-  ) : (
+  ) : null;
+  const contactAction = !isResolved ? (
     <AnimatedPressable style={styles.secondaryButton} onPress={onOpenContacts} accessibilityRole="button" accessibilityLabel="Open emergency contacts">
       <MaterialCommunityIcons name="phone-in-talk-outline" size={19} color={Colors.primary} />
       <Text style={styles.secondaryButtonText}>Emergency contacts</Text>
     </AnimatedPressable>
-  );
+  ) : null;
 
   return (
     <View style={[styles.wrap, { maxWidth: isWide ? 960 : 560 }]}>
       <View style={[styles.columns, isWide && styles.columnsWide]}>
-        <View style={styles.column}>{hero}{tracker}</View>
-        <View style={styles.column}>{info}{tips}{actions}</View>
+        <View style={styles.column}>{hero}{tracker}{resolvedAction}</View>
+        <View style={styles.column}>{info}{tips}{contactAction}</View>
       </View>
     </View>
   );

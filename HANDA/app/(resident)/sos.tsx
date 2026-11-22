@@ -262,7 +262,19 @@ export default function ResidentSosScreen() {
       </Pressable>
     );
 
-  const handleReturnHome = () => router.replace('/(resident)');
+  const handleReturnToSos = () => {
+    sosRequestVersion.current += 1;
+    hasActiveSos.current = false;
+    setIsActivated(false);
+    setIncidentStatus('reported');
+    setSentAt(null);
+    setLocationLabel('Location unavailable');
+    setEtaMinutes(null);
+    setIsStatusUnavailable(false);
+    setIsRestoring(false);
+    setFeedback('');
+    progress.setValue(0);
+  };
   const handleOpenContacts = () => router.push('/(resident)/emergency-contacts');
 
   return (
@@ -284,7 +296,7 @@ export default function ResidentSosScreen() {
               locationLabel={locationLabel}
               sentAt={sentAt}
               etaMinutes={etaMinutes}
-              onReturnHome={handleReturnHome}
+              onReturnToSos={handleReturnToSos}
               onOpenContacts={handleOpenContacts}
             />
           ) : (
