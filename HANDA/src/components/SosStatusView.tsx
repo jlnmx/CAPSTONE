@@ -116,6 +116,17 @@ export function SosStatusView({ status, emergencyType, locationLabel, sentAt, et
           <Text darkText style={[styles.etaText, { color: stage.accent }]}>Estimated arrival · {etaMinutes} min</Text>
         </View>
       )}
+      {isResolved && (
+        <AnimatedPressable
+          style={[styles.primaryButton, styles.resolvedButton]}
+          onPress={onReturnToSos}
+          accessibilityRole="button"
+          accessibilityLabel="Finish and return to the SOS button"
+        >
+          <MaterialCommunityIcons name="alarm-light-outline" size={20} color={Colors.white} />
+          <Text darkText style={styles.primaryButtonText}>Done · Return to SOS</Text>
+        </AnimatedPressable>
+      )}
     </LinearGradient>
   );
 
@@ -179,12 +190,6 @@ export function SosStatusView({ status, emergencyType, locationLabel, sentAt, et
     </View>
   );
 
-  const resolvedAction = isResolved ? (
-    <AnimatedPressable style={styles.primaryButton} onPress={onReturnToSos} accessibilityRole="button" accessibilityLabel="Finish and return to the SOS button">
-      <MaterialCommunityIcons name="alarm-light-outline" size={20} color={Colors.white} />
-      <Text darkText style={styles.primaryButtonText}>Done · Return to SOS</Text>
-    </AnimatedPressable>
-  ) : null;
   const contactAction = !isResolved ? (
     <AnimatedPressable style={styles.secondaryButton} onPress={onOpenContacts} accessibilityRole="button" accessibilityLabel="Open emergency contacts">
       <MaterialCommunityIcons name="phone-in-talk-outline" size={19} color={Colors.primary} />
@@ -195,7 +200,7 @@ export function SosStatusView({ status, emergencyType, locationLabel, sentAt, et
   return (
     <View style={[styles.wrap, { maxWidth: isWide ? 960 : 560 }]}>
       <View style={[styles.columns, isWide && styles.columnsWide]}>
-        <View style={styles.column}>{hero}{tracker}{resolvedAction}</View>
+        <View style={styles.column}>{hero}{tracker}</View>
         <View style={styles.column}>{info}{tips}{contactAction}</View>
       </View>
     </View>
@@ -254,6 +259,7 @@ const styles = StyleSheet.create({
   tipText: { flex: 1, fontFamily: AppMediumFontFamily, color: '#32523B', fontSize: 12, lineHeight: 18 },
 
   primaryButton: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, backgroundColor: '#1E9446', shadowColor: '#1E9446', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.28, shadowRadius: 10, elevation: 4 },
+  resolvedButton: { alignSelf: 'stretch', marginTop: 14, paddingHorizontal: 12 },
   primaryButtonText: { fontFamily: AppBoldFontFamily, color: Colors.white, fontSize: 15 },
   secondaryButton: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 16, borderWidth: 1.5, borderColor: Colors.primary, backgroundColor: Colors.surface },
   secondaryButtonText: { fontFamily: AppBoldFontFamily, color: Colors.primary, fontSize: 14 },
