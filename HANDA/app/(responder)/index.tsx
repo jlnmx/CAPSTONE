@@ -13,7 +13,7 @@ import { useTheme } from '@hooks/useTheme';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { NotificationBell } from '@components/NotificationBell';
-import { HandaLogoBadge } from '@components/HandaLogo';
+import { HandaLogoMark } from '@components/HandaLogo';
 import QuickTutorial, { type TutorialTargetRefs } from '@components/QuickTutorial';
 import ResponderWeatherCard from '@components/ResponderWeatherCard';
 import { getResponderData, getResponseHistory, ResponderDataSnapshot } from '@services/responderData';
@@ -97,14 +97,18 @@ export default function ResponderDashboard() {
       >
         <View style={styles.header}>
           <View style={styles.headerBrand}>
-            <HandaLogoBadge size={46} />
-            <Text style={styles.headerLogo}>HANDA</Text>
+            <HandaLogoMark size={42} />
+            <View style={styles.headerBrandCopy}>
+              <Text style={styles.headerLogo}>HANDA</Text>
+              <Text style={styles.headerBrandSubtitle}>FIELD RESPONSE</Text>
+            </View>
           </View>
           <View ref={notificationsTargetRef} collapsable={false}><NotificationBell /></View>
         </View>
 
         <View style={styles.greeting}>
           <View>
+            <Text style={styles.greetingEyebrow}>YOUR RESPONSE DASHBOARD</Text>
             <Text style={styles.greetingTitle}>{getGreeting()}, {getFirstName(user, 'Responder')}!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
@@ -225,16 +229,27 @@ const styles = StyleSheet.create({
   headerBrand: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 11,
+  },
+  headerBrandCopy: {
+    justifyContent: 'center',
+    gap: 1,
   },
   headerLogo: {
     color: Colors.white,
     fontFamily: AppHeadingFontFamily,
-    fontSize: 31,
-    letterSpacing: 0.2,
+    fontSize: 27,
+    lineHeight: 31,
+    letterSpacing: 1.15,
+  },
+  headerBrandSubtitle: {
+    color: 'rgba(255,255,255,0.82)',
+    fontFamily: AppSemiboldFontFamily,
+    fontSize: 8,
+    letterSpacing: 1.15,
   },
   greeting: {
-    minHeight: 55,
+    minHeight: 67,
     paddingHorizontal: 18,
     paddingTop: 11,
     paddingBottom: 5,
@@ -243,15 +258,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   greetingTitle: {
-    color: '#A84F7D',
+    color: '#76385A',
+    fontFamily: AppHeadingFontFamily,
+    fontSize: 17,
+  },
+  greetingEyebrow: {
+    color: '#8E7890',
     fontFamily: AppBoldFontFamily,
-    fontSize: 16,
+    fontSize: 8,
+    letterSpacing: 1.15,
+    marginBottom: 2,
   },
   greetingDate: {
     color: '#60766A',
     fontFamily: AppMediumFontFamily,
     fontSize: 10,
-    marginTop: 4,
+    marginTop: 3,
   },
   weatherIcon: {
     width: 29,

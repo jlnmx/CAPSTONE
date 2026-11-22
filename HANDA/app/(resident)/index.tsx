@@ -9,7 +9,7 @@ import { WeatherWidget } from '@components/WeatherWidget';
 import { Colors } from '@constants/colors';
 import { AppBoldFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
 import { NotificationBell } from '@components/NotificationBell';
-import { HandaLogoBadge } from '@components/HandaLogo';
+import { HandaLogoMark } from '@components/HandaLogo';
 import { AnimatedPressable } from '@components/Buttons';
 import { ActiveDisasterCard } from '@components/ActiveDisasterCard';
 import { TyphoonCard } from '@components/TyphoonCard';
@@ -160,12 +160,19 @@ export default function ResidentDashboard() {
         scrollEventThrottle={16}
       >
         <View style={styles.header}>
-          <View style={styles.brandRow}><HandaLogoBadge size={46} /><Text style={styles.brand}>HANDA</Text></View>
+          <View style={styles.brandRow}>
+            <HandaLogoMark size={42} />
+            <View style={styles.brandCopy}>
+              <Text style={styles.brand}>HANDA</Text>
+              <Text style={styles.brandSubtitle}>COMMUNITY RESPONSE</Text>
+            </View>
+          </View>
           <View ref={notificationsTargetRef} collapsable={false}><NotificationBell /></View>
         </View>
 
         <View style={styles.greeting}>
           <View>
+            <Text style={styles.greetingEyebrow}>YOUR SAFETY DASHBOARD</Text>
             <Text style={styles.greetingTitle}>{greeting}, {getFirstName(user, 'Biñanense')}!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
           </View>
@@ -316,13 +323,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface },
   content: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingBottom: 22 },
   header: { height: 86, paddingHorizontal: 18, backgroundColor: Colors.primary, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.16)', shadowColor: '#7D567E', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.16, shadowRadius: 5, elevation: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  brand: { color: Colors.white, fontFamily: AppHeadingFontFamily, fontSize: 31, letterSpacing: 0.2 },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  brandCopy: { justifyContent: 'center', gap: 1 },
+  brand: { color: Colors.white, fontFamily: AppHeadingFontFamily, fontSize: 27, letterSpacing: 1.15, lineHeight: 31 },
+  brandSubtitle: { color: 'rgba(255,255,255,0.82)', fontFamily: AppSemiboldFontFamily, fontSize: 8, letterSpacing: 1.15 },
   notificationButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
   notificationDot: { position: 'absolute', top: 6, right: 5, width: 6, height: 6, borderRadius: 3, backgroundColor: '#F5D14B' },
-  greeting: { minHeight: 55, paddingHorizontal: 18, paddingTop: 11, paddingBottom: 5, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  greetingTitle: { color: '#A84F7D', fontFamily: AppBoldFontFamily, fontSize: 16 },
-  greetingDate: { color: '#60766A', fontFamily: AppMediumFontFamily, fontSize: 10, marginTop: 4 },
+  greeting: { minHeight: 67, paddingHorizontal: 18, paddingTop: 10, paddingBottom: 7, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  greetingEyebrow: { color: '#8E7890', fontFamily: AppBoldFontFamily, fontSize: 8, letterSpacing: 1.15, marginBottom: 2 },
+  greetingTitle: { color: '#76385A', fontFamily: AppHeadingFontFamily, fontSize: 17 },
+  greetingDate: { color: '#60766A', fontFamily: AppMediumFontFamily, fontSize: 10, marginTop: 3 },
   weatherIcon: { width: 29, height: 29, borderRadius: 16, borderWidth: 2, borderColor: '#E3A02C', backgroundColor: '#FFD477', alignItems: 'center', justifyContent: 'center' },
   forecastFeedWarning: { marginHorizontal: 18, marginBottom: 10, color: '#8C302B', fontSize: 10 },
   forecastFeedStatus: { marginHorizontal: 18, marginBottom: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: '#A84F7D', backgroundColor: '#EAF5EE' },

@@ -56,6 +56,19 @@ export function HandaLogoBadge({ size = 44, style }: LogoBadgeProps) {
   );
 }
 
+export function HandaLogoMark({ size = 44, style }: LogoBadgeProps) {
+  return (
+    <View style={[styles.mark, { width: size, height: size }, style]}>
+      <Image
+        source={logoSource}
+        style={[styles.markImage, { width: size, height: size }]}
+        resizeMode="contain"
+        accessibilityLabel="HANDA logo"
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
@@ -65,6 +78,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.white,
+  },
+  mark: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#39142A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.26,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  markImage: {
+    transform: [{ translateY: -2 }],
   },
   logoText: {
     fontWeight: '700',
