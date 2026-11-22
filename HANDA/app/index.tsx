@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
-import { HandaLogoBadge } from '@components/HandaLogo';
+import { HandaLogoMark } from '@components/HandaLogo';
 import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppMediumFontFamily } from '@constants/typography';
 import { useRouter } from 'expo-router';
 import { warmUpServer } from '@services/apiClient';
@@ -13,7 +13,6 @@ export default function SplashScreen() {
   const router = useRouter();
   const [progressTrackWidth, setProgressTrackWidth] = useState(0);
   const entrance = useRef(new Animated.Value(0)).current;
-  const pulse = useRef(new Animated.Value(0)).current;
   const loadingSweep = useRef(new Animated.Value(0)).current;
   const useNativeDriver = Platform.OS !== 'web';
   const sweepOffset = loadingSweep.interpolate({
@@ -29,10 +28,6 @@ export default function SplashScreen() {
       easing: Easing.out(Easing.cubic),
       useNativeDriver,
     });
-    const pulseAnimation = Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver }),
-      Animated.timing(pulse, { toValue: 0, duration: 1100, easing: Easing.inOut(Easing.ease), useNativeDriver }),
-    ]));
     const loadingAnimation = Animated.loop(Animated.timing(loadingSweep, {
       toValue: 1,
       duration: 1450,
@@ -41,17 +36,15 @@ export default function SplashScreen() {
     }));
 
     entranceAnimation.start();
-    pulseAnimation.start();
     loadingAnimation.start();
     const timer = setTimeout(() => router.replace('/(auth)/login'), 2500);
 
     return () => {
       entranceAnimation.stop();
-      pulseAnimation.stop();
       loadingAnimation.stop();
       clearTimeout(timer);
     };
-  }, [entrance, loadingSweep, pulse, router, useNativeDriver]);
+  }, [entrance, loadingSweep, router, useNativeDriver]);
 
   return (
     <ImageBackground
@@ -85,16 +78,7 @@ export default function SplashScreen() {
           ]}
         >
           <View style={styles.markWrap}>
-            <Animated.View
-              style={[
-                styles.markHalo,
-                {
-                  opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.8] }),
-                  transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }],
-                },
-              ]}
-            />
-            <HandaLogoBadge size={78} style={styles.logoBadge} />
+            <HandaLogoMark size={78} />
           </View>
 
           <Text style={styles.wordmark}>HANDA</Text>
@@ -176,24 +160,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 17,
-  },
-  markHalo: {
-    position: 'absolute',
-    width: 102,
-    height: 102,
-    borderRadius: 51,
-    borderWidth: 1,
-    borderColor: 'rgba(168,230,203,0.75)',
-    backgroundColor: 'rgba(168,230,203,0.08)',
-  },
-  logoBadge: {
-    borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.82)',
-    shadowColor: '#C7DCE8',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.32,
-    shadowRadius: 16,
-    elevation: 8,
   },
   wordmark: {
     color: '#FFFFFF',
