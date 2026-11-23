@@ -1833,7 +1833,7 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
     )
     assigned_responders = connection.execute(
         """
-        SELECT users.mobile_number
+        SELECT users.id, users.mobile_number
         FROM incident_responder_assignments AS assignments
         JOIN users ON users.id = assignments.responder_id
         WHERE assignments.incident_id = %s AND assignments.status = 'dispatched'
@@ -1842,6 +1842,14 @@ def update_incident_status(incident_id: str, update: IncidentStatusUpdate, conne
         """,
         (incident_id, user.id),
     ).fetchall()
+    for responder in assigned_responders:
+        enqueue_user(
+            connection,
+            responder["id"],
+            incident_id,
+            f"Incident update: {incident_type}",
+            f"{incident_type} is now {update.status.replace('_', ' ').upper()}. Open HANDA for details.",
+        )
     connection.commit()
     if reporter:
         deliver_incident_alert(

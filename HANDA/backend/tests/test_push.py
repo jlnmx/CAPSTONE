@@ -87,6 +87,8 @@ class PushDeviceTests(unittest.TestCase):
                 }
             elif "SELECT type, location_text" in sql:
                 cursor.fetchone.return_value = {"type": "Fire", "location_text": "Biñan"}
+            elif "SELECT users.id, users.mobile_number" in sql:
+                cursor.fetchall.return_value = [{"id": "responder-1", "mobile_number": ""}]
             return cursor
         connection.execute.side_effect = execute
         user = CurrentUser("admin-1", "admin@example.com", "Admin", "admin", 0)
@@ -95,6 +97,17 @@ class PushDeviceTests(unittest.TestCase):
         call = next(c for c in connection.execute.call_args_list if "INSERT INTO push_deliveries" in c.args[0])
         self.assertEqual(call.args[1][-1], "resident-1")
         self.assertEqual(call.args[1][1], "Fire report: ACKNOWLEDGED. Updated by Administrator Admin.")
+        responder_push = next(
+            c for c in connection.execute.call_args_list
+            if "INSERT INTO push_deliveries" in c.args[0]
+            and c.args[1][-1] == "responder-1"
+        )
+        self.assertEqual(responder_push.args[1], (
+            "Incident update: Fire",
+            "Fire is now ACKNOWLEDGED. Open HANDA for details.",
+            "incident-1",
+            "responder-1",
+        ))
         connection.commit.assert_called_once()
 
     def test_evacuation_status_changes_notify_registration_owner(self):

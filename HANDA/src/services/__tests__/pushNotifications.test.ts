@@ -56,7 +56,7 @@ it('registers iOS devices without creating Android notification channels', async
 it('removes a previous token when permission is denied', async () => {
   storedToken.mockResolvedValue('ExpoPushToken[old123]');
   jest.mocked(Notifications.requestPermissionsAsync).mockResolvedValue({ granted: false } as Notifications.NotificationPermissionsStatus);
-  await registerPushDevice();
+  await expect(registerPushDevice()).resolves.toBe('permission-denied');
   expect(fetchMock).toHaveBeenCalledWith('/api/v1/push-devices/remove', expect.anything());
   expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('handa.pushToken');
   expect(Notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();

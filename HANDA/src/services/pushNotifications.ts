@@ -6,7 +6,8 @@ import * as SecureStore from 'expo-secure-store';
 import { authenticatedFetch } from './apiClient';
 
 const TOKEN_KEY = 'handa.pushToken';
-let pendingRegistration: Promise<void> | null = null;
+export type PushRegistrationResult = 'registered' | 'permission-denied' | 'unsupported';
+let pendingRegistration: Promise<PushRegistrationResult> | null = null;
 
 async function updateDevice(path: string, token: string): Promise<void> {
   const response = await authenticatedFetch(path, {
@@ -17,8 +18,8 @@ async function updateDevice(path: string, token: string): Promise<void> {
   if (!response.ok) throw new Error(`Notification registration failed (HTTP ${response.status}).`);
 }
 
-export async function registerPushDevice(): Promise<void> {
-  if (Platform.OS === 'web' || !Device.isDevice) return;
+export async function registerPushDevice(): Promise<PushRegistrationResult> {
+  if (Platform.OS === 'web' || !Device.isDevice) return 'unsupported';
   if (pendingRegistration) return pendingRegistration;
   pendingRegistration = (async () => {
     if (Platform.OS === 'android') {
@@ -41,7 +42,7 @@ export async function registerPushDevice(): Promise<void> {
         await updateDevice('/api/v1/push-devices/remove', oldToken);
         await SecureStore.deleteItemAsync(TOKEN_KEY);
       }
-      return;
+      return 'permission-denied' as const;
     }
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     if (typeof projectId !== 'string' || !projectId) throw new Error('The Expo project ID is missing.');
@@ -50,9 +51,10 @@ export async function registerPushDevice(): Promise<void> {
     if (oldToken && oldToken !== token) await updateDevice('/api/v1/push-devices/remove', oldToken);
     await SecureStore.setItemAsync(TOKEN_KEY, token);
     await updateDevice('/api/v1/push-devices', token);
+    return 'registered' as const;
   })();
   try {
-    await pendingRegistration;
+    return await pendingRegistration;
   } finally {
     pendingRegistration = null;
   }
