@@ -58,8 +58,10 @@ export default function CenterDetailView() {
   }, [refresh]);
 
   const activeRegistrations = registrations.filter((item) => item.status !== 'released');
-  const checkedInHouseholds = activeRegistrations.filter((item) => item.status === 'checked_in' || item.status === 'evacuated').length;
-  const registeredPeople = activeRegistrations.reduce((total, item) => total + item.household_size, 0);
+  const evacuatedHouseholds = activeRegistrations.filter((item) => item.status === 'checked_in' || item.status === 'evacuated').length;
+  const evacuatedPeople = activeRegistrations
+    .filter((item) => item.status === 'checked_in' || item.status === 'evacuated')
+    .reduce((total, item) => total + item.household_size, 0);
   const filteredRegistrations = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return registrations
@@ -79,8 +81,8 @@ export default function CenterDetailView() {
           : right.registered_at.localeCompare(left.registered_at));
   }, [registrations, query, sortOrder, statusFilter]);
 
-  async function changeStatus(registration: EvacuationRegistrationRecord, nextStatus: 'checked_in' | 'evacuated' | 'released') {
-    if (nextStatus === 'released' && !window.confirm(`Release ${registrationName(registration)} from ${center?.name}? The registration will remain in the history${registration.status === 'checked_in' || registration.status === 'evacuated' ? ' and occupied capacity will be freed' : ''}.`)) return;
+  async function changeStatus(registration: EvacuationRegistrationRecord, nextStatus: 'released') {
+    if (!window.confirm(`Release ${registrationName(registration)} from ${center?.name}? The registration will remain in the history and occupied capacity will be freed.`)) return;
     setUpdatingId(registration.id);
     setActionError('');
     try {
@@ -122,7 +124,7 @@ export default function CenterDetailView() {
       <MetricCard label="Current occupancy" value={`${center.currentOccupancy} / ${center.capacity}`} detail={`${occupancyPercent}% of center capacity`} icon={Building2} tone={occupancyPercent >= 90 ? 'red' : 'green'} />
       <MetricCard label="Spaces remaining" value={remaining} detail={center.status.replace('_', ' ')} icon={MapPin} tone={remaining === 0 ? 'red' : remaining < 20 ? 'amber' : 'green'} />
       <MetricCard label="Active households" value={activeRegistrations.length} detail="Not yet released" icon={Users} tone="blue" />
-      <MetricCard label="People registered" value={registeredPeople} detail={`${checkedInHouseholds} checked-in households`} icon={Check} tone="green" />
+      <MetricCard label="People sheltered" value={evacuatedPeople} detail={`${evacuatedHouseholds} active households`} icon={Check} tone="green" />
     </div>
 
     <section className="surface-panel center-detail-info">
@@ -139,13 +141,13 @@ export default function CenterDetailView() {
 
     <section className="surface-panel center-evacuees-panel">
       <div className="center-evacuees-heading">
-        <div><p className="eyebrow">CENTER ROSTER</p><h2>Evacuee households</h2><p className="panel-subtitle">Review registrations, update arrival status, or release a household while preserving its record.</p></div>
+        <div><p className="eyebrow">CENTER ROSTER</p><h2>Evacuee households</h2><p className="panel-subtitle">Register arriving households in one step, then release them when they leave the center.</p></div>
         <span className="results-count">{filteredRegistrations.length} of {registrations.length} households</span>
       </div>
       <div className="center-evacuees-toolbar">
         <label className="search-field"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, contact, address, or household member" /></label>
         <label className="option-control"><Users size={14} /><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)} aria-label="Filter households by status">
-          <option value="active">Active households</option><option value="all">All statuses</option><option value="registered">Registered</option><option value="checked_in">Checked in</option><option value="evacuated">Evacuated</option><option value="released">Released</option>
+          <option value="active">Active households</option><option value="all">All statuses</option><option value="evacuated">Evacuated</option><option value="released">Released</option>
         </select></label>
         <label className="option-control"><ArrowDownUp size={14} /><select value={sortOrder} onChange={(event) => setSortOrder(event.target.value as SortOrder)} aria-label="Sort households">
           <option value="recent">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option>
@@ -171,9 +173,7 @@ export default function CenterDetailView() {
               <td>{registration.registered_at ? new Date(registration.registered_at).toLocaleDateString() : '—'}</td>
               <td><span className={`registration-status registration-status-${registration.status}`}>{statusLabel(registration.status)}</span></td>
               <td><div className="center-household-actions">
-                {registration.status === 'registered' && <button className="text-button" disabled={busy} onClick={() => void changeStatus(registration, 'checked_in')}><Check size={14} /> Check in</button>}
-                {registration.status === 'checked_in' && <button className="text-button" disabled={busy} onClick={() => void changeStatus(registration, 'evacuated')}><MapPin size={14} /> Mark evacuated</button>}
-                {registration.status !== 'released' && <button className="text-button center-release-action" disabled={busy} onClick={() => void changeStatus(registration, 'released')}><LogOut size={14} /> {busy ? 'Saving…' : 'Release'}</button>}
+                {registration.status !== 'released' && <button className="text-button center-release-action" disabled={busy} onClick={() => void changeStatus(registration, 'released')}><LogOut size={14} /> {busy ? 'Saving…' : 'Release household'}</button>}
               </div></td>
             </tr>;
           })}</tbody>

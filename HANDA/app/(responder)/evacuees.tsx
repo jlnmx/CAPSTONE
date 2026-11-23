@@ -11,7 +11,7 @@ import AppBackArrow from '@components/AppBackArrow';
 import Avatar from '@components/Avatar';
 import { KIT_GREEN as GREEN, Reveal, kitFonts } from '@components/IncidentCardKit';
 
-const FILTERS: Array<'ALL' | EvacuationStatus> = ['ALL', 'registered', 'checked_in', 'evacuated', 'released'];
+const FILTERS: Array<'ALL' | EvacuationStatus> = ['ALL', 'evacuated', 'released'];
 const SORT_MODES = ['recent', 'oldest', 'name', 'household'] as const;
 type SortMode = typeof SORT_MODES[number];
 type CenterOption = { key: string; label: string; location: string; count: number };
@@ -171,7 +171,7 @@ export default function EvacueesScreen() {
       <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
         <View style={styles.heroTop}><AppBackArrow /><Text style={styles.eyebrow}>FIELD OPERATIONS</Text></View>
         <Text style={styles.title}>Evacuees</Text>
-        <Text style={styles.subtitle}>Manage shelter registrations and household check-ins.</Text>
+        <Text style={styles.subtitle}>Review evacuated households and release them when they leave the center.</Text>
         <View style={styles.summaryRow}>
           <Summary icon="account-group-outline" label="HOUSEHOLDS" value={String(registrations.length)} />
           <View style={styles.summaryDivider} />
@@ -284,7 +284,7 @@ function getCenterKey(registration: Pick<CenterRegistration, 'center_name' | 'ce
 }
 
 function nextStatusFor(status: EvacuationStatus): EvacuationStatus | null {
-  return status === 'registered' ? 'checked_in' : status === 'checked_in' ? 'evacuated' : status === 'evacuated' ? 'released' : null;
+  return status === 'released' ? null : 'released';
 }
 
 function RegistrationRow({ registration, expanded, updating, onPress, onStatusChange }: { registration: CenterRegistration; expanded: boolean; updating: boolean; onPress: () => void; onStatusChange: (status: EvacuationStatus) => void }) {
@@ -305,9 +305,9 @@ function RegistrationRow({ registration, expanded, updating, onPress, onStatusCh
         <MaterialCommunityIcons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={Colors.textMuted} />
       </View>
     </Pressable>
-    {nextStatus && <AnimatedPressable style={styles.verifyButton} onPress={() => onStatusChange(nextStatus)} disabled={updating} accessibilityRole="button" accessibilityLabel={`${registration.status === 'registered' ? 'Verify check-in' : `Mark ${statusLabel(nextStatus)}`} for ${name}`}>
-      <MaterialCommunityIcons name={registration.status === 'registered' ? 'check-decagram-outline' : 'arrow-right-circle-outline'} size={16} color={GREEN} />
-      <Text style={styles.verifyText}>{updating ? 'Updating...' : registration.status === 'registered' ? 'Verify check-in' : `Mark ${statusLabel(nextStatus)}`}</Text>
+    {nextStatus && <AnimatedPressable style={styles.verifyButton} onPress={() => onStatusChange(nextStatus)} disabled={updating} accessibilityRole="button" accessibilityLabel={`Release ${name} from the evacuation center`}>
+      <MaterialCommunityIcons name="exit-run" size={16} color={GREEN} />
+      <Text style={styles.verifyText}>{updating ? 'Updating...' : 'Release household'}</Text>
     </AnimatedPressable>}
     {expanded && <Reveal index={0}><View style={styles.detailsPanel}>
       <Text style={styles.panelTitle}>Registrant information</Text>

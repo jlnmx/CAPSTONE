@@ -54,14 +54,8 @@ export default function VerifyStatusScreen() {
   }, [loadStatus]));
 
   const assigned = !!status?.registrationId;
-  const statusLabel = status?.status === 'checked_in'
-    ? 'Checked in'
-    : status?.status === 'evacuated'
-      ? 'Evacuated'
-      : status?.status === 'released'
-        ? 'Released'
-        : 'Registered';
-  const statusTone = status?.status === 'checked_in' ? Colors.success : status?.status === 'evacuated' ? '#9A6700' : '#56705A';
+  const statusLabel = status?.status === 'evacuated' ? 'Evacuated' : status?.status === 'checked_in' ? 'Checked in' : 'Registered';
+  const statusTone = status?.status === 'evacuated' || status?.status === 'checked_in' ? Colors.success : '#56705A';
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
@@ -87,9 +81,9 @@ export default function VerifyStatusScreen() {
           <Reveal index={0}>
             <View style={[styles.guidanceCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
               <View style={styles.guidanceIcon}><MaterialCommunityIcons name="account-clock-outline" size={27} color={GREEN} /></View>
-              <Text style={[styles.guidanceTitle, { color: palette.text }]}>No center assignment yet</Text>
+              <Text style={[styles.guidanceTitle, { color: palette.text }]}>SAFE · no active assignment</Text>
               <Text style={[styles.guidanceText, { color: palette.textMuted }]}>
-                You do not need to register or choose a center in the app. City Social Welfare and Development personnel manage evacuation records and center assignments. Follow responder directions during an evacuation.
+                Your household has no active evacuation registration. You do not need to choose a center in the app; City Social Welfare and Development personnel manage evacuation records and center assignments.
               </Text>
               <View style={[styles.guidanceNote, { backgroundColor: palette.background }]}>
                 <MaterialCommunityIcons name="bell-outline" size={18} color={GREEN} />

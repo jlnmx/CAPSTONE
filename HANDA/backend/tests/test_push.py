@@ -111,8 +111,8 @@ class PushDeviceTests(unittest.TestCase):
         connection.commit.assert_called_once()
 
     def test_evacuation_status_changes_notify_registration_owner(self):
-        for current, new_status in (("registered", "checked_in"), ("checked_in", "evacuated"), ("evacuated", "released")):
-            with self.subTest(status=new_status):
+        for current in ("registered", "checked_in", "evacuated"):
+            with self.subTest(current_status=current):
                 connection = MagicMock()
                 def execute(sql, params=None):
                     cursor = MagicMock()
@@ -124,66 +124,53 @@ class PushDeviceTests(unittest.TestCase):
                     elif "SELECT id, name, location_text, capacity, current_occupancy, status" in sql:
                         cursor.fetchone.return_value = {
                             "id": "center-1", "name": "Center", "location_text": "",
-                            "capacity": 10, "current_occupancy": 0, "status": "available",
+                            "capacity": 10, "current_occupancy": 2, "status": "limited",
                         }
                     elif "SELECT id, name, capacity, current_occupancy, status" in sql:
                         cursor.fetchone.return_value = {
                             "id": "center-1", "name": "Center",
-                            "capacity": 10, "current_occupancy": 2, "status": "limited",
+                            "capacity": 10, "current_occupancy": 0, "status": "available",
                         }
                     return cursor
                 connection.execute.side_effect = execute
                 user = CurrentUser("responder-1", "r@example.com", "Ana Santos", "responder", 0)
                 result = main.update_evacuation_registration_status(
-                    "registration-1", EvacuationRegistrationStatusUpdate(status=new_status), user, connection,
+                    "registration-1", EvacuationRegistrationStatusUpdate(status="released"), user, connection,
                 )
-                self.assertEqual(result["status"], new_status)
+                self.assertEqual(result["status"], "released")
                 calls = connection.execute.call_args_list
                 push_call = next(call for call in calls if "INSERT INTO push_deliveries" in call.args[0])
                 self.assertEqual(push_call.args[1], (
                     "Evacuation status update",
-                    f"Your evacuation registration is {new_status.replace('_', ' ').upper()}. Updated by Responder Ana Santos.",
+                    "Your evacuation registration is RELEASED. Updated by Responder Ana Santos.",
                     "registration-1", "resident-1",
                 ))
                 connection.commit.assert_called_once()
 
-    def test_rejected_evacuation_transition_sends_no_notification(self):
-        connection = MagicMock()
-        connection.execute.return_value.fetchone.return_value = {
-            "id": "registration-1", "center_id": "center-1", "status": "registered",
-            "household_size": 1, "resident_user_id": "resident-1",
-        }
-        user = CurrentUser("admin-1", "a@example.com", "Admin", "admin", 0)
-        with self.assertRaises(main.HTTPException):
-            main.update_evacuation_registration_status(
-                "registration-1", EvacuationRegistrationStatusUpdate(status="evacuated"), user, connection,
-            )
-        self.assertFalse(any("INSERT INTO push_deliveries" in call.args[0] for call in connection.execute.call_args_list))
-        connection.commit.assert_not_called()
+    def test_registration_status_schema_rejects_check_in_transitions(self):
+        from pydantic import ValidationError
 
-    def test_walk_in_evacuation_status_change_does_not_send_resident_notification(self):
+        with self.assertRaises(ValidationError):
+            EvacuationRegistrationStatusUpdate(status="checked_in")
+
+    def test_releasing_legacy_registered_walk_in_does_not_decrement_capacity(self):
         connection = MagicMock()
-        def execute(sql, params=None):
-            cursor = MagicMock()
-            if "SELECT id, center_id, status" in sql:
-                cursor.fetchone.return_value = {
-                    "id": "registration-1", "center_id": "center-1", "status": "registered",
-                    "household_size": 2, "resident_user_id": None,
-                }
-            elif "SELECT id, name, location_text, capacity, current_occupancy, status" in sql:
-                cursor.fetchone.return_value = {
-                    "id": "center-1", "name": "Center", "location_text": "",
-                    "capacity": 10, "current_occupancy": 0, "status": "available",
-                }
-            return cursor
-        connection.execute.side_effect = execute
+        connection.execute.side_effect = [
+            MagicMock(fetchone=MagicMock(return_value={
+                "id": "registration-1", "center_id": "center-1", "status": "registered",
+                "household_size": 1, "resident_user_id": None,
+            })),
+            MagicMock(),
+            MagicMock(),
+        ]
         user = CurrentUser("admin-1", "a@example.com", "Admin", "admin", 0)
 
         result = main.update_evacuation_registration_status(
-            "registration-1", EvacuationRegistrationStatusUpdate(status="checked_in"), user, connection,
+            "registration-1", EvacuationRegistrationStatusUpdate(status="released"), user, connection,
         )
 
-        self.assertEqual(result["status"], "checked_in")
+        self.assertEqual(result["status"], "released")
+        self.assertFalse(any("UPDATE evacuation_centers" in call.args[0] for call in connection.execute.call_args_list))
         self.assertFalse(any("INSERT INTO push_deliveries" in call.args[0] for call in connection.execute.call_args_list))
         connection.commit.assert_called_once()
 

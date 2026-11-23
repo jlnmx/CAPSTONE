@@ -224,7 +224,7 @@ export function getCenterEvacuationRegistrations(centerId: string) {
   return records<EvacuationRegistrationRecord>(`/api/v1/evacuation-registrations?${query.toString()}`);
 }
 
-export function updateEvacuationRegistrationStatus(registrationId: string, status: 'checked_in' | 'evacuated' | 'released') {
+export function updateEvacuationRegistrationStatus(registrationId: string, status: 'released') {
   return apiRequest<void>(`/api/v1/evacuation-registrations/${encodeURIComponent(registrationId)}/status`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },

@@ -38,7 +38,7 @@ type ActiveDisaster = {
 };
 
 type ResidentEvacuationStatus = {
-  status: 'not_registered' | 'registered' | 'checked_in' | 'evacuated' | 'released';
+  status: 'not_registered' | 'registered' | 'checked_in' | 'evacuated';
   householdCount: number;
   members?: ResidentHouseholdMember[];
 };
@@ -247,8 +247,7 @@ function getResidentStatusPresentation(unavailable: boolean, loading: boolean, s
   if (!status || status.status === 'not_registered') return { label: 'SAFE', detail: 'No active evacuation registration', tone: 'forest', icon: 'shield-check-outline', mark: 'shield-outline' };
   if (status.status === 'registered') return { label: 'REGISTERED', detail: 'Evacuation registration recorded', tone: 'teal', icon: 'clipboard-check-outline', mark: 'clipboard-check-outline' };
   if (status.status === 'checked_in') return { label: 'CHECKED IN', detail: 'Your household is checked in at an evacuation center', tone: 'teal', icon: 'home-city-outline', mark: 'home-city-outline' };
-  if (status.status === 'evacuated') return { label: 'EVACUATED', detail: 'Your household has left the evacuation center', tone: 'sand', icon: 'exit-run', mark: 'home-outline' };
-  return { label: 'RELEASED', detail: 'Your evacuation registration is complete', tone: 'sand', icon: 'check-decagram-outline', mark: 'check-decagram-outline' };
+  return { label: 'EVACUATED', detail: 'Your household is staying at an evacuation center', tone: 'teal', icon: 'home-city-outline', mark: 'home-city-outline' };
 }
 
 type TileTone = { bg: string; fg: string; badgeBg: string; badgeFg: string; mark: string };

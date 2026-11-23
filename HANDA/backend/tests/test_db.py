@@ -76,7 +76,38 @@ class DatabaseDependencyTests(unittest.TestCase):
         self.assertEqual(result["status"], "not_registered")
         self.assertIn("status <> 'released'", connection.execute.call_args_list[0].args[0])
 
-    def test_admin_can_create_walk_in_household_without_occupancy_update(self):
+    def test_resident_status_preserves_legacy_registration_status(self):
+        registration_query = MagicMock()
+        registration_query.fetchone.return_value = {
+            "id": "registration-1",
+            "status": "registered",
+            "registered_at": None,
+            "checked_in_at": None,
+            "first_name": "Alex",
+            "middle_name": None,
+            "last_name": "Rivera",
+            "age": 30,
+            "sex": "Female",
+            "contact_number": None,
+            "address": "Poblacion",
+            "household_size": 1,
+            "checked_in_by": None,
+            "center_id": "center-1",
+            "center_name": "Community Hall",
+            "center_location": "Poblacion",
+        }
+        members_query = MagicMock()
+        members_query.fetchall.return_value = []
+        connection = MagicMock()
+        connection.execute.side_effect = [registration_query, members_query]
+
+        result = resident_evacuation_status(connection, MagicMock(id="resident-1", name="Alex Rivera"))
+
+        self.assertEqual(result["status"], "registered")
+        self.assertEqual(result["center"]["name"], "Community Hall")
+        self.assertIn("SELECT registration.id, registration.status", connection.execute.call_args_list[0].args[0])
+
+    def test_admin_can_create_walk_in_household_and_update_occupancy(self):
         connection = MagicMock()
         connection.execute.return_value.fetchone.return_value = {
             "id": "center-1", "name": "Community Hall", "capacity": 100,
@@ -96,12 +127,14 @@ class DatabaseDependencyTests(unittest.TestCase):
 
         result = create_evacuation_registration(registration, connection, MagicMock(id="admin-1"))
 
-        self.assertEqual(result["status"], "registered")
+        self.assertEqual(result["status"], "evacuated")
         self.assertIsNone(result["residentUserId"])
         registration_insert = next(call for call in connection.execute.call_args_list if "INSERT INTO evacuation_registrations" in call.args[0])
         self.assertIsNone(registration_insert.args[1][1])
+        self.assertEqual(registration_insert.args[1][-1], "evacuated")
+        occupancy_update = next(call for call in connection.execute.call_args_list if "UPDATE evacuation_centers" in call.args[0])
+        self.assertEqual(occupancy_update.args[1], (2, 2, "center-1"))
         self.assertTrue(any("INSERT INTO evacuation_household_members" in call.args[0] for call in connection.execute.call_args_list))
-        self.assertFalse(any("UPDATE evacuation_centers SET current_occupancy" in call.args[0] for call in connection.execute.call_args_list))
         connection.commit.assert_called_once()
 
     @patch("app.main.enqueue_evacuation_status")
@@ -111,6 +144,7 @@ class DatabaseDependencyTests(unittest.TestCase):
             {"id": "resident-1", "name": "Alex Rivera"},
             None,
             {"id": "center-1", "name": "Community Hall", "capacity": 100, "current_occupancy": 20, "status": "available"},
+            {"id": "center-1", "name": "Community Hall", "capacity": 100, "current_occupancy": 21, "status": "limited"},
         ]
         connection.execute.return_value.fetchone.side_effect = query_results
         registration = AdminEvacuationRegistrationCreate(
@@ -129,9 +163,11 @@ class DatabaseDependencyTests(unittest.TestCase):
         self.assertEqual(result["residentUserId"], "resident-1")
         resident_lookup = connection.execute.call_args_list[0].args[0]
         self.assertIn("role = 'Resident'", resident_lookup)
+        self.assertEqual(result["status"], "evacuated")
         enqueue_status.assert_called_once()
         self.assertEqual(enqueue_status.call_args.args[1], "resident-1")
         self.assertIn("Community Hall", enqueue_status.call_args.args[3])
+        self.assertTrue(any("UPDATE evacuation_centers" in call.args[0] for call in connection.execute.call_args_list))
         connection.commit.assert_called_once()
 
     def test_admin_cannot_register_at_full_center(self):
@@ -154,6 +190,30 @@ class DatabaseDependencyTests(unittest.TestCase):
             create_evacuation_registration(registration, connection, MagicMock(id="admin-1"))
 
         self.assertEqual(error.exception.status_code, 409)
+        connection.commit.assert_not_called()
+
+    def test_admin_cannot_register_household_over_remaining_capacity(self):
+        connection = MagicMock()
+        connection.execute.return_value.fetchone.return_value = {
+            "id": "center-1", "name": "Community Hall", "capacity": 10,
+            "current_occupancy": 9, "status": "limited",
+        }
+        registration = AdminEvacuationRegistrationCreate(
+            centerId="center-1",
+            firstName="Alex",
+            lastName="Rivera",
+            age=30,
+            sex="Female",
+            address="Poblacion",
+            householdSize=2,
+            members=[{"name": "Jamie Rivera", "relationship": "Child"}],
+        )
+
+        with self.assertRaises(HTTPException) as error:
+            create_evacuation_registration(registration, connection, MagicMock(id="admin-1"))
+
+        self.assertEqual(error.exception.status_code, 409)
+        self.assertFalse(any("UPDATE evacuation_centers" in call.args[0] for call in connection.execute.call_args_list))
         connection.commit.assert_not_called()
 
     def test_admin_can_update_center_details_and_close_it(self):

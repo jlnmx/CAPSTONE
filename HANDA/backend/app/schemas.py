@@ -398,7 +398,7 @@ class AdminEvacuationRegistrationCreate(BaseModel):
 
 
 class EvacuationRegistrationStatusUpdate(BaseModel):
-    status: Literal['checked_in', 'evacuated', 'released']
+    status: Literal['released']
 
 
 class EvacuationRegistrationCenterUpdate(BaseModel):

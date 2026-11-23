@@ -206,6 +206,7 @@ class EmailOtpTests(unittest.TestCase):
 
     def test_center_status_update_alerts_opted_in_residents_at_that_center(self):
         residents = [{
+            "id": "resident-1",
             "email": "ana@example.com",
             "mobile_number": "09171234567",
             "email_alerts_enabled": True,
@@ -223,7 +224,7 @@ class EmailOtpTests(unittest.TestCase):
             main.notify_center_status_change(connection, "available", center)
 
         self.assertIn("registrations.status IN ('registered', 'checked_in', 'evacuated')", connection.executions[0][0])
-        self.assertEqual(connection.executions[0][1], ("center-1",))
+        self.assertEqual(connection.executions[0][1], ("center-1", None))
         deliver.assert_called_once_with(
             "ana@example.com",
             "09171234567",

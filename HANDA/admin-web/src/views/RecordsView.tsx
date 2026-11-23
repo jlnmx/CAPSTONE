@@ -321,7 +321,7 @@ export function AddEvacueeModal({ onClose, onCreated, initialCenterId }: { onClo
         </>}
 
         <div className="form-field-wide household-form-heading">
-          <div><strong>Household members</strong><small>{members.length + 1} people in this household; added as registered until checked in.</small></div>
+          <div><strong>Household members</strong><small>{members.length + 1} people in this household; center occupancy updates as soon as the household is added.</small></div>
           <button type="button" className="button-secondary" onClick={() => setMembers((current) => current.length < 20 ? [...current, { ...emptyMember }] : current)} disabled={members.length >= 20}><UserRoundPlus size={15} /> Add member</button>
         </div>
         {members.map((member, index) => <div className="form-field-wide household-member-form" key={index}>
@@ -332,9 +332,9 @@ export function AddEvacueeModal({ onClose, onCreated, initialCenterId }: { onClo
           <label className="form-field"><span>Sex</span><select value={member.sex} onChange={(event) => updateMember(index, { sex: event.target.value as HouseholdDraft['sex'] })}><option value="">Not specified</option><option>Female</option><option>Male</option></select></label>
           <Field label="Contact number" value={member.contactNumber} onChange={(contact) => updateMember(index, { contactNumber: contact })} />
         </div>)}
-        <div className="form-field-wide"><InlineNotice>Registration is recorded at this center. It does not increase occupancy until center personnel mark the household checked in. The linked Resident, if selected, will receive the assignment status.</InlineNotice></div>
+        <div className="form-field-wide"><InlineNotice>Adding this household marks them as evacuated to this center and immediately updates its occupancy. The linked Resident, if selected, will receive a notification.</InlineNotice></div>
         {error && <div className="form-field-wide"><InlineNotice tone="error">{error}</InlineNotice></div>}
-        <div className="modal-actions form-field-wide"><button type="button" className="button-secondary" onClick={onClose} disabled={saving}>Cancel</button><button type="submit" className="button-primary" disabled={saving || !centers.length}>{saving && <span className="button-spinner" />}Add household</button></div>
+        <div className="modal-actions form-field-wide"><button type="button" className="button-secondary" onClick={onClose} disabled={saving}>Cancel</button><button type="submit" className="button-primary" disabled={saving || !centers.length}>{saving && <span className="button-spinner" />}Register as evacuated</button></div>
       </form>}
     </section>
   </div>;

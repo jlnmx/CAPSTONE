@@ -2250,7 +2250,8 @@ def create_evacuation_registration(
     ).fetchone()
     if not center:
         raise HTTPException(status_code=404, detail="Evacuation center not found.")
-    if evacuation_center_status(center["capacity"], center["current_occupancy"], center["status"]) in ("closed", "full"):
+    center_status = evacuation_center_status(center["capacity"], center["current_occupancy"], center["status"])
+    if center_status == "closed" or center["current_occupancy"] + registration.householdSize > center["capacity"]:
         raise HTTPException(status_code=409, detail="This evacuation center is not accepting registrations.")
 
     registration_id = f"evac-registration-{uuid4()}"
@@ -2258,28 +2259,44 @@ def create_evacuation_registration(
         """
         INSERT INTO evacuation_registrations
           (id, resident_user_id, center_id, first_name, middle_name, last_name, age, sex,
-           contact_number, address, household_size)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+           contact_number, address, household_size, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             registration_id, registration.residentUserId, registration.centerId,
             registration.firstName.strip(), (registration.middleName or "").strip() or None,
             registration.lastName.strip(), registration.age, registration.sex,
             (registration.contactNumber or "").strip(), registration.address.strip(),
-            registration.householdSize,
+            registration.householdSize, "evacuated",
         ),
     )
+    updated_center = connection.execute(
+        """
+        UPDATE evacuation_centers
+        SET current_occupancy = current_occupancy + %s,
+            status = CASE WHEN current_occupancy + %s >= capacity THEN 'full' ELSE 'limited' END,
+            updated_at = NOW()
+        WHERE id = %s
+        RETURNING id, name, capacity, current_occupancy, status
+        """,
+        (registration.householdSize, registration.householdSize, registration.centerId),
+    ).fetchone()
     for member in registration.members:
         insert_household_member(connection, "evacuation_household_members", "registration_id", f"household-member-{uuid4()}", registration_id, member)
+    connection.execute(
+        "UPDATE evacuation_household_members SET status = 'evacuated', updated_at = NOW() WHERE registration_id = %s",
+        (registration_id,),
+    )
     if registration.residentUserId:
         enqueue_evacuation_status(
             connection,
             registration.residentUserId,
             registration_id,
-            f"City Social Welfare and Development registered your household at {center['name']}. Follow responder directions for your evacuation center.",
+            f"Your household is now evacuated to {center['name']}. Follow responder directions at the evacuation center.",
         )
     connection.commit()
-    return {"id": registration_id, "status": "registered", "centerId": registration.centerId, "residentUserId": registration.residentUserId}
+    notify_center_status_change(connection, center["status"], updated_center, registration.residentUserId)
+    return {"id": registration_id, "status": "evacuated", "centerId": registration.centerId, "residentUserId": registration.residentUserId}
 
 
 @app.get("/api/v1/evacuation-registrations")
@@ -2341,32 +2358,13 @@ def update_evacuation_registration_status(
         raise HTTPException(status_code=404, detail="Evacuation registration not found.")
 
     current_status = registration["status"]
-    allowed_transitions = {
-        "registered": {"checked_in", "released"},
-        "checked_in": {"evacuated", "released"},
-        "evacuated": {"released"},
-        "released": set(),
-    }
-    if update.status not in allowed_transitions[current_status]:
+    if update.status != "released" or current_status == "released":
         raise HTTPException(status_code=409, detail=f"Cannot change status from {current_status} to {update.status}.")
 
     household_count = registration["household_size"]
     center_before = None
 
-    if update.status == "checked_in":
-        center = connection.execute(
-            "SELECT id, name, location_text, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
-            (registration["center_id"],),
-        ).fetchone()
-        center_before = center
-        center_status = evacuation_center_status(center["capacity"], center["current_occupancy"], center["status"])
-        if center_status == "closed" or center["current_occupancy"] + household_count > center["capacity"]:
-            raise HTTPException(status_code=409, detail="The evacuation center does not have enough available capacity for this household.")
-        connection.execute(
-            "UPDATE evacuation_centers SET current_occupancy = current_occupancy + %s, status = CASE WHEN current_occupancy + %s >= capacity THEN 'full' ELSE 'limited' END, updated_at = NOW() WHERE id = %s",
-            (household_count, household_count, registration["center_id"]),
-        )
-    elif update.status == "released" and current_status in ("checked_in", "evacuated"):
+    if update.status == "released" and current_status in ("checked_in", "evacuated"):
         center_before = connection.execute(
             "SELECT id, name, location_text, capacity, current_occupancy, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
             (registration["center_id"],),
@@ -2377,8 +2375,8 @@ def update_evacuation_registration_status(
         )
 
     connection.execute(
-        "UPDATE evacuation_registrations SET status = %s, checked_in_at = CASE WHEN %s = 'checked_in' THEN NOW() ELSE checked_in_at END, checked_in_by = CASE WHEN %s = 'checked_in' THEN %s ELSE checked_in_by END, updated_at = NOW() WHERE id = %s",
-        (update.status, update.status, update.status, user.id, registration_id),
+        "UPDATE evacuation_registrations SET status = %s, updated_at = NOW() WHERE id = %s",
+        (update.status, registration_id),
     )
     connection.execute(
         "UPDATE evacuation_household_members SET status = %s, updated_at = NOW() WHERE registration_id = %s",
