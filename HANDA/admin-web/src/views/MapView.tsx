@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, AlertTriangle, Building2, Clock3, Expand, LocateFixed, MapPin, RefreshCw, Shrink, Satellite } from 'lucide-react';
 import { getCommandMapSnapshot } from '../api';
 import type { CenterRecord, IncidentRecord } from '../types';
+import { BINAN_HAZARD_AREAS } from '../../../src/services/map/hazardAreas';
 
 const BINAN: [number, number] = [14.3036, 121.0781];
 const GOOGLE_MAPS_CALLBACK = '__handaGoogleMapsReady';
@@ -195,6 +196,7 @@ export default function MapView() {
   const mapKind = useRef<'google' | 'offline' | null>(null);
   const incidentMarkers = useRef(new Map<string, any>());
   const centerMarkers = useRef<any[]>([]);
+  const hazardPolygons = useRef<any[]>([]);
   const googleInfoWindow = useRef<any>(null);
   const [cachedMapSnapshot] = useState(readCachedMapSnapshot);
   const [data, setData] = useState<MapSnapshot>(() => cachedMapSnapshot?.data ?? { incidents: [], centers: [] });
@@ -204,6 +206,8 @@ export default function MapView() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(() => cachedMapSnapshot ? new Date(cachedMapSnapshot.savedAt) : null);
   const [showCenters, setShowCenters] = useState(true);
   const [showIncidents, setShowIncidents] = useState(true);
+  const [showFloodHazards, setShowFloodHazards] = useState(true);
+  const [showEarthquakeHazards, setShowEarthquakeHazards] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [online, setOnline] = useState(navigator.onLine);
   const [mapReady, setMapReady] = useState(false);
@@ -281,6 +285,7 @@ export default function MapView() {
     mapKind.current = null;
     incidentMarkers.current.clear();
     centerMarkers.current = [];
+    hazardPolygons.current = [];
 
     const showLoadError = (event: Event) => {
       event.preventDefault();
@@ -318,15 +323,47 @@ export default function MapView() {
       if (mapKind.current === 'google') {
         incidentMarkers.current.forEach((marker) => marker.setMap(null));
         centerMarkers.current.forEach((marker) => marker.setMap(null));
+        hazardPolygons.current.forEach((polygon) => polygon.setMap(null));
         googleInfoWindow.current?.close();
       }
       mapRef.current = null;
       mapKind.current = null;
       incidentMarkers.current.clear();
       centerMarkers.current = [];
+      hazardPolygons.current = [];
       googleInfoWindow.current = null;
     };
   }, [online, apiKey, mapRetry]);
+
+  useEffect(() => {
+    hazardPolygons.current.forEach((polygon) => polygon.setMap(null));
+    hazardPolygons.current = [];
+    if (!mapReady || mapKind.current !== 'google' || !mapRef.current) return;
+    const google = (window as any).google?.maps;
+    if (!google) return;
+
+    hazardPolygons.current = BINAN_HAZARD_AREAS
+      .filter((feature) => feature.properties.hazardType === 'flood' ? showFloodHazards : showEarthquakeHazards)
+      .map((feature) => {
+        const isFlood = feature.properties.hazardType === 'flood';
+        return new google.Polygon({
+          map: mapRef.current,
+          paths: feature.geometry.coordinates.map((ring) => ring.map(([longitude, latitude]) => ({ lat: latitude, lng: longitude }))),
+          strokeColor: isFlood ? '#B71C1C' : '#E65100',
+          strokeOpacity: 0.82,
+          strokeWeight: 1.5,
+          fillColor: isFlood ? '#C62828' : '#EF6C00',
+          fillOpacity: 0.24,
+          clickable: false,
+          zIndex: 1,
+        });
+      });
+
+    return () => {
+      hazardPolygons.current.forEach((polygon) => polygon.setMap(null));
+      hazardPolygons.current = [];
+    };
+  }, [mapReady, showFloodHazards, showEarthquakeHazards]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
@@ -488,6 +525,8 @@ export default function MapView() {
         <div className="map-layer-control" aria-label="Map layers">
           <label><input type="checkbox" checked={showIncidents} onChange={(event) => setShowIncidents(event.target.checked)} /><i className="map-legend-dot legend-incident" /><span>Incidents</span><strong>{activeIncidents.length}</strong></label>
           <label><input type="checkbox" checked={showCenters} onChange={(event) => setShowCenters(event.target.checked)} /><i className="map-legend-dot legend-center" /><span>Evacuation centers</span><strong>{data.centers.length}</strong></label>
+          <label title={!online ? 'Hazard overlays are unavailable while offline.' : undefined}><input type="checkbox" checked={showFloodHazards} onChange={(event) => setShowFloodHazards(event.target.checked)} disabled={!online} /><i className="map-hazard-swatch map-hazard-flood" /><span>Flood-prone barangays</span></label>
+          <label title={!online ? 'Hazard overlays are unavailable while offline.' : undefined}><input type="checkbox" checked={showEarthquakeHazards} onChange={(event) => setShowEarthquakeHazards(event.target.checked)} disabled={!online} /><i className="map-hazard-swatch map-hazard-earthquake" /><span>Earthquake / fault zones</span></label>
           <div className="map-status-key"><span><i className="legend-incident" />Needs response</span><span><i className="legend-acknowledged" />Acknowledged</span><span><i className="legend-progress" />Responding</span></div>
         </div>
         {loading && <div className="map-loading-indicator"><span className="loader" />Loading live field data</div>}

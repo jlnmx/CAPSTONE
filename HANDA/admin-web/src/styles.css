@@ -406,6 +406,10 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .map-layer-control input { width: 13px; height: 13px; margin: 0; accent-color: var(--brand); }
 .map-layer-control label strong { margin-left: auto; color: #26372b; font-family: 'IBM Plex Mono', monospace; font-size: 9px; }
 .map-legend-dot, .map-status-key i { display: inline-block; width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; }
+.map-hazard-swatch { display: inline-block; width: 9px; height: 9px; flex: 0 0 9px; border: 1px solid currentColor; border-radius: 2px; }
+.map-hazard-flood { color: #B71C1C; background: rgb(198 40 40 / 24%); }
+.map-hazard-earthquake { color: #E65100; background: rgb(239 108 0 / 24%); }
+.map-layer-control label:has(input:disabled) { cursor: not-allowed; opacity: .58; }
 .legend-incident { background: #d83b36; }.legend-center { background: #24834a; }.legend-resolved { background: #737f78; }.legend-acknowledged { background: #f28c28; }.legend-progress { background: #267da4; }
 .map-status-key { display: grid; gap: 5px; padding: 7px 4px 2px 21px; margin-top: 3px; border-top: 1px solid #e7ece7; color: #718076; font-size: 8px; }
 .map-status-key span { display: flex; align-items: center; gap: 7px; }
