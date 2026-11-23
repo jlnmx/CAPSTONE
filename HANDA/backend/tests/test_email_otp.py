@@ -152,7 +152,7 @@ class EmailOtpTests(unittest.TestCase):
         smtp.login.assert_called_once_with("sender@gmail.com", "app-password")
         smtp.send_message.assert_called_once()
 
-    def test_email_otp_does_not_fall_back_after_ambiguous_gmail_network_error(self):
+    def test_email_otp_falls_back_to_smtp_after_ambiguous_gmail_network_error(self):
         configuration = SimpleNamespace(
             gmail_api_client_id="oauth-client-id",
             gmail_api_client_secret="oauth-client-secret",
@@ -166,14 +166,53 @@ class EmailOtpTests(unittest.TestCase):
         )
         token_response = MagicMock()
         token_response.__enter__.return_value.read.return_value = b'{"access_token":"short-lived-token"}'
+        smtp = MagicMock()
+        smtp_context = MagicMock()
+        smtp_context.__enter__.return_value = smtp
 
         with patch.object(main, "settings", configuration), \
                 patch.object(main, "urlopen", side_effect=[token_response, URLError("connection reset")]), \
-                patch.object(main.smtplib, "SMTP") as smtp_factory:
-            with self.assertRaises(URLError):
-                main.deliver_password_reset_otp("ana@example.com", "email", "123456", "account verification")
+                patch.object(main.smtplib, "SMTP", return_value=smtp_context) as smtp_factory:
+            main.deliver_password_reset_otp("ana@example.com", "email", "123456", "account verification")
 
-        smtp_factory.assert_not_called()
+        smtp_factory.assert_called_once_with("smtp.gmail.com", 587, timeout=10)
+        smtp.starttls.assert_called_once()
+        smtp.login.assert_called_once_with("sender@gmail.com", "app-password")
+        smtp.send_message.assert_called_once()
+
+    def test_email_otp_falls_back_to_smtp_after_gmail_server_error(self):
+        configuration = SimpleNamespace(
+            gmail_api_client_id="oauth-client-id",
+            gmail_api_client_secret="oauth-client-secret",
+            gmail_api_refresh_token="refresh-token",
+            smtp_host="smtp.gmail.com",
+            smtp_port=587,
+            smtp_username="sender@gmail.com",
+            smtp_password="app-password",
+            smtp_from="sender@gmail.com",
+            password_reset_expiry_minutes=10,
+        )
+        token_response = MagicMock()
+        token_response.__enter__.return_value.read.return_value = b'{"access_token":"short-lived-token"}'
+        gmail_error = HTTPError(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            503,
+            "Service Unavailable",
+            {},
+            None,
+        )
+        smtp = MagicMock()
+        smtp_context = MagicMock()
+        smtp_context.__enter__.return_value = smtp
+
+        with patch.object(main, "settings", configuration), \
+                patch.object(main, "urlopen", side_effect=[token_response, gmail_error]), \
+                patch.object(main.smtplib, "SMTP", return_value=smtp_context) as smtp_factory:
+            main.deliver_password_reset_otp("ana@example.com", "email", "123456", "password change")
+        gmail_error.close()
+
+        smtp_factory.assert_called_once_with("smtp.gmail.com", 587, timeout=10)
+        smtp.send_message.assert_called_once()
 
     def test_philippine_mobile_numbers_are_normalized_for_sms(self):
         self.assertEqual(main.normalize_sms_number("09171234567"), "+639171234567")

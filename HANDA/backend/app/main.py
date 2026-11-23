@@ -144,11 +144,10 @@ def deliver_email_message(message: EmailMessage) -> None:
                 with urlopen(send_request, timeout=10):
                     pass
                 return
-            except HTTPError as error:
-                if not 400 <= error.code < 500:
-                    raise
+            except (HTTPError, URLError, TimeoutError, OSError) as error:
+                # SMTP retries reuse the same OTP if Gmail accepted the request before a timeout.
                 gmail_error = error
-                logger.warning("Gmail API rejected the message (HTTP %s); trying SMTP if configured.", error.code)
+                logger.warning("Gmail API send failed (%s); trying SMTP if configured.", type(error).__name__)
 
     if settings.smtp_host and settings.smtp_from:
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
