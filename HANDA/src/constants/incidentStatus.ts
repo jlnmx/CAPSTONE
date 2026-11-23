@@ -22,3 +22,7 @@ export function incidentStatusLabel(status: string | undefined | null): string {
   const key = String(status ?? 'reported').toLowerCase() as IncidentStatusKey;
   return INCIDENT_STATUS_LABELS[key] ?? key.replace(/_/g, ' ');
 }
+
+export function isActiveIncidentStatus(status: string | undefined | null): boolean {
+  return String(status ?? '').trim().toLowerCase() !== 'resolved';
+}

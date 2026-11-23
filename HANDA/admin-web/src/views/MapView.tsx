@@ -3,6 +3,7 @@ import { Activity, AlertTriangle, Building2, Clock3, Expand, LocateFixed, MapPin
 import { getCommandMapSnapshot } from '../api';
 import type { CenterRecord, IncidentRecord } from '../types';
 import { BINAN_HAZARD_AREAS } from '../../../src/services/map/hazardAreas';
+import { isActiveIncidentStatus } from '../../../src/constants/incidentStatus';
 
 const BINAN: [number, number] = [14.3036, 121.0781];
 const GOOGLE_MAPS_CALLBACK = '__handaGoogleMapsReady';
@@ -20,7 +21,7 @@ const incidentColors: Record<string, string> = {
 
 const centerColors: Record<string, string> = {
   available: '#24834a',
-  limited: '#dc9a2d',
+  limited: '#7757A6',
   full: '#c13b32',
   closed: '#737f78',
 };
@@ -385,7 +386,7 @@ export default function MapView() {
       centerMarkers.current.push(marker);
     });
 
-    data.incidents.filter(hasCoordinates).filter((incident) => incident.status.toLowerCase() !== 'resolved').forEach((incident) => {
+    data.incidents.filter(hasCoordinates).filter((incident) => isActiveIncidentStatus(incident.status)).forEach((incident) => {
       const status = incident.status.toLowerCase();
       const marker = new google.Marker({ map: showIncidents ? mapRef.current : null, position: { lat: incident.latitude, lng: incident.longitude },
         title: incident.type, icon: { path: google.SymbolPath.CIRCLE, scale: status === 'reported' ? 10 : 8, fillColor: incidentColors[status] || '#737f78', fillOpacity: 0.96, strokeColor: '#fff', strokeWeight: 2 } });
@@ -425,7 +426,7 @@ export default function MapView() {
     return () => window.cancelAnimationFrame(frame);
   }, [isFullscreen]);
 
-  const activeIncidents = useMemo(() => data.incidents.filter((incident) => incident.status.toLowerCase() !== 'resolved'), [data.incidents]);
+  const activeIncidents = useMemo(() => data.incidents.filter((incident) => isActiveIncidentStatus(incident.status)), [data.incidents]);
   const visibleIncidents = useMemo(() => [...activeIncidents]
     .sort((first, second) => new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime())
     .slice(0, 12), [activeIncidents]);

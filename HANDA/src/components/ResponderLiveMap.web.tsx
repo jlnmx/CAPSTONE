@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
-import { incidentStatusColor } from '@constants/incidentStatus';
+import { incidentStatusColor, isActiveIncidentStatus } from '@constants/incidentStatus';
 import { useAuth } from '@hooks/useAuth';
 import { useEvacuationCenterFeed, useIncidentFeed, useResponderLive } from '@hooks/useRealtime';
 import { getResponderData, ResponderDataSnapshot } from '@services/responderData';
@@ -41,6 +41,10 @@ export default function ResponderLiveMap() {
   const [mapReady, setMapReady] = useState(false);
   const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
   const { responders } = useResponderLive();
+  const activeIncidents = useMemo(
+    () => data.incidents.filter((incident) => isActiveIncidentStatus(incident.status)),
+    [data.incidents],
+  );
 
   const loadData = useCallback(async () => {
     try {
@@ -93,10 +97,10 @@ export default function ResponderLiveMap() {
     ...data.centers.flatMap((center) => center.latitude == null || center.longitude == null
       ? []
       : [{ id: `center-${center.id}`, title: center.name, subtitle: `${center.location} · ${center.status}`, latitude: center.latitude, longitude: center.longitude, kind: 'center' as const }]),
-    ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
+    ...activeIncidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
       ? []
       : [{ id: `incident-${incident.id}`, title: incident.type, subtitle: `${incident.status.replace(/_/g, ' ')} · ${incident.location}`, latitude: incident.latitude, longitude: incident.longitude, kind: 'incident' as const }]),
-  ], [data]);
+  ], [data.centers, activeIncidents]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -128,7 +132,7 @@ export default function ResponderLiveMap() {
       markers.push(marker);
     });
 
-    data.incidents.forEach((incident) => {
+    activeIncidents.forEach((incident) => {
       if (incident.latitude == null || incident.longitude == null) return;
       const marker = new google.maps.Marker({
         map,
@@ -169,7 +173,7 @@ export default function ResponderLiveMap() {
     });
     markersRef.current = markers;
     return () => infoWindows.forEach((info) => info.close());
-  }, [data, responders, mapReady, user?.id]);
+  }, [data.centers, activeIncidents, responders, mapReady, user?.id]);
 
   useEffect(() => {
     if (isOnline !== true || !mapReady || !mapRef.current || !navigator.geolocation) return undefined;
@@ -300,7 +304,7 @@ function toOfflinePoints(data: ResponderDataSnapshot): OfflineMapPoint[] {
         longitude: center.longitude,
         color: center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#D45B92',
       }]),
-    ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
+    ...data.incidents.filter((incident) => isActiveIncidentStatus(incident.status)).flatMap((incident) => incident.latitude == null || incident.longitude == null
       ? []
       : [{
         id: `incident-${incident.id}`,

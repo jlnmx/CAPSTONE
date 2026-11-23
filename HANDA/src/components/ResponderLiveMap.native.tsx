@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
-import { incidentStatusColor } from '@constants/incidentStatus';
+import { incidentStatusColor, isActiveIncidentStatus } from '@constants/incidentStatus';
 import { useAuth } from '@hooks/useAuth';
 import { useEvacuationCenterFeed, useIncidentFeed, useResponderLive } from '@hooks/useRealtime';
 import { getResponderData, ResponderDataSnapshot } from '@services/responderData';
@@ -40,11 +40,15 @@ export default function ResponderLiveMap() {
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const isOnline = useMapConnectivity();
   const { responders } = useResponderLive();
+  const activeIncidents = useMemo(
+    () => data.incidents.filter((incident) => isActiveIncidentStatus(incident.status)),
+    [data.incidents],
+  );
   const selectedCenter = selectedLocation?.kind === 'center'
     ? data.centers.find((center) => center.id === selectedLocation.id)
     : undefined;
   const selectedIncident = selectedLocation?.kind === 'incident'
-    ? data.incidents.find((incident) => incident.id === selectedLocation.id)
+    ? activeIncidents.find((incident) => incident.id === selectedLocation.id)
     : undefined;
   const selectedCapacity = selectedCenter ? Math.max(0, Number(selectedCenter.capacity) || 0) : 0;
   const selectedOccupancy = selectedCenter ? Math.max(0, Number(selectedCenter.currentOccupancy) || 0) : 0;
@@ -99,10 +103,10 @@ export default function ResponderLiveMap() {
     ...data.centers.flatMap((center) => center.latitude == null || center.longitude == null
       ? []
       : [{ id: `center-${center.id}`, title: center.name, subtitle: `${center.location} · ${center.status}`, latitude: center.latitude, longitude: center.longitude, kind: 'center' as const }]),
-    ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
+    ...activeIncidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
       ? []
       : [{ id: `incident-${incident.id}`, title: incident.type, subtitle: `${incident.status.replace(/_/g, ' ')} · ${incident.location}`, latitude: incident.latitude, longitude: incident.longitude, kind: 'incident' as const }]),
-  ], [data]);
+  ], [data.centers, activeIncidents]);
 
   if (isOnline === null) return <MapMessage>Checking map connectivity...</MapMessage>;
   if (!isOnline && loading) return <MapMessage>Loading saved map locations...</MapMessage>;
@@ -160,7 +164,7 @@ export default function ResponderLiveMap() {
             onPress={() => setSelectedLocation({ kind: 'center', id: center.id })}
           />
         ))}
-        {data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null ? [] : (
+        {activeIncidents.flatMap((incident) => incident.latitude == null || incident.longitude == null ? [] : (
           <Marker
             key={`incident-${incident.id}`}
             coordinate={{ latitude: incident.latitude, longitude: incident.longitude }}
@@ -310,7 +314,7 @@ function toOfflinePoints(data: ResponderDataSnapshot): OfflineMapPoint[] {
         longitude: center.longitude,
         color: center.status === 'closed' || center.status === 'full' ? '#D83B36' : '#D45B92',
       }]),
-    ...data.incidents.flatMap((incident) => incident.latitude == null || incident.longitude == null
+    ...data.incidents.filter((incident) => isActiveIncidentStatus(incident.status)).flatMap((incident) => incident.latitude == null || incident.longitude == null
       ? []
       : [{
         id: `incident-${incident.id}`,
