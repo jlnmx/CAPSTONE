@@ -109,6 +109,7 @@ def email_delivery_configured() -> bool:
 
 
 def deliver_email_message(message: EmailMessage) -> None:
+    gmail_error = None
     if gmail_api_configured():
         token_request = Request(
             "https://oauth2.googleapis.com/token",
@@ -120,24 +121,34 @@ def deliver_email_message(message: EmailMessage) -> None:
             }).encode(),
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
-        with urlopen(token_request, timeout=10) as response:
-            token_payload = json.loads(response.read())
-        access_token = token_payload.get("access_token")
-        if not isinstance(access_token, str) or not access_token:
-            raise RuntimeError("Google OAuth did not return an access token.")
-
-        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii").rstrip("=")
-        send_request = Request(
-            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-            data=json.dumps({"raw": encoded_message}).encode(),
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json",
-            },
-        )
-        with urlopen(send_request, timeout=10):
-            pass
-        return
+        try:
+            with urlopen(token_request, timeout=10) as response:
+                token_payload = json.loads(response.read())
+            access_token = token_payload.get("access_token")
+            if not isinstance(access_token, str) or not access_token:
+                raise RuntimeError("Google OAuth did not return an access token.")
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError, RuntimeError) as error:
+            gmail_error = error
+            logger.warning("Gmail OAuth token exchange failed (%s); trying SMTP if configured.", type(error).__name__)
+        else:
+            encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii").rstrip("=")
+            send_request = Request(
+                "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+                data=json.dumps({"raw": encoded_message}).encode(),
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json",
+                },
+            )
+            try:
+                with urlopen(send_request, timeout=10):
+                    pass
+                return
+            except HTTPError as error:
+                if not 400 <= error.code < 500:
+                    raise
+                gmail_error = error
+                logger.warning("Gmail API rejected the message (HTTP %s); trying SMTP if configured.", error.code)
 
     if settings.smtp_host and settings.smtp_from:
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
@@ -147,6 +158,8 @@ def deliver_email_message(message: EmailMessage) -> None:
             server.send_message(message)
         return
 
+    if gmail_error:
+        raise gmail_error
     raise RuntimeError("Email delivery is not configured.")
 
 
