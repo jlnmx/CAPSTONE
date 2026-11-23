@@ -108,6 +108,30 @@ def email_delivery_configured() -> bool:
     return (gmail_api_configured() and bool(settings.smtp_from)) or bool(settings.smtp_host and settings.smtp_from)
 
 
+def google_oauth_error_detail(error: HTTPError) -> str:
+    try:
+        payload = json.loads(error.read().decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return "Google returned no readable OAuth error details."
+    if not isinstance(payload, dict):
+        return "Google returned no readable OAuth error details."
+
+    error_code = payload.get("error")
+    description = payload.get("error_description")
+    safe_code = error_code if isinstance(error_code, str) and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", error_code) else "unknown_error"
+    if not isinstance(description, str):
+        return safe_code
+    description = re.sub(r"[\r\n\t]+", " ", description).strip()[:240]
+    credentials = (
+        str(getattr(settings, "gmail_api_client_id", "")),
+        str(getattr(settings, "gmail_api_client_secret", "")),
+        str(getattr(settings, "gmail_api_refresh_token", "")),
+    )
+    if any(credential and credential in description for credential in credentials):
+        description = "[redacted]"
+    return f"{safe_code}: {description}" if description else safe_code
+
+
 def deliver_email_message(message: EmailMessage) -> None:
     if gmail_api_configured():
         token_request = Request(
@@ -127,7 +151,7 @@ def deliver_email_message(message: EmailMessage) -> None:
             if not isinstance(access_token, str) or not access_token:
                 raise RuntimeError("Google OAuth did not return an access token.")
         except HTTPError as error:
-            logger.warning("Gmail OAuth token exchange failed (HTTP %s).", error.code)
+            logger.warning("Gmail OAuth token exchange failed (HTTP %s; %s).", error.code, google_oauth_error_detail(error))
             raise
         except (URLError, TimeoutError, json.JSONDecodeError, RuntimeError) as error:
             logger.warning("Gmail OAuth token exchange failed (%s).", type(error).__name__)

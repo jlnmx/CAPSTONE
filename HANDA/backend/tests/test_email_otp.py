@@ -1,4 +1,5 @@
 import base64
+import io
 import json
 import unittest
 from datetime import UTC, datetime, timedelta
@@ -41,6 +42,41 @@ class FakeConnection:
 
 
 class EmailOtpTests(unittest.TestCase):
+    def test_oauth_error_detail_logs_google_reason_without_credentials(self):
+        error = HTTPError(
+            "https://oauth2.googleapis.com/token",
+            401,
+            "Unauthorized",
+            {},
+            io.BytesIO(b'{"error":"invalid_client","error_description":"The OAuth client was not found."}'),
+        )
+        self.addCleanup(error.close)
+
+        self.assertEqual(
+            main.google_oauth_error_detail(error),
+            "invalid_client: The OAuth client was not found.",
+        )
+
+    def test_oauth_error_detail_redacts_credentials_echoed_in_description(self):
+        configuration = SimpleNamespace(
+            gmail_api_client_id="oauth-client-id",
+            gmail_api_client_secret="oauth-client-secret",
+            gmail_api_refresh_token="refresh-token",
+        )
+        error = HTTPError(
+            "https://oauth2.googleapis.com/token",
+            401,
+            "Unauthorized",
+            {},
+            io.BytesIO(b'{"error":"invalid_client","error_description":"Rejected oauth-client-secret"}'),
+        )
+        self.addCleanup(error.close)
+
+        with patch.object(main, "settings", configuration):
+            detail = main.google_oauth_error_detail(error)
+
+        self.assertEqual(detail, "invalid_client: [redacted]")
+
     def test_email_otp_uses_configured_starttls_smtp(self):
         configuration = SimpleNamespace(
             smtp_host="smtp.gmail.com",
