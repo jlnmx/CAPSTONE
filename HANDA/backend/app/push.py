@@ -46,6 +46,15 @@ def enqueue_user(connection: psycopg.Connection, user_id: str, incident_id: str,
     )
 
 
+def enqueue_dispatch(connection: psycopg.Connection, user_id: str, incident_id: str, title: str, body: str) -> None:
+    connection.execute(
+        """INSERT INTO push_deliveries (token, user_id, title, body, incident_id, notification_type)
+           SELECT token, user_id, %s, %s, %s, 'dispatch' FROM push_devices
+           WHERE user_id = %s AND updated_at > NOW() - INTERVAL '30 days'""",
+        (title, body, incident_id, user_id),
+    )
+
+
 def enqueue_evacuation_status(connection: psycopg.Connection, user_id: str, registration_id: str, body: str) -> None:
     connection.execute(
         """INSERT INTO push_deliveries (token, user_id, title, body, incident_id, notification_type)
@@ -132,20 +141,30 @@ def process_one() -> bool:
                     _retry(connection, delivery, "receipt not available yet")
                     return True
             else:
+                notification_type = delivery["notification_type"]
+                is_dispatch = notification_type == "dispatch"
+                if is_dispatch:
+                    notification_data = {"type": "dispatch", "incidentId": delivery["incident_id"]}
+                elif notification_type == "evacuation":
+                    notification_data = {"type": "evacuation", "registrationId": delivery["incident_id"]}
+                elif notification_type == "weather":
+                    notification_data = {"type": "weather"}
+                else:
+                    notification_data = {"type": "incident", "incidentId": delivery["incident_id"]}
                 data = _request(EXPO_SEND_URL, {
                     "to": delivery["token"],
                     "title": delivery["title"],
                     "body": delivery["body"],
-                    "sound": "default",
+                    "sound": "dispatch_siren.wav" if is_dispatch else "default",
                     "priority": "high",
-                    "channelId": "weather" if delivery["notification_type"] == "weather" else "incidents",
-                    "data": (
-                        {"type": "evacuation", "registrationId": delivery["incident_id"]}
-                        if delivery["notification_type"] == "evacuation"
-                        else {"type": "weather"}
-                        if delivery["notification_type"] == "weather"
-                        else {"type": "incident", "incidentId": delivery["incident_id"]}
+                    "channelId": (
+                        "dispatch"
+                        if is_dispatch
+                        else "weather"
+                        if notification_type == "weather"
+                        else "incidents"
                     ),
+                    "data": notification_data,
                 }).get("data")
                 ticket = data[0] if isinstance(data, list) and data else data
             if not isinstance(ticket, dict):

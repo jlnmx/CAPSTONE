@@ -257,6 +257,7 @@ class IncidentDispatchTests(unittest.TestCase):
         self.assertEqual(len(notifications), 1)
         self.assertIn("You have been dispatched", notifications[0].args[1][3])
         self.assertEqual(len(pushes), 1)
+        self.assertIn("'dispatch'", pushes[0].args[0])
         connection.commit.assert_called_once()
 
 

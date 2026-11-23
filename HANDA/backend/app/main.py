@@ -35,7 +35,7 @@ from .schemas import ChatbotRequest
 from .schemas import PushDeviceInput
 from .schemas import MapPlaceSearch, MapRouteRequest
 from .maps import compute_routes, search_places
-from .push import PUSH_SCHEMA_SQL, enqueue_evacuation_status, enqueue_responders, enqueue_residents, enqueue_user, process_one
+from .push import PUSH_SCHEMA_SQL, enqueue_dispatch, enqueue_evacuation_status, enqueue_responders, enqueue_residents, enqueue_user, process_one
 from .sms import normalize_sms_number, send_sms, send_sms_otp, send_sms_to_many, sms_delivery_configured
 from .storm_alerts import STORM_ADVISORY_POLL_SECONDS, process_live_storm_advisories
 from .weather import get_google_weather_snapshot
@@ -1644,7 +1644,7 @@ def dispatch_incident_responders(
             "INSERT INTO notifications (id, user_id, incident_id, title, message) VALUES (%s, %s, %s, %s, %s)",
             (f"notification-{uuid4()}", responder_id, incident_id, title, message),
         )
-        enqueue_user(connection, responder_id, incident_id, title, message)
+        enqueue_dispatch(connection, responder_id, incident_id, title, message)
 
     reporter = None
     reporter_alert: tuple[str, str, str, str, bool, bool, bool] | None = None

@@ -257,6 +257,15 @@ class PushDeliveryTests(unittest.TestCase):
         self.assertEqual(payload["channelId"], "weather")
         self.assertEqual(payload["data"], {"type": "weather"})
 
+    def test_dispatch_payload_uses_siren_and_dispatch_channel(self):
+        self.delivery["notification_type"] = "dispatch"
+        with patch("app.push._request", return_value={"data": {"status": "ok", "id": "receipt-1"}}) as request:
+            self.assertTrue(push.process_one())
+        payload = request.call_args.args[1]
+        self.assertEqual(payload["sound"], "dispatch_siren.wav")
+        self.assertEqual(payload["channelId"], "dispatch")
+        self.assertEqual(payload["data"], {"type": "dispatch", "incidentId": "incident-1"})
+
     def test_successful_receipt_removes_delivery(self):
         self.delivery["receipt_id"] = "receipt-1"
         with patch("app.push._request", return_value={"data": {"receipt-1": {"status": "ok"}}}):

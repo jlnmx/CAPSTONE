@@ -74,7 +74,12 @@
       ],
       "@maplibre/maplibre-react-native",
       "expo-asset",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "sounds": ["./assets/sounds/dispatch_siren.wav"]
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {

@@ -6,5 +6,6 @@ export function pushNotificationRoute(type: unknown, role: UserRole) {
   if (type === 'weather' && role === 'responder') return '/(responder)/weather';
   if (type === 'incident' && role === 'resident') return '/(resident)/incidents';
   if (type === 'incident' && role === 'responder') return '/(responder)/incidents';
+  if (type === 'dispatch' && role === 'responder') return '/(responder)/incidents';
   return null;
 }

@@ -35,6 +35,11 @@ beforeEach(() => {
 it('requests permission, creates the high-importance channel and registers the token', async () => {
   await registerPushDevice();
   expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('incidents', expect.objectContaining({ importance: 4 }));
+  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('dispatch', expect.objectContaining({
+    name: 'Responder dispatch',
+    sound: 'dispatch_siren.wav',
+    vibrationPattern: [0, 500, 250, 500, 250, 700],
+  }));
   expect(Notifications.requestPermissionsAsync).toHaveBeenCalled();
   expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({ projectId: 'project-id' });
   expect(SecureStore.setItemAsync).toHaveBeenCalledWith('handa.pushToken', 'ExpoPushToken[abc123]');
