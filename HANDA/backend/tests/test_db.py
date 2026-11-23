@@ -127,6 +127,8 @@ class DatabaseDependencyTests(unittest.TestCase):
         result = create_evacuation_registration(registration, connection, MagicMock(id="admin-1"))
 
         self.assertEqual(result["residentUserId"], "resident-1")
+        resident_lookup = connection.execute.call_args_list[0].args[0]
+        self.assertIn("role = 'Resident'", resident_lookup)
         enqueue_status.assert_called_once()
         self.assertEqual(enqueue_status.call_args.args[1], "resident-1")
         self.assertIn("Community Hall", enqueue_status.call_args.args[3])

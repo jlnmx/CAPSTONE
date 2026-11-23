@@ -2232,7 +2232,7 @@ def create_evacuation_registration(
 ):
     if registration.residentUserId:
         resident = connection.execute(
-            "SELECT id, name FROM users WHERE id = %s AND role = 'resident' AND status = 'Active' FOR UPDATE",
+            "SELECT id, name FROM users WHERE id = %s AND role = 'Resident' AND status = 'Active' FOR UPDATE",
             (registration.residentUserId,),
         ).fetchone()
         if not resident:
