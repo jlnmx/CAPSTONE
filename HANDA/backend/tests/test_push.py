@@ -223,6 +223,7 @@ class PushDeliveryTests(unittest.TestCase):
             "id": 1, "token": "ExpoPushToken[abc123]", "user_id": "resident-1",
             "title": "Update", "body": "Open HANDA", "incident_id": "incident-1",
             "receipt_id": None, "attempts": 0, "notification_type": "incident",
+            "dispatch_siren_enabled": True,
         }
         self.connection = MagicMock()
         self.connection.execute.return_value.fetchone.return_value = self.delivery
@@ -263,8 +264,17 @@ class PushDeliveryTests(unittest.TestCase):
             self.assertTrue(push.process_one())
         payload = request.call_args.args[1]
         self.assertEqual(payload["sound"], "dispatch_siren.wav")
-        self.assertEqual(payload["channelId"], "dispatch")
+        self.assertEqual(payload["channelId"], "dispatch_siren_v2")
         self.assertEqual(payload["data"], {"type": "dispatch", "incidentId": "incident-1"})
+
+    def test_dispatch_payload_can_be_silenced_by_responder_preference(self):
+        self.delivery["notification_type"] = "dispatch"
+        self.delivery["dispatch_siren_enabled"] = False
+        with patch("app.push._request", return_value={"data": {"status": "ok", "id": "receipt-1"}}) as request:
+            self.assertTrue(push.process_one())
+        payload = request.call_args.args[1]
+        self.assertIsNone(payload["sound"])
+        self.assertEqual(payload["channelId"], "dispatch_silent_v2")
 
     def test_successful_receipt_removes_delivery(self):
         self.delivery["receipt_id"] = "receipt-1"

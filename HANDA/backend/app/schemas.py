@@ -234,6 +234,7 @@ class ChatbotRequest(BaseModel):
 class NotificationPreferencesUpdate(BaseModel):
     emailEnabled: bool | None = None
     smsEnabled: bool | None = None
+    dispatchSirenEnabled: bool | None = None
 
 
 class PasswordResetRequest(BaseModel):

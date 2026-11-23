@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS push_deliveries (
 CREATE INDEX IF NOT EXISTS push_deliveries_due_idx ON push_deliveries (next_attempt);
 ALTER TABLE push_deliveries ADD COLUMN IF NOT EXISTS notification_type TEXT NOT NULL DEFAULT 'incident';
 ALTER TABLE push_deliveries ALTER COLUMN incident_id DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS dispatch_siren_enabled BOOLEAN NOT NULL DEFAULT TRUE;
 """
 
 
@@ -122,8 +123,9 @@ def process_one() -> bool:
     with open_connection_pool().connection(timeout=CONNECT_TIMEOUT_SECONDS) as connection:
         # A row lock prevents multiple API instances from delivering the same alert concurrently.
         delivery = connection.execute(
-            """SELECT d.* FROM push_deliveries d
+            """SELECT d.*, users.dispatch_siren_enabled FROM push_deliveries d
                JOIN push_devices p ON p.token = d.token AND p.user_id = d.user_id
+               JOIN users ON users.id = d.user_id
                WHERE d.next_attempt <= NOW()
                ORDER BY d.next_attempt, d.id FOR UPDATE OF d, p SKIP LOCKED LIMIT 1"""
         ).fetchone()
@@ -143,6 +145,7 @@ def process_one() -> bool:
             else:
                 notification_type = delivery["notification_type"]
                 is_dispatch = notification_type == "dispatch"
+                dispatch_siren_enabled = delivery["dispatch_siren_enabled"]
                 if is_dispatch:
                     notification_data = {"type": "dispatch", "incidentId": delivery["incident_id"]}
                 elif notification_type == "evacuation":
@@ -155,14 +158,14 @@ def process_one() -> bool:
                     "to": delivery["token"],
                     "title": delivery["title"],
                     "body": delivery["body"],
-                    "sound": "dispatch_siren.wav" if is_dispatch else "default",
+                    "sound": (
+                        "dispatch_siren.wav" if dispatch_siren_enabled else None
+                    ) if is_dispatch else "default",
                     "priority": "high",
                     "channelId": (
-                        "dispatch"
+                        ("dispatch_siren_v2" if dispatch_siren_enabled else "dispatch_silent_v2")
                         if is_dispatch
-                        else "weather"
-                        if notification_type == "weather"
-                        else "incidents"
+                        else "weather" if notification_type == "weather" else "incidents"
                     ),
                     "data": notification_data,
                 }).get("data")

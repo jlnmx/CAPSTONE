@@ -11,7 +11,7 @@ jest.mock('expo-secure-store', () => ({
 }));
 jest.mock('../apiClient', () => ({ authenticatedFetch: jest.fn() }));
 jest.mock('expo-notifications', () => ({
-  AndroidImportance: { HIGH: 4 },
+  AndroidImportance: { HIGH: 4, MAX: 5 },
   setNotificationChannelAsync: jest.fn(),
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
@@ -35,10 +35,15 @@ beforeEach(() => {
 it('requests permission, creates the high-importance channel and registers the token', async () => {
   await registerPushDevice();
   expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('incidents', expect.objectContaining({ importance: 4 }));
-  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('dispatch', expect.objectContaining({
-    name: 'Responder dispatch',
+  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('dispatch_siren_v2', expect.objectContaining({
+    name: 'Responder dispatch siren',
+    importance: 5,
     sound: 'dispatch_siren.wav',
-    vibrationPattern: [0, 500, 250, 500, 250, 700],
+  }));
+  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('dispatch_silent_v2', expect.objectContaining({
+    name: 'Responder dispatch (silent)',
+    importance: 5,
+    sound: null,
   }));
   expect(Notifications.requestPermissionsAsync).toHaveBeenCalled();
   expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({ projectId: 'project-id' });

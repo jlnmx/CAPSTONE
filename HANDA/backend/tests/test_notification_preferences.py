@@ -45,6 +45,7 @@ class NotificationPreferencesTests(unittest.TestCase):
             "mobile_number": "09171234567",
             "email_alerts_enabled": True,
             "sms_alerts_enabled": False,
+            "dispatch_siren_enabled": True,
         }
 
     def test_partial_preference_update_saves_only_supplied_channel(self):
@@ -55,11 +56,38 @@ class NotificationPreferencesTests(unittest.TestCase):
             connection,
         )
 
-        self.assertEqual(connection.params, (True, None, "resident-1"))
+        self.assertEqual(connection.params, (True, None, None, "resident-1"))
         self.assertTrue(connection.committed)
         self.assertTrue(preferences["emailEnabled"])
         self.assertFalse(preferences["smsEnabled"])
         self.assertEqual(preferences["emailAddress"], "ana@example.com")
+
+    def test_responder_can_toggle_dispatch_siren_preference(self):
+        responder = CurrentUser("responder-1", "responder@example.com", "Responder", "responder", 0)
+        row = {**self.row, "dispatch_siren_enabled": False}
+        connection = FakeConnection(row)
+
+        preferences = main.update_notification_preferences(
+            NotificationPreferencesUpdate(dispatchSirenEnabled=False),
+            responder,
+            connection,
+        )
+
+        self.assertEqual(connection.params, (None, None, False, "responder-1"))
+        self.assertFalse(preferences["dispatchSirenEnabled"])
+        self.assertTrue(connection.committed)
+
+    def test_resident_cannot_change_dispatch_siren_preference(self):
+        connection = FakeConnection(self.row)
+        with self.assertRaises(HTTPException) as error:
+            main.update_notification_preferences(
+                NotificationPreferencesUpdate(dispatchSirenEnabled=False),
+                self.user,
+                connection,
+            )
+
+        self.assertEqual(error.exception.status_code, 403)
+        self.assertFalse(connection.committed)
 
     def test_empty_preference_update_is_rejected(self):
         connection = FakeConnection(self.row)

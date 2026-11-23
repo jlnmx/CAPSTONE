@@ -28,10 +28,16 @@ export async function registerPushDevice(): Promise<PushRegistrationResult> {
         importance: Notifications.AndroidImportance.HIGH,
         sound: 'default',
       });
-      await Notifications.setNotificationChannelAsync('dispatch', {
-        name: 'Responder dispatch',
+      await Notifications.setNotificationChannelAsync('dispatch_siren_v2', {
+        name: 'Responder dispatch siren',
         importance: Notifications.AndroidImportance.MAX,
         sound: 'dispatch_siren.wav',
+        vibrationPattern: [0, 500, 250, 500, 250, 700],
+      });
+      await Notifications.setNotificationChannelAsync('dispatch_silent_v2', {
+        name: 'Responder dispatch (silent)',
+        importance: Notifications.AndroidImportance.MAX,
+        sound: null,
         vibrationPattern: [0, 500, 250, 500, 250, 700],
       });
       await Notifications.setNotificationChannelAsync('weather', {

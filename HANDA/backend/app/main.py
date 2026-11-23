@@ -684,6 +684,7 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_barangay TEXT")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS dispatch_siren_enabled BOOLEAN NOT NULL DEFAULT TRUE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_one_superadmin_idx ON users (is_superadmin) WHERE is_superadmin")
         connection.execute(
@@ -1990,6 +1991,7 @@ def notification_preferences_payload(row: dict) -> dict:
     return {
         "emailEnabled": row["email_alerts_enabled"],
         "smsEnabled": row["sms_alerts_enabled"],
+        "dispatchSirenEnabled": row["dispatch_siren_enabled"],
         "emailConfigured": email_configured,
         "smsConfigured": sms_configured,
         "emailAvailable": email_configured and bool(row["email"]),
@@ -2002,7 +2004,7 @@ def notification_preferences_payload(row: dict) -> dict:
 @app.get("/api/v1/notifications/preferences")
 def get_notification_preferences(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT email, mobile_number, email_alerts_enabled, sms_alerts_enabled FROM users WHERE id = %s",
+        "SELECT email, mobile_number, email_alerts_enabled, sms_alerts_enabled, dispatch_siren_enabled FROM users WHERE id = %s",
         (user.id,),
     ).fetchone()
     if not row:
@@ -2016,7 +2018,9 @@ def update_notification_preferences(
     user: CurrentUser = Depends(get_current_user),
     connection: psycopg.Connection = Depends(get_connection),
 ):
-    if update.emailEnabled is None and update.smsEnabled is None:
+    if update.dispatchSirenEnabled is not None and user.role != "responder":
+        raise HTTPException(status_code=403, detail="Only responders can update the dispatch siren preference.")
+    if update.emailEnabled is None and update.smsEnabled is None and update.dispatchSirenEnabled is None:
         raise HTTPException(status_code=400, detail="Choose at least one notification preference to update.")
     try:
         row = connection.execute(
@@ -2024,11 +2028,12 @@ def update_notification_preferences(
             UPDATE users
             SET email_alerts_enabled = COALESCE(%s, email_alerts_enabled),
                 sms_alerts_enabled = COALESCE(%s, sms_alerts_enabled),
+                dispatch_siren_enabled = COALESCE(%s, dispatch_siren_enabled),
                 updated_at = NOW()
             WHERE id = %s
-            RETURNING email, mobile_number, email_alerts_enabled, sms_alerts_enabled
+            RETURNING email, mobile_number, email_alerts_enabled, sms_alerts_enabled, dispatch_siren_enabled
             """,
-            (update.emailEnabled, update.smsEnabled, user.id),
+            (update.emailEnabled, update.smsEnabled, update.dispatchSirenEnabled, user.id),
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User account not found.")

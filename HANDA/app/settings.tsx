@@ -20,6 +20,7 @@ const themeOptions: Array<{ value: ThemeMode; label: string; icon: React.Compone
 type NotificationPreferences = {
   emailEnabled: boolean;
   smsEnabled: boolean;
+  dispatchSirenEnabled: boolean;
   emailConfigured: boolean;
   smsConfigured: boolean;
   emailAvailable: boolean;
@@ -35,7 +36,7 @@ export default function SettingsScreen() {
   const { mode, palette, setMode } = useTheme();
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
   const [isLoadingNotificationPreferences, setIsLoadingNotificationPreferences] = useState(true);
-  const [savingChannel, setSavingChannel] = useState<'email' | 'sms' | null>(null);
+  const [savingChannel, setSavingChannel] = useState<'email' | 'sms' | 'dispatchSiren' | null>(null);
   const [notificationPreferencesError, setNotificationPreferencesError] = useState('');
   const [notificationPreferencesMessage, setNotificationPreferencesMessage] = useState('');
   const [biometricAvailability, setBiometricAvailability] = useState<BiometricAvailability | null>(null);
@@ -91,7 +92,7 @@ export default function SettingsScreen() {
     return () => { isMounted = false; };
   }, [isAuthenticated, isLoading]);
 
-  const updateNotificationPreference = async (channel: 'email' | 'sms', enabled: boolean) => {
+  const updateNotificationPreference = async (channel: 'email' | 'sms' | 'dispatchSiren', enabled: boolean) => {
     if (!notificationPreferences || savingChannel) return;
     setSavingChannel(channel);
     setNotificationPreferencesError('');
@@ -100,7 +101,13 @@ export default function SettingsScreen() {
       const response = await authenticatedFetch('/api/v1/notifications/preferences', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(channel === 'email' ? { emailEnabled: enabled } : { smsEnabled: enabled }),
+        body: JSON.stringify(
+          channel === 'email'
+            ? { emailEnabled: enabled }
+            : channel === 'sms'
+              ? { smsEnabled: enabled }
+              : { dispatchSirenEnabled: enabled },
+        ),
       });
       if (!response.ok) throw new Error('Your alert preference could not be saved. Try again.');
       setNotificationPreferences(await response.json() as NotificationPreferences);
@@ -248,6 +255,18 @@ export default function SettingsScreen() {
                 palette={palette}
                 onValueChange={(enabled) => void updateNotificationPreference('sms', enabled)}
               />
+              {user?.role === 'responder' && <>
+                <View style={[styles.preferenceDivider, { backgroundColor: palette.border }]} />
+                <PreferenceSwitch
+                  title="Dispatch siren"
+                  detail="Play the siren when you are dispatched, including when HANDA is in the background or closed. It plays once and follows your phone's volume, silent mode, and Do Not Disturb settings."
+                  icon="alarm-light-outline"
+                  value={notificationPreferences.dispatchSirenEnabled}
+                  disabled={savingChannel !== null}
+                  palette={palette}
+                  onValueChange={(enabled) => void updateNotificationPreference('dispatchSiren', enabled)}
+                />
+              </>}
               {!!notificationPreferencesError && <Text style={styles.preferenceError}>{notificationPreferencesError}</Text>}
               {!!notificationPreferencesMessage && <Text style={styles.preferenceSaved}>{notificationPreferencesMessage}</Text>}
             </View> : <View style={styles.preferenceErrorRow}>
