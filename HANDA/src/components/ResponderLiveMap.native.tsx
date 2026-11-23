@@ -16,6 +16,8 @@ import MapNavigation from './MapNavigation';
 import type { MapNavigationTarget } from './MapNavigation.types';
 import MapSearchBox from './MapSearchBox';
 import type { MapSearchSuggestion } from './MapSearchBox';
+import HazardAreaControls, { useHazardAreaVisibility } from './HazardAreaControls';
+import HazardAreaOverlay from './HazardAreaOverlay.native';
 
 const CENTER: Region = { latitude: 14.3036, longitude: 121.0781, latitudeDelta: 0.045, longitudeDelta: 0.045 };
 const MAPS_API_KEY = Platform.OS === 'ios'
@@ -31,6 +33,7 @@ export default function ResponderLiveMap() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [show3d, setShow3d] = useState(false);
+  const hazardAreas = useHazardAreaVisibility();
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
   const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<{ kind: 'center' | 'incident'; id: string } | null>(null);
@@ -103,7 +106,14 @@ export default function ResponderLiveMap() {
 
   if (isOnline === null) return <MapMessage>Checking map connectivity...</MapMessage>;
   if (!isOnline && loading) return <MapMessage>Loading saved map locations...</MapMessage>;
-  if (!isOnline) return <OfflineMapCanvas points={toOfflinePoints(data)} />;
+  if (!isOnline) return (
+    <OfflineMapCanvas
+      points={toOfflinePoints(data)}
+      hazardVisibility={hazardAreas.visibility}
+      onToggleFlood={hazardAreas.toggleFlood}
+      onToggleEarthquake={hazardAreas.toggleEarthquake}
+    />
+  );
   if (!MAPS_API_KEY) return <MapMessage>Google Maps is not configured. Add EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY to the app build environment.</MapMessage>;
 
   const recenter = async () => {
@@ -141,6 +151,7 @@ export default function ResponderLiveMap() {
         rotateEnabled
         toolbarEnabled
       >
+        <HazardAreaOverlay showFlood={hazardAreas.visibility.flood} showEarthquake={hazardAreas.visibility.earthquake} />
         {data.centers.flatMap((center) => center.latitude == null || center.longitude == null ? [] : (
           <Marker
             key={`center-${center.id}`}
@@ -186,6 +197,11 @@ export default function ResponderLiveMap() {
         <Pressable onPress={() => void recenter()} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map"><MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} /></Pressable>
         <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map"><Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text></Pressable>
       </View>
+      <HazardAreaControls
+        visibility={hazardAreas.visibility}
+        onToggleFlood={hazardAreas.toggleFlood}
+        onToggleEarthquake={hazardAreas.toggleEarthquake}
+      />
       {(loading || error) && <View style={[styles.status, (selectedCenter || selectedIncident) && styles.statusAboveCard]}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error}</Text></View>}
       {(selectedCenter || selectedIncident) && (
         <View style={styles.locationCard} accessibilityLiveRegion="polite">

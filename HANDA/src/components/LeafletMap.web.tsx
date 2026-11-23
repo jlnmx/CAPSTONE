@@ -12,6 +12,8 @@ import MapNavigation from './MapNavigation';
 import type { MapNavigationTarget } from './MapNavigation.types';
 import MapSearchBox from './MapSearchBox';
 import type { MapSearchSuggestion } from './MapSearchBox';
+import HazardAreaControls, { useHazardAreaVisibility } from './HazardAreaControls';
+import HazardAreaOverlay from './HazardAreaOverlay.web';
 
 const BINAN = { lat: 14.3036, lng: 121.0781 };
 
@@ -29,6 +31,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
   const [locationError, setLocationError] = useState('');
   const [query, setQuery] = useState('');
   const [show3d, setShow3d] = useState(false);
+  const hazardAreas = useHazardAreaVisibility();
   const [mapReady, setMapReady] = useState(false);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -126,7 +129,15 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
   }, [isOnline, mapReady]);
 
   if (isOnline === null) return <MapState label="Checking map connectivity..." />;
-  if (!isOnline) return <OfflineMapCanvas points={toOfflinePoints(centers)} onSelect={onSelectCenter} />;
+  if (!isOnline) return (
+    <OfflineMapCanvas
+      points={toOfflinePoints(centers)}
+      onSelect={onSelectCenter}
+      hazardVisibility={hazardAreas.visibility}
+      onToggleFlood={hazardAreas.toggleFlood}
+      onToggleEarthquake={hazardAreas.toggleEarthquake}
+    />
+  );
   if (loadError) return <MapState label={loadError} />;
 
   const recenter = () => {
@@ -166,6 +177,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
   return (
     <View style={styles.container}>
       <View ref={mapElement as never} style={styles.map} />
+      <HazardAreaOverlay map={mapReady ? mapRef.current : null} showFlood={hazardAreas.visibility.flood} showEarthquake={hazardAreas.visibility.earthquake} />
       <MapSearchBox
         query={query}
         onChangeQuery={setQuery}
@@ -187,6 +199,11 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
           <Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text>
         </Pressable>
       </View>
+      <HazardAreaControls
+        visibility={hazardAreas.visibility}
+        onToggleFlood={hazardAreas.toggleFlood}
+        onToggleEarthquake={hazardAreas.toggleEarthquake}
+      />
       {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => onNavigationTargetChange?.(null)} />}
       {locationError ? <View style={styles.errorBanner}><Text style={styles.errorText}>{locationError}</Text></View> : null}
     </View>

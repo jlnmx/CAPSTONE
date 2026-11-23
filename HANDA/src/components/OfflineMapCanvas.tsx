@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import Svg, { Polygon as SvgPolygon } from 'react-native-svg';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
+import HazardAreaControls from './HazardAreaControls';
+import type { HazardAreaVisibility } from './HazardAreaControls';
+import { BINAN_HAZARD_AREAS } from '@services/map/hazardAreas';
 
 export type OfflineMapPoint = {
   id: string;
@@ -15,11 +19,14 @@ export type OfflineMapPoint = {
 type Props = {
   points: OfflineMapPoint[];
   onSelect?: (pointId: string) => void;
+  hazardVisibility?: HazardAreaVisibility;
+  onToggleFlood?: () => void;
+  onToggleEarthquake?: () => void;
 };
 
 const REGION = { minLatitude: 14.25, maxLatitude: 14.36, minLongitude: 121.02, maxLongitude: 121.14 };
 
-export default function OfflineMapCanvas({ points, onSelect }: Props) {
+export default function OfflineMapCanvas({ points, onSelect, hazardVisibility, onToggleFlood, onToggleEarthquake }: Props) {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const onLayout = (event: LayoutChangeEvent) => {
@@ -30,6 +37,44 @@ export default function OfflineMapCanvas({ points, onSelect }: Props) {
   return (
     <View style={styles.container} onLayout={onLayout} accessibilityLabel="Offline map with saved location markers">
       <View style={styles.notice}><Text style={styles.noticeText}>OFFLINE · Saved locations only · Google basemap and routes unavailable</Text></View>
+      {hazardVisibility && dimensions.width > 0 && dimensions.height > 0 ? (
+        <Svg
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+          width={dimensions.width}
+          height={dimensions.height}
+          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+        >
+          {BINAN_HAZARD_AREAS.filter((feature) => (
+            feature.properties.hazardType === 'flood' ? hazardVisibility.flood : hazardVisibility.earthquake
+          )).map((feature) => {
+            const points = feature.geometry.coordinates[0].map(([longitude, latitude]) => {
+              const x = ((longitude - REGION.minLongitude) / (REGION.maxLongitude - REGION.minLongitude)) * dimensions.width;
+              const y = (1 - (latitude - REGION.minLatitude) / (REGION.maxLatitude - REGION.minLatitude)) * dimensions.height;
+              return `${x},${y}`;
+            }).join(' ');
+            const isFlood = feature.properties.hazardType === 'flood';
+            return (
+              <SvgPolygon
+                key={feature.properties.code}
+                points={points}
+                fill={isFlood ? '#C62828' : '#EF6C00'}
+                fillOpacity={0.24}
+                stroke={isFlood ? '#B71C1C' : '#E65100'}
+                strokeOpacity={0.82}
+                strokeWidth={1.5}
+              />
+            );
+          })}
+        </Svg>
+      ) : null}
+      {hazardVisibility && onToggleFlood && onToggleEarthquake ? (
+        <HazardAreaControls
+          visibility={hazardVisibility}
+          onToggleFlood={onToggleFlood}
+          onToggleEarthquake={onToggleEarthquake}
+        />
+      ) : null}
       {dimensions.width > 0 && points.map((point) => {
         const x = Math.max(0.06, Math.min(0.94, (point.longitude - REGION.minLongitude) / (REGION.maxLongitude - REGION.minLongitude)));
         const y = Math.max(0.12, Math.min(0.88, 1 - (point.latitude - REGION.minLatitude) / (REGION.maxLatitude - REGION.minLatitude)));

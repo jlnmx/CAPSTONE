@@ -13,6 +13,8 @@ import MapNavigation from './MapNavigation';
 import type { MapNavigationTarget } from './MapNavigation.types';
 import MapSearchBox from './MapSearchBox';
 import type { MapSearchSuggestion } from './MapSearchBox';
+import HazardAreaControls, { useHazardAreaVisibility } from './HazardAreaControls';
+import HazardAreaOverlay from './HazardAreaOverlay.native';
 
 const BINAN_REGION: Region = {
   latitude: 14.3036,
@@ -42,6 +44,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
   const [show3d, setShow3d] = useState(false);
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
   const [hasLocationPermission, setHasLocationPermission] = useState(false);
+  const hazardAreas = useHazardAreaVisibility();
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const validCenters = useMemo(() => centers.filter((center) => (
     center.latitude != null && center.longitude != null
@@ -79,7 +82,15 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
   }, []);
 
   if (isOnline === null) return <MapMessage>Checking map connectivity...</MapMessage>;
-  if (!isOnline) return <OfflineMapCanvas points={toOfflinePoints(centers)} onSelect={onSelectCenter} />;
+  if (!isOnline) return (
+    <OfflineMapCanvas
+      points={toOfflinePoints(centers)}
+      onSelect={onSelectCenter}
+      hazardVisibility={hazardAreas.visibility}
+      onToggleFlood={hazardAreas.toggleFlood}
+      onToggleEarthquake={hazardAreas.toggleEarthquake}
+    />
+  );
   if (!MAPS_API_KEY) return <MapMessage>Google Maps is not configured. Add EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY to the app build environment.</MapMessage>;
 
   const recenter = async () => {
@@ -124,6 +135,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
         rotateEnabled
         toolbarEnabled
       >
+        <HazardAreaOverlay showFlood={hazardAreas.visibility.flood} showEarthquake={hazardAreas.visibility.earthquake} />
         {validCenters.map((center) => (
           <Marker
             key={center.id}
@@ -155,6 +167,11 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
           <Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text>
         </Pressable>
       </View>
+      <HazardAreaControls
+        visibility={hazardAreas.visibility}
+        onToggleFlood={hazardAreas.toggleFlood}
+        onToggleEarthquake={hazardAreas.toggleEarthquake}
+      />
       {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => onNavigationTargetChange?.(null)} />}
     </View>
   );

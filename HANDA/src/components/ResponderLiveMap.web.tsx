@@ -16,6 +16,8 @@ import MapNavigation from './MapNavigation';
 import type { MapNavigationTarget } from './MapNavigation.types';
 import MapSearchBox from './MapSearchBox';
 import type { MapSearchSuggestion } from './MapSearchBox';
+import HazardAreaControls, { useHazardAreaVisibility } from './HazardAreaControls';
+import HazardAreaOverlay from './HazardAreaOverlay.web';
 
 const CENTER = { lat: 14.3036, lng: 121.0781 };
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY ?? '';
@@ -35,6 +37,7 @@ export default function ResponderLiveMap() {
   const [locationError, setLocationError] = useState('');
   const [query, setQuery] = useState('');
   const [show3d, setShow3d] = useState(false);
+  const hazardAreas = useHazardAreaVisibility();
   const [mapReady, setMapReady] = useState(false);
   const [navigationTarget, setNavigationTarget] = useState<MapNavigationTarget | null>(null);
   const { responders } = useResponderLive();
@@ -194,7 +197,14 @@ export default function ResponderLiveMap() {
 
   if (isOnline === null) return <MapState label="Checking map connectivity..." />;
   if (!isOnline && loading) return <MapState label="Loading saved map locations..." />;
-  if (!isOnline) return <OfflineMapCanvas points={toOfflinePoints(data)} />;
+  if (!isOnline) return (
+    <OfflineMapCanvas
+      points={toOfflinePoints(data)}
+      hazardVisibility={hazardAreas.visibility}
+      onToggleFlood={hazardAreas.toggleFlood}
+      onToggleEarthquake={hazardAreas.toggleEarthquake}
+    />
+  );
   if (!API_KEY) return <MapState label="Google Maps is not configured. Add EXPO_PUBLIC_GOOGLE_MAPS_WEB_API_KEY to the app web environment." />;
   if (loadError) return <MapState label={loadError} />;
 
@@ -234,6 +244,7 @@ export default function ResponderLiveMap() {
   return (
     <View style={styles.container}>
       <View ref={mapElement as never} style={styles.map} />
+      <HazardAreaOverlay map={mapReady ? mapRef.current : null} showFlood={hazardAreas.visibility.flood} showEarthquake={hazardAreas.visibility.earthquake} />
       <MapSearchBox
         query={query}
         onChangeQuery={setQuery}
@@ -250,6 +261,11 @@ export default function ResponderLiveMap() {
         <Pressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map"><MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} /></Pressable>
         <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map"><Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text></Pressable>
       </View>
+      <HazardAreaControls
+        visibility={hazardAreas.visibility}
+        onToggleFlood={hazardAreas.toggleFlood}
+        onToggleEarthquake={hazardAreas.toggleEarthquake}
+      />
       {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
       {(loading || error || locationError) && <View style={styles.status}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error || locationError}</Text></View>}
     </View>
