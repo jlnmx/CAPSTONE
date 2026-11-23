@@ -26,6 +26,14 @@ services:
         sync: false
       - key: SMTP_FROM
         sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
       - key: SEMAPHORE_API_KEY
         sync: false
       - key: SEMAPHORE_SENDER_NAME
