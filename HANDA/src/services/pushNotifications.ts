@@ -9,11 +9,11 @@ const TOKEN_KEY = 'handa.pushToken';
 export type PushRegistrationResult = 'registered' | 'permission-denied' | 'unsupported';
 let pendingRegistration: Promise<PushRegistrationResult> | null = null;
 
-async function updateDevice(path: string, token: string): Promise<void> {
+async function updateDevice(path: string, token: string, notificationChannelVersion = 2): Promise<void> {
   const response = await authenticatedFetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ token, notificationChannelVersion }),
   });
   if (!response.ok) throw new Error(`Notification registration failed (HTTP ${response.status}).`);
 }
@@ -25,6 +25,16 @@ export async function registerPushDevice(): Promise<PushRegistrationResult> {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('incidents', {
         name: 'Incident alerts',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+      });
+      await Notifications.setNotificationChannelAsync('incidents_v3', {
+        name: 'Incident and evacuation alerts',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+      });
+      await Notifications.setNotificationChannelAsync('weather_v3', {
+        name: 'Weather alerts',
         importance: Notifications.AndroidImportance.HIGH,
         sound: 'default',
       });
@@ -62,7 +72,7 @@ export async function registerPushDevice(): Promise<PushRegistrationResult> {
     const oldToken = await SecureStore.getItemAsync(TOKEN_KEY);
     if (oldToken && oldToken !== token) await updateDevice('/api/v1/push-devices/remove', oldToken);
     await SecureStore.setItemAsync(TOKEN_KEY, token);
-    await updateDevice('/api/v1/push-devices', token);
+    await updateDevice('/api/v1/push-devices', token, 3);
     return 'registered' as const;
   })();
   try {

@@ -1961,9 +1961,13 @@ def mark_active_incident_notifications_read(connection: psycopg.Connection = Dep
 def register_push_device(device: PushDeviceInput, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):
     connection.execute("DELETE FROM push_deliveries WHERE token = %s AND user_id <> %s", (device.token, user.id))
     connection.execute(
-        """INSERT INTO push_devices (token, user_id) VALUES (%s, %s)
-           ON CONFLICT (token) DO UPDATE SET user_id = EXCLUDED.user_id, updated_at = NOW()""",
-        (device.token, user.id),
+        """INSERT INTO push_devices (token, user_id, notification_channel_version)
+           VALUES (%s, %s, %s)
+           ON CONFLICT (token) DO UPDATE
+           SET user_id = EXCLUDED.user_id,
+               notification_channel_version = EXCLUDED.notification_channel_version,
+               updated_at = NOW()""",
+        (device.token, user.id, device.notificationChannelVersion),
     )
     connection.commit()
     return {"registered": True}

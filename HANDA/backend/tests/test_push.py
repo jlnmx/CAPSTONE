@@ -18,10 +18,14 @@ class PushDeviceTests(unittest.TestCase):
     def test_registration_uses_authenticated_user_and_clears_previous_owner_queue(self):
         connection = MagicMock()
         user = CurrentUser("resident-1", "r@example.com", "Resident", "resident", 0)
-        main.register_push_device(PushDeviceInput(token="ExpoPushToken[abc123]"), connection, user)
+        main.register_push_device(
+            PushDeviceInput(token="ExpoPushToken[abc123]", notificationChannelVersion=3),
+            connection,
+            user,
+        )
         calls = connection.execute.call_args_list
         self.assertEqual(calls[0].args[1], ("ExpoPushToken[abc123]", "resident-1"))
-        self.assertEqual(calls[1].args[1], ("ExpoPushToken[abc123]", "resident-1"))
+        self.assertEqual(calls[1].args[1], ("ExpoPushToken[abc123]", "resident-1", 3))
         connection.commit.assert_called_once()
 
     def test_removal_is_scoped_to_user(self):
@@ -224,6 +228,7 @@ class PushDeliveryTests(unittest.TestCase):
             "title": "Update", "body": "Open HANDA", "incident_id": "incident-1",
             "receipt_id": None, "attempts": 0, "notification_type": "incident",
             "dispatch_siren_enabled": True,
+            "notification_channel_version": 3,
         }
         self.connection = MagicMock()
         self.connection.execute.return_value.fetchone.return_value = self.delivery
@@ -237,7 +242,10 @@ class PushDeliveryTests(unittest.TestCase):
         with patch("app.push._request", return_value={"data": {"status": "ok", "id": "receipt-1"}}) as request:
             self.assertTrue(push.process_one())
         payload = request.call_args.args[1]
-        self.assertEqual(payload["channelId"], "incidents")
+        self.assertEqual(payload["channelId"], "incidents_v3")
+        self.assertEqual(payload["title"], "Update")
+        self.assertEqual(payload["body"], "Open HANDA")
+        self.assertEqual(payload["priority"], "high")
         self.assertEqual(payload["data"], {"type": "incident", "incidentId": "incident-1"})
         self.assertIn("receipt_id = %s", self.connection.execute.call_args.args[0])
         self.assertEqual(self.connection.execute.call_args.args[1], ("receipt-1", 1))
@@ -247,7 +255,11 @@ class PushDeliveryTests(unittest.TestCase):
         self.delivery["incident_id"] = "registration-1"
         with patch("app.push._request", return_value={"data": {"status": "ok", "id": "receipt-1"}}) as request:
             self.assertTrue(push.process_one())
-        self.assertEqual(request.call_args.args[1]["data"], {"type": "evacuation", "registrationId": "registration-1"})
+        payload = request.call_args.args[1]
+        self.assertEqual(payload["data"], {"type": "evacuation", "registrationId": "registration-1"})
+        self.assertEqual(payload["channelId"], "incidents_v3")
+        self.assertEqual(payload["title"], "Update")
+        self.assertEqual(payload["body"], "Open HANDA")
 
     def test_weather_payload_uses_weather_channel_without_incident_id(self):
         self.delivery["notification_type"] = "weather"
@@ -255,7 +267,7 @@ class PushDeliveryTests(unittest.TestCase):
         with patch("app.push._request", return_value={"data": {"status": "ok", "id": "receipt-1"}}) as request:
             self.assertTrue(push.process_one())
         payload = request.call_args.args[1]
-        self.assertEqual(payload["channelId"], "weather")
+        self.assertEqual(payload["channelId"], "weather_v3")
         self.assertEqual(payload["data"], {"type": "weather"})
 
     def test_dispatch_payload_uses_siren_and_dispatch_channel(self):
@@ -275,6 +287,28 @@ class PushDeliveryTests(unittest.TestCase):
         payload = request.call_args.args[1]
         self.assertIsNone(payload["sound"])
         self.assertEqual(payload["channelId"], "dispatch_silent_v3")
+
+    def test_legacy_device_gets_its_registered_channel(self):
+        self.delivery["notification_type"] = "dispatch"
+        self.delivery["notification_channel_version"] = 2
+        with patch("app.push._request", return_value={"data": {"status": "ok", "id": "receipt-1"}}) as request:
+            self.assertTrue(push.process_one())
+        payload = request.call_args.args[1]
+        self.assertEqual(payload["channelId"], "dispatch_siren_v2")
+
+    def test_legacy_device_gets_visible_incident_and_weather_channels(self):
+        for notification_type, channel, incident_id in (
+            ("incident", "incidents", "incident-1"),
+            ("evacuation", "incidents", "registration-1"),
+            ("weather", "weather", None),
+        ):
+            with self.subTest(notification_type=notification_type):
+                self.delivery["notification_type"] = notification_type
+                self.delivery["incident_id"] = incident_id
+                self.delivery["notification_channel_version"] = 2
+                with patch("app.push._request", return_value={"data": {"status": "ok", "id": "receipt-1"}}) as request:
+                    self.assertTrue(push.process_one())
+                self.assertEqual(request.call_args.args[1]["channelId"], channel)
 
     def test_successful_receipt_removes_delivery(self):
         self.delivery["receipt_id"] = "receipt-1"

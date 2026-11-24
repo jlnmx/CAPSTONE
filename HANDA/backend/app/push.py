@@ -15,9 +15,11 @@ PUSH_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS push_devices (
     token TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    notification_channel_version INTEGER NOT NULL DEFAULT 2,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS push_devices_user_idx ON push_devices (user_id);
+ALTER TABLE push_devices ADD COLUMN IF NOT EXISTS notification_channel_version INTEGER NOT NULL DEFAULT 2;
 CREATE TABLE IF NOT EXISTS push_deliveries (
     id BIGSERIAL PRIMARY KEY,
     token TEXT NOT NULL REFERENCES push_devices(token) ON DELETE CASCADE,
@@ -123,7 +125,9 @@ def process_one() -> bool:
     with open_connection_pool().connection(timeout=CONNECT_TIMEOUT_SECONDS) as connection:
         # A row lock prevents multiple API instances from delivering the same alert concurrently.
         delivery = connection.execute(
-            """SELECT d.*, users.dispatch_siren_enabled FROM push_deliveries d
+            """SELECT d.*, users.dispatch_siren_enabled,
+                      p.notification_channel_version
+               FROM push_deliveries d
                JOIN push_devices p ON p.token = d.token AND p.user_id = d.user_id
                JOIN users ON users.id = d.user_id
                WHERE d.next_attempt <= NOW()
@@ -146,6 +150,7 @@ def process_one() -> bool:
                 notification_type = delivery["notification_type"]
                 is_dispatch = notification_type == "dispatch"
                 dispatch_siren_enabled = delivery["dispatch_siren_enabled"]
+                notification_channel_version = delivery["notification_channel_version"]
                 if is_dispatch:
                     notification_data = {"type": "dispatch", "incidentId": delivery["incident_id"]}
                 elif notification_type == "evacuation":
@@ -164,8 +169,16 @@ def process_one() -> bool:
                     "priority": "high",
                     "channelId": (
                         ("dispatch_siren_v3" if dispatch_siren_enabled else "dispatch_silent_v3")
+                        if is_dispatch and notification_channel_version >= 3
+                        else ("dispatch_siren_v2" if dispatch_siren_enabled else "dispatch_silent_v2")
                         if is_dispatch
-                        else "weather" if notification_type == "weather" else "incidents"
+                        else "weather_v3"
+                        if notification_type == "weather" and notification_channel_version >= 3
+                        else "weather"
+                        if notification_type == "weather"
+                        else "incidents_v3"
+                        if notification_channel_version >= 3
+                        else "incidents"
                     ),
                     "data": notification_data,
                 }).get("data")

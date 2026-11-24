@@ -35,6 +35,16 @@ beforeEach(() => {
 it('requests permission, creates the high-importance channel and registers the token', async () => {
   await registerPushDevice();
   expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('incidents', expect.objectContaining({ importance: 4 }));
+  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('incidents_v3', expect.objectContaining({
+    name: 'Incident and evacuation alerts',
+    importance: 4,
+    sound: 'default',
+  }));
+  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('weather_v3', expect.objectContaining({
+    name: 'Weather alerts',
+    importance: 4,
+    sound: 'default',
+  }));
   expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('dispatch_siren_v3', expect.objectContaining({
     name: 'Responder dispatch siren',
     importance: 5,
@@ -49,7 +59,7 @@ it('requests permission, creates the high-importance channel and registers the t
   expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({ projectId: 'project-id' });
   expect(SecureStore.setItemAsync).toHaveBeenCalledWith('handa.pushToken', 'ExpoPushToken[abc123]');
   expect(fetchMock).toHaveBeenCalledWith('/api/v1/push-devices', expect.objectContaining({
-    method: 'POST', body: JSON.stringify({ token: 'ExpoPushToken[abc123]' }),
+    method: 'POST', body: JSON.stringify({ token: 'ExpoPushToken[abc123]', notificationChannelVersion: 3 }),
   }));
 });
 
@@ -59,7 +69,7 @@ it('registers iOS devices without creating Android notification channels', async
   expect(Notifications.setNotificationChannelAsync).not.toHaveBeenCalled();
   expect(Notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({ projectId: 'project-id' });
   expect(fetchMock).toHaveBeenCalledWith('/api/v1/push-devices', expect.objectContaining({
-    method: 'POST', body: JSON.stringify({ token: 'ExpoPushToken[abc123]' }),
+    method: 'POST', body: JSON.stringify({ token: 'ExpoPushToken[abc123]', notificationChannelVersion: 3 }),
   }));
 });
 

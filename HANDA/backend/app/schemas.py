@@ -14,6 +14,7 @@ BINAN_BARANGAYS = (
 
 class PushDeviceInput(BaseModel):
     token: str = Field(min_length=10, max_length=255, pattern=r"^(ExpoPushToken|ExponentPushToken)\[[A-Za-z0-9_-]+\]$")
+    notificationChannelVersion: int = Field(default=2, ge=2)
 
 
 class MapCoordinate(BaseModel):
