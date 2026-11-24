@@ -232,10 +232,10 @@ export default function MapNavigation({ target, onClose }: Props) {
             anchor={{ x: 0.5, y: 0.5 }}
             flat
             rotation={navigationHeading}
-            tracksViewChanges={false}
-            zIndex={5}
+            tracksViewChanges
+            zIndex={99}
           >
-            <View style={styles.navigationArrow}>
+            <View pointerEvents="none" style={styles.navigationArrow}>
               <MaterialCommunityIcons name="navigation" size={25} color={Colors.white} />
             </View>
           </Marker>}
