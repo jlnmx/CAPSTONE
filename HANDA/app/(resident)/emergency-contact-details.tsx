@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable } from '@components/ThemeAware';
 import React from 'react';
 import { Image, Linking, Platform, SafeAreaView, ScrollView, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,10 +15,10 @@ type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 function ActionButton({ icon, label, color, onPress }: { icon: IconName; label: string; color: string; onPress: () => void }) {
   return (
-    <Pressable style={styles.action} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
-      <View style={[styles.actionCircle, { backgroundColor: color }]}><MaterialCommunityIcons name={icon} size={24} color={Colors.white} /></View>
+    <ThemeAwarePressable style={styles.action} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+      <ThemeAwareView style={[styles.actionCircle, { backgroundColor: color }]}><MaterialCommunityIcons name={icon} size={24} color={Colors.white} /></ThemeAwareView>
       <Text style={styles.actionLabel}>{label}</Text>
-    </Pressable>
+    </ThemeAwarePressable>
   );
 }
 
@@ -28,14 +29,14 @@ export default function EmergencyContactDetailsScreen() {
 
   if (!contact) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.missing}>
+      <ThemeAwareSafeAreaView style={styles.safeArea}>
+        <ThemeAwareView style={styles.missing}>
           <AppBackArrow style={styles.backButton} onPress={() => router.replace('/(resident)/emergency-contacts')} />
           <MaterialCommunityIcons name="alert-circle-outline" size={40} color={Colors.textMuted} />
           <Text style={styles.missingText}>This contact could not be found.</Text>
-          <Pressable style={styles.missingButton} onPress={() => router.replace('/(resident)/emergency-contacts')}><Text darkText style={styles.missingButtonText}>Back to contacts</Text></Pressable>
-        </View>
-      </SafeAreaView>
+          <ThemeAwarePressable style={styles.missingButton} onPress={() => router.replace('/(resident)/emergency-contacts')}><Text darkText style={styles.missingButtonText}>Back to contacts</Text></ThemeAwarePressable>
+        </ThemeAwareView>
+      </ThemeAwareSafeAreaView>
     );
   }
 
@@ -60,48 +61,48 @@ export default function EmergencyContactDetailsScreen() {
   const compact = width < 380;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ThemeAwareSafeAreaView style={styles.safeArea}>
+      <ThemeAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={[`${contact.color}33`, `${contact.color}0D`, Colors.surface]} style={styles.banner}>
           <AppBackArrow style={styles.backButton} onPress={() => router.replace('/(resident)/emergency-contacts')} />
-          <View style={[styles.logoFrame, { borderColor: contact.color }]}>
+          <ThemeAwareView style={[styles.logoFrame, { borderColor: contact.color }]}>
             <Image source={contact.logo} style={styles.logo} resizeMode="contain" accessibilityIgnoresInvertColors accessibilityLabel={`${contact.name} logo`} />
-          </View>
+          </ThemeAwareView>
         </LinearGradient>
 
-        <View style={styles.body}>
+        <ThemeAwareView style={styles.body}>
           <Text style={[styles.title, compact && styles.titleCompact]}>{contact.title}</Text>
-          <View style={styles.addressRow}>
-            <View style={styles.addressIcon}><MaterialCommunityIcons name="map-marker-outline" size={15} color={Colors.textMuted} /></View>
+          <ThemeAwareView style={styles.addressRow}>
+            <ThemeAwareView style={styles.addressIcon}><MaterialCommunityIcons name="map-marker-outline" size={15} color={Colors.textMuted} /></ThemeAwareView>
             <Text style={styles.addressText}>{contact.address}</Text>
-          </View>
+          </ThemeAwareView>
 
-          <View style={styles.actions}>
+          <ThemeAwareView style={styles.actions}>
             <ActionButton icon="phone" label="Call" color="#1D6FD1" onPress={() => call(primaryNumber.number)} />
             <ActionButton icon="map-marker" label="Location" color="#F08A1C" onPress={openLocation} />
             {contact.website && <ActionButton icon="web" label="Page" color="#14A38B" onPress={openWebsite} />}
             <ActionButton icon="share-variant" label="Share" color="#7B3FD0" onPress={() => void share()} />
-          </View>
+          </ThemeAwareView>
 
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.description}>{contact.description}</Text>
 
           <Text style={styles.sectionTitle}>Contact numbers</Text>
-          <View style={styles.numbers}>
+          <ThemeAwareView style={styles.numbers}>
             {contact.numbers.map((item, index) => (
-              <Pressable key={`${item.label}-${item.number}`} style={[styles.numberRow, index > 0 && styles.numberRowBorder]} onPress={() => call(item.number)} accessibilityRole="button" accessibilityLabel={`Call ${item.label} ${item.number}`}>
-                <View style={styles.numberIcon}><MaterialCommunityIcons name="phone-outline" size={18} color={Colors.secondary} /></View>
-                <View style={styles.numberCopy}>
+              <ThemeAwarePressable key={`${item.label}-${item.number}`} style={[styles.numberRow, index > 0 && styles.numberRowBorder]} onPress={() => call(item.number)} accessibilityRole="button" accessibilityLabel={`Call ${item.label} ${item.number}`}>
+                <ThemeAwareView style={styles.numberIcon}><MaterialCommunityIcons name="phone-outline" size={18} color={Colors.secondary} /></ThemeAwareView>
+                <ThemeAwareView style={styles.numberCopy}>
                   <Text style={styles.numberLabel}>{item.label}</Text>
                   <Text style={styles.numberValue}>{item.number}</Text>
-                </View>
+                </ThemeAwareView>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.textMuted} />
-              </Pressable>
+              </ThemeAwarePressable>
             ))}
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          </ThemeAwareView>
+        </ThemeAwareView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

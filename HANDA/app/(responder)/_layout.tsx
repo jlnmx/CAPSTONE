@@ -1,3 +1,4 @@
+import { ThemeAwareView } from '@components/ThemeAware';
 /**
  * Responder Stack Layout
  */
@@ -37,7 +38,7 @@ function TabBarIcon({ name, color, size, focused, badgeCount = 0 }: TabBarIconPr
   return (
     <Animated.View style={[styles.tabIcon, focused && styles.tabIconActive, { transform: [{ scale }] }]}>
       <MaterialCommunityIcons name={name} size={size} color={color} />
-      {badgeCount > 0 && <View style={styles.incidentBadge}><Text style={styles.incidentBadgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text></View>}
+      {badgeCount > 0 && <ThemeAwareView style={styles.incidentBadge}><Text style={styles.incidentBadgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text></ThemeAwareView>}
     </Animated.View>
   );
 }

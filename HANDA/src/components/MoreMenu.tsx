@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -110,43 +111,43 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
-      <ScrollView
+    <ThemeAwareSafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+      <ThemeAwareScrollView
         style={{ backgroundColor: palette.background }}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-          <View style={styles.heroDecoration} />
-          <View style={styles.heroTop}>
+          <ThemeAwareView style={styles.heroDecoration} />
+          <ThemeAwareView style={styles.heroTop}>
             <AppBackArrow />
             <Text style={styles.eyebrow}>YOUR HANDA SPACE</Text>
-          </View>
+          </ThemeAwareView>
           <Text style={styles.heroTitle}>More</Text>
           <Text style={styles.heroSubtitle}>Your profile, preferences, and support.</Text>
-          <View style={[styles.profileCard, { backgroundColor: palette.surface }]}>
+          <ThemeAwareView style={[styles.profileCard, { backgroundColor: palette.surface }]}>
             <Avatar uri={user?.profilePicture} name={displayName} size={58} />
-            <View style={styles.profileCopy}>
+            <ThemeAwareView style={styles.profileCopy}>
               <Text numberOfLines={1} style={[styles.name, { color: palette.text }]}>{displayName}</Text>
-              <View style={styles.roleRow}>
+              <ThemeAwareView style={styles.roleRow}>
                 <MaterialCommunityIcons name={roleLabel === 'Responder' ? 'shield-check' : 'account-heart-outline'} size={15} color="#D45B92" />
                 <Text style={styles.role}>{roleLabel}</Text>
-              </View>
-            </View>
-          </View>
+              </ThemeAwareView>
+            </ThemeAwareView>
+          </ThemeAwareView>
         </LinearGradient>
 
-        <View style={styles.sectionHeading}>
-          <View>
+        <ThemeAwareView style={styles.sectionHeading}>
+          <ThemeAwareView>
             <Text style={[styles.sectionTitle, { color: palette.text }]}>Quick access</Text>
             <Text style={[styles.sectionCaption, { color: palette.textMuted }]}>Everything you need, in one place</Text>
-          </View>
-          <View style={styles.sectionIcon}>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.sectionIcon}>
             <MaterialCommunityIcons name="view-grid-outline" size={18} color="#D45B92" />
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
 
-        <View style={styles.menu}>
+        <ThemeAwareView style={styles.menu}>
           {menuItems.map((item, index) => (
             <Reveal key={item.title} index={index}>
               <AnimatedPressable
@@ -155,20 +156,20 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
                 accessibilityRole="button"
                 accessibilityLabel={`${item.title}. ${item.description}`}
               >
-                <View style={styles.menuIcon}>
+                <ThemeAwareView style={styles.menuIcon}>
                   {item.mascot
                     ? <RescueMascot size={38} />
                     : <MaterialCommunityIcons name={item.icon ?? 'help-circle-outline'} size={23} color="#D45B92" />}
-                </View>
-                <View style={styles.menuCopy}>
+                </ThemeAwareView>
+                <ThemeAwareView style={styles.menuCopy}>
                   <Text style={[styles.menuLabel, { color: palette.text }]}>{item.title}</Text>
                   <Text style={[styles.menuDescription, { color: palette.textMuted }]}>{item.description}</Text>
-                </View>
+                </ThemeAwareView>
                 <MaterialCommunityIcons name="chevron-right" size={21} color={palette.textMuted} />
               </AnimatedPressable>
             </Reveal>
           ))}
-        </View>
+        </ThemeAwareView>
 
         <Reveal index={4}>
           <AnimatedPressable
@@ -176,28 +177,28 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
             onPress={() => setIsLogoutDialogOpen(true)}
             accessibilityRole="button"
           >
-            <View style={styles.logoutIcon}>
+            <ThemeAwareView style={styles.logoutIcon}>
               <MaterialCommunityIcons name="logout" size={20} color={Colors.emergency} />
-            </View>
-            <View style={styles.menuCopy}>
+            </ThemeAwareView>
+            <ThemeAwareView style={styles.menuCopy}>
               <Text style={styles.logoutLabel}>Log out</Text>
               <Text style={[styles.menuDescription, { color: palette.textMuted }]}>Sign out of this device</Text>
-            </View>
+            </ThemeAwareView>
             <MaterialCommunityIcons name="chevron-right" size={21} color={palette.textMuted} />
           </AnimatedPressable>
         </Reveal>
         <Text style={[styles.footer, { color: palette.textMuted }]}>HANDA - Here to help keep you safe</Text>
-      </ScrollView>
+      </ThemeAwareScrollView>
 
       <Modal visible={isLogoutDialogOpen} transparent animationType="fade" onRequestClose={() => setIsLogoutDialogOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => !isLoggingOut && setIsLogoutDialogOpen(false)}>
-          <Pressable
+        <ThemeAwarePressable style={styles.modalBackdrop} onPress={() => !isLoggingOut && setIsLogoutDialogOpen(false)}>
+          <ThemeAwarePressable
             style={[styles.logoutDialog, { backgroundColor: palette.surface }]}
             onPress={(event) => event.stopPropagation()}
           >
-            <View style={styles.dialogIcon}>
+            <ThemeAwareView style={styles.dialogIcon}>
               <MaterialCommunityIcons name="logout" size={23} color={Colors.emergency} />
-            </View>
+            </ThemeAwareView>
             <Text style={[styles.dialogTitle, { color: palette.text }]}>Log out?</Text>
             <Text style={[styles.dialogMessage, { color: palette.textMuted }]}>Are you sure you want to log out of your account?</Text>
             {offlineCounts.accountPending > 0 && <Text style={[styles.offlineWarning, { color: palette.textMuted }]}>
@@ -206,7 +207,7 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
             {offlineCounts.accountFailed > 0 && <Text style={[styles.offlineWarning, { color: palette.textMuted }]}>
               {offlineCounts.accountFailed} report(s) were rejected by the server and need follow-up before they can sync. Their local copies remain saved; logging out will not erase them.
             </Text>}
-            {offlineCounts.unclaimed > 0 && <View style={[styles.legacyWarning, { borderColor: palette.border }]}>
+            {offlineCounts.unclaimed > 0 && <ThemeAwareView style={[styles.legacyWarning, { borderColor: palette.border }]}>
               <Text style={[styles.offlineWarning, { color: palette.textMuted }]}>
                 {offlineCounts.unclaimed} older unsynced report(s) have no account owner. They stay on this device and will not sync automatically.
               </Text>
@@ -234,8 +235,8 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
                   ? 'Older reports are now assigned to this account and will retry syncing when possible.'
                   : 'Older reports will remain unassigned on this device for later recovery.'}
               </Text>}
-            </View>}
-            <View style={styles.dialogActions}>
+            </ThemeAwareView>}
+            <ThemeAwareView style={styles.dialogActions}>
               <AnimatedPressable
                 style={[styles.cancelButton, { borderColor: palette.border }]}
                 onPress={() => { setIsLogoutDialogOpen(false); setUnclaimedDisposition('unresolved'); }}
@@ -252,11 +253,11 @@ export function MoreMenu({ roleLabel }: MoreMenuProps) {
               >
                 {isLoggingOut ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.confirmButtonText}>Log out</Text>}
               </AnimatedPressable>
-            </View>
-          </Pressable>
-        </Pressable>
+            </ThemeAwareView>
+          </ThemeAwarePressable>
+        </ThemeAwarePressable>
       </Modal>
-    </SafeAreaView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

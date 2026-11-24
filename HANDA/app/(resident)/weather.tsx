@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,7 +30,7 @@ function formatTemperature(value: number): string {
 }
 
 function HourlyForecastStrip({ hours }: { hours: GoogleWeatherSnapshot['hourly'] }) {
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ThemeAwareScrollView>(null);
   const offsetRef = useRef(0);
   const pausedRef = useRef(false);
   const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -111,7 +112,7 @@ function HourlyForecastStrip({ hours }: { hours: GoogleWeatherSnapshot['hourly']
   }, [groupWidth]);
 
   return (
-    <ScrollView
+    <ThemeAwareScrollView
       ref={scrollRef}
       horizontal
       bounces={false}
@@ -131,22 +132,22 @@ function HourlyForecastStrip({ hours }: { hours: GoogleWeatherSnapshot['hourly']
       accessibilityHint="Moves slowly on its own. Swipe to browse the forecast."
     >
       {Array.from({ length: copyCount }, (_, copy) => (
-        <View
+        <ThemeAwareView
           key={`hourly-copy-${copy}`}
           style={styles.hourlyCopy}
           onLayout={copy === 0 ? (event) => setGroupWidth(event.nativeEvent.layout.width) : undefined}
         >
           {hours.map((hour) => (
-            <View key={`${copy}-${hour.time}`} style={styles.hourItem}>
+            <ThemeAwareView key={`${copy}-${hour.time}`} style={styles.hourItem}>
               <Text style={styles.hourRain}>{hour.precipitationProbability == null ? '--' : `${hour.precipitationProbability}%`}</Text>
               <Text style={styles.hourTime}>{displayHour(hour.time)}</Text>
               <MaterialCommunityIcons name={getWeatherPresentation(hour.conditionType, hour.temperature, hour.isDay, hour.conditionDescription).icon} size={26} color={Colors.secondary} />
               <Text style={styles.hourTemperature}>{formatTemperature(hour.temperature)}</Text>
-            </View>
+            </ThemeAwareView>
           ))}
-        </View>
+        </ThemeAwareView>
       ))}
-    </ScrollView>
+    </ThemeAwareScrollView>
   );
 }
 
@@ -189,60 +190,60 @@ export default function WeatherForecastScreen() {
   const tileTimePresentation = getWeatherTileTimePresentation(now);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+    <ThemeAwareSafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+      <ThemeAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ThemeAwareView style={styles.header}>
           <AppBackArrow style={styles.backButton} />
           <Text style={styles.headerTitle}>Weather</Text>
-        </View>
+        </ThemeAwareView>
 
-        {isLoading && <View style={styles.centerState}><ActivityIndicator color={Colors.primary} /><Text style={styles.stateText}>Loading weather forecast...</Text></View>}
+        {isLoading && <ThemeAwareView style={styles.centerState}><ActivityIndicator color={Colors.primary} /><Text style={styles.stateText}>Loading weather forecast...</Text></ThemeAwareView>}
         {!isLoading && error && (
-          <View style={styles.errorCard}>
+          <ThemeAwareView style={styles.errorCard}>
             <MaterialCommunityIcons name="alert-circle-outline" size={32} color={Colors.emergency} />
             <Text style={styles.errorTitle}>Forecast unavailable</Text>
             <Text style={styles.errorText}>{error}</Text>
             <Text style={styles.errorText}>Check the HANDA server's Google Weather API configuration and try again.</Text>
-            <Pressable onPress={() => void loadForecast()} style={styles.retryButton}><Text darkText style={styles.retryText}>Retry</Text></Pressable>
-          </View>
+            <ThemeAwarePressable onPress={() => void loadForecast()} style={styles.retryButton}><Text darkText style={styles.retryText}>Retry</Text></ThemeAwarePressable>
+          </ThemeAwareView>
         )}
         {!isLoading && !error && forecast && today && presentation && (
           <>
             <LinearGradient colors={tileTimePresentation.gradient} style={styles.todayCard}>
-              <View style={styles.todayHeading}>
-                <View><Text darkText style={styles.todayLabel}>Today</Text><Text darkText style={styles.todayDate}>{displayDate(today.date, true)}</Text></View>
+              <ThemeAwareView style={styles.todayHeading}>
+                <ThemeAwareView><Text darkText style={styles.todayLabel}>Today</Text><Text darkText style={styles.todayDate}>{displayDate(today.date, true)}</Text></ThemeAwareView>
                 <MaterialCommunityIcons name={getWeatherTileIcon(presentation, now)} size={42} color={Colors.white} />
-              </View>
-              <View style={styles.todayTemperatureRow}>
+              </ThemeAwareView>
+              <ThemeAwareView style={styles.todayTemperatureRow}>
                 <Text darkText style={styles.todayTemperature}>{formatTemperature(forecast.current.temperature)}</Text>
                 <Text darkText style={styles.todayCondition}>{presentation.description}</Text>
-              </View>
+              </ThemeAwareView>
               <Text darkText style={styles.todayMeta}>Feels like {formatTemperature(forecast.current.feelsLike)}  ·  High {formatTemperature(today.maxTemperature)}  ·  Low {formatTemperature(today.minTemperature)}</Text>
               <Text darkText style={styles.todayMeta}>Humidity {Math.round(forecast.current.humidity)}%  ·  Wind {Math.round(forecast.current.windSpeed)} km/h</Text>
             </LinearGradient>
 
             {forecast.environmentalRisk
-              ? <View style={[styles.riskCard, [styles.riskLevel0, styles.riskLevel1, styles.riskLevel2, styles.riskLevel3, styles.riskLevel4][forecast.environmentalRisk.level]]}>
-                <View style={styles.riskHeading}><MaterialCommunityIcons name="leaf" size={19} color={Colors.primary} /><Text style={styles.riskTitle}>Environmental risk · {forecast.environmentalRisk.label}</Text></View>
+              ? <ThemeAwareView style={[styles.riskCard, [styles.riskLevel0, styles.riskLevel1, styles.riskLevel2, styles.riskLevel3, styles.riskLevel4][forecast.environmentalRisk.level]]}>
+                <ThemeAwareView style={styles.riskHeading}><MaterialCommunityIcons name="leaf" size={19} color={Colors.primary} /><Text style={styles.riskTitle}>Environmental risk · {forecast.environmentalRisk.label}</Text></ThemeAwareView>
                 <Text style={styles.riskDetail}>Air-quality factor: {forecast.environmentalRisk.airQualityFactor}  ·  Weather factor: {forecast.environmentalRisk.weatherFactor}</Text>
                 <Text style={styles.riskDetail}>{forecast.environmentalRisk.basis}</Text>
                 <Text style={styles.riskDisclaimer}>Planning indicator only—not an official warning. Follow PAGASA and local authority advisories.</Text>
-              </View>
+              </ThemeAwareView>
               : forecast.airQualityAvailable
                 ? null
-                : <View style={styles.riskUnavailable}><MaterialCommunityIcons name="information-outline" size={18} color={Colors.warning} /><Text style={styles.riskDetail}>Air-quality data is unavailable, so the combined environmental risk indicator could not be calculated.</Text></View>}
+                : <ThemeAwareView style={styles.riskUnavailable}><MaterialCommunityIcons name="information-outline" size={18} color={Colors.warning} /><Text style={styles.riskDetail}>Air-quality data is unavailable, so the combined environmental risk indicator could not be calculated.</Text></ThemeAwareView>}
 
-            <View style={styles.hourlyCard}>
+            <ThemeAwareView style={styles.hourlyCard}>
               <HourlyForecastStrip hours={forecast.hourly} />
-            </View>
+            </ThemeAwareView>
 
-            <View style={styles.section}>
+            <ThemeAwareView style={styles.section}>
               <Text style={styles.sectionTitle}>Next 7 days</Text>
               {forecast.daily.map((day) => {
                 const expanded = expandedDate === day.date;
                 const dayPresentation = getWeatherPresentation(day.conditionType, day.maxTemperature, true, day.conditionDescription);
                 return (
-                  <Pressable
+                  <ThemeAwarePressable
                     key={day.date}
                     onPress={() => setExpandedDate(expanded ? null : day.date)}
                     accessibilityRole="button"
@@ -250,33 +251,33 @@ export default function WeatherForecastScreen() {
                     accessibilityLabel={`${displayDate(day.date)} forecast`}
                     style={styles.dayRow}
                   >
-                    <View style={styles.dayMain}>
-                      <View style={styles.dayCopy}>
+                    <ThemeAwareView style={styles.dayMain}>
+                      <ThemeAwareView style={styles.dayCopy}>
                         <Text style={styles.dayDate}>{displayDate(day.date)}</Text>
                         <Text style={styles.dayMeta}>Day: {formatTemperature(day.maxTemperature)}, Night: {formatTemperature(day.minTemperature)}</Text>
-                      </View>
+                      </ThemeAwareView>
                       <MaterialCommunityIcons name={dayPresentation.icon} size={28} color={Colors.secondary} />
                       <MaterialCommunityIcons name={expanded ? 'chevron-up' : 'chevron-down'} size={22} color={Colors.textMuted} />
-                    </View>
+                    </ThemeAwareView>
                     {expanded && (
-                      <View style={styles.dayDetails}>
+                      <ThemeAwareView style={styles.dayDetails}>
                         <Text style={styles.dayDetail}>{dayPresentation.description}</Text>
                         <Text style={styles.dayDetail}>Chance of rain: {day.precipitationProbability == null ? 'Unavailable' : `${day.precipitationProbability}%`}  ·  Rainfall: {day.precipitationSum == null ? 'Unavailable' : `${day.precipitationSum.toFixed(1)} mm`}</Text>
                         <Text style={styles.dayDetail}>Max wind: {day.windSpeedMax == null ? 'Unavailable' : `${Math.round(day.windSpeedMax)} km/h`}</Text>
-                      </View>
+                      </ThemeAwareView>
                     )}
-                  </Pressable>
+                  </ThemeAwarePressable>
                 );
               })}
-            </View>
-            <View style={styles.attribution}>
+            </ThemeAwareView>
+            <ThemeAwareView style={styles.attribution}>
               <Text style={styles.googleAttribution}>Google Maps</Text>
-            </View>
+            </ThemeAwareView>
             <Text style={styles.source}>Not an official warning. Check PAGASA advisories.</Text>
           </>
         )}
-      </ScrollView>
-    </SafeAreaView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
@@ -62,7 +63,7 @@ export default function CurrentLocationMap({ coordinate }: CurrentLocationMapPro
   };
 
   return (
-    <View style={styles.container}>
+    <ThemeAwareView style={styles.container}>
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -74,23 +75,23 @@ export default function CurrentLocationMap({ coordinate }: CurrentLocationMapPro
       >
         {coordinate && <Marker coordinate={coordinate} title="Your current location" pinColor="#D45B92" />}
       </MapView>
-      <View style={styles.controls}>
-        <Pressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter on current location">
+      <ThemeAwareView style={styles.controls}>
+        <ThemeAwarePressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter on current location">
           <MaterialCommunityIcons name="crosshairs-gps" size={19} color={Colors.primary} />
-        </Pressable>
-        <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map">
+        </ThemeAwarePressable>
+        <ThemeAwarePressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map">
           <Text style={styles.controlText}>{show3d ? '2D' : '3D'}</Text>
-        </Pressable>
-        {coordinate && <Pressable onPress={() => void openDirections()} style={styles.control} accessibilityRole="button" accessibilityLabel="Open location in Google Maps">
+        </ThemeAwarePressable>
+        {coordinate && <ThemeAwarePressable onPress={() => void openDirections()} style={styles.control} accessibilityRole="button" accessibilityLabel="Open location in Google Maps">
           <MaterialCommunityIcons name="directions" size={20} color={Colors.primary} />
-        </Pressable>}
-      </View>
-    </View>
+        </ThemeAwarePressable>}
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 
 function MapMessage({ children }: { children: string }) {
-  return <View style={styles.message}><Text style={styles.messageText}>{children}</Text></View>;
+  return <ThemeAwareView style={styles.message}><Text style={styles.messageText}>{children}</Text></ThemeAwareView>;
 }
 
 const styles = StyleSheet.create({

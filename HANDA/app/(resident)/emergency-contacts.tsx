@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Linking, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -32,12 +33,12 @@ function CallButton({ contact }: { contact: EmergencyContact }) {
   }, [pulse]);
 
   return (
-    <View style={styles.callWrap}>
+    <ThemeAwareView style={styles.callWrap}>
       <Animated.View pointerEvents="none" style={[styles.callPulse, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] }) }] }]} />
-      <Pressable style={styles.callButton} onPress={() => void Linking.openURL(`tel:${toDialNumber(contact.numbers[0].number)}`)} accessibilityRole="button" accessibilityLabel={`Call ${contact.name}`}>
+      <ThemeAwarePressable style={styles.callButton} onPress={() => void Linking.openURL(`tel:${toDialNumber(contact.numbers[0].number)}`)} accessibilityRole="button" accessibilityLabel={`Call ${contact.name}`}>
         <MaterialCommunityIcons name="phone" size={20} color={Colors.white} />
-      </Pressable>
-    </View>
+      </ThemeAwarePressable>
+    </ThemeAwareView>
   );
 }
 
@@ -49,7 +50,7 @@ function ContactCard({ contact, index }: { contact: EmergencyContact; index: num
 
   return (
     <Animated.View style={[entrance, { transform: [...entrance.transform, { translateY: lift.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }] }]}>
-      <Pressable
+      <ThemeAwarePressable
         style={[styles.contactCard, hovered && styles.contactCardHover]}
         onHoverIn={() => { setHovered(true); liftTo(1); }}
         onHoverOut={() => { setHovered(false); liftTo(0); }}
@@ -57,21 +58,21 @@ function ContactCard({ contact, index }: { contact: EmergencyContact; index: num
         accessibilityRole="button"
         accessibilityLabel={`View details for ${contact.name}`}
       >
-        <View style={[styles.accentBar, { backgroundColor: contact.color }]} />
-        <View style={[styles.contactIcon, { borderColor: `${contact.color}55`, backgroundColor: `${contact.color}14` }]}>
+        <ThemeAwareView style={[styles.accentBar, { backgroundColor: contact.color }]} />
+        <ThemeAwareView style={[styles.contactIcon, { borderColor: `${contact.color}55`, backgroundColor: `${contact.color}14` }]}>
           <Image source={contact.logo} style={styles.logo} resizeMode="contain" accessibilityIgnoresInvertColors />
-        </View>
-        <View style={styles.contactCopy}>
+        </ThemeAwareView>
+        <ThemeAwareView style={styles.contactCopy}>
           <Text style={styles.contactName} numberOfLines={1}>{contact.name}</Text>
           <Text style={styles.contactDetail} numberOfLines={1}>{contact.summary}</Text>
-          <View style={[styles.numberPill, { backgroundColor: `${contact.color}14` }]}>
+          <ThemeAwareView style={[styles.numberPill, { backgroundColor: `${contact.color}14` }]}>
             <MaterialCommunityIcons name="phone-outline" size={12} color={contact.color} />
             <Text style={styles.contactNumber}>{contact.numbers[0].number}</Text>
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
         <CallButton contact={contact} />
         <MaterialCommunityIcons name="chevron-right" size={22} color={Colors.textMuted} />
-      </Pressable>
+      </ThemeAwarePressable>
     </Animated.View>
   );
 }
@@ -83,8 +84,8 @@ export default function EmergencyContactsScreen() {
   }, [headerIn]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ThemeAwareSafeAreaView style={styles.safeArea}>
+      <ThemeAwareScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <MaterialCommunityIcons name="phone-in-talk" size={150} color="rgba(255,255,255,0.08)" style={styles.headerGlyph} />
           <AppBackArrow />
@@ -92,16 +93,16 @@ export default function EmergencyContactsScreen() {
             <Text style={styles.headerTitle}>Emergency</Text>
             <Text style={styles.headerSubtitle}>CONTACT LIST</Text>
           </Animated.View>
-          <View style={styles.headerBadge}><MaterialCommunityIcons name="phone-in-talk-outline" size={26} color={Colors.white} /></View>
+          <ThemeAwareView style={styles.headerBadge}><MaterialCommunityIcons name="phone-in-talk-outline" size={26} color={Colors.white} /></ThemeAwareView>
         </LinearGradient>
         <Animated.View style={[styles.introRow, { opacity: headerIn }]}>
           <MaterialCommunityIcons name="shield-check-outline" size={16} color="#D45B92" />
           <Text style={styles.intro}>Keep these numbers accessible during an emergency.</Text>
         </Animated.View>
-        <View style={styles.list}>{emergencyContacts.map((contact, index) => <ContactCard key={contact.id} contact={contact} index={index} />)}</View>
+        <ThemeAwareView style={styles.list}>{emergencyContacts.map((contact, index) => <ContactCard key={contact.id} contact={contact} index={index} />)}</ThemeAwareView>
         <Text style={styles.note}>Tap a contact for details, or use the call button to connect right away. Emergency calls may require mobile service.</Text>
-      </ScrollView>
-    </SafeAreaView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

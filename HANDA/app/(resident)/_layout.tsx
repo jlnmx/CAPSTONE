@@ -1,3 +1,4 @@
+import { ThemeAwareView } from '@components/ThemeAware';
 /**
  * Resident Stack Layout
  */
@@ -35,7 +36,7 @@ function TabBarIcon({ name, color, size, focused, badgeCount = 0 }: TabBarIconPr
   return (
     <Animated.View style={[styles.tabIcon, focused && styles.tabIconActive, { transform: [{ scale }] }]}>
       <MaterialCommunityIcons name={name} size={size} color={color} />
-      {badgeCount > 0 && <View style={styles.incidentBadge}><Text style={styles.incidentBadgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text></View>}
+      {badgeCount > 0 && <ThemeAwareView style={styles.incidentBadge}><Text style={styles.incidentBadgeText}>{badgeCount > 99 ? '99+' : badgeCount}</Text></ThemeAwareView>}
     </Animated.View>
   );
 }
@@ -59,10 +60,10 @@ function SosTabIcon({ active, size }: { active: boolean; size: number }) {
 
   return (
     <Animated.View style={[styles.sosTabShell, { transform: [{ scale: pulse }] }]}>
-      <View style={[styles.sosTab, { width: size + (Platform.OS === 'web' ? 20 : 14), height: size + (Platform.OS === 'web' ? 20 : 14) }]}>
+      <ThemeAwareView style={[styles.sosTab, { width: size + (Platform.OS === 'web' ? 20 : 14), height: size + (Platform.OS === 'web' ? 20 : 14) }]}>
         <MaterialCommunityIcons name="alarm-light-outline" size={size * 0.48} color="#FFFFFF" />
         <Text style={styles.sosTabText}>SOS</Text>
-      </View>
+      </ThemeAwareView>
     </Animated.View>
   );
 }

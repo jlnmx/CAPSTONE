@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView } from '@components/ThemeAware';
 import React from 'react';
 import { Colors } from '@constants/colors';
 import { SafeAreaView, StyleSheet, View } from 'react-native';
@@ -10,19 +11,19 @@ import { kitFonts } from '@components/IncidentCardKit';
 
 export default function ResidentIncidentsScreen() {
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+    <ThemeAwareSafeAreaView style={styles.container}>
+      <ThemeAwareView style={styles.content}>
         <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <AppBackArrow />
-          <View style={styles.headerCopy}>
+          <ThemeAwareView style={styles.headerCopy}>
             <Text style={styles.headerTitle}>Incidents</Text>
             <Text style={styles.headerSubtitle}>Live community reports · Biñan City</Text>
-          </View>
-          <View style={styles.headerBadge}><MaterialCommunityIcons name="map-marker-radius-outline" size={24} color="#FFFFFF" /></View>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.headerBadge}><MaterialCommunityIcons name="map-marker-radius-outline" size={24} color="#FFFFFF" /></ThemeAwareView>
         </LinearGradient>
         <ResidentIncidentFeed />
-      </View>
-    </SafeAreaView>
+      </ThemeAwareView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -175,8 +176,8 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
   };
 
   return (
-    <View style={styles.container}>
-      <View ref={mapElement as never} style={styles.map} />
+    <ThemeAwareView style={styles.container}>
+      <ThemeAwareView ref={mapElement as never} style={styles.map} />
       <HazardAreaOverlay map={mapReady ? mapRef.current : null} showFlood={hazardAreas.visibility.flood} showEarthquake={hazardAreas.visibility.earthquake} />
       <MapSearchBox
         query={query}
@@ -191,27 +192,27 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
         placeholder="Search evacuation centers or places"
         accessibilityLabel="Search evacuation centers or places"
       />
-      <View style={styles.controls}>
-        <Pressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map">
+      <ThemeAwareView style={styles.controls}>
+        <ThemeAwarePressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map">
           <MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} />
-        </Pressable>
-        <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map">
+        </ThemeAwarePressable>
+        <ThemeAwarePressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map">
           <Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text>
-        </Pressable>
-      </View>
+        </ThemeAwarePressable>
+      </ThemeAwareView>
       <HazardAreaControls
         visibility={hazardAreas.visibility}
         onToggleFlood={hazardAreas.toggleFlood}
         onToggleEarthquake={hazardAreas.toggleEarthquake}
       />
       {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => onNavigationTargetChange?.(null)} />}
-      {locationError ? <View style={styles.errorBanner}><Text style={styles.errorText}>{locationError}</Text></View> : null}
-    </View>
+      {locationError ? <ThemeAwareView style={styles.errorBanner}><Text style={styles.errorText}>{locationError}</Text></ThemeAwareView> : null}
+    </ThemeAwareView>
   );
 }
 
 function MapState({ label }: { label: string }) {
-  return <View style={styles.state}><ActivityIndicator color={Colors.primary} /><Text style={styles.stateText}>{label}</Text></View>;
+  return <ThemeAwareView style={styles.state}><ActivityIndicator color={Colors.primary} /><Text style={styles.stateText}>{label}</Text></ThemeAwareView>;
 }
 
 const styles = StyleSheet.create({

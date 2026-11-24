@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView } from '@components/ThemeAware';
 import React, { useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Colors } from '@constants/colors';
@@ -17,18 +18,18 @@ export default function IncidentsScreen() {
   }, []));
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ThemeAwareSafeAreaView style={styles.container}>
+      <ThemeAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.titleBand}>
           <AppBackArrow />
-          <View>
+          <ThemeAwareView>
             <Text style={styles.title}>Active</Text>
             <Text style={styles.subtitle}>INCIDENTS</Text>
-          </View>
+          </ThemeAwareView>
         </LinearGradient>
         <ResponderIncidentQueue />
-      </ScrollView>
-    </SafeAreaView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

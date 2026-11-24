@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareTouchableOpacity } from '@components/ThemeAware';
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -85,16 +86,16 @@ export default function AGAPMap() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <ThemeAwareView style={styles.container}>
+      <ThemeAwareView style={styles.header}>
         <Text style={styles.headerTitle}>AGAP MAP</Text>
         <Text style={styles.headerSubtitle}>Biñan City | Emergency response</Text>
-        <View style={[styles.onlineBadge, offlineMode && styles.offlineBadge]}>
+        <ThemeAwareView style={[styles.onlineBadge, offlineMode && styles.offlineBadge]}>
           <Text style={styles.onlineText}>{offlineMode ? 'Offline' : 'Online'}</Text>
-        </View>
-      </View>
+        </ThemeAwareView>
+      </ThemeAwareView>
 
-      <View style={styles.mapFrame}>
+      <ThemeAwareView style={styles.mapFrame}>
         <MapView
           style={styles.map}
           mapStyle={AGAP_BASE_VECTOR_STYLE}
@@ -150,23 +151,23 @@ export default function AGAPMap() {
             />
           </ShapeSource>
         </MapView>
-      </View>
+      </ThemeAwareView>
 
-      <View style={styles.controls}>
+      <ThemeAwareView style={styles.controls}>
         <MapControl label="Evacuation" icon="home-city-outline" onPress={() => {}} />
         <MapControl label="SOS" icon="alert-outline" onPress={() => {}} />
         <MapControl label="Your location" icon="crosshairs-gps" onPress={goToUserLocation} />
-      </View>
-    </View>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 
 function MapControl({ label, icon, onPress }: { label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.control} onPress={onPress} activeOpacity={0.75}>
+    <ThemeAwareTouchableOpacity style={styles.control} onPress={onPress} activeOpacity={0.75}>
       <MaterialCommunityIcons name={icon} size={17} color="#D45B92" />
       <Text style={styles.controlText}>{label}</Text>
-    </TouchableOpacity>
+    </ThemeAwareTouchableOpacity>
   );
 }
 

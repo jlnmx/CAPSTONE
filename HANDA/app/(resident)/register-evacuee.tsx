@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView } from '@components/ThemeAware';
 import React from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,17 +15,17 @@ export default function EvacuationGuidanceScreen() {
   const router = useRouter();
   const { palette } = useTheme();
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ThemeAwareSafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+      <ThemeAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <GradientHeader title="Evacuation guidance" subtitle="How center assignments work" icon="home-heart" showBack />
         <Reveal index={0}>
-          <View style={[styles.heroCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-            <View style={styles.heroIcon}><MaterialCommunityIcons name="account-group-outline" size={30} color={GREEN} /></View>
+          <ThemeAwareView style={[styles.heroCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+            <ThemeAwareView style={styles.heroIcon}><MaterialCommunityIcons name="account-group-outline" size={30} color={GREEN} /></ThemeAwareView>
             <Text style={[styles.heroTitle, { color: palette.text }]}>No registration needed</Text>
             <Text style={[styles.heroText, { color: palette.textMuted }]}>
               Evacuation centers and household check-ins are managed by City Social Welfare and Development personnel. You do not need to register yourself or choose a center in the app.
             </Text>
-          </View>
+          </ThemeAwareView>
         </Reveal>
 
         <Text style={[styles.sectionTitle, { color: palette.text }]}>What to do</Text>
@@ -34,22 +35,22 @@ export default function EvacuationGuidanceScreen() {
           { icon: 'bell-alert-outline' as const, title: 'Watch for updates', detail: 'Responders will share instructions if a center is full or your destination needs to change.' },
         ].map((item, index) => (
           <Reveal key={item.title} index={index + 1}>
-            <View style={[styles.stepCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-              <View style={styles.stepIcon}><MaterialCommunityIcons name={item.icon} size={21} color={GREEN} /></View>
-              <View style={styles.stepCopy}>
+            <ThemeAwareView style={[styles.stepCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+              <ThemeAwareView style={styles.stepIcon}><MaterialCommunityIcons name={item.icon} size={21} color={GREEN} /></ThemeAwareView>
+              <ThemeAwareView style={styles.stepCopy}>
                 <Text style={[styles.stepTitle, { color: palette.text }]}>{item.title}</Text>
                 <Text style={[styles.stepDetail, { color: palette.textMuted }]}>{item.detail}</Text>
-              </View>
+              </ThemeAwareView>
               <Text style={styles.stepNumber}>0{index + 1}</Text>
-            </View>
+            </ThemeAwareView>
           </Reveal>
         ))}
 
         <Reveal index={4}>
-          <View style={[styles.actionCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+          <ThemeAwareView style={[styles.actionCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <Text style={[styles.actionTitle, { color: palette.text }]}>Need live center information?</Text>
             <Text style={[styles.actionDetail, { color: palette.textMuted }]}>Check current availability or review the evacuation status linked to your account.</Text>
-            <View style={styles.actions}>
+            <ThemeAwareView style={styles.actions}>
               <AnimatedPressable style={styles.primaryButton} onPress={() => router.push('/(resident)/center-status')} accessibilityRole="button">
                 <MaterialCommunityIcons name="home-city-outline" size={18} color={Colors.white} />
                 <Text style={styles.primaryText}>Center status</Text>
@@ -58,11 +59,11 @@ export default function EvacuationGuidanceScreen() {
                 <MaterialCommunityIcons name="shield-check-outline" size={18} color={GREEN} />
                 <Text style={styles.secondaryText}>My status</Text>
               </AnimatedPressable>
-            </View>
-          </View>
+            </ThemeAwareView>
+          </ThemeAwareView>
         </Reveal>
-      </ScrollView>
-    </SafeAreaView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

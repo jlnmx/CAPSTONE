@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable, ThemeAwareTextInput } from '@components/ThemeAware';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -26,7 +27,7 @@ export default function ChatbotScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 'welcome', role: 'assistant', text: 'Hi! I’m Kaya, your HANDA safety companion. Ask me about using the app, incidents, evacuation, first aid, weather, or disaster safety.' },
   ]);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ThemeAwareScrollView>(null);
 
   const sendMessage = async (text = input) => {
     const question = text.trim();
@@ -71,17 +72,17 @@ export default function ChatbotScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
+    <ThemeAwareSafeAreaView style={styles.safe}>
+      <ThemeAwareView style={styles.header}>
         <AppBackArrow fallbackHref={fallbackHref} />
-        <View style={styles.headerCopy}>
+        <ThemeAwareView style={styles.headerCopy}>
           <Text style={styles.title}>KAYA</Text>
           <Text style={styles.subtitle}>Your HANDA safety companion</Text>
-        </View>
+        </ThemeAwareView>
         <RescueMascot size={50} animated />
-      </View>
+      </ThemeAwareView>
       <KeyboardAvoidingView style={styles.body} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
+        <ThemeAwareScrollView
           ref={scrollRef}
           style={styles.messages}
           contentContainerStyle={styles.messageContent}
@@ -89,29 +90,29 @@ export default function ChatbotScreen() {
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.map((message) => (
-            <View key={message.id} style={[styles.messageRow, message.role === 'user' ? styles.userMessageRow : styles.assistantMessageRow]}>
+            <ThemeAwareView key={message.id} style={[styles.messageRow, message.role === 'user' ? styles.userMessageRow : styles.assistantMessageRow]}>
               {message.role === 'assistant' && <RescueMascot size={32} />}
-              <View style={[styles.bubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
+              <ThemeAwareView style={[styles.bubble, message.role === 'user' ? styles.userBubble : styles.assistantBubble]}>
                 <Text style={[styles.messageText, message.role === 'user' && styles.userText]}>{message.text}</Text>
-                {message.weatherAttribution && <View style={styles.attribution}>
+                {message.weatherAttribution && <ThemeAwareView style={styles.attribution}>
                   <Text style={styles.googleAttribution}>Google Maps</Text>
-                </View>}
-              </View>
-            </View>
+                </ThemeAwareView>}
+              </ThemeAwareView>
+            </ThemeAwareView>
           ))}
           {isTyping && <TypingIndicator />}
-        </ScrollView>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptsScroll} contentContainerStyle={styles.prompts} keyboardShouldPersistTaps="handled">
+        </ThemeAwareScrollView>
+        <ThemeAwareScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.promptsScroll} contentContainerStyle={styles.prompts} keyboardShouldPersistTaps="handled">
           {QUICK_PROMPTS.map((prompt) => (
-            <Pressable key={prompt} onPress={() => sendMessage(prompt)} style={styles.prompt} accessibilityRole="button"><Text style={styles.promptText}>{prompt}</Text></Pressable>
+            <ThemeAwarePressable key={prompt} onPress={() => sendMessage(prompt)} style={styles.prompt} accessibilityRole="button"><Text style={styles.promptText}>{prompt}</Text></ThemeAwarePressable>
           ))}
-        </ScrollView>
-        <View style={styles.inputRow}>
-          <TextInput value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Ask Kaya about safety, weather, or HANDA" placeholderTextColor={Colors.textMuted} style={styles.input} returnKeyType="send" blurOnSubmit={false} />
-          <Pressable onPress={() => sendMessage()} style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendDisabled]} disabled={!input.trim() || isTyping} accessibilityRole="button" accessibilityLabel="Send assistant question"><MaterialCommunityIcons name="send" size={20} color="#FFFFFF" /></Pressable>
-        </View>
+        </ThemeAwareScrollView>
+        <ThemeAwareView style={styles.inputRow}>
+          <ThemeAwareTextInput value={input} onChangeText={setInput} onSubmitEditing={() => sendMessage()} placeholder="Ask Kaya about safety, weather, or HANDA" placeholderTextColor={Colors.textMuted} style={styles.input} returnKeyType="send" blurOnSubmit={false} />
+          <ThemeAwarePressable onPress={() => sendMessage()} style={[styles.sendButton, (!input.trim() || isTyping) && styles.sendDisabled]} disabled={!input.trim() || isTyping} accessibilityRole="button" accessibilityLabel="Send assistant question"><MaterialCommunityIcons name="send" size={20} color="#FFFFFF" /></ThemeAwarePressable>
+        </ThemeAwareView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ThemeAwareSafeAreaView>
   );
 }
 
@@ -128,13 +129,13 @@ function TypingIndicator() {
     return () => dots.forEach((value) => value.stopAnimation());
   }, [dots]);
 
-  return <View style={[styles.messageRow, styles.assistantMessageRow]}>
+  return <ThemeAwareView style={[styles.messageRow, styles.assistantMessageRow]}>
     <RescueMascot size={32} />
-    <View style={[styles.bubble, styles.assistantBubble, styles.typingBubble]}>
+    <ThemeAwareView style={[styles.bubble, styles.assistantBubble, styles.typingBubble]}>
       <Text style={styles.typingLabel}>Kaya is thinking</Text>
-      <View style={styles.typingDots}>{dots.map((value, index) => <Animated.View key={index} style={[styles.typingDot, { opacity: value }]} />)}</View>
-    </View>
-  </View>;
+      <ThemeAwareView style={styles.typingDots}>{dots.map((value, index) => <Animated.View key={index} style={[styles.typingDot, { opacity: value }]} />)}</ThemeAwareView>
+    </ThemeAwareView>
+  </ThemeAwareView>;
 }
 
 const styles = StyleSheet.create({

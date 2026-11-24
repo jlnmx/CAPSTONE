@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable, ThemeAwareTextInput } from '@components/ThemeAware';
 import React, { useEffect, useState } from 'react';
 import { Colors } from '@constants/colors';
 import { ActivityIndicator, Image, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -177,31 +178,31 @@ export default function ResidentIncidentReport() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <ThemeAwareSafeAreaView style={styles.container}>
+      <ThemeAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <AppBackArrow />
-          <View style={styles.headerCopy}>
+          <ThemeAwareView style={styles.headerCopy}>
             <Text style={styles.eyebrow}>COMMUNITY SAFETY</Text>
             <Text style={styles.title}>Report incident</Text>
             <Text style={styles.headerSubtitle}>Share details so responders can act quickly.</Text>
-          </View>
-          <View style={styles.headerIcon}><MaterialCommunityIcons name="alert-decagram-outline" size={23} color="#FFFFFF" /></View>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.headerIcon}><MaterialCommunityIcons name="alert-decagram-outline" size={23} color="#FFFFFF" /></ThemeAwareView>
         </LinearGradient>
-        <View style={styles.form}>
+        <ThemeAwareView style={styles.form}>
           <Reveal index={0}>
-            <View style={styles.formCard}>
+            <ThemeAwareView style={styles.formCard}>
               <SectionHeading icon="alert-circle-outline" title="What is happening?" description="Tell responders what they need to know." />
               <FieldLabel label="Incident type" required />
               <AnimatedPressable style={styles.select} onPress={() => setPicker('type')} accessibilityRole="button" accessibilityLabel={incidentType ? `Incident type: ${incidentType}` : 'Choose incident type'}>
-                <View style={styles.selectCopy}>
+                <ThemeAwareView style={styles.selectCopy}>
                   {incidentType ? <MaterialCommunityIcons name={incidentTypeIcon(incidentType)} size={19} color={GREEN} /> : null}
                   <Text style={incidentType ? styles.selectValue : styles.selectPlaceholder}>{incidentType || 'Select an incident or disaster'}</Text>
-                </View>
+                </ThemeAwareView>
                 <MaterialCommunityIcons name="chevron-down" size={21} color="#5B735F" />
               </AnimatedPressable>
               <FieldLabel label="Description" required />
-              <TextInput
+              <ThemeAwareTextInput
                 style={styles.descriptionInput}
                 placeholder="Describe what happened and any immediate danger."
                 placeholderTextColor="#8E9891"
@@ -212,49 +213,49 @@ export default function ResidentIncidentReport() {
                 maxLength={1000}
                 accessibilityLabel="Incident description"
               />
-              <View style={styles.descriptionFooter}>
+              <ThemeAwareView style={styles.descriptionFooter}>
                 <Text style={styles.inputHint}>Include helpful details such as hazards or people affected.</Text>
                 <Text style={styles.characterCount}>{description.length}/1000</Text>
-              </View>
-            </View>
+              </ThemeAwareView>
+            </ThemeAwareView>
           </Reveal>
 
           <Reveal index={1}>
-            <View style={styles.formCard}>
-              <View style={styles.locationHeading}>
+            <ThemeAwareView style={styles.formCard}>
+              <ThemeAwareView style={styles.locationHeading}>
                 <SectionHeading icon="map-marker-radius-outline" title="Where is it?" description="Your current location will be pinned on the map." />
                 <AnimatedPressable onPress={() => void loadLocation()} style={styles.refreshButton} accessibilityRole="button" accessibilityLabel="Refresh current location">
                   <MaterialCommunityIcons name="crosshairs-gps" size={19} color={GREEN} />
                 </AnimatedPressable>
-              </View>
-              <View style={styles.mapFrame}><CurrentLocationMap coordinate={coordinate} /></View>
-              <View style={styles.locationReadout}>
+              </ThemeAwareView>
+              <ThemeAwareView style={styles.mapFrame}><CurrentLocationMap coordinate={coordinate} /></ThemeAwareView>
+              <ThemeAwareView style={styles.locationReadout}>
                 <MaterialCommunityIcons name={isGettingLocation ? 'crosshairs-gps' : 'map-marker'} size={18} color={GREEN} />
                 <Text style={styles.locationText}>{isGettingLocation ? 'Getting your current location...' : locationLabel || 'Location unavailable'}</Text>
                 {!isGettingLocation && coordinate ? <MaterialCommunityIcons name="check-circle" size={17} color={GREEN} /> : null}
-              </View>
-            </View>
+              </ThemeAwareView>
+            </ThemeAwareView>
           </Reveal>
 
           <Reveal index={2}>
-            <View style={styles.formCard}>
-              <View style={styles.photoHeading}>
+            <ThemeAwareView style={styles.formCard}>
+              <ThemeAwareView style={styles.photoHeading}>
                 <SectionHeading icon="camera-outline" title="Add photos" description="Photos can help responders assess the situation." />
-                <View style={styles.photoCountBadge}><Text style={styles.photoCount}>{photos.length}/4</Text></View>
-              </View>
-              <View style={styles.photoGrid}>
+                <ThemeAwareView style={styles.photoCountBadge}><Text style={styles.photoCount}>{photos.length}/4</Text></ThemeAwareView>
+              </ThemeAwareView>
+              <ThemeAwareView style={styles.photoGrid}>
                 {photos.map((photo, index) => (
-                  <View key={`${photo.name}-${index}`} style={styles.photoItem}>
+                  <ThemeAwareView key={`${photo.name}-${index}`} style={styles.photoItem}>
                     <AnimatedPressable onPress={() => setViewerIndex(index)} accessibilityRole="imagebutton" accessibilityLabel={`View photo ${index + 1}`}>
                       <Image source={{ uri: photo.uri }} style={styles.photo} />
                     </AnimatedPressable>
                     <AnimatedPressable style={styles.removePhoto} onPress={() => setPhotos((current) => current.filter((_item, photoIndex) => photoIndex !== index))} accessibilityRole="button" accessibilityLabel="Remove photo">
                       <MaterialCommunityIcons name="close" size={15} color="#FFFFFF" />
                     </AnimatedPressable>
-                  </View>
+                  </ThemeAwareView>
                 ))}
                 {photos.length < 4 && (
-                  <View style={styles.photoActions}>
+                  <ThemeAwareView style={styles.photoActions}>
                     <AnimatedPressable style={styles.photoButton} onPress={() => void addPhotos('camera')} accessibilityRole="button">
                       <MaterialCommunityIcons name="camera-outline" size={22} color={GREEN} />
                       <Text style={styles.photoButtonText}>Take photo</Text>
@@ -263,68 +264,68 @@ export default function ResidentIncidentReport() {
                       <MaterialCommunityIcons name="image-multiple-outline" size={22} color={GREEN} />
                       <Text style={styles.photoButtonText}>Upload</Text>
                     </AnimatedPressable>
-                  </View>
+                  </ThemeAwareView>
                 )}
-              </View>
+              </ThemeAwareView>
               <Text style={styles.photoFootnote}>Up to 4 photos · JPG, PNG or HEIC</Text>
-            </View>
+            </ThemeAwareView>
           </Reveal>
           {!!error && (
-            <View style={styles.errorBanner} accessibilityRole="alert">
+            <ThemeAwareView style={styles.errorBanner} accessibilityRole="alert">
               <MaterialCommunityIcons name="alert-circle-outline" size={19} color="#B42318" />
               <Text style={styles.error}>{error}</Text>
-            </View>
+            </ThemeAwareView>
           )}
           <AnimatedPressable style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={requestSubmit} disabled={isSubmitting} accessibilityRole="button">
             {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <><MaterialCommunityIcons name="send-check-outline" size={20} color="#FFFFFF" /><Text style={styles.submitText}>Review and submit report</Text></>}
           </AnimatedPressable>
-        </View>
-      </ScrollView>
+        </ThemeAwareView>
+      </ThemeAwareScrollView>
       <Modal transparent visible={picker !== null} animationType="fade" onRequestClose={() => setPicker(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setPicker(null)}>
-          <Pressable style={styles.optionsCard} onPress={(event) => event.stopPropagation()}>
-            <View style={styles.optionsHeading}>
-              <View style={styles.optionsIcon}><MaterialCommunityIcons name="alert-circle-outline" size={22} color={GREEN} /></View>
-              <View style={styles.optionsTitleCopy}>
+        <ThemeAwarePressable style={styles.modalBackdrop} onPress={() => setPicker(null)}>
+          <ThemeAwarePressable style={styles.optionsCard} onPress={(event) => event.stopPropagation()}>
+            <ThemeAwareView style={styles.optionsHeading}>
+              <ThemeAwareView style={styles.optionsIcon}><MaterialCommunityIcons name="alert-circle-outline" size={22} color={GREEN} /></ThemeAwareView>
+              <ThemeAwareView style={styles.optionsTitleCopy}>
                 <Text style={styles.optionsTitle}>Choose incident type</Text>
                 <Text style={styles.optionsSubtitle}>Select the closest match.</Text>
-              </View>
+              </ThemeAwareView>
               <AnimatedPressable onPress={() => setPicker(null)} style={styles.optionsClose} accessibilityRole="button" accessibilityLabel="Close incident type picker">
                 <MaterialCommunityIcons name="close" size={19} color={Colors.textMuted} />
               </AnimatedPressable>
-            </View>
-            <ScrollView style={styles.optionsScroll} showsVerticalScrollIndicator={false}>
+            </ThemeAwareView>
+            <ThemeAwareScrollView style={styles.optionsScroll} showsVerticalScrollIndicator={false}>
               {INCIDENT_TYPES.map((option) => (
                 <AnimatedPressable key={option} style={[styles.option, incidentType === option && styles.optionSelected]} onPress={() => { setIncidentType(option); setPicker(null); }}>
-                  <View style={styles.optionIcon}><MaterialCommunityIcons name={incidentTypeIcon(option)} size={18} color={incidentType === option ? GREEN : Colors.textMuted} /></View>
+                  <ThemeAwareView style={styles.optionIcon}><MaterialCommunityIcons name={incidentTypeIcon(option)} size={18} color={incidentType === option ? GREEN : Colors.textMuted} /></ThemeAwareView>
                   <Text style={[styles.optionText, incidentType === option && styles.optionTextSelected]}>{option}</Text>
                   {incidentType === option ? <MaterialCommunityIcons name="check-circle" size={19} color={GREEN} /> : <MaterialCommunityIcons name="chevron-right" size={19} color="#AAB6AC" />}
                 </AnimatedPressable>
               ))}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
+            </ThemeAwareScrollView>
+          </ThemeAwarePressable>
+        </ThemeAwarePressable>
       </Modal>
       <Modal transparent visible={isConfirmationVisible} animationType="fade" onRequestClose={() => setIsConfirmationVisible(false)}>
-        <Pressable style={confirmationStyles.backdrop} onPress={() => setIsConfirmationVisible(false)}>
-          <Pressable style={confirmationStyles.card} onPress={(event) => event.stopPropagation()}>
+        <ThemeAwarePressable style={confirmationStyles.backdrop} onPress={() => setIsConfirmationVisible(false)}>
+          <ThemeAwarePressable style={confirmationStyles.card} onPress={(event) => event.stopPropagation()}>
             <Text style={confirmationStyles.title}>Submit incident report?</Text>
             <Text style={confirmationStyles.message}>Your {incidentType.toLowerCase()} report and location will be shared with responders.</Text>
-            <View style={confirmationStyles.actions}>
+            <ThemeAwareView style={confirmationStyles.actions}>
               <AnimatedPressable style={confirmationStyles.cancelButton} onPress={() => setIsConfirmationVisible(false)} accessibilityRole="button">
                 <Text style={confirmationStyles.cancelText}>Review report</Text>
               </AnimatedPressable>
               <AnimatedPressable style={confirmationStyles.confirmButton} onPress={() => { setIsConfirmationVisible(false); void submitReport(); }} disabled={isSubmitting} accessibilityRole="button">
                 <Text style={confirmationStyles.confirmText}>Confirm and submit</Text>
               </AnimatedPressable>
-            </View>
-          </Pressable>
-        </Pressable>
+            </ThemeAwareView>
+          </ThemeAwarePressable>
+        </ThemeAwarePressable>
       </Modal>
       <Modal transparent visible={isSuccessVisible} animationType="fade" onRequestClose={() => setIsSuccessVisible(false)}>
-        <Pressable style={successStyles.backdrop} onPress={() => setIsSuccessVisible(false)}>
-          <Pressable style={successStyles.card} onPress={(event) => event.stopPropagation()}>
-            <View style={successStyles.icon}><MaterialCommunityIcons name="check" size={27} color="#FFFFFF" /></View>
+        <ThemeAwarePressable style={successStyles.backdrop} onPress={() => setIsSuccessVisible(false)}>
+          <ThemeAwarePressable style={successStyles.card} onPress={(event) => event.stopPropagation()}>
+            <ThemeAwareView style={successStyles.icon}><MaterialCommunityIcons name="check" size={27} color="#FFFFFF" /></ThemeAwareView>
             <Text style={successStyles.title}>{successTitle}</Text>
             <Text style={successStyles.message}>{successMessage}</Text>
             <AnimatedPressable style={successStyles.primaryButton} onPress={() => { setIsSuccessVisible(false); router.replace('/(resident)/incidents'); }} accessibilityRole="button">
@@ -333,23 +334,23 @@ export default function ResidentIncidentReport() {
             <AnimatedPressable style={successStyles.closeButton} onPress={() => setIsSuccessVisible(false)} accessibilityRole="button">
               <Text style={successStyles.closeButtonText}>Done</Text>
             </AnimatedPressable>
-          </Pressable>
-        </Pressable>
+          </ThemeAwarePressable>
+        </ThemeAwarePressable>
       </Modal>
       <PhotoViewer uris={photos.map((photo) => photo.uri)} startIndex={viewerIndex} onClose={() => setViewerIndex(null)} />
-    </SafeAreaView>
+    </ThemeAwareSafeAreaView>
   );
 }
 
 function SectionHeading({ icon, title, description }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; description: string }) {
   return (
-    <View style={styles.sectionHeading}>
-      <View style={styles.sectionIcon}><MaterialCommunityIcons name={icon} size={19} color={GREEN} /></View>
-      <View style={styles.sectionCopy}>
+    <ThemeAwareView style={styles.sectionHeading}>
+      <ThemeAwareView style={styles.sectionIcon}><MaterialCommunityIcons name={icon} size={19} color={GREEN} /></ThemeAwareView>
+      <ThemeAwareView style={styles.sectionCopy}>
         <Text style={styles.sectionTitle}>{title}</Text>
         <Text style={styles.helper}>{description}</Text>
-      </View>
-    </View>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 

@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable, ThemeAwareTouchableOpacity, ThemeAwareTextInput } from '@components/ThemeAware';
 import React, { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -87,118 +88,118 @@ export default function CenterStatusScreen() {
   }, [loadCenters]));
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView
+    <ThemeAwareSafeAreaView style={styles.safe}>
+      <ThemeAwareScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void loadCenters(true)} tintColor={GREEN} colors={[GREEN]} />}
       >
         <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <AppBackArrow />
-          <View style={styles.headerCopy}>
+          <ThemeAwareView style={styles.headerCopy}>
             <Text style={styles.headerEyebrow}>RESIDENT SERVICES</Text>
             <Text style={styles.headerTitle}>Center status</Text>
             <Text style={styles.headerSubtitle}>Live evacuation center information</Text>
-          </View>
-          <TouchableOpacity style={styles.refreshButton} onPress={() => void loadCenters(true)} accessibilityRole="button" accessibilityLabel="Refresh center status">
+          </ThemeAwareView>
+          <ThemeAwareTouchableOpacity style={styles.refreshButton} onPress={() => void loadCenters(true)} accessibilityRole="button" accessibilityLabel="Refresh center status">
             <MaterialCommunityIcons name="refresh" size={21} color={Colors.white} />
-          </TouchableOpacity>
+          </ThemeAwareTouchableOpacity>
         </LinearGradient>
 
         <Animated.View entering={FadeInDown.duration(320)} style={styles.intro}>
-          <View style={styles.introCopy}>
+          <ThemeAwareView style={styles.introCopy}>
             <Text style={styles.sectionTitle}>Find a safe place</Text>
             <Text style={styles.sectionSubtitle}>Check capacity, availability, and location before you travel.</Text>
-          </View>
-          <View style={styles.introIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={23} color={GREEN} /></View>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.introIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={23} color={GREEN} /></ThemeAwareView>
         </Animated.View>
 
         {centers.length > 0 && <Animated.View entering={FadeInDown.delay(50).duration(320)} style={styles.overviewCard}>
-          <View style={styles.overviewLive}><View style={styles.liveDot} /><Text style={styles.overviewLiveText}>LIVE CENTER UPDATES</Text></View>
-          <View style={styles.overviewStats}>
-            <View style={styles.overviewStat}><Text style={styles.overviewValue}>{centers.length}</Text><Text style={styles.overviewLabel}>Centers</Text></View>
-            <View style={styles.overviewDivider} />
-            <View style={styles.overviewStat}><Text style={[styles.overviewValue, styles.overviewGreen]}>{availableCenterCount}</Text><Text style={styles.overviewLabel}>Available</Text></View>
-            <View style={styles.overviewDivider} />
-            <View style={styles.overviewStat}><Text style={styles.overviewValue}>{totalCapacity.toLocaleString()}</Text><Text style={styles.overviewLabel}>Total capacity</Text></View>
-          </View>
+          <ThemeAwareView style={styles.overviewLive}><ThemeAwareView style={styles.liveDot} /><Text style={styles.overviewLiveText}>LIVE CENTER UPDATES</Text></ThemeAwareView>
+          <ThemeAwareView style={styles.overviewStats}>
+            <ThemeAwareView style={styles.overviewStat}><Text style={styles.overviewValue}>{centers.length}</Text><Text style={styles.overviewLabel}>Centers</Text></ThemeAwareView>
+            <ThemeAwareView style={styles.overviewDivider} />
+            <ThemeAwareView style={styles.overviewStat}><Text style={[styles.overviewValue, styles.overviewGreen]}>{availableCenterCount}</Text><Text style={styles.overviewLabel}>Available</Text></ThemeAwareView>
+            <ThemeAwareView style={styles.overviewDivider} />
+            <ThemeAwareView style={styles.overviewStat}><Text style={styles.overviewValue}>{totalCapacity.toLocaleString()}</Text><Text style={styles.overviewLabel}>Total capacity</Text></ThemeAwareView>
+          </ThemeAwareView>
         </Animated.View>}
 
-        {centers.length > 0 && <View style={styles.discovery}>
-          <View style={styles.searchBox}>
+        {centers.length > 0 && <ThemeAwareView style={styles.discovery}>
+          <ThemeAwareView style={styles.searchBox}>
             <MaterialCommunityIcons name="magnify" size={20} color={Colors.textMuted} />
-            <TextInput value={searchText} onChangeText={setSearchText} placeholder="Search name or location" placeholderTextColor={Colors.textMuted} style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search evacuation centers" />
-            {!!searchText && <Pressable onPress={() => setSearchText('')} style={styles.clearSearch} accessibilityRole="button" accessibilityLabel="Clear search"><MaterialCommunityIcons name="close-circle" size={18} color={Colors.textMuted} /></Pressable>}
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterList}>
+            <ThemeAwareTextInput value={searchText} onChangeText={setSearchText} placeholder="Search name or location" placeholderTextColor={Colors.textMuted} style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search evacuation centers" />
+            {!!searchText && <ThemeAwarePressable onPress={() => setSearchText('')} style={styles.clearSearch} accessibilityRole="button" accessibilityLabel="Clear search"><MaterialCommunityIcons name="close-circle" size={18} color={Colors.textMuted} /></ThemeAwarePressable>}
+          </ThemeAwareView>
+          <ThemeAwareScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterList}>
             {CENTER_FILTERS.map((filter) => {
               const isSelected = selectedFilter === filter.key;
-              return <Pressable key={filter.key} style={[styles.filterChip, isSelected && styles.filterChipSelected]} onPress={() => setSelectedFilter(filter.key)} accessibilityRole="button" accessibilityState={{ selected: isSelected }}>
+              return <ThemeAwarePressable key={filter.key} style={[styles.filterChip, isSelected && styles.filterChipSelected]} onPress={() => setSelectedFilter(filter.key)} accessibilityRole="button" accessibilityState={{ selected: isSelected }}>
                 <Text style={[styles.filterText, isSelected && styles.filterTextSelected]}>{filter.label}</Text>
-              </Pressable>;
+              </ThemeAwarePressable>;
             })}
-          </ScrollView>
-          <View style={styles.resultsRow}>
+          </ThemeAwareScrollView>
+          <ThemeAwareView style={styles.resultsRow}>
             <Text style={styles.resultCount}>{visibleCenters.length} of {centers.length} centers · {availableSpaceTotal} spaces</Text>
             <MaterialCommunityIcons name="sort" size={17} color={Colors.textMuted} />
-          </View>
-          <View style={styles.sortControl} accessibilityRole="radiogroup" accessibilityLabel="Sort centers">
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.sortControl} accessibilityRole="radiogroup" accessibilityLabel="Sort centers">
             {([
               ['name', 'A–Z'],
               ['spaces', 'Most spaces'],
               ['occupancy', 'Least full'],
             ] as const).map(([sort, label]) => {
               const isSelected = sortBy === sort;
-              return <Pressable key={sort} style={[styles.sortOption, isSelected && styles.sortOptionSelected]} onPress={() => setSortBy(sort)} accessibilityRole="radio" accessibilityState={{ checked: isSelected }}>
+              return <ThemeAwarePressable key={sort} style={[styles.sortOption, isSelected && styles.sortOptionSelected]} onPress={() => setSortBy(sort)} accessibilityRole="radio" accessibilityState={{ checked: isSelected }}>
                 <Text style={[styles.sortText, isSelected && styles.sortTextSelected]}>{label}</Text>
-              </Pressable>;
+              </ThemeAwarePressable>;
             })}
-          </View>
-        </View>}
+          </ThemeAwareView>
+        </ThemeAwareView>}
 
         {isLoading && centers.length === 0 ? (
-          <View style={styles.state}><ActivityIndicator color={GREEN} /><Text style={styles.stateText}>Loading live center records...</Text></View>
+          <ThemeAwareView style={styles.state}><ActivityIndicator color={GREEN} /><Text style={styles.stateText}>Loading live center records...</Text></ThemeAwareView>
         ) : error && centers.length === 0 ? (
-          <View style={styles.state}>
+          <ThemeAwareView style={styles.state}>
             <MaterialCommunityIcons name="alert-circle-outline" size={30} color={RED} />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => void loadCenters(true)}><Text style={styles.retryText}>Try again</Text></TouchableOpacity>
-          </View>
+            <ThemeAwareTouchableOpacity style={styles.retryButton} onPress={() => void loadCenters(true)}><Text style={styles.retryText}>Try again</Text></ThemeAwareTouchableOpacity>
+          </ThemeAwareView>
         ) : centers.length === 0 ? (
           <Text style={styles.emptyText}>No evacuation centers are available.</Text>
         ) : visibleCenters.length === 0 ? (
-          <View style={styles.noResults}>
+          <ThemeAwareView style={styles.noResults}>
             <MaterialCommunityIcons name="map-search-outline" size={30} color={GREEN} />
             <Text style={styles.noResultsTitle}>No matching centers</Text>
             <Text style={styles.noResultsText}>Try another search or availability filter.</Text>
-            <TouchableOpacity style={styles.clearFiltersButton} onPress={() => { setSearchText(''); setSelectedFilter('all'); setSortBy('name'); }} accessibilityRole="button"><Text style={styles.clearFiltersText}>Clear search and filters</Text></TouchableOpacity>
-          </View>
+            <ThemeAwareTouchableOpacity style={styles.clearFiltersButton} onPress={() => { setSearchText(''); setSelectedFilter('all'); setSortBy('name'); }} accessibilityRole="button"><Text style={styles.clearFiltersText}>Clear search and filters</Text></ThemeAwareTouchableOpacity>
+          </ThemeAwareView>
         ) : (
-          <View style={styles.list}>
+          <ThemeAwareView style={styles.list}>
             {visibleCenters.map((center, index) => <CenterCard key={center.id} center={center} index={index} onDetails={() => setSelectedCenter(center)} />)}
-          </View>
+          </ThemeAwareView>
         )}
         {!!error && centers.length > 0 && <Text style={styles.staleMessage}>{error} Showing the last loaded records.</Text>}
-      </ScrollView>
+      </ThemeAwareScrollView>
 
       <Modal transparent visible={!!selectedCenter} animationType="fade" onRequestClose={() => setSelectedCenter(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setSelectedCenter(null)}>
-          {selectedCenter && <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
+        <ThemeAwarePressable style={styles.modalBackdrop} onPress={() => setSelectedCenter(null)}>
+          {selectedCenter && <ThemeAwareView style={styles.modalCard}>
+            <ThemeAwareView style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{selectedCenter.name}</Text>
-              <TouchableOpacity onPress={() => setSelectedCenter(null)} accessibilityRole="button" accessibilityLabel="Close center details">
+              <ThemeAwareTouchableOpacity onPress={() => setSelectedCenter(null)} accessibilityRole="button" accessibilityLabel="Close center details">
                 <MaterialCommunityIcons name="close" size={22} color="#315C34" />
-              </TouchableOpacity>
-            </View>
+              </ThemeAwareTouchableOpacity>
+            </ThemeAwareView>
             <CenterDetail icon="map-marker-outline" label="LOCATION" value={selectedCenter.location || 'Location not provided'} />
             <CenterDetail icon="account-group-outline" label="OCCUPANCY" value={`${safeOccupancy(selectedCenter)} of ${safeCapacity(selectedCenter)} people`} />
             <CenterDetail icon="check-circle-outline" label="AVAILABILITY" value={getAvailability(selectedCenter)} />
             <CenterDetail icon="clock-outline" label="LAST UPDATED" value={formatUpdated(selectedCenter.updated_at)} />
             <Text style={styles.contactNote}>Contact details are not currently available in the center records.</Text>
-          </View>}
-        </Pressable>
+          </ThemeAwareView>}
+        </ThemeAwarePressable>
       </Modal>
-    </SafeAreaView>
+    </ThemeAwareSafeAreaView>
   );
 }
 
@@ -219,37 +220,37 @@ function CenterCard({ center, index, onDetails }: { center: EvacuationCenter; in
 
   return (
     <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 55).duration(360)} style={styles.card}>
-      <View style={[styles.cardAccent, { backgroundColor: tone.accent }]} />
-      <View style={styles.cardBody}>
-        <View style={styles.cardTop}>
-          <View style={[styles.iconCircle, { backgroundColor: tone.bg }]}>
+      <ThemeAwareView style={[styles.cardAccent, { backgroundColor: tone.accent }]} />
+      <ThemeAwareView style={styles.cardBody}>
+        <ThemeAwareView style={styles.cardTop}>
+          <ThemeAwareView style={[styles.iconCircle, { backgroundColor: tone.bg }]}>
             <MaterialCommunityIcons name={center.name.toLowerCase().includes('hall') ? 'office-building-outline' : 'home-city-outline'} size={24} color={tone.fg} />
-          </View>
-          <View style={styles.cardTitleBlock}>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.cardTitleBlock}>
             <Text style={styles.centerName} numberOfLines={2}>{center.name}</Text>
-            <View style={styles.locationRow}><MaterialCommunityIcons name="map-marker" size={13} color={tone.fg} /><Text style={styles.location} numberOfLines={2}>{center.location || 'Location not provided'}</Text></View>
-          </View>
-          <View style={[styles.statusChip, { backgroundColor: tone.bg }]}><View style={[styles.statusDot, { backgroundColor: tone.accent }]} /><Text style={[styles.statusChipText, { color: tone.fg }]}>{statusLabel}</Text></View>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}><Text style={styles.statNumber}>{occupancy}<Text style={styles.statOf}>/{capacity}</Text></Text><Text style={styles.statCaption}>Occupied</Text></View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}><Text style={[styles.statNumber, { color: tone.fg }]}>{spaces}</Text><Text style={styles.statCaption}>Spaces left</Text></View>
-          <View style={styles.statDivider} />
-          <View style={styles.statBox}><Text style={styles.statNumber}>{Math.round(percentage)}%</Text><Text style={styles.statCaption}>Full</Text></View>
-        </View>
-        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: tone.accent }]} /></View>
-        <TouchableOpacity style={styles.detailsButton} onPress={onDetails} accessibilityRole="button" accessibilityLabel={`View details for ${center.name}`}>
+            <ThemeAwareView style={styles.locationRow}><MaterialCommunityIcons name="map-marker" size={13} color={tone.fg} /><Text style={styles.location} numberOfLines={2}>{center.location || 'Location not provided'}</Text></ThemeAwareView>
+          </ThemeAwareView>
+          <ThemeAwareView style={[styles.statusChip, { backgroundColor: tone.bg }]}><ThemeAwareView style={[styles.statusDot, { backgroundColor: tone.accent }]} /><Text style={[styles.statusChipText, { color: tone.fg }]}>{statusLabel}</Text></ThemeAwareView>
+        </ThemeAwareView>
+        <ThemeAwareView style={styles.statsRow}>
+          <ThemeAwareView style={styles.statBox}><Text style={styles.statNumber}>{occupancy}<Text style={styles.statOf}>/{capacity}</Text></Text><Text style={styles.statCaption}>Occupied</Text></ThemeAwareView>
+          <ThemeAwareView style={styles.statDivider} />
+          <ThemeAwareView style={styles.statBox}><Text style={[styles.statNumber, { color: tone.fg }]}>{spaces}</Text><Text style={styles.statCaption}>Spaces left</Text></ThemeAwareView>
+          <ThemeAwareView style={styles.statDivider} />
+          <ThemeAwareView style={styles.statBox}><Text style={styles.statNumber}>{Math.round(percentage)}%</Text><Text style={styles.statCaption}>Full</Text></ThemeAwareView>
+        </ThemeAwareView>
+        <ThemeAwareView style={styles.progressTrack}><ThemeAwareView style={[styles.progressFill, { width: `${percentage}%`, backgroundColor: tone.accent }]} /></ThemeAwareView>
+        <ThemeAwareTouchableOpacity style={styles.detailsButton} onPress={onDetails} accessibilityRole="button" accessibilityLabel={`View details for ${center.name}`}>
           <Text style={styles.detailsText}>View Details</Text>
           <MaterialCommunityIcons name="chevron-right" size={16} color={Colors.white} />
-        </TouchableOpacity>
-      </View>
+        </ThemeAwareTouchableOpacity>
+      </ThemeAwareView>
     </Animated.View>
   );
 }
 
 function CenterDetail({ icon, label, value }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }) {
-  return <View style={styles.detailRow}><MaterialCommunityIcons name={icon} size={17} color={GREEN} /><View style={styles.detailCopy}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></View></View>;
+  return <ThemeAwareView style={styles.detailRow}><MaterialCommunityIcons name={icon} size={17} color={GREEN} /><ThemeAwareView style={styles.detailCopy}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value}</Text></ThemeAwareView></ThemeAwareView>;
 }
 
 function safeCapacity(center: EvacuationCenter) {

@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareScrollView, ThemeAwarePressable, ThemeAwareTextInput } from '@components/ThemeAware';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -96,10 +97,10 @@ export default function MapSearchBox({
   };
 
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.searchBar}>
+    <ThemeAwareView style={styles.wrapper}>
+      <ThemeAwareView style={styles.searchBar}>
         <MaterialCommunityIcons name="magnify" size={21} color={Colors.primary} />
-        <TextInput
+        <ThemeAwareTextInput
           value={query}
           onChangeText={(value) => { onChangeQuery(value); setOpen(true); }}
           onFocus={() => setOpen(true)}
@@ -112,35 +113,35 @@ export default function MapSearchBox({
         />
         {loading ? <ActivityIndicator size="small" color={Colors.primary} /> : null}
         {query.length > 0 ? (
-          <Pressable onPress={() => { onChangeQuery(''); setOpen(false); }} accessibilityRole="button" accessibilityLabel="Clear map search">
+          <ThemeAwarePressable onPress={() => { onChangeQuery(''); setOpen(false); }} accessibilityRole="button" accessibilityLabel="Clear map search">
             <MaterialCommunityIcons name="close-circle" size={20} color={Colors.textMuted} />
-          </Pressable>
+          </ThemeAwarePressable>
         ) : null}
-      </View>
+      </ThemeAwareView>
       {open && normalizedQuery.length > 0 ? (
-        <View style={styles.results}>
-          <ScrollView keyboardShouldPersistTaps="always" nestedScrollEnabled style={styles.resultsScroll}>
+        <ThemeAwareView style={styles.results}>
+          <ThemeAwareScrollView keyboardShouldPersistTaps="always" nestedScrollEnabled style={styles.resultsScroll}>
             {suggestions.map((suggestion) => (
-              <View key={suggestion.id} style={styles.resultRow}>
-                <Pressable
+              <ThemeAwareView key={suggestion.id} style={styles.resultRow}>
+                <ThemeAwarePressable
                   onPress={() => choose(suggestion)}
                   style={styles.resultMain}
                   accessibilityRole="button"
                   accessibilityLabel={`Show ${suggestion.title} on map`}
                 >
-                  <View style={styles.resultIcon}>
+                  <ThemeAwareView style={styles.resultIcon}>
                     <MaterialCommunityIcons
                       name={suggestion.kind === 'center' ? 'home-city-outline' : suggestion.kind === 'incident' ? 'alert-circle-outline' : 'map-marker-outline'}
                       size={19}
                       color={suggestion.kind === 'incident' ? Colors.emergency : Colors.primary}
                     />
-                  </View>
-                  <View style={styles.resultCopy}>
+                  </ThemeAwareView>
+                  <ThemeAwareView style={styles.resultCopy}>
                     <Text numberOfLines={1} style={styles.resultTitle}>{suggestion.title}</Text>
                     <Text numberOfLines={1} style={styles.resultSubtitle}>{suggestion.subtitle || 'Place'}</Text>
-                  </View>
-                </Pressable>
-                <Pressable
+                  </ThemeAwareView>
+                </ThemeAwarePressable>
+                <ThemeAwarePressable
                   onPress={() => choose(suggestion, true)}
                   style={styles.navigateButton}
                   accessibilityRole="button"
@@ -148,17 +149,17 @@ export default function MapSearchBox({
                 >
                   <MaterialCommunityIcons name="navigation-variant" size={17} color={Colors.primary} />
                   <Text style={styles.navigateLabel}>Navigate</Text>
-                </Pressable>
-              </View>
+                </ThemeAwarePressable>
+              </ThemeAwareView>
             ))}
             {!loading && suggestions.length === 0 && !searchError ? (
               <Text style={styles.emptyText}>{normalizedQuery.length < 2 ? 'Type one more character to search nearby places.' : 'No matching centers or places yet.'}</Text>
             ) : null}
             {!!searchError ? <Text accessibilityRole="alert" style={styles.errorText}>{searchError}</Text> : null}
-          </ScrollView>
-        </View>
+          </ThemeAwareScrollView>
+        </ThemeAwareView>
       ) : null}
-    </View>
+    </ThemeAwareView>
   );
 }
 

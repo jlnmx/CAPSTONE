@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, SafeAreaView, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -213,7 +214,7 @@ export default function ResidentSosScreen() {
       <MaterialCommunityIcons name={isActivated ? 'check-circle-outline' : isSubmitting ? 'upload' : 'alarm-light-outline'} size={43} color={Colors.white} />
       <Text style={styles.sosLabel}>{isActivated ? 'SENT' : isSubmitting ? 'SENDING' : isRestoring || isStatusUnavailable ? 'CHECKING' : 'SOS'}</Text>
       <Text style={styles.sosState}>{isActivated ? 'HELP IS ON THE WAY' : isSubmitting ? 'CONTACTING RESPONDERS...' : isRestoring || isStatusUnavailable ? 'VERIFYING ALERT STATUS...' : isHolding ? 'KEEP HOLDING...' : 'PRESS & HOLD 2 SEC'}</Text>
-      <View style={styles.progressTrack}><Animated.View style={[styles.progressFill, { width: progressWidth }]} /></View>
+      <ThemeAwareView style={styles.progressTrack}><Animated.View style={[styles.progressFill, { width: progressWidth }]} /></ThemeAwareView>
     </>
   );
 
@@ -250,7 +251,7 @@ export default function ResidentSosScreen() {
       },
     }, sosButtonContents)
     : (
-      <Pressable
+      <ThemeAwarePressable
         style={({ pressed }) => [styles.sosButton, { width: sosButtonDiameter, height: sosButtonDiameter, borderRadius: sosButtonDiameter / 2 }, isHolding && styles.sosButtonHolding, isActivated && styles.sosButtonActivated, pressed && styles.sosButtonPressed]}
         onPressIn={startHolding}
         onPressOut={stopHolding}
@@ -259,7 +260,7 @@ export default function ResidentSosScreen() {
         accessibilityLabel="Touch and hold for two seconds to send an emergency SOS"
       >
         {sosButtonContents}
-      </Pressable>
+      </ThemeAwarePressable>
     );
 
   const handleReturnToSos = () => {
@@ -278,17 +279,17 @@ export default function ResidentSosScreen() {
   const handleOpenContacts = () => router.push('/(resident)/emergency-contacts');
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <ThemeAwareSafeAreaView style={styles.safeArea}>
       <LinearGradient colors={[Colors.brandBlueDeep, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
         <AppBackArrow />
-        <View style={styles.headerIcon}><MaterialCommunityIcons name={isActivated ? 'radar' : 'alarm-light-outline'} size={22} color={Colors.white} /></View>
-        <View style={styles.headerCopy}>
+        <ThemeAwareView style={styles.headerIcon}><MaterialCommunityIcons name={isActivated ? 'radar' : 'alarm-light-outline'} size={22} color={Colors.white} /></ThemeAwareView>
+        <ThemeAwareView style={styles.headerCopy}>
           <Text darkText style={styles.headerTitle}>{isActivated ? 'Emergency Status' : 'Emergency SOS'}</Text>
           <Text darkText style={styles.headerSubtitle}>{isActivated ? 'Live updates from the response team' : 'Biñan City response network'}</Text>
-        </View>
+        </ThemeAwareView>
       </LinearGradient>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.contentBody}>
+      <ThemeAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ThemeAwareView style={styles.contentBody}>
           {isActivated ? (
             <SosStatusView
               status={incidentStatus}
@@ -300,53 +301,53 @@ export default function ResidentSosScreen() {
               onOpenContacts={handleOpenContacts}
             />
           ) : (
-            <View style={styles.sendColumn}>
+            <ThemeAwareView style={styles.sendColumn}>
               <Text style={styles.title}>Need immediate help?</Text>
               <Text style={styles.description}>Press and hold the SOS button for 2 seconds to alert the response team and share your location.</Text>
 
-              <View style={styles.readiness}>
-                <View style={styles.readinessDot} />
+              <ThemeAwareView style={styles.readiness}>
+                <ThemeAwareView style={styles.readinessDot} />
                 <Text style={styles.readinessText}>Network ready</Text>
                 <MaterialCommunityIcons name="crosshairs-gps" size={14} color={Colors.textMuted} />
                 <Text style={styles.readinessDetail}>Location sharing on</Text>
-              </View>
+              </ThemeAwareView>
 
               <Animated.View style={[styles.sosShell, { transform: [{ scale: pulse }] }]}>
-                <View style={[styles.sosHalo, { width: sosDiameter + 28, height: sosDiameter + 28, borderRadius: (sosDiameter + 28) / 2 }]}>
-                  <View style={[styles.sosRing, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2 }]}>
+                <ThemeAwareView style={[styles.sosHalo, { width: sosDiameter + 28, height: sosDiameter + 28, borderRadius: (sosDiameter + 28) / 2 }]}>
+                  <ThemeAwareView style={[styles.sosRing, { width: sosDiameter, height: sosDiameter, borderRadius: sosDiameter / 2 }]}>
                     {renderSosButton()}
-                  </View>
-                </View>
+                  </ThemeAwareView>
+                </ThemeAwareView>
               </Animated.View>
 
               {!!feedback && <Text style={styles.feedback} accessibilityRole="alert">{feedback}</Text>}
 
               <Text style={styles.sectionTitle}>What kind of situation?</Text>
               <Text style={styles.sectionHint}>Optional, but it helps responders prepare.</Text>
-              <View style={styles.typeGrid}>
+              <ThemeAwareView style={styles.typeGrid}>
                 {emergencyTypes.map((type) => {
                   const selected = selectedType === type.label;
                   return (
-                    <Pressable key={type.label} style={[styles.typeChip, selected && styles.typeChipSelected]} onPress={() => setSelectedType(type.label)} accessibilityRole="button" accessibilityState={{ selected }}>
+                    <ThemeAwarePressable key={type.label} style={[styles.typeChip, selected && styles.typeChipSelected]} onPress={() => setSelectedType(type.label)} accessibilityRole="button" accessibilityState={{ selected }}>
                       <MaterialCommunityIcons name={type.icon} size={18} color={selected ? Colors.white : Colors.primary} />
                       <Text style={[styles.typeLabel, selected && styles.typeLabelSelected]}>{type.label}</Text>
-                    </Pressable>
+                    </ThemeAwarePressable>
                   );
                 })}
-              </View>
+              </ThemeAwareView>
 
-              <View style={styles.expectCard}>
-                <View style={styles.expectIcon}><MaterialCommunityIcons name="shield-check-outline" size={22} color={Colors.secondary} /></View>
-                <View style={styles.expectCopy}>
+              <ThemeAwareView style={styles.expectCard}>
+                <ThemeAwareView style={styles.expectIcon}><MaterialCommunityIcons name="shield-check-outline" size={22} color={Colors.secondary} /></ThemeAwareView>
+                <ThemeAwareView style={styles.expectCopy}>
                   <Text style={styles.expectTitle}>What happens next</Text>
                   <Text style={styles.expectText}>Your location and situation type are shared with CDRRMO responders. You can follow progress live on the next screen.</Text>
-                </View>
-              </View>
-            </View>
+                </ThemeAwareView>
+              </ThemeAwareView>
+            </ThemeAwareView>
           )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ThemeAwareView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

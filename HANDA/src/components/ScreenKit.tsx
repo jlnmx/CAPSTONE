@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareTextInput } from '@components/ThemeAware';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, TextInput, TextInputProps, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -26,7 +27,7 @@ export function GradientHeader({ title, subtitle, icon, right, showBack = false,
         <Text style={kit.headerTitle}>{title}</Text>
         {!!subtitle && <Text style={kit.headerSubtitle}>{subtitle}</Text>}
       </Animated.View>
-      {right ?? (icon ? <View style={kit.headerBadge}><MaterialCommunityIcons name={icon} size={22} color="#FFFFFF" /></View> : null)}
+      {right ?? (icon ? <ThemeAwareView style={kit.headerBadge}><MaterialCommunityIcons name={icon} size={22} color="#FFFFFF" /></ThemeAwareView> : null)}
     </LinearGradient>
   );
 }
@@ -34,14 +35,14 @@ export function GradientHeader({ title, subtitle, icon, right, showBack = false,
 export function SectionCard({ index = 0, title, icon, aside, children }: { index?: number; title: string; icon: IconName; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
     <Reveal index={index}>
-      <View style={kit.card}>
-        <View style={kit.cardHeading}>
-          <View style={kit.cardIcon}><MaterialCommunityIcons name={icon} size={17} color={KIT_GREEN} /></View>
+      <ThemeAwareView style={kit.card}>
+        <ThemeAwareView style={kit.cardHeading}>
+          <ThemeAwareView style={kit.cardIcon}><MaterialCommunityIcons name={icon} size={17} color={KIT_GREEN} /></ThemeAwareView>
           <Text style={kit.cardTitle}>{title}</Text>
           {aside}
-        </View>
+        </ThemeAwareView>
         {children}
-      </View>
+      </ThemeAwareView>
     </Reveal>
   );
 }
@@ -53,13 +54,13 @@ export function Field({ label, required, hint, style, ...input }: { label: strin
     Animated.timing(glow, { toValue: focused ? 1 : 0, duration: 180, useNativeDriver: false }).start();
   }, [focused, glow]);
   return (
-    <View style={kit.field}>
+    <ThemeAwareView style={kit.field}>
       <Text style={kit.label}>{label}{required && <Text style={kit.required}> *</Text>}</Text>
       <Animated.View style={[kit.inputWrap, { borderColor: glow.interpolate({ inputRange: [0, 1], outputRange: ['#D9E3D9', KIT_GREEN] }), backgroundColor: glow.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#F4FAF4'] }) }]}>
-        <TextInput {...input} style={[kit.input, style]} placeholderTextColor="#9DB59E" selectionColor={KIT_GREEN} onFocus={(event) => { setFocused(true); input.onFocus?.(event); }} onBlur={(event) => { setFocused(false); input.onBlur?.(event); }} />
+        <ThemeAwareTextInput {...input} style={[kit.input, style]} placeholderTextColor="#9DB59E" selectionColor={KIT_GREEN} onFocus={(event) => { setFocused(true); input.onFocus?.(event); }} onBlur={(event) => { setFocused(false); input.onBlur?.(event); }} />
       </Animated.View>
       {!!hint && <Text style={kit.hint}>{hint}</Text>}
-    </View>
+    </ThemeAwareView>
   );
 }
 
@@ -81,13 +82,13 @@ function SexButton({ option, selected, onPress }: { option: 'Female' | 'Male'; s
 
 export function SexToggle({ value, onChange, fromAccount }: { value: string; onChange: (value: string) => void; fromAccount?: boolean }) {
   return (
-    <View style={kit.field}>
+    <ThemeAwareView style={kit.field}>
       <Text style={kit.label}>Sex<Text style={kit.required}> *</Text></Text>
-      <View style={kit.sexRow} accessibilityRole="radiogroup">
+      <ThemeAwareView style={kit.sexRow} accessibilityRole="radiogroup">
         {(['Female', 'Male'] as const).map((option) => <SexButton key={option} option={option} selected={value === option} onPress={() => onChange(option)} />)}
-      </View>
+      </ThemeAwareView>
       {fromAccount && !!value && <Text style={kit.hint}>Pre-selected from your account. Tap to change.</Text>}
-    </View>
+    </ThemeAwareView>
   );
 }
 

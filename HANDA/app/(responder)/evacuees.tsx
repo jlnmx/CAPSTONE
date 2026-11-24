@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable, ThemeAwareTextInput } from '@components/ThemeAware';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, RefreshControl, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -161,30 +162,30 @@ export default function EvacueesScreen() {
     setSortMode(SORT_MODES[(index + 1) % SORT_MODES.length]);
   };
 
-  return <SafeAreaView style={styles.safeArea}>
-    <ScrollView
+  return <ThemeAwareSafeAreaView style={styles.safeArea}>
+    <ThemeAwareScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={GREEN} colors={[GREEN]} />}
     >
       <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-        <View style={styles.heroTop}><AppBackArrow /><Text style={styles.eyebrow}>FIELD OPERATIONS</Text></View>
+        <ThemeAwareView style={styles.heroTop}><AppBackArrow /><Text style={styles.eyebrow}>FIELD OPERATIONS</Text></ThemeAwareView>
         <Text style={styles.title}>Evacuees</Text>
         <Text style={styles.subtitle}>Review evacuated households and release them when they leave the center.</Text>
-        <View style={styles.summaryRow}>
+        <ThemeAwareView style={styles.summaryRow}>
           <Summary icon="account-group-outline" label="HOUSEHOLDS" value={String(registrations.length)} />
-          <View style={styles.summaryDivider} />
+          <ThemeAwareView style={styles.summaryDivider} />
           <Summary icon="account-multiple-outline" label="PEOPLE" value={String(totalPeople)} />
-          <View style={styles.summaryDivider} />
+          <ThemeAwareView style={styles.summaryDivider} />
           <Summary icon="home-group" label="CENTERS" value={String(centerOptions.length)} />
-        </View>
+        </ThemeAwareView>
       </LinearGradient>
 
-      <View style={styles.controls}>
-        <View style={styles.searchBar}>
+      <ThemeAwareView style={styles.controls}>
+        <ThemeAwareView style={styles.searchBar}>
           <MaterialCommunityIcons name="magnify" size={20} color={GREEN} />
-          <TextInput
+          <ThemeAwareTextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search people, contact, address, center..."
@@ -194,16 +195,16 @@ export default function EvacueesScreen() {
             accessibilityLabel="Search evacuees"
           />
           {!!search && <AnimatedPressable onPress={() => setSearch('')} accessibilityRole="button" accessibilityLabel="Clear search" style={styles.clearSearch}><MaterialCommunityIcons name="close-circle" size={18} color={Colors.textMuted} /></AnimatedPressable>}
-        </View>
+        </ThemeAwareView>
 
-        <View style={styles.sectionHeading}>
-          <View><Text style={styles.sectionTitle}>Registration status</Text><Text style={styles.sectionHint}>{visibleRegistrations.length} of {registrations.length} households</Text></View>
+        <ThemeAwareView style={styles.sectionHeading}>
+          <ThemeAwareView><Text style={styles.sectionTitle}>Registration status</Text><Text style={styles.sectionHint}>{visibleRegistrations.length} of {registrations.length} households</Text></ThemeAwareView>
           <AnimatedPressable style={styles.sortButton} onPress={cycleSort} accessibilityRole="button" accessibilityLabel={`Sort by ${sortLabel(sortMode)}. Tap to change sort.`}>
             <MaterialCommunityIcons name={sortIcon(sortMode)} size={16} color={GREEN} />
             <Text style={styles.sortText}>{sortLabel(sortMode)}</Text>
           </AnimatedPressable>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+        </ThemeAwareView>
+        <ThemeAwareScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
           {FILTERS.map((item) => {
             const selected = filter === item;
             const count = statusCounts[item] ?? 0;
@@ -212,11 +213,11 @@ export default function EvacueesScreen() {
               <Text style={[styles.filterCount, selected && styles.activeFilterText]}>{count}</Text>
             </AnimatedPressable>;
           })}
-        </ScrollView>
+        </ThemeAwareScrollView>
 
         {centerOptions.length > 0 && <>
-          <View style={styles.centerHeading}><MaterialCommunityIcons name="map-marker-radius-outline" size={16} color={GREEN} /><Text style={styles.sectionTitle}>Filter by center</Text></View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.centerFilters}>
+          <ThemeAwareView style={styles.centerHeading}><MaterialCommunityIcons name="map-marker-radius-outline" size={16} color={GREEN} /><Text style={styles.sectionTitle}>Filter by center</Text></ThemeAwareView>
+          <ThemeAwareScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.centerFilters}>
             <AnimatedPressable style={[styles.centerChip, centerFilter === 'ALL' && styles.activeCenterChip]} onPress={() => setCenterFilter('ALL')} accessibilityRole="button" accessibilityState={{ selected: centerFilter === 'ALL' }}>
               <Text style={[styles.centerChipText, centerFilter === 'ALL' && styles.activeCenterChipText]}>All centers</Text>
               <Text style={[styles.centerCount, centerFilter === 'ALL' && styles.activeCenterChipText]}>{registrations.length}</Text>
@@ -228,18 +229,18 @@ export default function EvacueesScreen() {
                 <Text style={[styles.centerCount, selected && styles.activeCenterChipText]}>{center.count}</Text>
               </AnimatedPressable>;
             })}
-          </ScrollView>
+          </ThemeAwareScrollView>
         </>}
-      </View>
+      </ThemeAwareView>
 
-      <View style={styles.list}>
-        {isLoading && <View style={styles.messageCard}><Text style={styles.messageTitle}>Loading evacuees</Text><Text style={styles.messageText}>Fetching the latest shelter registrations...</Text></View>}
-        {!isLoading && !!registrationError && <View style={styles.messageCard}>
+      <ThemeAwareView style={styles.list}>
+        {isLoading && <ThemeAwareView style={styles.messageCard}><Text style={styles.messageTitle}>Loading evacuees</Text><Text style={styles.messageText}>Fetching the latest shelter registrations...</Text></ThemeAwareView>}
+        {!isLoading && !!registrationError && <ThemeAwareView style={styles.messageCard}>
           <MaterialCommunityIcons name="alert-circle-outline" size={24} color="#B42318" />
           <Text style={styles.messageTitle}>Could not load registrations</Text>
           <Text style={styles.messageText}>{registrationError}</Text>
           <AnimatedPressable style={styles.retryButton} onPress={() => void load()} accessibilityRole="button"><Text style={styles.retryText}>Try again</Text></AnimatedPressable>
-        </View>}
+        </ThemeAwareView>}
         {!isLoading && !registrationError && visibleRegistrations.map((registration, index) => <Reveal index={index} key={registration.id}>
           <RegistrationRow
             registration={registration}
@@ -249,22 +250,22 @@ export default function EvacueesScreen() {
             onStatusChange={(status) => void updateStatus(registration, status)}
           />
         </Reveal>)}
-        {!isLoading && !registrationError && visibleRegistrations.length === 0 && <View style={styles.messageCard}>
+        {!isLoading && !registrationError && visibleRegistrations.length === 0 && <ThemeAwareView style={styles.messageCard}>
           <MaterialCommunityIcons name={search || filter !== 'ALL' || centerFilter !== 'ALL' ? 'filter-off-outline' : 'account-search-outline'} size={26} color={Colors.textMuted} />
           <Text style={styles.messageTitle}>{registrations.length ? 'No matching households' : 'No registrations yet'}</Text>
           <Text style={styles.messageText}>{registrations.length ? 'Try another search or clear one of the selected filters.' : 'New evacuation registrations will appear here.'}</Text>
           {(search || filter !== 'ALL' || centerFilter !== 'ALL') && <AnimatedPressable style={styles.retryButton} onPress={() => { setSearch(''); setFilter('ALL'); setCenterFilter('ALL'); }} accessibilityRole="button"><Text style={styles.retryText}>Clear filters</Text></AnimatedPressable>}
-        </View>}
-      </View>
-    </ScrollView>
-  </SafeAreaView>;
+        </ThemeAwareView>}
+      </ThemeAwareView>
+    </ThemeAwareScrollView>
+  </ThemeAwareSafeAreaView>;
 }
 
 function Summary({ icon, label, value }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }) {
-  return <View style={styles.summaryItem}>
+  return <ThemeAwareView style={styles.summaryItem}>
     <MaterialCommunityIcons name={icon} size={17} color="#FFFFFF" />
-    <View><Text style={styles.summaryValue}>{value}</Text><Text style={styles.summaryLabel}>{label}</Text></View>
-  </View>;
+    <ThemeAwareView><Text style={styles.summaryValue}>{value}</Text><Text style={styles.summaryLabel}>{label}</Text></ThemeAwareView>
+  </ThemeAwareView>;
 }
 
 function sortLabel(mode: SortMode): string {
@@ -291,25 +292,25 @@ function RegistrationRow({ registration, expanded, updating, onPress, onStatusCh
   const name = getRegistrationName(registration);
   const nextStatus = nextStatusFor(registration.status);
   const color = STATUS_COLORS[registration.status];
-  return <View style={styles.registrationCard}>
-    <View style={[styles.statusAccent, { backgroundColor: color }]} />
-    <Pressable onPress={onPress} style={styles.registrationRow} accessibilityRole="button" accessibilityLabel={`View ${name}`} accessibilityState={{ expanded }}>
+  return <ThemeAwareView style={styles.registrationCard}>
+    <ThemeAwareView style={[styles.statusAccent, { backgroundColor: color }]} />
+    <ThemeAwarePressable onPress={onPress} style={styles.registrationRow} accessibilityRole="button" accessibilityLabel={`View ${name}`} accessibilityState={{ expanded }}>
       <Avatar uri={registration.resident_profile_picture} name={name} size={46} />
-      <View style={styles.rowCopy}>
+      <ThemeAwareView style={styles.rowCopy}>
         <Text style={styles.name} numberOfLines={1}>{name}</Text>
-        <View style={styles.metaRow}><MaterialCommunityIcons name="account-multiple-outline" size={13} color={Colors.textMuted} /><Text style={styles.details}>{registration.household_size} {registration.household_size === 1 ? 'person' : 'people'}</Text></View>
-        <View style={styles.metaRow}><MaterialCommunityIcons name="map-marker-outline" size={13} color={Colors.textMuted} /><Text style={styles.details} numberOfLines={1}>{registration.center_name || 'Center unavailable'}</Text></View>
-      </View>
-      <View style={styles.rowRight}>
-        <View style={[styles.statusPill, { backgroundColor: `${color}18` }]}><View style={[styles.statusDot, { backgroundColor: color }]} /><Text style={[styles.statusText, { color }]}>{statusLabel(registration.status)}</Text></View>
+        <ThemeAwareView style={styles.metaRow}><MaterialCommunityIcons name="account-multiple-outline" size={13} color={Colors.textMuted} /><Text style={styles.details}>{registration.household_size} {registration.household_size === 1 ? 'person' : 'people'}</Text></ThemeAwareView>
+        <ThemeAwareView style={styles.metaRow}><MaterialCommunityIcons name="map-marker-outline" size={13} color={Colors.textMuted} /><Text style={styles.details} numberOfLines={1}>{registration.center_name || 'Center unavailable'}</Text></ThemeAwareView>
+      </ThemeAwareView>
+      <ThemeAwareView style={styles.rowRight}>
+        <ThemeAwareView style={[styles.statusPill, { backgroundColor: `${color}18` }]}><ThemeAwareView style={[styles.statusDot, { backgroundColor: color }]} /><Text style={[styles.statusText, { color }]}>{statusLabel(registration.status)}</Text></ThemeAwareView>
         <MaterialCommunityIcons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={Colors.textMuted} />
-      </View>
-    </Pressable>
+      </ThemeAwareView>
+    </ThemeAwarePressable>
     {nextStatus && <AnimatedPressable style={styles.verifyButton} onPress={() => onStatusChange(nextStatus)} disabled={updating} accessibilityRole="button" accessibilityLabel={`Release ${name} from the evacuation center`}>
       <MaterialCommunityIcons name="exit-run" size={16} color={GREEN} />
       <Text style={styles.verifyText}>{updating ? 'Updating...' : 'Release household'}</Text>
     </AnimatedPressable>}
-    {expanded && <Reveal index={0}><View style={styles.detailsPanel}>
+    {expanded && <Reveal index={0}><ThemeAwareView style={styles.detailsPanel}>
       <Text style={styles.panelTitle}>Registrant information</Text>
       <Detail label="Age" value={String(registration.age)} />
       <Detail label="Sex" value={registration.sex} />
@@ -317,16 +318,16 @@ function RegistrationRow({ registration, expanded, updating, onPress, onStatusCh
       <Detail label="Address" value={registration.address} />
       <Detail label="Center location" value={registration.center_location} />
       <Text style={[styles.panelTitle, styles.householdHeading]}>Household members <Text style={styles.memberCount}>{registration.members.length}</Text></Text>
-      {registration.members.length === 0 ? <Text style={styles.memberRelation}>No additional household members.</Text> : registration.members.map((member) => <View style={styles.member} key={member.id}>
-        <View style={styles.memberIcon}><MaterialCommunityIcons name="account-outline" size={16} color={GREEN} /></View>
-        <View style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelation}>{member.relationship}</Text></View>
-      </View>)}
-    </View></Reveal>}
-  </View>;
+      {registration.members.length === 0 ? <Text style={styles.memberRelation}>No additional household members.</Text> : registration.members.map((member) => <ThemeAwareView style={styles.member} key={member.id}>
+        <ThemeAwareView style={styles.memberIcon}><MaterialCommunityIcons name="account-outline" size={16} color={GREEN} /></ThemeAwareView>
+        <ThemeAwareView style={styles.memberCopy}><Text style={styles.memberName}>{member.name}</Text><Text style={styles.memberRelation}>{member.relationship}</Text></ThemeAwareView>
+      </ThemeAwareView>)}
+    </ThemeAwareView></Reveal>}
+  </ThemeAwareView>;
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
-  return <View style={styles.detailRow}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value || 'Not provided'}</Text></View>;
+  return <ThemeAwareView style={styles.detailRow}><Text style={styles.detailLabel}>{label}</Text><Text style={styles.detailValue}>{value || 'Not provided'}</Text></ThemeAwareView>;
 }
 
 const styles = StyleSheet.create({

@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareScrollView, ThemeAwarePressable, ThemeAwareTextInput } from '@components/ThemeAware';
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -44,16 +45,16 @@ export function CurrentAddressFields({ value, onChange, error, palette = default
   };
 
   return (
-    <View style={styles.container}>
+    <ThemeAwareView style={styles.container}>
       <Text style={[styles.sectionTitle, { color: palette.text }]}>Current Address</Text>
       <Text style={[styles.sectionHint, { color: palette.textMuted }]}>Use your Biñan City home address.</Text>
       <AddressTextField label="House No." required value={value.houseNumber} placeholder="House or unit number" maxLength={80} onChangeText={(text) => update('houseNumber', text)} palette={palette} />
       <AddressTextField label="Street" optional value={value.street} placeholder="Street name (if any)" maxLength={120} onChangeText={(text) => update('street', text)} palette={palette} />
       <AddressTextField label="Village / Subdivision / Purok" optional value={value.village} placeholder="Village, subdivision, or purok" maxLength={160} onChangeText={(text) => update('village', text)} palette={palette} />
 
-      <View style={styles.field}>
+      <ThemeAwareView style={styles.field}>
         <Text style={[styles.label, { color: palette.text }]}>Barangay<Text style={styles.required}> *</Text></Text>
-        <Pressable
+        <ThemeAwarePressable
           style={[styles.selector, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}
           onPress={() => setIsBarangayPickerOpen(true)}
           accessibilityRole="button"
@@ -63,36 +64,36 @@ export function CurrentAddressFields({ value, onChange, error, palette = default
           <MaterialCommunityIcons name="map-marker-outline" size={18} color={accent} />
           <Text style={[styles.selectorText, { color: value.barangay ? palette.text : palette.textMuted }]}>{value.barangay || 'Select your barangay'}</Text>
           <MaterialCommunityIcons name="chevron-down" size={20} color={palette.textMuted} />
-        </Pressable>
-      </View>
+        </ThemeAwarePressable>
+      </ThemeAwareView>
 
-      <View style={styles.field}>
+      <ThemeAwareView style={styles.field}>
         <Text style={[styles.label, { color: palette.text }]}>City</Text>
-        <View style={[styles.cityField, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}>
+        <ThemeAwareView style={[styles.cityField, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}>
           <MaterialCommunityIcons name="city-variant-outline" size={18} color={accent} />
           <Text style={[styles.cityText, { color: palette.text }]}>{BINAN_CITY}</Text>
           <MaterialCommunityIcons name="lock-outline" size={15} color={palette.textMuted} />
-        </View>
-      </View>
+        </ThemeAwareView>
+      </ThemeAwareView>
 
       {!!error && <Text style={styles.errorText}>{error}</Text>}
 
       <Modal transparent visible={isBarangayPickerOpen} animationType="fade" onRequestClose={() => setIsBarangayPickerOpen(false)}>
-        <View style={styles.modalBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setIsBarangayPickerOpen(false)} accessibilityLabel="Close barangay selection" />
-          <View style={[styles.modalCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-            <View style={styles.modalHeading}>
-              <View style={styles.modalHeadingCopy}>
+        <ThemeAwareView style={styles.modalBackdrop}>
+          <ThemeAwarePressable style={StyleSheet.absoluteFill} onPress={() => setIsBarangayPickerOpen(false)} accessibilityLabel="Close barangay selection" />
+          <ThemeAwareView style={[styles.modalCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+            <ThemeAwareView style={styles.modalHeading}>
+              <ThemeAwareView style={styles.modalHeadingCopy}>
                 <Text style={[styles.modalTitle, { color: palette.text }]}>Select Barangay</Text>
                 <Text style={[styles.modalSubtitle, { color: palette.textMuted }]}>Biñan City, Laguna</Text>
-              </View>
-              <Pressable onPress={() => setIsBarangayPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Close barangay selection" style={styles.closeButton}>
+              </ThemeAwareView>
+              <ThemeAwarePressable onPress={() => setIsBarangayPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Close barangay selection" style={styles.closeButton}>
                 <MaterialCommunityIcons name="close" size={21} color={palette.textMuted} />
-              </Pressable>
-            </View>
-            <View style={[styles.searchField, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}>
+              </ThemeAwarePressable>
+            </ThemeAwareView>
+            <ThemeAwareView style={[styles.searchField, { borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}>
               <MaterialCommunityIcons name="magnify" size={18} color={palette.textMuted} />
-              <TextInput
+              <ThemeAwareTextInput
                 value={barangaySearch}
                 onChangeText={setBarangaySearch}
                 placeholder="Search barangays"
@@ -100,13 +101,13 @@ export function CurrentAddressFields({ value, onChange, error, palette = default
                 style={[styles.searchInput, { color: palette.text }]}
                 accessibilityLabel="Search Biñan barangays"
               />
-              {!!barangaySearch && <Pressable onPress={() => setBarangaySearch('')} accessibilityRole="button" accessibilityLabel="Clear barangay search"><MaterialCommunityIcons name="close-circle" size={17} color={palette.textMuted} /></Pressable>}
-            </View>
-            <ScrollView style={styles.barangayList} keyboardShouldPersistTaps="handled">
+              {!!barangaySearch && <ThemeAwarePressable onPress={() => setBarangaySearch('')} accessibilityRole="button" accessibilityLabel="Clear barangay search"><MaterialCommunityIcons name="close-circle" size={17} color={palette.textMuted} /></ThemeAwarePressable>}
+            </ThemeAwareView>
+            <ThemeAwareScrollView style={styles.barangayList} keyboardShouldPersistTaps="handled">
               {visibleBarangays.map((barangay) => {
                 const selected = barangay === value.barangay;
                 return (
-                  <Pressable
+                  <ThemeAwarePressable
                     key={barangay}
                     style={[styles.barangayOption, { borderBottomColor: palette.border }, selected && { backgroundColor: '#FFF1F6' }]}
                     onPress={() => {
@@ -120,15 +121,15 @@ export function CurrentAddressFields({ value, onChange, error, palette = default
                     <MaterialCommunityIcons name="map-marker-outline" size={17} color={selected ? accent : palette.textMuted} />
                     <Text style={[styles.barangayOptionText, { color: selected ? accent : palette.text }]}>{barangay}</Text>
                     {selected && <MaterialCommunityIcons name="check" size={18} color={accent} />}
-                  </Pressable>
+                  </ThemeAwarePressable>
                 );
               })}
               {visibleBarangays.length === 0 && <Text style={[styles.noResults, { color: palette.textMuted }]}>No matching barangays.</Text>}
-            </ScrollView>
-          </View>
-        </View>
+            </ThemeAwareScrollView>
+          </ThemeAwareView>
+        </ThemeAwareView>
       </Modal>
-    </View>
+    </ThemeAwareView>
   );
 }
 
@@ -143,9 +144,9 @@ function AddressTextField({ label, required, optional, value, placeholder, maxLe
   palette: AddressPalette;
 }) {
   return (
-    <View style={styles.field}>
+    <ThemeAwareView style={styles.field}>
       <Text style={[styles.label, { color: palette.text }]}>{label}{optional && <Text style={[styles.optional, { color: palette.textMuted }]}> (optional)</Text>}{required && <Text style={styles.required}> *</Text>}</Text>
-      <TextInput
+      <ThemeAwareTextInput
         value={value}
         onChangeText={onChangeText}
         maxLength={maxLength}
@@ -155,7 +156,7 @@ function AddressTextField({ label, required, optional, value, placeholder, maxLe
         style={[styles.input, { color: palette.text, borderColor: palette.border, backgroundColor: palette.surfaceMuted }]}
         accessibilityLabel={label}
       />
-    </View>
+    </ThemeAwareView>
   );
 }
 

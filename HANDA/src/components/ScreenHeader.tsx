@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareTouchableOpacity } from '@components/ThemeAware';
 /**
  * Screen Header Component
  */
@@ -30,24 +31,24 @@ export function ScreenHeader({
   showTopDivider = false,
 }: ScreenHeaderProps) {
   return (
-    <View style={[styles.header, showTopDivider && styles.headerWithDivider, style]}>
-      <View style={styles.headerTop}>
+    <ThemeAwareView style={[styles.header, showTopDivider && styles.headerWithDivider, style]}>
+      <ThemeAwareView style={styles.headerTop}>
         {leftIcon && (
-          <TouchableOpacity onPress={onLeftPress} style={styles.headerIcon}>
+          <ThemeAwareTouchableOpacity onPress={onLeftPress} style={styles.headerIcon}>
             <Text style={styles.headerIconText}>{leftIcon}</Text>
-          </TouchableOpacity>
+          </ThemeAwareTouchableOpacity>
         )}
-        <View style={styles.headerTitles}>
+        <ThemeAwareView style={styles.headerTitles}>
           <Text style={styles.headerTitle}>{title}</Text>
           {subtitle && <Text style={styles.headerSubtitle}>{subtitle}</Text>}
-        </View>
+        </ThemeAwareView>
         {rightIcon && (
-          <TouchableOpacity onPress={onRightPress} style={styles.headerIcon}>
+          <ThemeAwareTouchableOpacity onPress={onRightPress} style={styles.headerIcon}>
             <Text style={styles.headerIconText}>{rightIcon}</Text>
-          </TouchableOpacity>
+          </ThemeAwareTouchableOpacity>
         )}
-      </View>
-    </View>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 
@@ -67,22 +68,22 @@ export function EmptyState({
   onAction,
 }: EmptyStateProps) {
   return (
-    <View style={styles.emptyContainer}>
+    <ThemeAwareView style={styles.emptyContainer}>
       <Text style={styles.emptyIcon}>{icon}</Text>
       <Text style={styles.emptyTitle}>{title}</Text>
       {description && (
         <Text style={styles.emptyDescription}>{description}</Text>
       )}
       {actionLabel && onAction && (
-        <TouchableOpacity
+        <ThemeAwareTouchableOpacity
           style={styles.emptyButton}
           onPress={onAction}
           activeOpacity={0.7}
         >
           <Text style={styles.emptyButtonText}>{actionLabel}</Text>
-        </TouchableOpacity>
+        </ThemeAwareTouchableOpacity>
       )}
-    </View>
+    </ThemeAwareView>
   );
 }
 
@@ -96,7 +97,7 @@ interface CardProps {
 export function Card({ children, onPress, style, isEmergency = false }: CardProps) {
   if (onPress) {
     return (
-      <TouchableOpacity
+      <ThemeAwareTouchableOpacity
         style={[
           styles.card,
           isEmergency && styles.emergencyCard,
@@ -106,12 +107,12 @@ export function Card({ children, onPress, style, isEmergency = false }: CardProp
         activeOpacity={0.7}
       >
         {children}
-      </TouchableOpacity>
+      </ThemeAwareTouchableOpacity>
     );
   }
 
   return (
-    <View
+    <ThemeAwareView
       style={[
         styles.card,
         isEmergency && styles.emergencyCard,
@@ -119,7 +120,7 @@ export function Card({ children, onPress, style, isEmergency = false }: CardProp
       ]}
     >
       {children}
-    </View>
+    </ThemeAwareView>
   );
 }
 

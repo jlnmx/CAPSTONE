@@ -13,10 +13,16 @@ export function getReadableColor(color: string, theme: 'light' | 'dark'): string
     ? hex.split('').map((channel) => parseInt(channel + channel, 16))
     : [0, 2, 4].map((offset) => parseInt(hex.slice(offset, offset + 2), 16));
 
-  if (channels.every((channel) => channel === 0) || channels.every((channel) => channel === 255)) return color;
-
-  const lightened = channels.map((channel) => Math.round(channel + (255 - channel) * 0.45));
-  return `#${lightened.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+  const [red, green, blue] = channels.map((channel) => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  const chroma = Math.max(...channels) - Math.min(...channels);
+  if (chroma > 90) return color;
+  if (luminance < 0.18) return '#F4F7F9';
+  if (luminance < 0.38) return '#B8C6CE';
+  return color;
 }
 
 const platformSurface = Platform.select({

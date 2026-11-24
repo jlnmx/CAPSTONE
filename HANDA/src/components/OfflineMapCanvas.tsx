@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Polygon as SvgPolygon } from 'react-native-svg';
@@ -35,8 +36,8 @@ export default function OfflineMapCanvas({ points, onSelect, hazardVisibility, o
   };
 
   return (
-    <View style={styles.container} onLayout={onLayout} accessibilityLabel="Offline map with saved location markers">
-      <View style={styles.notice}><Text style={styles.noticeText}>OFFLINE · Saved locations only · Google basemap and routes unavailable</Text></View>
+    <ThemeAwareView style={styles.container} onLayout={onLayout} accessibilityLabel="Offline map with saved location markers">
+      <ThemeAwareView style={styles.notice}><Text style={styles.noticeText}>OFFLINE · Saved locations only · Google basemap and routes unavailable</Text></ThemeAwareView>
       {hazardVisibility && dimensions.width > 0 && dimensions.height > 0 ? (
         <Svg
           pointerEvents="none"
@@ -82,7 +83,7 @@ export default function OfflineMapCanvas({ points, onSelect, hazardVisibility, o
         const top = Math.min(dimensions.height - 42, Math.max(44, y * dimensions.height - 12));
         const selected = selectedId === point.id;
         return (
-          <Pressable
+          <ThemeAwarePressable
             key={point.id}
             style={[styles.marker, { left, top }]}
             onPress={() => {
@@ -92,14 +93,14 @@ export default function OfflineMapCanvas({ points, onSelect, hazardVisibility, o
             accessibilityRole="button"
             accessibilityLabel={`${point.title}${point.description ? `, ${point.description}` : ''}`}
           >
-            <View style={[styles.dot, { backgroundColor: point.color ?? Colors.primary }]} />
+            <ThemeAwareView style={[styles.dot, { backgroundColor: point.color ?? Colors.primary }]} />
             <Text numberOfLines={1} style={styles.markerLabel}>{point.title}</Text>
             {selected && point.description ? <Text numberOfLines={2} style={styles.markerDescription}>{point.description}</Text> : null}
-          </Pressable>
+          </ThemeAwarePressable>
         );
       })}
       {!points.length && <Text style={styles.empty}>No saved coordinates are available for this map.</Text>}
-    </View>
+    </ThemeAwareView>
   );
 }
 

@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareScrollView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,7 +15,7 @@ type TutorialStep = {
   message: string;
 };
 
-export type TutorialTargetRefs = Record<string, React.RefObject<View>>;
+export type TutorialTargetRefs = Record<string, React.RefObject<ThemeAwareView>>;
 
 const TUTORIALS: Record<TutorialRole, TutorialStep[]> = {
   resident: [
@@ -111,7 +112,7 @@ interface QuickTutorialProps {
   role: TutorialRole;
   userId?: string;
   targets: TutorialTargetRefs;
-  scrollRef: React.RefObject<ScrollView>;
+  scrollRef: React.RefObject<ThemeAwareScrollView>;
   scrollOffsetRef: React.MutableRefObject<number>;
 }
 
@@ -141,7 +142,7 @@ export default function QuickTutorial({ role, userId, targets, scrollRef, scroll
   const [spotlight, setSpotlight] = useState<SpotlightFrame | null>(null);
   const [cardHeight, setCardHeight] = useState(0);
   const [overlayReady, setOverlayReady] = useState(false);
-  const overlayRef = useRef<View>(null);
+  const overlayRef = useRef<ThemeAwareView>(null);
   const targetsRef = useRef(targets);
   targetsRef.current = targets;
   const storageKey = userId ? `handa.quickTutorial.v2.${role}.${userId}` : null;
@@ -269,7 +270,7 @@ export default function QuickTutorial({ role, userId, targets, scrollRef, scroll
   if (!visible) return null;
   if (!overlayFrame || !spotlight) {
     return (
-      <View
+      <ThemeAwareView
         ref={overlayRef}
         collapsable={false}
         pointerEvents="none"
@@ -297,67 +298,67 @@ export default function QuickTutorial({ role, userId, targets, scrollRef, scroll
   const pointerTop = placeAbove ? cardTop + fittedCardHeight - 1 : cardTop - 27;
 
   return (
-    <View
+    <ThemeAwareView
       ref={overlayRef}
       collapsable={false}
       pointerEvents="box-none"
       style={styles.overlay}
       onLayout={() => setOverlayReady(true)}
     >
-      <View pointerEvents="none" style={[styles.dim, { top: 0, left: 0, right: 0, height: spotlight.y }]} />
-      <View pointerEvents="none" style={[styles.dim, { top: spotlight.y, left: 0, width: spotlight.x, height: spotlight.height }]} />
-      <View pointerEvents="none" style={[styles.dim, { top: spotlight.y, left: spotlight.x + spotlight.width, right: 0, height: spotlight.height }]} />
-      <View pointerEvents="none" style={[styles.dim, { top: spotlight.y + spotlight.height, left: 0, right: 0, bottom: 0 }]} />
-      <View pointerEvents="none" style={[styles.spotlight, {
+      <ThemeAwareView pointerEvents="none" style={[styles.dim, { top: 0, left: 0, right: 0, height: spotlight.y }]} />
+      <ThemeAwareView pointerEvents="none" style={[styles.dim, { top: spotlight.y, left: 0, width: spotlight.x, height: spotlight.height }]} />
+      <ThemeAwareView pointerEvents="none" style={[styles.dim, { top: spotlight.y, left: spotlight.x + spotlight.width, right: 0, height: spotlight.height }]} />
+      <ThemeAwareView pointerEvents="none" style={[styles.dim, { top: spotlight.y + spotlight.height, left: 0, right: 0, bottom: 0 }]} />
+      <ThemeAwareView pointerEvents="none" style={[styles.spotlight, {
         left: spotlight.x,
         top: spotlight.y,
         width: spotlight.width,
         height: spotlight.height,
       }]} />
 
-      <View
+      <ThemeAwareView
         onLayout={(event) => {
           if (Math.abs(event.nativeEvent.layout.height - cardHeight) > 1) setCardHeight(event.nativeEvent.layout.height);
         }}
         style={[styles.card, { left: cardLeft, top: cardTop, width: cardWidth, maxHeight: overlayFrame.height * 0.55 }]}
       >
-        <View style={styles.header}>
+        <ThemeAwareView style={styles.header}>
           <RescueMascot size={44} animated />
-          <View style={styles.headerCopy}>
+          <ThemeAwareView style={styles.headerCopy}>
             <Text style={styles.eyebrow}>KAYA’S INTERACTIVE TOUR</Text>
             <Text style={styles.kaya}>{step.title}</Text>
-          </View>
+          </ThemeAwareView>
           <Text style={styles.stepCount}>{currentStep + 1}/{steps.length}</Text>
-        </View>
+        </ThemeAwareView>
 
         <Text style={styles.message}>{step.message}</Text>
         <Text style={styles.hint}>Tap the highlighted feature to try it, or use Next to continue. Come back here to resume the tour.</Text>
 
-        <View style={styles.footer}>
-          <Pressable onPress={() => void finishTutorial()} disabled={isSaving} accessibilityRole="button" accessibilityLabel="Skip tutorial">
+        <ThemeAwareView style={styles.footer}>
+          <ThemeAwarePressable onPress={() => void finishTutorial()} disabled={isSaving} accessibilityRole="button" accessibilityLabel="Skip tutorial">
             <Text style={[styles.skip, isSaving && styles.disabled]}>Skip tour</Text>
-          </Pressable>
-          <View style={styles.navigation}>
+          </ThemeAwarePressable>
+          <ThemeAwareView style={styles.navigation}>
             {currentStep > 0 && (
-              <Pressable onPress={() => changeStep(currentStep - 1)} disabled={isSaving} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Previous tutorial step">
+              <ThemeAwarePressable onPress={() => changeStep(currentStep - 1)} disabled={isSaving} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Previous tutorial step">
                 <MaterialCommunityIcons name="chevron-left" size={20} color={Colors.text} />
                 <Text style={styles.backText}>Back</Text>
-              </Pressable>
+              </ThemeAwarePressable>
             )}
-            <Pressable onPress={goNext} disabled={isSaving} style={[styles.nextButton, isSaving && styles.disabledButton]} accessibilityRole="button" accessibilityLabel={currentStep === steps.length - 1 ? 'Finish tutorial' : 'Next tutorial step'}>
+            <ThemeAwarePressable onPress={goNext} disabled={isSaving} style={[styles.nextButton, isSaving && styles.disabledButton]} accessibilityRole="button" accessibilityLabel={currentStep === steps.length - 1 ? 'Finish tutorial' : 'Next tutorial step'}>
               <Text style={styles.nextText}>{currentStep === steps.length - 1 ? 'Done' : 'Next'}</Text>
               {currentStep < steps.length - 1 && <MaterialCommunityIcons name="chevron-right" size={20} color={Colors.white} />}
-            </Pressable>
-          </View>
-        </View>
-      </View>
+            </ThemeAwarePressable>
+          </ThemeAwareView>
+        </ThemeAwareView>
+      </ThemeAwareView>
       <MaterialCommunityIcons
         name={placeAbove ? 'arrow-down' : 'arrow-up'}
         size={28}
         color={Colors.primary}
         style={[styles.pointer, { left: pointerLeft, top: pointerTop }]}
       />
-    </View>
+    </ThemeAwareView>
   );
 }
 

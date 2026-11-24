@@ -1,3 +1,4 @@
+import { ThemeAwareView } from '@components/ThemeAware';
 /**
  * Status and Badge Components
  */
@@ -25,10 +26,10 @@ export function StatusBadge({ status, style }: StatusBadgeProps) {
   const config = statusConfig[status];
 
   return (
-    <View style={[styles.badge, { backgroundColor: config.background }, style]} accessibilityRole="text">
+    <ThemeAwareView style={[styles.badge, { backgroundColor: config.background }, style]} accessibilityRole="text">
       <MaterialCommunityIcons name={config.icon} size={14} color={config.color} />
       <Text style={[styles.badgeText, { color: config.color }]}>{config.label}</Text>
-    </View>
+    </ThemeAwareView>
   );
 }
 
@@ -38,8 +39,8 @@ interface ConnectivityStatusProps {
 
 export function ConnectivityStatus({ isOnline }: ConnectivityStatusProps) {
   return (
-    <View style={styles.connectivityContainer}>
-      <View
+    <ThemeAwareView style={styles.connectivityContainer}>
+      <ThemeAwareView
         style={[
           styles.statusDot,
           { backgroundColor: isOnline ? Colors.online : Colors.offline },
@@ -48,7 +49,7 @@ export function ConnectivityStatus({ isOnline }: ConnectivityStatusProps) {
       <Text style={styles.statusText}>
         {isOnline ? 'ONLINE' : 'OFFLINE'}
       </Text>
-    </View>
+    </ThemeAwareView>
   );
 }
 
@@ -70,7 +71,7 @@ export function StatCard({
   isWarning = false,
 }: StatCardProps) {
   return (
-    <View
+    <ThemeAwareView
       style={[
         styles.statCard,
         isWarning && styles.statCardWarning,
@@ -81,7 +82,7 @@ export function StatCard({
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statTitle}>{title}</Text>
       {subtitle && <Text style={styles.statSubtitle}>{subtitle}</Text>}
-    </View>
+    </ThemeAwareView>
   );
 }
 
@@ -118,13 +119,13 @@ export function ActivityItem({
   };
 
   return (
-    <View style={styles.activityItem}>
+    <ThemeAwareView style={styles.activityItem}>
       <Text style={styles.activityIcon}>{icon}</Text>
-      <View style={styles.activityContent}>
+      <ThemeAwareView style={styles.activityContent}>
         <Text style={styles.activityDescription}>{description}</Text>
         <Text style={styles.activityTime}>{formatTime(timestamp)}</Text>
-      </View>
-      <View
+      </ThemeAwareView>
+      <ThemeAwareView
         style={[
           styles.activityStatus,
           { borderColor: statusColors[status] },
@@ -133,8 +134,8 @@ export function ActivityItem({
         <Text style={[styles.activityStatusText, { color: statusColors[status] }]}>
           {status.toUpperCase()}
         </Text>
-      </View>
-    </View>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 

@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareScrollView } from '@components/ThemeAware';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Colors } from '@constants/colors';
 import { ActivityIndicator, Animated, Easing, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -77,48 +78,48 @@ export default function ResidentIncidentFeed() {
   }, [spin]);
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void load(true)} tintColor={GREEN} />}>
+    <ThemeAwareScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void load(true)} tintColor={GREEN} />}>
       <Reveal index={0}>
-        <View style={styles.heading}>
-          <View style={styles.headingCopy}>
+        <ThemeAwareView style={styles.heading}>
+          <ThemeAwareView style={styles.headingCopy}>
             <Text style={styles.eyebrow}>COMMUNITY WATCH</Text>
             <Text style={styles.title}>Current incidents</Text>
             <Text style={styles.subtitle}>Live reports around Biñan City, including updates to incidents you reported.</Text>
-          </View>
-          <View style={styles.radar}>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.radar}>
             <Animated.View style={{ transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }}><MaterialCommunityIcons name="radar" size={30} color={GREEN} /></Animated.View>
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
       </Reveal>
       {isLoading && <ActivityIndicator color={GREEN} style={styles.loader} />}
       {!!error && <Text style={styles.error}>{error}</Text>}
-      {!isLoading && !error && incidents.length === 0 && <Reveal index={1}><View style={styles.empty}><View style={styles.emptyIcon}><MaterialCommunityIcons name="shield-check-outline" size={34} color={GREEN} /></View><Text style={styles.emptyTitle}>No active incidents</Text><Text style={styles.emptyText}>New community reports will appear here as they are posted.</Text></View></Reveal>}
+      {!isLoading && !error && incidents.length === 0 && <Reveal index={1}><ThemeAwareView style={styles.empty}><ThemeAwareView style={styles.emptyIcon}><MaterialCommunityIcons name="shield-check-outline" size={34} color={GREEN} /></ThemeAwareView><Text style={styles.emptyTitle}>No active incidents</Text><Text style={styles.emptyText}>New community reports will appear here as they are posted.</Text></ThemeAwareView></Reveal>}
       {incidents.map((incident, index) => {
         return <Reveal index={index + 1} key={incident.id}>
-          <View style={styles.card}>
-            <View style={[styles.accent, { backgroundColor: GREEN }]} />
-            <View style={styles.cardHeader}>
-              <View style={styles.incidentIcon}><MaterialCommunityIcons name="alert-outline" size={18} color={GREEN} /></View>
-              <View style={styles.cardCopy}>
+          <ThemeAwareView style={styles.card}>
+            <ThemeAwareView style={[styles.accent, { backgroundColor: GREEN }]} />
+            <ThemeAwareView style={styles.cardHeader}>
+              <ThemeAwareView style={styles.incidentIcon}><MaterialCommunityIcons name="alert-outline" size={18} color={GREEN} /></ThemeAwareView>
+              <ThemeAwareView style={styles.cardCopy}>
                 <Text style={styles.cardTitle} numberOfLines={1}>{incident.type}</Text>
-                <View style={styles.metaRow}><MaterialCommunityIcons name="clock-outline" size={12} color={Colors.textMuted} /><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></View>
-              </View>
-              {incident.isOwnReport && <View style={styles.reportBadges}>
-                <View style={styles.ownReportBadge}><MaterialCommunityIcons name="account-check-outline" size={12} color="#A84F7D" /><Text style={styles.ownReportText}>Your report</Text></View>
-                <View style={[styles.incidentStatusBadge, { backgroundColor: statusColors(incident.status).backgroundColor }]}><Text style={[styles.incidentStatusText, { color: statusColors(incident.status).color }]}>{formatStatus(incident.status)}</Text></View>
-              </View>}
-            </View>
-            <View style={styles.location}>
-              <View style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></View>
-              <View style={styles.locationCopy}>
+                <ThemeAwareView style={styles.metaRow}><MaterialCommunityIcons name="clock-outline" size={12} color={Colors.textMuted} /><Text style={styles.time}>{formatTime(incident.createdAt)}</Text></ThemeAwareView>
+              </ThemeAwareView>
+              {incident.isOwnReport && <ThemeAwareView style={styles.reportBadges}>
+                <ThemeAwareView style={styles.ownReportBadge}><MaterialCommunityIcons name="account-check-outline" size={12} color="#A84F7D" /><Text style={styles.ownReportText}>Your report</Text></ThemeAwareView>
+                <ThemeAwareView style={[styles.incidentStatusBadge, { backgroundColor: statusColors(incident.status).backgroundColor }]}><Text style={[styles.incidentStatusText, { color: statusColors(incident.status).color }]}>{formatStatus(incident.status)}</Text></ThemeAwareView>
+              </ThemeAwareView>}
+            </ThemeAwareView>
+            <ThemeAwareView style={styles.location}>
+              <ThemeAwareView style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></ThemeAwareView>
+              <ThemeAwareView style={styles.locationCopy}>
                 <Text style={styles.locationLabel}>INCIDENT LOCATION</Text>
                 <Text style={styles.locationText}>{displayLocationLabel(incident.location)}</Text>
-              </View>
-            </View>
-          </View>
+              </ThemeAwareView>
+            </ThemeAwareView>
+          </ThemeAwareView>
         </Reveal>;
       })}
-    </ScrollView>
+    </ThemeAwareScrollView>
   );
 }
 

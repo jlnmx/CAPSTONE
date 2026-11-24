@@ -1,3 +1,4 @@
+import { ThemeAwareView } from '@components/ThemeAware';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -39,18 +40,18 @@ export function PulseDot({ color, size = 8 }: { color: string; size?: number }) 
     return () => loop.stop();
   }, [pulse]);
   const box = size * 2.4;
-  return <View style={{ width: box, height: box, alignItems: 'center', justifyContent: 'center' }}>
+  return <ThemeAwareView style={{ width: box, height: box, alignItems: 'center', justifyContent: 'center' }}>
     <Animated.View pointerEvents="none" style={{ position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 0] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.6] }) }] }} />
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />
-  </View>;
+    <ThemeAwareView style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />
+  </ThemeAwareView>;
 }
 
 export function StatusPill({ status }: { status: string }) {
   const color = incidentStatusColor(status);
-  return <View style={[kit.pill, { backgroundColor: `${color}1A`, borderColor: `${color}55` }]}>
+  return <ThemeAwareView style={[kit.pill, { backgroundColor: `${color}1A`, borderColor: `${color}55` }]}>
     <PulseDot color={color} size={6} />
     <Text style={[kit.pillText, { color }]}>{incidentStatusLabel(status).toUpperCase()}</Text>
-  </View>;
+  </ThemeAwareView>;
 }
 
 const STEPS = ['reported', 'acknowledged', 'in_progress'] as const;
@@ -61,22 +62,22 @@ export function ProgressSteps({ status }: { status: string }) {
   useEffect(() => {
     Animated.timing(fill, { toValue: current / (STEPS.length - 1), duration: 700, delay: 250, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
   }, [current, fill]);
-  return <View style={kit.steps} accessibilityLabel={`Progress: ${incidentStatusLabel(status)}`}>
-    <View style={kit.stepsTrack}><Animated.View style={[kit.stepsFill, { backgroundColor: incidentStatusColor(status), width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></View>
-    <View style={kit.stepsRow}>{STEPS.map((step, index) => {
+  return <ThemeAwareView style={kit.steps} accessibilityLabel={`Progress: ${incidentStatusLabel(status)}`}>
+    <ThemeAwareView style={kit.stepsTrack}><Animated.View style={[kit.stepsFill, { backgroundColor: incidentStatusColor(status), width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></ThemeAwareView>
+    <ThemeAwareView style={kit.stepsRow}>{STEPS.map((step, index) => {
       const reached = index <= current;
       const color = incidentStatusColor(step);
-      return <View key={step} style={kit.step}>
-        <View style={[kit.stepDot, reached ? { backgroundColor: color, borderColor: color } : null]}>{reached && <MaterialCommunityIcons name="check" size={9} color="#FFFFFF" />}</View>
+      return <ThemeAwareView key={step} style={kit.step}>
+        <ThemeAwareView style={[kit.stepDot, reached ? { backgroundColor: color, borderColor: color } : null]}>{reached && <MaterialCommunityIcons name="check" size={9} color="#FFFFFF" />}</ThemeAwareView>
         <Text style={[kit.stepLabel, reached && { color: Colors.text, fontFamily: AppBoldFontFamily }]}>{incidentStatusLabel(step)}</Text>
-      </View>;
-    })}</View>
-  </View>;
+      </ThemeAwareView>;
+    })}</ThemeAwareView>
+  </ThemeAwareView>;
 }
 
 export function IncidentTypeBadge({ type, status }: { type: string; status: string }) {
   const color = incidentStatusColor(status);
-  return <View style={[kit.typeBadge, { backgroundColor: `${color}18`, borderColor: `${color}40` }]}><MaterialCommunityIcons name={incidentTypeIcon(type)} size={24} color={color} /></View>;
+  return <ThemeAwareView style={[kit.typeBadge, { backgroundColor: `${color}18`, borderColor: `${color}40` }]}><MaterialCommunityIcons name={incidentTypeIcon(type)} size={24} color={color} /></ThemeAwareView>;
 }
 
 const kit = StyleSheet.create({

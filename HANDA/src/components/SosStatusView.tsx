@@ -1,3 +1,4 @@
+import { ThemeAwareView } from '@components/ThemeAware';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -89,32 +90,32 @@ export function SosStatusView({ status, emergencyType, locationLabel, sentAt, et
 
   const hero = (
     <LinearGradient colors={stage.gradient} style={styles.hero} accessibilityLiveRegion="polite">
-      <View style={styles.heroTopRow}>
-        <View style={[styles.chip, { backgroundColor: stage.soft }]}>
+      <ThemeAwareView style={styles.heroTopRow}>
+        <ThemeAwareView style={[styles.chip, { backgroundColor: stage.soft }]}>
           <MaterialCommunityIcons name="lifebuoy" size={13} color={stage.accent} />
           <Text darkText style={[styles.chipText, { color: stage.accent }]} numberOfLines={1}>{emergencyType.toUpperCase()}</Text>
-        </View>
-        <View style={styles.liveChip}>
-          <View style={[styles.liveDot, { backgroundColor: isResolved ? '#177A37' : '#D62828' }]} />
+        </ThemeAwareView>
+        <ThemeAwareView style={styles.liveChip}>
+          <ThemeAwareView style={[styles.liveDot, { backgroundColor: isResolved ? '#177A37' : '#D62828' }]} />
           <Text darkText style={styles.liveText}>{isResolved ? 'CLOSED' : 'LIVE'}</Text>
-        </View>
-      </View>
+        </ThemeAwareView>
+      </ThemeAwareView>
 
-      <View style={styles.iconStage}>
+      <ThemeAwareView style={styles.iconStage}>
         {!isResolved && <Animated.View style={[styles.iconRing, { backgroundColor: stage.soft }, ringStyle]} />}
-        <View style={[styles.iconBubble, { backgroundColor: stage.soft }]}>
+        <ThemeAwareView style={[styles.iconBubble, { backgroundColor: stage.soft }]}>
           <MaterialCommunityIcons name={stage.icon} size={44} color={stage.accent} />
-        </View>
-      </View>
+        </ThemeAwareView>
+      </ThemeAwareView>
 
       <Text darkText style={[styles.heroTitle, { color: stage.accent }]}>{stage.title}</Text>
       <Text darkText style={styles.heroDetail}>{stage.detail}</Text>
       <Text darkText style={styles.heroHint}>{stage.hint}</Text>
       {stageIndex === 1 && etaMinutes != null && (
-        <View style={[styles.etaPill, { backgroundColor: stage.soft }]}>
+        <ThemeAwareView style={[styles.etaPill, { backgroundColor: stage.soft }]}>
           <MaterialCommunityIcons name="clock-fast" size={15} color={stage.accent} />
           <Text darkText style={[styles.etaText, { color: stage.accent }]}>Estimated arrival · {etaMinutes} min</Text>
-        </View>
+        </ThemeAwareView>
       )}
       {isResolved && (
         <AnimatedPressable
@@ -131,63 +132,63 @@ export function SosStatusView({ status, emergencyType, locationLabel, sentAt, et
   );
 
   const tracker = (
-    <View style={styles.card}>
-      <View style={styles.stepper}>
+    <ThemeAwareView style={styles.card}>
+      <ThemeAwareView style={styles.stepper}>
         {STEPS.map((step, index) => {
           const done = index === 0 || stageIndex > index || (index === 2 && isResolved);
           const current = !done && index === stageIndex;
           const color = done ? '#177A37' : current ? stage.accent : Colors.border;
           return (
             <React.Fragment key={step.label}>
-              <View style={styles.step}>
-                <View style={[styles.stepDot, done && styles.stepDotDone, current && { borderColor: stage.accent, backgroundColor: stage.soft }]}>
+              <ThemeAwareView style={styles.step}>
+                <ThemeAwareView style={[styles.stepDot, done && styles.stepDotDone, current && { borderColor: stage.accent, backgroundColor: stage.soft }]}>
                   <MaterialCommunityIcons name={done ? 'check' : step.icon} size={done ? 18 : 16} color={done ? Colors.white : current ? stage.accent : Colors.textMuted} />
-                </View>
+                </ThemeAwareView>
                 <Text style={[styles.stepLabel, (done || current) && { color: color, fontFamily: AppBoldFontFamily }]} numberOfLines={1}>{step.label}</Text>
-              </View>
-              {index < STEPS.length - 1 && <View style={[styles.connector, stageIndex > index && styles.connectorDone]} />}
+              </ThemeAwareView>
+              {index < STEPS.length - 1 && <ThemeAwareView style={[styles.connector, stageIndex > index && styles.connectorDone]} />}
             </React.Fragment>
           );
         })}
-      </View>
-      <View style={styles.progressTrack}>
+      </ThemeAwareView>
+      <ThemeAwareView style={styles.progressTrack}>
         <Animated.View style={[styles.progressFill, { width: progressWidth, backgroundColor: isResolved ? '#177A37' : stage.accent }]} />
-      </View>
-      <View style={styles.progressMeta}>
+      </ThemeAwareView>
+      <ThemeAwareView style={styles.progressMeta}>
         <Text style={styles.progressLabel}>Response progress</Text>
         <Text style={[styles.progressValue, { color: isResolved ? '#177A37' : stage.accent }]}>{percent}%</Text>
-      </View>
-    </View>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 
   const info = (
-    <View style={styles.card}>
+    <ThemeAwareView style={styles.card}>
       <Text style={styles.cardTitle}>ALERT DETAILS</Text>
       {details.map((item, index) => (
-        <View key={item.label} style={[styles.detailRow, index > 0 && styles.detailRowBorder]}>
-          <View style={styles.detailIcon}><MaterialCommunityIcons name={item.icon} size={18} color={Colors.secondary} /></View>
-          <View style={styles.detailCopy}>
+        <ThemeAwareView key={item.label} style={[styles.detailRow, index > 0 && styles.detailRowBorder]}>
+          <ThemeAwareView style={styles.detailIcon}><MaterialCommunityIcons name={item.icon} size={18} color={Colors.secondary} /></ThemeAwareView>
+          <ThemeAwareView style={styles.detailCopy}>
             <Text style={styles.detailLabel}>{item.label}</Text>
             <Text style={styles.detailValue}>{item.value}</Text>
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
       ))}
-    </View>
+    </ThemeAwareView>
   );
 
   const tips = (
-    <View style={styles.tipsCard}>
-      <View style={styles.tipsHeader}>
+    <ThemeAwareView style={styles.tipsCard}>
+      <ThemeAwareView style={styles.tipsHeader}>
         <MaterialCommunityIcons name="shield-check-outline" size={18} color="#177A37" />
         <Text darkText style={styles.tipsTitle}>SAFETY TIPS</Text>
-      </View>
+      </ThemeAwareView>
       {TIPS.map((tip) => (
-        <View key={tip.text} style={styles.tipRow}>
+        <ThemeAwareView key={tip.text} style={styles.tipRow}>
           <MaterialCommunityIcons name={tip.icon} size={17} color="#2F7D45" />
           <Text darkText style={styles.tipText}>{tip.text}</Text>
-        </View>
+        </ThemeAwareView>
       ))}
-    </View>
+    </ThemeAwareView>
   );
 
   const contactAction = !isResolved ? (
@@ -198,12 +199,12 @@ export function SosStatusView({ status, emergencyType, locationLabel, sentAt, et
   ) : null;
 
   return (
-    <View style={[styles.wrap, { maxWidth: isWide ? 960 : 560 }]}>
-      <View style={[styles.columns, isWide && styles.columnsWide]}>
-        <View style={styles.column}>{hero}{tracker}</View>
-        <View style={styles.column}>{info}{tips}{contactAction}</View>
-      </View>
-    </View>
+    <ThemeAwareView style={[styles.wrap, { maxWidth: isWide ? 960 : 560 }]}>
+      <ThemeAwareView style={[styles.columns, isWide && styles.columnsWide]}>
+        <ThemeAwareView style={styles.column}>{hero}{tracker}</ThemeAwareView>
+        <ThemeAwareView style={styles.column}>{info}{tips}{contactAction}</ThemeAwareView>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 

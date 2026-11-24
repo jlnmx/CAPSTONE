@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Linking, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,13 +26,13 @@ function formatUpdateTime(value: string | null): string {
 
 function StormMetric({ label, value, icon, wide }: { label: string; value: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; wide: boolean }) {
   return (
-    <View style={[styles.metric, { width: wide ? '24%' : '48%' }]}>
-      <View style={styles.metricHeading}>
+    <ThemeAwareView style={[styles.metric, { width: wide ? '24%' : '48%' }]}>
+      <ThemeAwareView style={styles.metricHeading}>
         <MaterialCommunityIcons name={icon} size={14} color="#A8D4F1" />
         <Text style={styles.metricLabel}>{label}</Text>
-      </View>
+      </ThemeAwareView>
       <Text style={styles.metricValue}>{value}</Text>
-    </View>
+    </ThemeAwareView>
   );
 }
 
@@ -58,7 +59,7 @@ export function TyphoonCard({ typhoon }: { typhoon: LiveTyphoon }) {
   const spin = rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
-    <View style={[styles.cardFrame, { width: cardWidth }]}>
+    <ThemeAwareView style={[styles.cardFrame, { width: cardWidth }]}>
       <LinearGradient
         colors={['#101D34', '#183653', '#1A3D56']}
         start={{ x: 0, y: 0 }}
@@ -68,34 +69,34 @@ export function TyphoonCard({ typhoon }: { typhoon: LiveTyphoon }) {
         <Animated.View pointerEvents="none" style={[styles.stormGlyph, { transform: [{ rotate: spin }] }]}>
           <MaterialCommunityIcons name="weather-hurricane" size={wide ? 220 : 184} color="rgba(157,205,237,0.11)" />
         </Animated.View>
-        <View pointerEvents="none" style={styles.glow} />
+        <ThemeAwareView pointerEvents="none" style={styles.glow} />
 
-        <View style={styles.topRow}>
-          <View style={styles.liveBadge}>
+        <ThemeAwareView style={styles.topRow}>
+          <ThemeAwareView style={styles.liveBadge}>
             <PulseDot color="#FFA58F" size={6} />
             <Text style={styles.liveText}>LIVE STORM TRACK</Text>
-          </View>
-          <View style={[styles.parBadge, isInsidePar ? styles.parBadgeInside : styles.parBadgeOutside]}>
+          </ThemeAwareView>
+          <ThemeAwareView style={[styles.parBadge, isInsidePar ? styles.parBadgeInside : styles.parBadgeOutside]}>
             <MaterialCommunityIcons name={isInsidePar ? 'map-marker-alert-outline' : 'map-marker-outline'} size={13} color={isInsidePar ? '#FFD0C3' : '#B8DCF4'} />
             <Text style={[styles.parText, isInsidePar ? styles.parTextInside : styles.parTextOutside]}>
               {isInsidePar ? 'INSIDE PAR' : 'OUTSIDE PAR'}
             </Text>
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
 
-        <View style={styles.hero}>
-          <View style={styles.heroIcon}>
+        <ThemeAwareView style={styles.hero}>
+          <ThemeAwareView style={styles.heroIcon}>
             <MaterialCommunityIcons name="weather-hurricane" size={compact ? 23 : 27} color="#FFD0C3" />
-          </View>
-          <View style={styles.heroCopy}>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.heroCopy}>
             <Text style={styles.classification} numberOfLines={1}>{typhoon.classification.toUpperCase()}</Text>
             <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={1}>{typhoon.international_name}</Text>
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
 
         <Text style={styles.updated}>{formatUpdateTime(typhoon.updated_at)}</Text>
 
-        <View style={styles.metrics}>
+        <ThemeAwareView style={styles.metrics}>
           <StormMetric
             label="MAXIMUM WIND"
             value={typhoon.max_wind_kmh === null ? 'Not reported' : `${typhoon.max_wind_kmh} km/h`}
@@ -115,10 +116,10 @@ export function TyphoonCard({ typhoon }: { typhoon: LiveTyphoon }) {
             wide={wide}
           />
           <StormMetric label="TRACK SOURCE" value={typhoon.data_source} icon="satellite-variant" wide={wide} />
-        </View>
+        </ThemeAwareView>
 
-        <View style={styles.links}>
-          <Pressable
+        <ThemeAwareView style={styles.links}>
+          <ThemeAwarePressable
             style={styles.linkButton}
             onPress={() => void Linking.openURL(typhoon.source_url)}
             accessibilityRole="link"
@@ -127,8 +128,8 @@ export function TyphoonCard({ typhoon }: { typhoon: LiveTyphoon }) {
             <MaterialCommunityIcons name="map-search-outline" size={16} color="#D9EEFC" />
             <Text style={styles.linkText}>Track details</Text>
             <MaterialCommunityIcons name="open-in-new" size={13} color="#A8D4F1" />
-          </Pressable>
-          <Pressable
+          </ThemeAwarePressable>
+          <ThemeAwarePressable
             style={styles.linkButton}
             onPress={() => void Linking.openURL(PAGASA_BULLETIN_URL)}
             accessibilityRole="link"
@@ -137,10 +138,10 @@ export function TyphoonCard({ typhoon }: { typhoon: LiveTyphoon }) {
             <MaterialCommunityIcons name="shield-check-outline" size={16} color="#FFD0C3" />
             <Text style={styles.linkText}>PAGASA bulletin</Text>
             <MaterialCommunityIcons name="open-in-new" size={13} color="#A8D4F1" />
-          </Pressable>
-        </View>
+          </ThemeAwarePressable>
+        </ThemeAwareView>
       </LinearGradient>
-    </View>
+    </ThemeAwareView>
   );
 }
 

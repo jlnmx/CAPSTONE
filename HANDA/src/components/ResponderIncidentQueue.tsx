@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareScrollView, ThemeAwareTextInput } from '@components/ThemeAware';
 import React, { useEffect, useRef, useState } from 'react';
 import { PhotoGallery } from '@components/PhotoGallery';
 import { Colors } from '@constants/colors';
@@ -240,30 +241,30 @@ export default function ResponderIncidentQueue() {
     setSelectedIncident(null);
   };
 
-  return <View style={styles.section}>
-    <Reveal index={0}><View style={styles.heading}><View><Text style={styles.eyebrow}>FIELD OPERATIONS</Text><Text style={styles.title}>Active incidents</Text></View><View style={styles.liveBadge}><MaterialCommunityIcons name="radio-tower" size={20} color={GREEN} /><Text style={styles.liveCount}>{incidents.length}</Text></View></View></Reveal>
+  return <ThemeAwareView style={styles.section}>
+    <Reveal index={0}><ThemeAwareView style={styles.heading}><ThemeAwareView><Text style={styles.eyebrow}>FIELD OPERATIONS</Text><Text style={styles.title}>Active incidents</Text></ThemeAwareView><ThemeAwareView style={styles.liveBadge}><MaterialCommunityIcons name="radio-tower" size={20} color={GREEN} /><Text style={styles.liveCount}>{incidents.length}</Text></ThemeAwareView></ThemeAwareView></Reveal>
     {isLoading && <Text style={styles.empty}>Loading live incident reports...</Text>}
     {!isLoading && incidents.length === 0 && <Text style={styles.empty}>No active incidents on the server.</Text>}
-    {incidents.map((incident, index) => <Reveal index={index + 1} key={incident.id}><View style={styles.card}>
-      <View style={[styles.accent, { backgroundColor: incidentStatusColor(incident.status) }]} />
-      <View style={styles.cardHeader}><IncidentTypeBadge type={incident.type} status={incident.status} /><View style={styles.copy}><Text style={styles.name} numberOfLines={1}>{incident.type}</Text><Text style={styles.detail}>{formatReportedTime(incident.createdAt)}</Text></View><StatusPill status={incident.status} /></View>
-      <View style={styles.crew}>
-        <View style={styles.crewHeading}><MaterialCommunityIcons name="account-group-outline" size={14} color={GREEN} /><Text style={styles.crewLabel}>{(responders[incident.id]?.length ?? 0) > 0 ? `DEPLOYED RESPONDERS · ${responders[incident.id].length}` : 'DEPLOYMENT STATUS'}</Text></View>
+    {incidents.map((incident, index) => <Reveal index={index + 1} key={incident.id}><ThemeAwareView style={styles.card}>
+      <ThemeAwareView style={[styles.accent, { backgroundColor: incidentStatusColor(incident.status) }]} />
+      <ThemeAwareView style={styles.cardHeader}><IncidentTypeBadge type={incident.type} status={incident.status} /><ThemeAwareView style={styles.copy}><Text style={styles.name} numberOfLines={1}>{incident.type}</Text><Text style={styles.detail}>{formatReportedTime(incident.createdAt)}</Text></ThemeAwareView><StatusPill status={incident.status} /></ThemeAwareView>
+      <ThemeAwareView style={styles.crew}>
+        <ThemeAwareView style={styles.crewHeading}><MaterialCommunityIcons name="account-group-outline" size={14} color={GREEN} /><Text style={styles.crewLabel}>{(responders[incident.id]?.length ?? 0) > 0 ? `DEPLOYED RESPONDERS · ${responders[incident.id].length}` : 'DEPLOYMENT STATUS'}</Text></ThemeAwareView>
         {(responders[incident.id]?.length ?? 0) === 0 && <Text style={styles.unassignedText}>Awaiting responder deployment</Text>}
-        {(responders[incident.id] ?? []).map((responder) => <View key={responder.id} style={styles.crewRow}>
+        {(responders[incident.id] ?? []).map((responder) => <ThemeAwareView key={responder.id} style={styles.crewRow}>
           <Avatar name={responder.name} size={26} />
-          <View style={styles.crewCopy}><Text style={styles.crewName} numberOfLines={1}>{responder.id === user?.id ? `${responder.name} (You)` : responder.name}</Text>{!!responder.organization && <Text style={styles.crewOrg} numberOfLines={1}>{responder.organization}</Text>}</View>
-          <View style={[styles.crewTag, { backgroundColor: `${incidentStatusColor(responder.status)}1A` }]}><Text style={[styles.crewTagText, { color: incidentStatusColor(responder.status) }]}>{responder.id === user?.id ? 'YOU · DEPLOYED' : 'DEPLOYED'}</Text></View>
-        </View>)}
-      </View>
-      <View style={styles.location}>
-        <View style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></View>
-        <View style={styles.locationCopy}>
+          <ThemeAwareView style={styles.crewCopy}><Text style={styles.crewName} numberOfLines={1}>{responder.id === user?.id ? `${responder.name} (You)` : responder.name}</Text>{!!responder.organization && <Text style={styles.crewOrg} numberOfLines={1}>{responder.organization}</Text>}</ThemeAwareView>
+          <ThemeAwareView style={[styles.crewTag, { backgroundColor: `${incidentStatusColor(responder.status)}1A` }]}><Text style={[styles.crewTagText, { color: incidentStatusColor(responder.status) }]}>{responder.id === user?.id ? 'YOU · DEPLOYED' : 'DEPLOYED'}</Text></ThemeAwareView>
+        </ThemeAwareView>)}
+      </ThemeAwareView>
+      <ThemeAwareView style={styles.location}>
+        <ThemeAwareView style={styles.locationIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} /></ThemeAwareView>
+        <ThemeAwareView style={styles.locationCopy}>
           <Text style={styles.locationLabel}>INCIDENT LOCATION</Text>
           <Text style={styles.locationText}>{displayLocationLabel(incident.location, incident.latitude, incident.longitude)}</Text>
           {incident.latitude != null && incident.longitude != null && Number.isFinite(incident.latitude) && Number.isFinite(incident.longitude) && <Text style={styles.coordinates}>GPS {incident.latitude.toFixed(6)}, {incident.longitude.toFixed(6)}</Text>}
-        </View>
-      </View>
+        </ThemeAwareView>
+      </ThemeAwareView>
       <Text style={styles.description}>{incident.description}</Text>
       <ProgressSteps status={incident.status} />
       {user?.role === 'responder' && reporters[incident.id] && <AnimatedPressable style={styles.contact} onPress={() => void Linking.openURL(`tel:${reporters[incident.id].mobileNumber.replace(/[\s()-]/g, '')}`)} accessibilityRole="link" accessibilityLabel={`Call ${reporters[incident.id].name}`}>
@@ -280,37 +281,37 @@ export default function ResponderIncidentQueue() {
         <MaterialCommunityIcons name="check-circle-outline" size={18} color="#FFFFFF" />
         <Text style={styles.resolveButtonText}>{updatingId === incident.id ? 'Saving resolution...' : 'Incident Resolved'}</Text>
       </AnimatedPressable>}
-      {user?.role === 'admin' && <View style={styles.actions}>{STATUSES.map((status) => {
+      {user?.role === 'admin' && <ThemeAwareView style={styles.actions}>{STATUSES.map((status) => {
         const canTransition = canTransitionStatus(incident.status, status, incident, user?.id, user?.role);
         const isCurrent = incident.status === status;
         return <AnimatedPressable key={status} style={[styles.action, isCurrent && { backgroundColor: incidentStatusColor(status) }, !canTransition && styles.actionDisabled]} onPress={() => void handleStatusPress(incident, status)} disabled={updatingId === incident.id || !canTransition} accessibilityRole="button" accessibilityState={{ disabled: updatingId === incident.id || !canTransition, selected: isCurrent }}>
           <Text style={[styles.actionText, isCurrent && styles.activeActionText]}>{status.replace('_', ' ')}</Text>
         </AnimatedPressable>;
-      })}</View>}
-    </View></Reveal>)}
+      })}</ThemeAwareView>}
+    </ThemeAwareView></Reveal>)}
     <Modal transparent visible={user?.role === 'admin' && !!selectedIncident} animationType="fade" onRequestClose={closeEditor}>
-      <View style={styles.modalBackdrop}><View style={styles.responseDialog}>
-        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ThemeAwareView style={styles.modalBackdrop}><ThemeAwareView style={styles.responseDialog}>
+        <ThemeAwareScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <Text style={styles.dialogTitle}>{selectedStatus.replace('_', ' ').toUpperCase()} RESPONSE</Text>
         <Text style={styles.dialogSubtitle}>Share operational details with the reporting resident. Every field can be edited.</Text>
-        <TextInput style={styles.input} value={responsePeople} onChangeText={setResponsePeople} placeholder="People involved" placeholderTextColor="#8A9A8A" />
+        <ThemeAwareTextInput style={styles.input} value={responsePeople} onChangeText={setResponsePeople} placeholder="People involved" placeholderTextColor="#8A9A8A" />
         <Text style={styles.fieldLabel}>Organizations involved</Text>
-        <View style={styles.chips}>{RESPONDER_ORGANIZATIONS.map((organization) => {
+        <ThemeAwareView style={styles.chips}>{RESPONDER_ORGANIZATIONS.map((organization) => {
           const checked = selectedOrganizations.includes(organization);
           return <AnimatedPressable key={organization} style={[styles.chip, checked && styles.chipActive]} onPress={() => toggleOrganization(organization)} accessibilityRole="checkbox" accessibilityState={{ checked }} accessibilityLabel={organization}>
             <MaterialCommunityIcons name={checked ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'} size={15} color={checked ? '#FFFFFF' : GREEN} />
             <Text style={[styles.chipText, checked && styles.chipTextActive]}>{organization}</Text>
           </AnimatedPressable>;
-        })}</View>
-        <TextInput style={styles.input} value={otherOrganizations} onChangeText={setOtherOrganizations} placeholder="Other organizations (optional)" placeholderTextColor="#8A9A8A" />
-        <TextInput style={styles.input} value={responseEta} onChangeText={(value) => { etaEdited.current = true; setResponseEta(value); }} placeholder="ETA in minutes" placeholderTextColor="#8A9A8A" keyboardType="number-pad" />
+        })}</ThemeAwareView>
+        <ThemeAwareTextInput style={styles.input} value={otherOrganizations} onChangeText={setOtherOrganizations} placeholder="Other organizations (optional)" placeholderTextColor="#8A9A8A" />
+        <ThemeAwareTextInput style={styles.input} value={responseEta} onChangeText={(value) => { etaEdited.current = true; setResponseEta(value); }} placeholder="ETA in minutes" placeholderTextColor="#8A9A8A" keyboardType="number-pad" />
         {!!etaHint && <Text style={styles.hint}>{isEtaLoading ? 'Calculating ETA from your current location…' : etaHint}</Text>}
-        <TextInput style={[styles.input, styles.notesInput]} value={responseNotes} onChangeText={setResponseNotes} placeholder="Response notes" placeholderTextColor="#8A9A8A" multiline textAlignVertical="top" />
-        <View style={styles.dialogActions}><AnimatedPressable style={styles.cancelButton} onPress={closeEditor} disabled={isSaving}><Text style={styles.cancelText}>Cancel</Text></AnimatedPressable><AnimatedPressable style={styles.confirmButton} onPress={() => void changeStatus()} disabled={isSaving}>{isSaving ? <Text style={styles.confirmText}>Saving...</Text> : <Text style={styles.confirmText}>Save update</Text>}</AnimatedPressable></View>
-        </ScrollView>
-      </View></View>
+        <ThemeAwareTextInput style={[styles.input, styles.notesInput]} value={responseNotes} onChangeText={setResponseNotes} placeholder="Response notes" placeholderTextColor="#8A9A8A" multiline textAlignVertical="top" />
+        <ThemeAwareView style={styles.dialogActions}><AnimatedPressable style={styles.cancelButton} onPress={closeEditor} disabled={isSaving}><Text style={styles.cancelText}>Cancel</Text></AnimatedPressable><AnimatedPressable style={styles.confirmButton} onPress={() => void changeStatus()} disabled={isSaving}>{isSaving ? <Text style={styles.confirmText}>Saving...</Text> : <Text style={styles.confirmText}>Save update</Text>}</AnimatedPressable></ThemeAwareView>
+        </ThemeAwareScrollView>
+      </ThemeAwareView></ThemeAwareView>
     </Modal>
-  </View>;
+  </ThemeAwareView>;
 }
 
 const styles = StyleSheet.create({

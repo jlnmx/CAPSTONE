@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareTextInput } from '@components/ThemeAware';
 import React from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -84,7 +85,7 @@ interface Props {
 export function HouseholdMemberFields({ draft, onChange, relationshipPlaceholder = 'Relationship to you' }: Props) {
   const set = (key: keyof HouseholdMemberDraft) => (value: string) => onChange({ ...draft, [key]: value });
   const input = (key: keyof HouseholdMemberDraft, placeholder: string, extra: React.ComponentProps<typeof TextInput> = {}) => (
-    <TextInput
+    <ThemeAwareTextInput
       style={styles.input}
       value={draft[key]}
       onChangeText={set(key)}
@@ -96,13 +97,13 @@ export function HouseholdMemberFields({ draft, onChange, relationshipPlaceholder
   );
 
   return (
-    <View style={styles.wrap}>
+    <ThemeAwareView style={styles.wrap}>
       {input('firstName', 'First name', { autoCapitalize: 'words' })}
       {input('middleName', 'Middle name (optional)', { autoCapitalize: 'words' })}
       {input('lastName', 'Last name', { autoCapitalize: 'words' })}
-      <View style={styles.row}>
-        <View style={styles.age}>{input('age', 'Age', { keyboardType: 'numeric', maxLength: 3 })}</View>
-        <View style={styles.sexRow}>
+      <ThemeAwareView style={styles.row}>
+        <ThemeAwareView style={styles.age}>{input('age', 'Age', { keyboardType: 'numeric', maxLength: 3 })}</ThemeAwareView>
+        <ThemeAwareView style={styles.sexRow}>
           {['Male', 'Female'].map((option) => (
             <AnimatedPressable
               key={option}
@@ -114,11 +115,11 @@ export function HouseholdMemberFields({ draft, onChange, relationshipPlaceholder
               <Text style={[styles.sexText, draft.sex === option && styles.sexTextActive]}>{option}</Text>
             </AnimatedPressable>
           ))}
-        </View>
-      </View>
+        </ThemeAwareView>
+      </ThemeAwareView>
       {input('contactNumber', 'Contact number (optional)', { keyboardType: 'phone-pad', maxLength: 13 })}
       {input('relationship', relationshipPlaceholder, { autoCapitalize: 'words' })}
-    </View>
+    </ThemeAwareView>
   );
 }
 

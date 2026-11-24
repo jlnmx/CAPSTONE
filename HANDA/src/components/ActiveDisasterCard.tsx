@@ -1,3 +1,4 @@
+import { ThemeAwareView } from '@components/ThemeAware';
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -75,10 +76,10 @@ export function ActiveDisasterCard({ active, upcoming = false, title, descriptio
     >
       {active && <Animated.View pointerEvents="none" style={[styles.sheen, { transform: [{ translateX: sheenTranslate }, { rotate: '-16deg' }] }]} />}
       <MaterialCommunityIcons name={active ? 'alert-circle-outline' : 'weather-hurricane'} size={active ? 39 : 29} color={cardForeground} />
-      <View style={styles.copy}>
+      <ThemeAwareView style={styles.copy}>
         <Text darkText={darkAlertForeground} style={[styles.name, active && styles.nameActive, upcoming && !active && styles.upcomingText, darkAlertForeground && styles.darkAlertText]}>{title}</Text>
         <Text darkText={darkAlertForeground} style={[styles.description, active && styles.descriptionActive, upcoming && !active && styles.upcomingText, darkAlertForeground && styles.darkAlertText]}>{description}</Text>
-      </View>
+      </ThemeAwareView>
       <Animated.View style={{ transform: [{ translateX: chevronTranslate }] }}>
         {(active || interactiveWhenInactive) && <MaterialCommunityIcons name="chevron-right" size={31} color={cardForeground} />}
       </Animated.View>

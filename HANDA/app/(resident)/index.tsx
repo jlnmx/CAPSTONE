@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView } from '@components/ThemeAware';
 import React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, View, Animated } from 'react-native';
@@ -45,16 +46,16 @@ type ResidentEvacuationStatus = {
 
 export default function ResidentDashboard() {
   const { user } = useAuth();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ThemeAwareScrollView>(null);
   const scrollOffsetRef = useRef(0);
-  const notificationsTargetRef = useRef<View>(null);
-  const statusTargetRef = useRef<View>(null);
-  const reportTargetRef = useRef<View>(null);
-  const guidanceTargetRef = useRef<View>(null);
-  const householdTargetRef = useRef<View>(null);
-  const centersTargetRef = useRef<View>(null);
-  const hotlineTargetRef = useRef<View>(null);
-  const preparednessGuideTargetRef = useRef<View>(null);
+  const notificationsTargetRef = useRef<ThemeAwareView>(null);
+  const statusTargetRef = useRef<ThemeAwareView>(null);
+  const reportTargetRef = useRef<ThemeAwareView>(null);
+  const guidanceTargetRef = useRef<ThemeAwareView>(null);
+  const householdTargetRef = useRef<ThemeAwareView>(null);
+  const centersTargetRef = useRef<ThemeAwareView>(null);
+  const hotlineTargetRef = useRef<ThemeAwareView>(null);
+  const preparednessGuideTargetRef = useRef<ThemeAwareView>(null);
   const tutorialTargets: TutorialTargetRefs = {
     notifications: notificationsTargetRef,
     status: statusTargetRef,
@@ -152,8 +153,8 @@ export default function ResidentDashboard() {
   const greeting = getGreeting(now);
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: timePresentation.pageBackground }]}>
-      <ScrollView
+    <ThemeAwareSafeAreaView style={[styles.safeArea, { backgroundColor: timePresentation.pageBackground }]}>
+      <ThemeAwareScrollView
         ref={scrollRef}
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -161,24 +162,24 @@ export default function ResidentDashboard() {
         onScroll={(event) => { scrollOffsetRef.current = event.nativeEvent.contentOffset.y; }}
         scrollEventThrottle={16}
       >
-        <View style={styles.header}>
-          <View style={styles.brandRow}>
+        <ThemeAwareView style={styles.header}>
+          <ThemeAwareView style={styles.brandRow}>
             <HandaLogoMark size={42} />
-            <View style={styles.brandCopy}>
+            <ThemeAwareView style={styles.brandCopy}>
               <Text style={styles.brand}>HANDA</Text>
               <Text style={styles.brandSubtitle}>COMMUNITY RESPONSE</Text>
-            </View>
-          </View>
-          <View ref={notificationsTargetRef} collapsable={false}><NotificationBell /></View>
-        </View>
+            </ThemeAwareView>
+          </ThemeAwareView>
+          <ThemeAwareView ref={notificationsTargetRef} collapsable={false}><NotificationBell /></ThemeAwareView>
+        </ThemeAwareView>
 
-        <View style={styles.greeting}>
-          <View>
+        <ThemeAwareView style={styles.greeting}>
+          <ThemeAwareView>
             <Text style={styles.greetingEyebrow}>YOUR SAFETY DASHBOARD</Text>
             <Text style={styles.greetingTitle}>{greeting}, {getFirstName(user, 'Biñanense')}!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
 
         <WeatherWidget weather={weather} weatherEvents={weatherEvents} environmentalRisk={environmentalRisk} airQualityUnavailable={airQualityUnavailable} presentation={presentation} isLoading={isWeatherLoading} isUnavailable={weatherError} errorMessage={weatherErrorMessage} time={now} disasterActive={disasterIsActive} showForecast={false} onPress={() => router.push('/(resident)/weather')} />
 
@@ -193,28 +194,28 @@ export default function ResidentDashboard() {
           <TyphoonCard key={typhoon.id} typhoon={typhoon} />
         ))}
 
-        <View ref={statusTargetRef} collapsable={false}>
+        <ThemeAwareView ref={statusTargetRef} collapsable={false}>
           <StatusTile
             unavailable={evacuationStatusUnavailable}
             status={evacuationStatus}
             loading={!evacuationStatusUnavailable && !evacuationStatus}
             onPress={() => router.push('/(resident)/verify-status')}
           />
-        </View>
+        </ThemeAwareView>
 
         <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-        <View style={styles.actionGrid}>
+        <ThemeAwareView style={styles.actionGrid}>
           {actions.map((action) => {
             const targetRef = tutorialTargets[action.target];
             return (
-              <View key={action.label} ref={targetRef} collapsable={false} style={styles.actionTarget}>
+              <ThemeAwareView key={action.label} ref={targetRef} collapsable={false} style={styles.actionTarget}>
                 <DashTile tone={action.tone} icon={action.icon} mark={action.mark} title={action.label} onPress={() => router.push(action.route)} style={styles.actionButton} />
-              </View>
+              </ThemeAwareView>
             );
           })}
-        </View>
-        <View style={styles.resourceRow}>
-          <View ref={hotlineTargetRef} collapsable={false} style={styles.resourceTarget}>
+        </ThemeAwareView>
+        <ThemeAwareView style={styles.resourceRow}>
+          <ThemeAwareView ref={hotlineTargetRef} collapsable={false} style={styles.resourceTarget}>
             <ResourceButton
               tone="danger"
               icon="phone-in-talk-outline"
@@ -223,8 +224,8 @@ export default function ResidentDashboard() {
               detail="Contact list"
               onPress={() => router.push('/(resident)/emergency-contacts')}
             />
-          </View>
-          <View ref={preparednessGuideTargetRef} collapsable={false} style={styles.resourceTarget}>
+          </ThemeAwareView>
+          <ThemeAwareView ref={preparednessGuideTargetRef} collapsable={false} style={styles.resourceTarget}>
             <ResourceButton
               tone="sand"
               icon="book-open-page-variant-outline"
@@ -233,11 +234,11 @@ export default function ResidentDashboard() {
               detail="Disaster readiness"
               onPress={() => router.push('/(resident)/preparedness-guide')}
             />
-          </View>
-        </View>
-      </ScrollView>
+          </ThemeAwareView>
+        </ThemeAwareView>
+      </ThemeAwareScrollView>
       <QuickTutorial role="resident" userId={user?.id} targets={tutorialTargets} scrollRef={scrollRef} scrollOffsetRef={scrollOffsetRef} />
-    </SafeAreaView>
+    </ThemeAwareSafeAreaView>
   );
 }
 
@@ -273,19 +274,19 @@ function DashTile({ tone, icon, mark, title, detail, onPress, compact, row, styl
   const t = TONES[tone];
   const body = <>
     <MaterialCommunityIcons name={mark} size={row ? 56 : compact ? 84 : 104} color={t.mark} style={styles.tileMark} />
-    <View style={[styles.tileBadge, row && styles.tileBadgeRow, { backgroundColor: t.badgeBg }]}><MaterialCommunityIcons name={icon} size={row ? 17 : compact ? 20 : 22} color={t.badgeFg} /></View>
-    <View style={[styles.tileFooter, row && styles.tileFooterRow]}>
-      <View style={styles.tileCopy}>
+    <ThemeAwareView style={[styles.tileBadge, row && styles.tileBadgeRow, { backgroundColor: t.badgeBg }]}><MaterialCommunityIcons name={icon} size={row ? 17 : compact ? 20 : 22} color={t.badgeFg} /></ThemeAwareView>
+    <ThemeAwareView style={[styles.tileFooter, row && styles.tileFooterRow]}>
+      <ThemeAwareView style={styles.tileCopy}>
         <Text style={[styles.tileTitle, { color: t.fg }]} numberOfLines={2}>{title}</Text>
         {detail && !row ? <Text style={[styles.tileDetail, { color: t.fg }]} numberOfLines={1}>{detail}</Text> : null}
-      </View>
+      </ThemeAwareView>
       {onPress ? <MaterialCommunityIcons name="chevron-right" size={18} color={t.fg} /> : null}
-    </View>
+    </ThemeAwareView>
   </>;
   const base = [styles.tile, compact && styles.tileCompact, row && styles.tileRow, { backgroundColor: t.bg }, style];
   return onPress
     ? <AnimatedPressable style={[...base, { transform: hover.transform }]} onPress={onPress} onHoverIn={hover.onHoverIn} onHoverOut={hover.onHoverOut} accessibilityRole="button" accessibilityLabel={detail ? `${title}: ${detail}` : title}>{body}</AnimatedPressable>
-    : <View style={base} accessibilityRole="text">{body}</View>;
+    : <ThemeAwareView style={base} accessibilityRole="text">{body}</ThemeAwareView>;
 }
 
 function StatusTile({ status, unavailable, loading, onPress }: { status: ResidentEvacuationStatus | null; unavailable: boolean; loading: boolean; onPress: () => void }) {
@@ -302,14 +303,14 @@ function StatusTile({ status, unavailable, loading, onPress }: { status: Residen
       accessibilityLabel={`My status: ${presentation.label}. ${presentation.detail}`}
     >
       <MaterialCommunityIcons name={presentation.mark} size={104} color={tone.mark} style={styles.statusMark} />
-      <View style={[styles.statusBadge, { backgroundColor: tone.badgeBg }]}>
+      <ThemeAwareView style={[styles.statusBadge, { backgroundColor: tone.badgeBg }]}>
         <MaterialCommunityIcons name={presentation.icon} size={22} color={tone.badgeFg} />
-      </View>
-      <View style={styles.statusCopy}>
+      </ThemeAwareView>
+      <ThemeAwareView style={styles.statusCopy}>
         <Text style={[styles.statusEyebrow, { color: tone.fg }]}>MY STATUS</Text>
         <Text style={[styles.statusLabel, { color: tone.fg }]}>{presentation.label}</Text>
         <Text style={[styles.statusDetail, { color: tone.fg }]} numberOfLines={2}>{presentation.detail}</Text>
-      </View>
+      </ThemeAwareView>
       <MaterialCommunityIcons name="chevron-right" size={21} color={tone.fg} />
     </AnimatedPressable>
   );

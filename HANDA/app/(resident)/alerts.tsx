@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView } from '@components/ThemeAware';
 import AppBackArrow from '@components/AppBackArrow';
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
@@ -62,14 +63,14 @@ export default function ResidentAlertsScreen() {
     if (notification.notification_type === 'weather') router.push('/(resident)/weather');
   };
 
-  return <SafeAreaView style={styles.container}><ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void load(true)} tintColor={GREEN} />}>
-    <View style={styles.header}><AppBackArrow /><View style={styles.headerCopy}><Text style={styles.eyebrow}>LIVE UPDATES</Text><Text style={styles.title}>ALERTS</Text><Text style={styles.subtitle}>Weather alerts, community incidents, and responder updates.</Text></View><MaterialCommunityIcons name="bell-alert-outline" size={30} color={GREEN} /></View>
+  return <ThemeAwareSafeAreaView style={styles.container}><ThemeAwareScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void load(true)} tintColor={GREEN} />}>
+    <ThemeAwareView style={styles.header}><AppBackArrow /><ThemeAwareView style={styles.headerCopy}><Text style={styles.eyebrow}>LIVE UPDATES</Text><Text style={styles.title}>ALERTS</Text><Text style={styles.subtitle}>Weather alerts, community incidents, and responder updates.</Text></ThemeAwareView><MaterialCommunityIcons name="bell-alert-outline" size={30} color={GREEN} /></ThemeAwareView>
     {isLoading && <ActivityIndicator color={GREEN} style={styles.loader} />}
     {!!error && <Text style={styles.error}>{error}</Text>}
     {!!readError && <Text style={styles.error}>{readError}</Text>}
-    {!isLoading && !error && notifications.length === 0 && <View style={styles.empty}><MaterialCommunityIcons name="bell-check-outline" size={35} color={GREEN} /><Text style={styles.emptyTitle}>No alerts yet</Text><Text style={styles.emptyText}>Weather alerts and incident updates will appear here.</Text></View>}
-    {notifications.map((notification) => <AnimatedPressable key={notification.id} style={[styles.card, !notification.read_at && styles.unread]} onPress={() => void openNotification(notification)} accessibilityRole="button" accessibilityLabel={`Read alert: ${notification.title}`}><View style={styles.cardIcon}><MaterialCommunityIcons name={notification.notification_type === 'weather' ? 'weather-lightning-rainy' : 'message-alert-outline'} size={21} color={GREEN} /></View><View style={styles.cardCopy}><View style={styles.cardHeading}><Text style={styles.cardTitle}>{notification.title}</Text>{!notification.read_at && <View style={styles.dot} />}</View><Text style={styles.message}>{notification.message}</Text><Text style={styles.time}>{formatTime(notification.created_at)}</Text></View></AnimatedPressable>)}
-  </ScrollView></SafeAreaView>;
+    {!isLoading && !error && notifications.length === 0 && <ThemeAwareView style={styles.empty}><MaterialCommunityIcons name="bell-check-outline" size={35} color={GREEN} /><Text style={styles.emptyTitle}>No alerts yet</Text><Text style={styles.emptyText}>Weather alerts and incident updates will appear here.</Text></ThemeAwareView>}
+    {notifications.map((notification) => <AnimatedPressable key={notification.id} style={[styles.card, !notification.read_at && styles.unread]} onPress={() => void openNotification(notification)} accessibilityRole="button" accessibilityLabel={`Read alert: ${notification.title}`}><ThemeAwareView style={styles.cardIcon}><MaterialCommunityIcons name={notification.notification_type === 'weather' ? 'weather-lightning-rainy' : 'message-alert-outline'} size={21} color={GREEN} /></ThemeAwareView><ThemeAwareView style={styles.cardCopy}><ThemeAwareView style={styles.cardHeading}><Text style={styles.cardTitle}>{notification.title}</Text>{!notification.read_at && <ThemeAwareView style={styles.dot} />}</ThemeAwareView><Text style={styles.message}>{notification.message}</Text><Text style={styles.time}>{formatTime(notification.created_at)}</Text></ThemeAwareView></AnimatedPressable>)}
+  </ThemeAwareScrollView></ThemeAwareSafeAreaView>;
 }
 
 function formatTime(value: string) {

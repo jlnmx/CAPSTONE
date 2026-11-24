@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareScrollView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useMemo, useState } from 'react';
 import { DeviceEventEmitter, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -193,25 +194,25 @@ export function NotificationBell() {
         accessibilityRole="button"
       >
         <MaterialCommunityIcons name="bell-outline" size={29} color={Colors.white} />
-        {unreadCount > 0 && <View style={styles.dot}><Text style={styles.dotText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View>}
+        {unreadCount > 0 && <ThemeAwareView style={styles.dot}><Text style={styles.dotText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></ThemeAwareView>}
       </AnimatedPressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={() => setVisible(false)} statusBarTranslucent>
-        <View style={[styles.backdrop, { paddingHorizontal: horizontalPadding, paddingVertical: Math.max(14, Math.min(42, height * 0.06)) }]}>
-          <Pressable style={styles.backdropDismiss} onPress={() => setVisible(false)} accessibilityLabel="Close notifications" accessibilityRole="button" />
-          <View style={[styles.modal, { maxHeight: height - Math.max(28, Math.min(84, height * 0.12)) }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.headerCopy}>
-                <View style={styles.titleRow}>
+        <ThemeAwareView style={[styles.backdrop, { paddingHorizontal: horizontalPadding, paddingVertical: Math.max(14, Math.min(42, height * 0.06)) }]}>
+          <ThemeAwarePressable style={styles.backdropDismiss} onPress={() => setVisible(false)} accessibilityLabel="Close notifications" accessibilityRole="button" />
+          <ThemeAwareView style={[styles.modal, { maxHeight: height - Math.max(28, Math.min(84, height * 0.12)) }]}>
+            <ThemeAwareView style={styles.modalHeader}>
+              <ThemeAwareView style={styles.headerCopy}>
+                <ThemeAwareView style={styles.titleRow}>
                   <Text style={styles.title}>Notifications</Text>
-                  {unreadCount > 0 && <View style={styles.unreadBadge}><Text style={styles.unreadBadgeText}>{unreadCount} new</Text></View>}
-                </View>
+                  {unreadCount > 0 && <ThemeAwareView style={styles.unreadBadge}><Text style={styles.unreadBadgeText}>{unreadCount} new</Text></ThemeAwareView>}
+                </ThemeAwareView>
                 <Text style={styles.subtitle}>Safety updates and important activity</Text>
-              </View>
+              </ThemeAwareView>
               <AnimatedPressable style={styles.closeButton} onPress={() => setVisible(false)} accessibilityLabel="Close notifications" accessibilityRole="button">
                 <MaterialCommunityIcons name="close" size={24} color={Colors.textMuted} />
               </AnimatedPressable>
-            </View>
+            </ThemeAwareView>
             {unreadCount > 0 && (
               <AnimatedPressable
                 style={[styles.markAllButton, isMarkingAllRead && styles.disabledButton]}
@@ -225,19 +226,19 @@ export function NotificationBell() {
               </AnimatedPressable>
             )}
             {actionError ? (
-              <View style={styles.errorBanner} accessibilityRole="alert">
+              <ThemeAwareView style={styles.errorBanner} accessibilityRole="alert">
                 <MaterialCommunityIcons name="alert-circle-outline" size={18} color={Colors.emergency} />
                 <Text style={styles.errorText}>{actionError}</Text>
-              </View>
+              </ThemeAwareView>
             ) : null}
             {notifications.length === 0 ? (
-              <View style={styles.empty}>
-                <View style={styles.emptyIcon}><MaterialCommunityIcons name="bell-sleep-outline" size={30} color={GREEN} /></View>
+              <ThemeAwareView style={styles.empty}>
+                <ThemeAwareView style={styles.emptyIcon}><MaterialCommunityIcons name="bell-sleep-outline" size={30} color={GREEN} /></ThemeAwareView>
                 <Text style={styles.emptyTitle}>You’re all caught up</Text>
                 <Text style={styles.emptyDetail}>Relevant safety updates will appear here.</Text>
-              </View>
+              </ThemeAwareView>
             ) : (
-              <ScrollView
+              <ThemeAwareScrollView
                 style={[styles.list, { maxHeight: Math.max(100, height - 250) }]}
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator
@@ -249,30 +250,30 @@ export function NotificationBell() {
                     entering={FadeInDown.duration(220).delay(Math.min(index * 35, 180))}
                     style={[styles.notification, !notification.read && styles.unreadNotification]}
                   >
-                    <Pressable
+                    <ThemeAwarePressable
                       style={styles.notificationOpen}
                       onPress={() => void openNotification(notification)}
                       accessibilityRole="button"
                       accessibilityLabel={`Open ${notification.title} notification`}
                     >
-                      <View style={[styles.icon, { backgroundColor: `${notification.color}18` }]}>
+                      <ThemeAwareView style={[styles.icon, { backgroundColor: `${notification.color}18` }]}>
                         <MaterialCommunityIcons name={notification.icon} size={21} color={notification.color} />
-                      </View>
-                      <View style={styles.copy}>
-                        <View style={styles.notificationHeading}>
+                      </ThemeAwareView>
+                      <ThemeAwareView style={styles.copy}>
+                        <ThemeAwareView style={styles.notificationHeading}>
                           <Text style={[styles.notificationTitle, !notification.read && styles.unreadTitle]}>{notification.title}</Text>
                           <Text style={styles.time}>{notification.time}</Text>
-                        </View>
+                        </ThemeAwareView>
                         <Text style={[styles.detail, !notification.read && styles.unreadDetail]}>{notification.detail}</Text>
-                      </View>
-                      {!notification.read && <View style={styles.unreadDot} />}
-                    </Pressable>
-                    <View style={styles.notificationFooter}>
+                      </ThemeAwareView>
+                      {!notification.read && <ThemeAwareView style={styles.unreadDot} />}
+                    </ThemeAwarePressable>
+                    <ThemeAwareView style={styles.notificationFooter}>
                       {notification.read ? (
-                        <View style={styles.readStatus}>
+                        <ThemeAwareView style={styles.readStatus}>
                           <MaterialCommunityIcons name="check-circle-outline" size={14} color="#7C8B80" />
                           <Text style={styles.readHint}>Read</Text>
-                        </View>
+                        </ThemeAwareView>
                       ) : (
                         <AnimatedPressable
                           style={[styles.markReadButton, updatingIds.includes(notification.id) && styles.disabledButton]}
@@ -285,13 +286,13 @@ export function NotificationBell() {
                           <Text style={styles.markRead}>Mark as read</Text>
                         </AnimatedPressable>
                       )}
-                    </View>
+                    </ThemeAwareView>
                   </Animated.View>
                 ))}
-              </ScrollView>
+              </ThemeAwareScrollView>
             )}
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
       </Modal>
     </>
   );

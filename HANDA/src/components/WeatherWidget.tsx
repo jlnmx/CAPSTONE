@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -31,28 +32,28 @@ export function WeatherWidget({ weather, weatherEvents, environmentalRisk, airQu
   }, [weatherEventIds]);
 
   return <>
-    <Pressable style={[styles.weatherCard, { minHeight: 112 * scale }]} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? 'Open seven-day weather forecast' : undefined}>
+    <ThemeAwarePressable style={[styles.weatherCard, { minHeight: 112 * scale }]} onPress={onPress} disabled={!onPress} accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={onPress ? 'Open seven-day weather forecast' : undefined}>
       <LinearGradient colors={tileTimePresentation.gradient} style={[styles.weatherGradient, { minHeight: 112 * scale, paddingVertical: 12 * scale, justifyContent: 'space-between' }]}>
         <MaterialCommunityIcons name={presentation.backgroundIcon} size={138} color="rgba(255,255,255,0.10)" style={styles.backgroundGlyph} />
-        <View style={styles.weatherCardTop}><View><Text style={[styles.weatherEyebrow, { fontSize: 8 * scale }]}>LIVE CONDITIONS · {tileTimePresentation.label.toUpperCase()}</Text><Text style={[styles.weatherLocation, { fontSize: 11 * scale }]}>Biñan City forecast</Text></View><View style={styles.conditionIcon}><MaterialCommunityIcons name={getWeatherTileIcon(presentation, time)} size={30} color={Colors.white} />{presentation.overlayIcon && <MaterialCommunityIcons name={presentation.overlayIcon} size={12} color="#B9E3F7" style={styles.conditionIconOverlay} />}</View></View>
-        {isLoading ? <ActivityIndicator color={Colors.white} /> : isUnavailable ? <Text style={styles.weatherMeta} numberOfLines={2}>{errorMessage || 'Live weather data is unavailable. Check official PAGASA advisories.'}</Text> : <><View style={styles.weatherMain}><Text style={[styles.temperature, { fontSize: 20 * scale }]}>{Math.round(weather.temperature)}° C</Text><Text style={[styles.weatherDescription, { fontSize: 9 * scale }]}>{presentation.description}</Text></View><Text style={[styles.weatherMeta, { fontSize: 9 * scale }]}>Feels like {Math.round(weather.feelsLike)}°  |  Humidity {weather.humidity}%  |  Wind {Math.round(weather.windSpeed)} km/h</Text></>}
-        {!isUnavailable && environmentalRisk && <View style={styles.riskBadge}><MaterialCommunityIcons name="leaf" size={13} color={Colors.white} /><Text style={styles.riskBadgeText}>ENVIRONMENTAL RISK · {environmentalRisk.label.toUpperCase()}</Text></View>}
+        <ThemeAwareView style={styles.weatherCardTop}><ThemeAwareView><Text style={[styles.weatherEyebrow, { fontSize: 8 * scale }]}>LIVE CONDITIONS · {tileTimePresentation.label.toUpperCase()}</Text><Text style={[styles.weatherLocation, { fontSize: 11 * scale }]}>Biñan City forecast</Text></ThemeAwareView><ThemeAwareView style={styles.conditionIcon}><MaterialCommunityIcons name={getWeatherTileIcon(presentation, time)} size={30} color={Colors.white} />{presentation.overlayIcon && <MaterialCommunityIcons name={presentation.overlayIcon} size={12} color="#B9E3F7" style={styles.conditionIconOverlay} />}</ThemeAwareView></ThemeAwareView>
+        {isLoading ? <ActivityIndicator color={Colors.white} /> : isUnavailable ? <Text style={styles.weatherMeta} numberOfLines={2}>{errorMessage || 'Live weather data is unavailable. Check official PAGASA advisories.'}</Text> : <><ThemeAwareView style={styles.weatherMain}><Text style={[styles.temperature, { fontSize: 20 * scale }]}>{Math.round(weather.temperature)}° C</Text><Text style={[styles.weatherDescription, { fontSize: 9 * scale }]}>{presentation.description}</Text></ThemeAwareView><Text style={[styles.weatherMeta, { fontSize: 9 * scale }]}>Feels like {Math.round(weather.feelsLike)}°  |  Humidity {weather.humidity}%  |  Wind {Math.round(weather.windSpeed)} km/h</Text></>}
+        {!isUnavailable && environmentalRisk && <ThemeAwareView style={styles.riskBadge}><MaterialCommunityIcons name="leaf" size={13} color={Colors.white} /><Text style={styles.riskBadgeText}>ENVIRONMENTAL RISK · {environmentalRisk.label.toUpperCase()}</Text></ThemeAwareView>}
         {!isUnavailable && !environmentalRisk && airQualityUnavailable && <Text style={styles.weatherMeta}>Combined environmental risk is unavailable because air-quality data could not be loaded.</Text>}
         {!isUnavailable && <SafetyTip presentation={presentation} time={time} disasterActive={disasterActive} />}
         {!isUnavailable && <Text style={styles.googleAttribution}>Google Maps</Text>}
       </LinearGradient>
-    </Pressable>
-    {showForecast && <View style={styles.forecastSection}>
-      <View style={[styles.forecastHeading, compactForecastStyles.forecastHeading]}>
+    </ThemeAwarePressable>
+    {showForecast && <ThemeAwareView style={styles.forecastSection}>
+      <ThemeAwareView style={[styles.forecastHeading, compactForecastStyles.forecastHeading]}>
         <Text style={styles.forecastTitle}>NEXT 24 HOURS IN BIÑAN</Text>
         <Text style={styles.forecastSource}>{weatherEvents.length > 0 ? `Event ${weatherEvents.length > 1 ? `${weatherEventIndex + 1} of ` : ''}${weatherEvents.length} · ` : ''}{isUnavailable ? 'Forecast unavailable' : 'Google Maps forecast'}</Text>
-      </View>
+      </ThemeAwareView>
       {weatherEvents.length > 0 ? <WeatherEventSlideshow events={weatherEvents} index={weatherEventIndex} setIndex={setSelectedWeatherEventIndex} /> : <Text style={styles.noEvents}>{isLoading ? 'Checking the hourly forecast...' : isUnavailable ? 'Hourly forecast unavailable. Check official PAGASA advisories.' : 'No significant rain, thunderstorm, wind, or heat conditions detected in the forecast.'}</Text>}
-      <View style={styles.forecastFooter}>
+      <ThemeAwareView style={styles.forecastFooter}>
         <Text style={styles.forecastDisclaimer} numberOfLines={1}>Not an official warning. Check PAGASA advisories.</Text>
         <Text style={styles.googleAttributionLight}>Google Maps</Text>
-      </View>
-    </View>}
+      </ThemeAwareView>
+    </ThemeAwareView>}
   </>;
 }
 
@@ -87,31 +88,31 @@ function WeatherEventSlideshow({ events, index, setIndex }: { events: WeatherEve
   const showNext = () => setIndex((current) => (current + 1) % events.length);
   const icon = weatherEventPresentation[event.type];
 
-  return <View style={[styles.slideshow, compactForecastStyles.slideshow, { borderLeftColor: icon.color }]}>
+  return <ThemeAwareView style={[styles.slideshow, compactForecastStyles.slideshow, { borderLeftColor: icon.color }]}>
     <Animated.View style={[styles.eventSlide, { opacity: fade, transform: [{ translateX: slide }] }]}>
-      <View style={compactForecastStyles.row}>
-        <View style={[styles.eventIconTile, compactForecastStyles.eventIconTile, { backgroundColor: `${icon.color}18` }]}>
+      <ThemeAwareView style={compactForecastStyles.row}>
+        <ThemeAwareView style={[styles.eventIconTile, compactForecastStyles.eventIconTile, { backgroundColor: `${icon.color}18` }]}>
           <MaterialCommunityIcons name={icon.icon} size={20} color={icon.color} />
-        </View>
-        <View style={[styles.eventCopy, compactForecastStyles.eventCopy]}>
+        </ThemeAwareView>
+        <ThemeAwareView style={[styles.eventCopy, compactForecastStyles.eventCopy]}>
           <Text style={[styles.eventTitle, compactForecastStyles.eventTitle]} numberOfLines={1}>{event.title}</Text>
-          <View style={compactForecastStyles.windowRow}>
+          <ThemeAwareView style={compactForecastStyles.windowRow}>
             <MaterialCommunityIcons name="clock-outline" size={12} color="#344054" />
             <Text style={compactForecastStyles.windowText} numberOfLines={1}>{event.window}</Text>
-          </View>
-        </View>
-        <Pressable style={[styles.slideArrow, compactForecastStyles.slideArrow]} onPress={showPrevious} disabled={events.length < 2} accessibilityRole="button" accessibilityLabel="Previous forecast event">
+          </ThemeAwareView>
+        </ThemeAwareView>
+        <ThemeAwarePressable style={[styles.slideArrow, compactForecastStyles.slideArrow]} onPress={showPrevious} disabled={events.length < 2} accessibilityRole="button" accessibilityLabel="Previous forecast event">
           <MaterialCommunityIcons name="chevron-left" size={18} color={events.length < 2 ? '#AAB2B8' : '#344054'} />
-        </Pressable>
+        </ThemeAwarePressable>
         <Text style={styles.slideCount}>{index + 1}/{events.length}</Text>
-        <Pressable style={[styles.slideArrow, compactForecastStyles.slideArrow]} onPress={showNext} disabled={events.length < 2} accessibilityRole="button" accessibilityLabel="Next forecast event">
+        <ThemeAwarePressable style={[styles.slideArrow, compactForecastStyles.slideArrow]} onPress={showNext} disabled={events.length < 2} accessibilityRole="button" accessibilityLabel="Next forecast event">
           <MaterialCommunityIcons name="chevron-right" size={18} color={events.length < 2 ? '#AAB2B8' : '#344054'} />
-        </Pressable>
-      </View>
+        </ThemeAwarePressable>
+      </ThemeAwareView>
       <Text style={[styles.eventDetail, compactForecastStyles.eventDetail]} numberOfLines={2}>{event.detail}</Text>
     </Animated.View>
-    {events.length > 1 && <View style={[styles.progressTrack, compactForecastStyles.progressTrack]}><Animated.View style={[styles.progressFill, { backgroundColor: icon.color, width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></View>}
-  </View>;
+    {events.length > 1 && <ThemeAwareView style={[styles.progressTrack, compactForecastStyles.progressTrack]}><Animated.View style={[styles.progressFill, { backgroundColor: icon.color, width: progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} /></ThemeAwareView>}
+  </ThemeAwareView>;
 }
 
 function SafetyTip({ presentation, time, disasterActive }: { presentation: WeatherPresentation; time: Date; disasterActive: boolean }) {
@@ -138,8 +139,8 @@ function SafetyTip({ presentation, time, disasterActive }: { presentation: Weath
       Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 8 }),
     ]).start();
   };
-  if (dismissed) return <Pressable style={styles.restoreTip} onPress={restore}><MaterialCommunityIcons name="information-outline" size={15} color={Colors.white} /><Text darkText style={styles.restoreText}>{'Show safety tip'}</Text></Pressable>;
-  return <Animated.View style={[styles.tipCard, { opacity, transform: [{ translateY }] }]}><MaterialCommunityIcons name={disasterActive ? 'alert-outline' : 'information-outline'} size={18} color={disasterActive ? alertColor : Colors.white} /><View style={styles.tipCopy}><Text darkText style={styles.tipTitle}>{tip.title}</Text><Text darkText style={styles.tipText}>{tip.detail}</Text></View><Pressable onPress={dismiss} accessibilityLabel="Dismiss safety tip" style={styles.dismissButton}><MaterialCommunityIcons name="close" size={15} color={Colors.white} /></Pressable></Animated.View>;
+  if (dismissed) return <ThemeAwarePressable style={styles.restoreTip} onPress={restore}><MaterialCommunityIcons name="information-outline" size={15} color={Colors.white} /><Text darkText style={styles.restoreText}>{'Show safety tip'}</Text></ThemeAwarePressable>;
+  return <Animated.View style={[styles.tipCard, { opacity, transform: [{ translateY }] }]}><MaterialCommunityIcons name={disasterActive ? 'alert-outline' : 'information-outline'} size={18} color={disasterActive ? alertColor : Colors.white} /><ThemeAwareView style={styles.tipCopy}><Text darkText style={styles.tipTitle}>{tip.title}</Text><Text darkText style={styles.tipText}>{tip.detail}</Text></ThemeAwareView><ThemeAwarePressable onPress={dismiss} accessibilityLabel="Dismiss safety tip" style={styles.dismissButton}><MaterialCommunityIcons name="close" size={15} color={Colors.white} /></ThemeAwarePressable></Animated.View>;
 }
 
 const styles = StyleSheet.create({

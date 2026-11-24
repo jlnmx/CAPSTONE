@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareScrollView } from '@components/ThemeAware';
 import React, { useEffect, useRef, useState } from 'react';
 import { Image, ImageStyle, Modal, NativeScrollEvent, NativeSyntheticEvent, Platform, ScrollView, StatusBar, StyleProp, StyleSheet, View, ViewStyle, useWindowDimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,7 +15,7 @@ interface PhotoViewerProps {
 export function PhotoViewer({ uris, startIndex, onClose }: PhotoViewerProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ThemeAwareScrollView>(null);
   const [index, setIndex] = useState(0);
   const visible = startIndex != null;
 
@@ -37,9 +38,9 @@ export function PhotoViewer({ uris, startIndex, onClose }: PhotoViewerProps) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.backdrop}>
+      <ThemeAwareView style={styles.backdrop}>
         {visible && Platform.OS !== 'web' && <StatusBar backgroundColor="#000000" barStyle="light-content" />}
-        <ScrollView
+        <ThemeAwareScrollView
           ref={scrollRef}
           horizontal
           pagingEnabled
@@ -48,7 +49,7 @@ export function PhotoViewer({ uris, startIndex, onClose }: PhotoViewerProps) {
           contentOffset={{ x: (startIndex ?? 0) * width, y: 0 }}
         >
           {uris.map((uri, photoIndex) => (
-            <ScrollView
+            <ThemeAwareScrollView
               key={`${uri.slice(-24)}-${photoIndex}`}
               style={{ width, height }}
               contentContainerStyle={{ width, height, alignItems: 'center', justifyContent: 'center' }}
@@ -60,16 +61,16 @@ export function PhotoViewer({ uris, startIndex, onClose }: PhotoViewerProps) {
               centerContent
             >
               <Image source={{ uri }} style={{ width, height: height * 0.8 }} resizeMode="contain" accessibilityLabel={`Photo ${photoIndex + 1} of ${uris.length}`} />
-            </ScrollView>
+            </ThemeAwareScrollView>
           ))}
-        </ScrollView>
+        </ThemeAwareScrollView>
 
-        <View style={[styles.topBar, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
-          <View style={styles.counter}><Text style={styles.counterText}>{index + 1} / {uris.length}</Text></View>
+        <ThemeAwareView style={[styles.topBar, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
+          <ThemeAwareView style={styles.counter}><Text style={styles.counterText}>{index + 1} / {uris.length}</Text></ThemeAwareView>
           <AnimatedPressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close photo viewer">
             <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
           </AnimatedPressable>
-        </View>
+        </ThemeAwareView>
 
         {uris.length > 1 && Platform.OS === 'web' && (
           <>
@@ -79,11 +80,11 @@ export function PhotoViewer({ uris, startIndex, onClose }: PhotoViewerProps) {
         )}
 
         {uris.length > 1 && (
-          <View style={[styles.dots, { paddingBottom: insets.bottom + 18 }]} pointerEvents="none">
-            {uris.map((_uri, dotIndex) => <View key={dotIndex} style={[styles.dot, dotIndex === index && styles.dotActive]} />)}
-          </View>
+          <ThemeAwareView style={[styles.dots, { paddingBottom: insets.bottom + 18 }]} pointerEvents="none">
+            {uris.map((_uri, dotIndex) => <ThemeAwareView key={dotIndex} style={[styles.dot, dotIndex === index && styles.dotActive]} />)}
+          </ThemeAwareView>
         )}
-      </View>
+      </ThemeAwareView>
     </Modal>
   );
 }
@@ -101,13 +102,13 @@ export function PhotoGallery({ uris, style, thumbnailStyle }: PhotoGalleryProps)
 
   return (
     <>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={style}>
+      <ThemeAwareScrollView horizontal showsHorizontalScrollIndicator={false} style={style}>
         {uris.map((uri, index) => (
           <AnimatedPressable key={`${uri.slice(-24)}-${index}`} onPress={() => setOpenIndex(index)} accessibilityRole="imagebutton" accessibilityLabel={`View photo ${index + 1} of ${uris.length}`}>
             <Image source={{ uri }} style={thumbnailStyle} />
           </AnimatedPressable>
         ))}
-      </ScrollView>
+      </ThemeAwareScrollView>
       <PhotoViewer uris={uris} startIndex={openIndex} onClose={() => setOpenIndex(null)} />
     </>
   );

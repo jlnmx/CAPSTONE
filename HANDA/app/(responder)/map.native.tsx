@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView } from '@components/ThemeAware';
 import React from 'react';
 import { SafeAreaView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,20 +9,20 @@ import AppBackArrow from '@components/AppBackArrow';
 
 export default function MapScreen() {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <View style={styles.header}>
+    <ThemeAwareSafeAreaView style={styles.safeArea}>
+      <ThemeAwareView style={styles.content}>
+        <ThemeAwareView style={styles.header}>
           <AppBackArrow />
-          <View style={styles.headerCopy}>
+          <ThemeAwareView style={styles.headerCopy}>
             <Text style={styles.headerEyebrow}>RESPONDER COMMAND</Text>
             <Text style={styles.headerTitle}>Live response map</Text>
             <Text style={styles.headerSubtitle}>Biñan City · incidents and evacuation centers</Text>
-          </View>
-          <View style={styles.headerIcon}><MaterialCommunityIcons name="radar" size={23} color={Colors.white} /></View>
-        </View>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.headerIcon}><MaterialCommunityIcons name="radar" size={23} color={Colors.white} /></ThemeAwareView>
+        </ThemeAwareView>
         <ResponderLiveMap />
-      </View>
-    </SafeAreaView>
+      </ThemeAwareView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

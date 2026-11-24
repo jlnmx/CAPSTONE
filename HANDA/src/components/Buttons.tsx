@@ -5,6 +5,7 @@
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, PressableProps, StyleSheet, TextStyle, ViewStyle } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
+import { adaptThemeSurfaceStyle } from '@utils/themeColors';
 import { Colors, Typography, Spacing, BorderRadius, Shadows } from '@constants/colors';
 import { useResponsiveLayout } from '@hooks/useResponsiveLayout';
 import { useTheme } from '@hooks/useTheme';
@@ -40,6 +41,7 @@ export function AnimatedPressable({
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
   const scale = useRef(new Animated.Value(1)).current;
+  const { resolvedTheme, palette } = useTheme();
 
   const springTo = (toValue: number) =>
     Animated.spring(scale, { toValue, useNativeDriver: true, speed: 40, bounciness: toValue === 1 ? 8 : 0 }).start();
@@ -69,14 +71,15 @@ export function AnimatedPressable({
   };
 
   const baseStyle = typeof style === 'function' ? style({ pressed: isPressed }) : style;
-  const transform = StyleSheet.flatten(baseStyle)?.transform ?? [];
+  const themedBaseStyle = resolvedTheme === 'dark' ? adaptThemeSurfaceStyle(baseStyle, palette) : baseStyle;
+  const transform = StyleSheet.flatten(themedBaseStyle)?.transform ?? [];
 
   return (
     <SpringPressable
       {...props}
       disabled={disabled}
       style={[
-        baseStyle,
+        themedBaseStyle,
         isHovered && !disabled && { opacity: Math.max(activeOpacity, 0.92) },
         isPressed && !disabled && styles.pressed,
         { transform: [...(Array.isArray(transform) ? transform : []), { scale }] },

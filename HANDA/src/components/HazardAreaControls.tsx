@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -27,7 +28,7 @@ export function useHazardAreaVisibility() {
 
 export default function HazardAreaControls({ visibility, onToggleFlood, onToggleEarthquake }: Props) {
   return (
-    <View style={styles.panel} accessibilityLabel="Hazard area map layers">
+    <ThemeAwareView style={styles.panel} accessibilityLabel="Hazard area map layers">
       <Text style={styles.heading}>HAZARD AREAS</Text>
       <HazardLayer
         label="Flood-prone barangays"
@@ -44,13 +45,13 @@ export default function HazardAreaControls({ visibility, onToggleFlood, onToggle
       <Text style={styles.note}>
         Barangay-level highlights only; not precise flood zones or a fault trace. Boundaries: PSA/NAMRIA via OCHA COD-AB (CC BY-IGO 3.0).
       </Text>
-    </View>
+    </ThemeAwareView>
   );
 }
 
 function HazardLayer({ label, color, selected, onPress }: { label: string; color: string; selected: boolean; onPress: () => void }) {
   return (
-    <Pressable
+    <ThemeAwarePressable
       style={styles.layer}
       onPress={onPress}
       accessibilityRole="checkbox"
@@ -62,9 +63,9 @@ function HazardLayer({ label, color, selected, onPress }: { label: string; color
         size={18}
         color={selected ? color : Colors.textMuted}
       />
-      <View style={[styles.swatch, { backgroundColor: `${color}66`, borderColor: color }]} />
+      <ThemeAwareView style={[styles.swatch, { backgroundColor: `${color}66`, borderColor: color }]} />
       <Text style={styles.label}>{label}</Text>
-    </Pressable>
+    </ThemeAwarePressable>
   );
 }
 

@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
@@ -142,7 +143,7 @@ export default function ResponderLiveMap() {
   };
 
   return (
-    <View style={styles.container}>
+    <ThemeAwareView style={styles.container}>
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -197,49 +198,49 @@ export default function ResponderLiveMap() {
         placeholder="Search incidents, centers, or places"
         accessibilityLabel="Search incidents, centers, or places"
       />
-      <View style={[styles.controls, (selectedCenter || selectedIncident) && styles.controlsAboveCard]}>
-        <Pressable onPress={() => void recenter()} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map"><MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} /></Pressable>
-        <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map"><Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text></Pressable>
-      </View>
+      <ThemeAwareView style={[styles.controls, (selectedCenter || selectedIncident) && styles.controlsAboveCard]}>
+        <ThemeAwarePressable onPress={() => void recenter()} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map"><MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} /></ThemeAwarePressable>
+        <ThemeAwarePressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map"><Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text></ThemeAwarePressable>
+      </ThemeAwareView>
       <HazardAreaControls
         visibility={hazardAreas.visibility}
         onToggleFlood={hazardAreas.toggleFlood}
         onToggleEarthquake={hazardAreas.toggleEarthquake}
       />
-      {(loading || error) && <View style={[styles.status, (selectedCenter || selectedIncident) && styles.statusAboveCard]}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error}</Text></View>}
+      {(loading || error) && <ThemeAwareView style={[styles.status, (selectedCenter || selectedIncident) && styles.statusAboveCard]}><Text style={styles.statusText}>{loading ? 'Loading live map data...' : error}</Text></ThemeAwareView>}
       {(selectedCenter || selectedIncident) && (
-        <View style={styles.locationCard} accessibilityLiveRegion="polite">
-          <View style={styles.locationHeading}>
-            <View style={[styles.locationIcon, { backgroundColor: selectedCenter ? '#FFF1F6' : '#FFF0E8' }]}>
+        <ThemeAwareView style={styles.locationCard} accessibilityLiveRegion="polite">
+          <ThemeAwareView style={styles.locationHeading}>
+            <ThemeAwareView style={[styles.locationIcon, { backgroundColor: selectedCenter ? '#FFF1F6' : '#FFF0E8' }]}>
               <MaterialCommunityIcons name={selectedCenter ? 'home-city-outline' : 'alert-circle-outline'} size={21} color={selectedCenter ? Colors.primary : '#C75B19'} />
-            </View>
-            <View style={styles.locationTitleCopy}>
+            </ThemeAwareView>
+            <ThemeAwareView style={styles.locationTitleCopy}>
               <Text style={styles.locationKind}>{selectedCenter ? 'EVACUATION CENTER' : 'INCIDENT'}</Text>
               <Text numberOfLines={2} style={styles.locationTitle}>{selectedCenter?.name ?? selectedIncident?.type}</Text>
               <Text numberOfLines={2} style={styles.locationSubtitle}>{selectedCenter?.location || selectedIncident?.location || 'Location not provided'}</Text>
-            </View>
-            <Pressable onPress={() => setSelectedLocation(null)} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close map details">
+            </ThemeAwareView>
+            <ThemeAwarePressable onPress={() => setSelectedLocation(null)} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close map details">
               <MaterialCommunityIcons name="close" size={20} color={Colors.textMuted} />
-            </Pressable>
-          </View>
+            </ThemeAwarePressable>
+          </ThemeAwareView>
           {selectedCenter ? (
             <>
-              <View style={[styles.availability, selectedAvailability === 'Full' || selectedAvailability === 'Closed' ? styles.availabilityUnavailable : styles.availabilityAvailable]}>
-                <View style={[styles.availabilityDot, selectedAvailability === 'Full' || selectedAvailability === 'Closed' ? styles.availabilityDotUnavailable : styles.availabilityDotAvailable]} />
+              <ThemeAwareView style={[styles.availability, selectedAvailability === 'Full' || selectedAvailability === 'Closed' ? styles.availabilityUnavailable : styles.availabilityAvailable]}>
+                <ThemeAwareView style={[styles.availabilityDot, selectedAvailability === 'Full' || selectedAvailability === 'Closed' ? styles.availabilityDotUnavailable : styles.availabilityDotAvailable]} />
                 <Text style={[styles.availabilityText, selectedAvailability === 'Full' || selectedAvailability === 'Closed' ? styles.availabilityTextUnavailable : styles.availabilityTextAvailable]}>{selectedAvailability}</Text>
-              </View>
-              <View style={styles.stats}>
-                <View style={styles.stat}><Text style={styles.statValue}>{selectedOccupancy} / {selectedCapacity}</Text><Text style={styles.statLabel}>People at center</Text></View>
-                <View style={styles.stat}><Text style={styles.statValue}>{Math.max(0, selectedCapacity - selectedOccupancy)}</Text><Text style={styles.statLabel}>Spaces remaining</Text></View>
-              </View>
+              </ThemeAwareView>
+              <ThemeAwareView style={styles.stats}>
+                <ThemeAwareView style={styles.stat}><Text style={styles.statValue}>{selectedOccupancy} / {selectedCapacity}</Text><Text style={styles.statLabel}>People at center</Text></ThemeAwareView>
+                <ThemeAwareView style={styles.stat}><Text style={styles.statValue}>{Math.max(0, selectedCapacity - selectedOccupancy)}</Text><Text style={styles.statLabel}>Spaces remaining</Text></ThemeAwareView>
+              </ThemeAwareView>
             </>
           ) : (
-            <View style={styles.incidentStatus}>
-              <View style={[styles.incidentStatusDot, { backgroundColor: incidentStatusColor(selectedIncident!.status) }]} />
+            <ThemeAwareView style={styles.incidentStatus}>
+              <ThemeAwareView style={[styles.incidentStatusDot, { backgroundColor: incidentStatusColor(selectedIncident!.status) }]} />
               <Text style={styles.incidentStatusText}>{selectedIncident!.status.replace(/_/g, ' ')}</Text>
-            </View>
+            </ThemeAwareView>
           )}
-          <Pressable
+          <ThemeAwarePressable
             onPress={() => {
               const location = selectedCenter ?? selectedIncident;
               if (location?.latitude == null || location.longitude == null) return;
@@ -251,16 +252,16 @@ export default function ResponderLiveMap() {
           >
             <MaterialCommunityIcons name="navigation-variant" size={17} color={Colors.white} />
             <Text style={styles.navigateButtonText}>Navigate</Text>
-          </Pressable>
-        </View>
+          </ThemeAwarePressable>
+        </ThemeAwareView>
       )}
       {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => setNavigationTarget(null)} />}
-    </View>
+    </ThemeAwareView>
   );
 }
 
 function MapMessage({ children }: { children: string }) {
-  return <View style={styles.message}><Text style={styles.messageText}>{children}</Text></View>;
+  return <ThemeAwareView style={styles.message}><Text style={styles.messageText}>{children}</Text></ThemeAwareView>;
 }
 
 const styles = StyleSheet.create({

@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -56,30 +57,30 @@ export default function ResidentMapScreen() {
         : 'Spaces available';
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
+    <ThemeAwareSafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+      <ThemeAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ThemeAwareView style={styles.header}>
           <AppBackArrow />
-          <View style={styles.headerCopy}>
+          <ThemeAwareView style={styles.headerCopy}>
             <Text style={styles.eyebrow}>COMMUNITY INFORMATION</Text>
             <Text style={styles.title}>Evacuation map</Text>
             <Text style={styles.subtitle}>Center locations and live availability</Text>
-          </View>
-          <View style={styles.headerIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={22} color={Colors.white} /></View>
-        </View>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.headerIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={22} color={Colors.white} /></ThemeAwareView>
+        </ThemeAwareView>
 
         <Reveal index={0}>
-          <View style={[styles.notice, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-            <View style={styles.noticeIcon}><MaterialCommunityIcons name="information-outline" size={20} color={GREEN} /></View>
+          <ThemeAwareView style={[styles.notice, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+            <ThemeAwareView style={styles.noticeIcon}><MaterialCommunityIcons name="information-outline" size={20} color={GREEN} /></ThemeAwareView>
             <Text style={[styles.noticeText, { color: palette.text }]}>
               Evacuation assignments are managed by City Social Welfare and Development. Responders will direct you to the appropriate center; viewing a center here does not register or assign your household.
             </Text>
-          </View>
+          </ThemeAwareView>
         </Reveal>
 
-        <View style={[styles.mapFrame, { borderColor: palette.border }]}>
+        <ThemeAwareView style={[styles.mapFrame, { borderColor: palette.border }]}>
           {isLoading && centers.length === 0 ? (
-            <View style={[styles.mapState, { backgroundColor: palette.surfaceMuted }]}><ActivityIndicator color={GREEN} /><Text style={[styles.stateText, { color: palette.textMuted }]}>Loading center locations...</Text></View>
+            <ThemeAwareView style={[styles.mapState, { backgroundColor: palette.surfaceMuted }]}><ActivityIndicator color={GREEN} /><Text style={[styles.stateText, { color: palette.textMuted }]}>Loading center locations...</Text></ThemeAwareView>
           ) : (
             <LeafletMap
               centers={centers}
@@ -88,39 +89,39 @@ export default function ResidentMapScreen() {
               onNavigationTargetChange={setNavigationTarget}
             />
           )}
-        </View>
+        </ThemeAwareView>
         {!!error && <Text style={[styles.error, { color: palette.textMuted }]}>{error}</Text>}
 
-        <View style={styles.footerRow}>
+        <ThemeAwareView style={styles.footerRow}>
           <MaterialCommunityIcons name="gesture-tap" size={18} color={GREEN} />
           <Text style={[styles.footerText, { color: palette.textMuted }]}>Search or tap an evacuation center, then choose Navigate for in-app routes and directions.</Text>
-        </View>
-      </ScrollView>
+        </ThemeAwareView>
+      </ThemeAwareScrollView>
 
       <Modal transparent visible={!!selectedCenter} animationType="fade" onRequestClose={() => setSelectedCenter(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setSelectedCenter(null)}>
+        <ThemeAwarePressable style={styles.modalBackdrop} onPress={() => setSelectedCenter(null)}>
           {selectedCenter && (
-            <Pressable style={[styles.modalCard, { backgroundColor: palette.surface }]} onPress={(event) => event.stopPropagation()}>
-              <View style={styles.modalHeading}>
-                <View style={styles.centerIcon}><MaterialCommunityIcons name="home-city-outline" size={22} color={GREEN} /></View>
-                <View style={styles.modalTitleCopy}>
+            <ThemeAwarePressable style={[styles.modalCard, { backgroundColor: palette.surface }]} onPress={(event) => event.stopPropagation()}>
+              <ThemeAwareView style={styles.modalHeading}>
+                <ThemeAwareView style={styles.centerIcon}><MaterialCommunityIcons name="home-city-outline" size={22} color={GREEN} /></ThemeAwareView>
+                <ThemeAwareView style={styles.modalTitleCopy}>
                   <Text style={[styles.modalTitle, { color: palette.text }]}>{selectedCenter.name}</Text>
                   <Text style={[styles.modalLocation, { color: palette.textMuted }]}>{selectedCenter.location || 'Location not provided'}</Text>
-                </View>
+                </ThemeAwareView>
                 <AnimatedPressable onPress={() => setSelectedCenter(null)} accessibilityRole="button" accessibilityLabel="Close center information">
                   <MaterialCommunityIcons name="close" size={22} color={palette.textMuted} />
                 </AnimatedPressable>
-              </View>
-              <View style={[styles.availability, { backgroundColor: selectedCenter.status === 'closed' || availability === 'Full' ? '#FCE8E6' : '#FFF1F6' }]}>
-                <View style={[styles.availabilityDot, { backgroundColor: selectedCenter.status === 'closed' || availability === 'Full' ? Colors.emergency : GREEN }]} />
+              </ThemeAwareView>
+              <ThemeAwareView style={[styles.availability, { backgroundColor: selectedCenter.status === 'closed' || availability === 'Full' ? '#FCE8E6' : '#FFF1F6' }]}>
+                <ThemeAwareView style={[styles.availabilityDot, { backgroundColor: selectedCenter.status === 'closed' || availability === 'Full' ? Colors.emergency : GREEN }]} />
                 <Text style={[styles.availabilityText, { color: selectedCenter.status === 'closed' || availability === 'Full' ? Colors.emergency : GREEN }]}>{availability}</Text>
-              </View>
-              <View style={styles.stats}>
-                <View style={[styles.stat, { backgroundColor: palette.background }]}><Text style={[styles.statValue, { color: palette.text }]}>{occupancy} / {capacity}</Text><Text style={[styles.statLabel, { color: palette.textMuted }]}>People at center</Text></View>
-                <View style={[styles.stat, { backgroundColor: palette.background }]}><Text style={[styles.statValue, { color: palette.text }]}>{spaces}</Text><Text style={[styles.statLabel, { color: palette.textMuted }]}>Spaces remaining</Text></View>
-              </View>
+              </ThemeAwareView>
+              <ThemeAwareView style={styles.stats}>
+                <ThemeAwareView style={[styles.stat, { backgroundColor: palette.background }]}><Text style={[styles.statValue, { color: palette.text }]}>{occupancy} / {capacity}</Text><Text style={[styles.statLabel, { color: palette.textMuted }]}>People at center</Text></ThemeAwareView>
+                <ThemeAwareView style={[styles.stat, { backgroundColor: palette.background }]}><Text style={[styles.statValue, { color: palette.text }]}>{spaces}</Text><Text style={[styles.statLabel, { color: palette.textMuted }]}>Spaces remaining</Text></ThemeAwareView>
+              </ThemeAwareView>
               {selectedCenter.latitude != null && selectedCenter.longitude != null ? (
-                <Pressable
+                <ThemeAwarePressable
                   onPress={() => {
                     setNavigationTarget({
                       title: selectedCenter.name,
@@ -134,14 +135,14 @@ export default function ResidentMapScreen() {
                 >
                   <MaterialCommunityIcons name="navigation-variant" size={18} color={Colors.white} />
                   <Text style={styles.navigateButtonText}>Navigate</Text>
-                </Pressable>
+                </ThemeAwarePressable>
               ) : null}
               <Text style={[styles.assignmentNote, { color: palette.textMuted }]}>This information is for reference only. Responders and City Social Welfare and Development personnel coordinate center assignments.</Text>
-            </Pressable>
+            </ThemeAwarePressable>
           )}
-        </Pressable>
+        </ThemeAwarePressable>
       </Modal>
-    </SafeAreaView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

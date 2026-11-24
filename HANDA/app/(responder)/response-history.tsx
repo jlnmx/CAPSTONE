@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView } from '@components/ThemeAware';
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -41,13 +42,13 @@ function arrivalLocationLabel(entry: ResponseHistoryEntry): string {
 
 function ResponseMetric({ icon, label, value }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }) {
   return (
-    <View style={styles.metric}>
-      <View style={styles.metricIcon}><MaterialCommunityIcons name={icon} size={16} color={GREEN} /></View>
-      <View style={styles.metricCopy}>
+    <ThemeAwareView style={styles.metric}>
+      <ThemeAwareView style={styles.metricIcon}><MaterialCommunityIcons name={icon} size={16} color={GREEN} /></ThemeAwareView>
+      <ThemeAwareView style={styles.metricCopy}>
         <Text style={styles.metricLabel}>{label}</Text>
         <Text style={styles.metricValue}>{value}</Text>
-      </View>
-    </View>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 
@@ -73,72 +74,72 @@ export default function ResponseHistoryScreen() {
   useEffect(() => { void load(); }, [load]);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />} showsVerticalScrollIndicator={false}>
+    <ThemeAwareSafeAreaView style={styles.container}>
+      <ThemeAwareScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.titleBand}>
           <AppBackArrow />
-          <View style={styles.headingCopy}>
+          <ThemeAwareView style={styles.headingCopy}>
             <Text style={styles.eyebrow}>FIELD OPERATIONS</Text>
             <Text style={styles.title}>Response history</Text>
             <Text style={styles.subtitle}>Arrival details, incident timelines, and outcomes</Text>
-          </View>
+          </ThemeAwareView>
         </LinearGradient>
 
-        <View style={styles.body}>
-          {!isLoading && failed && entries.length === 0 && <View style={styles.emptyState}><MaterialCommunityIcons name="alert-circle-outline" size={28} color={Colors.textMuted} /><Text style={styles.emptyTitle}>History unavailable</Text><Text style={styles.empty}>Check your connection and pull down to retry.</Text></View>}
-          {!isLoading && !failed && entries.length === 0 && <View style={styles.emptyState}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={28} color={Colors.textMuted} /><Text style={styles.emptyTitle}>No responses yet</Text><Text style={styles.empty}>Incidents assigned to you will appear here with their arrival and resolution details.</Text></View>}
+        <ThemeAwareView style={styles.body}>
+          {!isLoading && failed && entries.length === 0 && <ThemeAwareView style={styles.emptyState}><MaterialCommunityIcons name="alert-circle-outline" size={28} color={Colors.textMuted} /><Text style={styles.emptyTitle}>History unavailable</Text><Text style={styles.empty}>Check your connection and pull down to retry.</Text></ThemeAwareView>}
+          {!isLoading && !failed && entries.length === 0 && <ThemeAwareView style={styles.emptyState}><MaterialCommunityIcons name="clipboard-text-clock-outline" size={28} color={Colors.textMuted} /><Text style={styles.emptyTitle}>No responses yet</Text><Text style={styles.empty}>Incidents assigned to you will appear here with their arrival and resolution details.</Text></ThemeAwareView>}
           {isLoading && <Text style={styles.loading}>Loading your response history...</Text>}
 
           {entries.map((entry, index) => (
             <Reveal index={index} key={entry.id}>
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={[styles.incidentIcon, { backgroundColor: `${incidentStatusColor(entry.status)}18` }]}>
+              <ThemeAwareView style={styles.card}>
+                <ThemeAwareView style={styles.cardHeader}>
+                  <ThemeAwareView style={[styles.incidentIcon, { backgroundColor: `${incidentStatusColor(entry.status)}18` }]}>
                     <MaterialCommunityIcons name="alert-outline" size={21} color={incidentStatusColor(entry.status)} />
-                  </View>
-                  <View style={styles.headerCopy}>
+                  </ThemeAwareView>
+                  <ThemeAwareView style={styles.headerCopy}>
                     <Text style={styles.name}>{entry.type}</Text>
                     <Text style={styles.meta}>Reported {formatDateTime(entry.createdAt)}</Text>
-                  </View>
-                  <View style={[styles.statusPill, { backgroundColor: `${incidentStatusColor(entry.status)}18` }]}>
+                  </ThemeAwareView>
+                  <ThemeAwareView style={[styles.statusPill, { backgroundColor: `${incidentStatusColor(entry.status)}18` }]}>
                     <Text style={[styles.status, { color: incidentStatusColor(entry.status) }]}>{incidentStatusLabel(entry.status)}</Text>
-                  </View>
-                </View>
+                  </ThemeAwareView>
+                </ThemeAwareView>
 
-                <View style={styles.metrics}>
+                <ThemeAwareView style={styles.metrics}>
                   <ResponseMetric icon="timer-outline" label="EXACT TIME OF ARRIVAL" value={formatDateTime(entry.arrivedAt)} />
                   <ResponseMetric icon="map-marker-radius-outline" label="ARRIVAL LOCATION" value={arrivalLocationLabel(entry)} />
                   <ResponseMetric icon="clock-check-outline" label="INCIDENT DURATION" value={incidentDuration(entry.createdAt, entry.resolvedAt)} />
                   <ResponseMetric icon="check-circle-outline" label="RESOLVED AT" value={formatDateTime(entry.resolvedAt)} />
-                </View>
+                </ThemeAwareView>
 
-                <View style={styles.section}>
+                <ThemeAwareView style={styles.section}>
                   <Text style={styles.sectionTitle}>RESPONSE TIMELINE</Text>
                   {entry.timeline.length === 0 && <Text style={styles.meta}>No timeline recorded.</Text>}
                   {entry.timeline.map((event, eventIndex) => (
-                    <View key={`${event.status}-${event.at}-${eventIndex}`} style={styles.timelineRow}>
-                      <View style={styles.timelineMarker}>
-                        <View style={[styles.dot, { backgroundColor: incidentStatusColor(event.status) }]} />
-                        {eventIndex < entry.timeline.length - 1 && <View style={styles.timelineLine} />}
-                      </View>
+                    <ThemeAwareView key={`${event.status}-${event.at}-${eventIndex}`} style={styles.timelineRow}>
+                      <ThemeAwareView style={styles.timelineMarker}>
+                        <ThemeAwareView style={[styles.dot, { backgroundColor: incidentStatusColor(event.status) }]} />
+                        {eventIndex < entry.timeline.length - 1 && <ThemeAwareView style={styles.timelineLine} />}
+                      </ThemeAwareView>
                       <Text style={styles.timelineStatus}>{incidentStatusLabel(event.status)}</Text>
                       <Text style={styles.timelineTime}>{formatDateTime(event.at)}</Text>
-                    </View>
+                    </ThemeAwareView>
                   ))}
-                </View>
+                </ThemeAwareView>
 
-                {entry.location ? <View style={styles.section}><Text style={styles.sectionTitle}>REPORTED LOCATION</Text><Text style={styles.bodyText}>{entry.location}</Text></View> : null}
-                {entry.description ? <View style={styles.section}><Text style={styles.sectionTitle}>INCIDENT DETAILS</Text><Text style={styles.bodyText}>{entry.description}</Text></View> : null}
+                {entry.location ? <ThemeAwareView style={styles.section}><Text style={styles.sectionTitle}>REPORTED LOCATION</Text><Text style={styles.bodyText}>{entry.location}</Text></ThemeAwareView> : null}
+                {entry.description ? <ThemeAwareView style={styles.section}><Text style={styles.sectionTitle}>INCIDENT DETAILS</Text><Text style={styles.bodyText}>{entry.description}</Text></ThemeAwareView> : null}
                 {entry.responseEtaMinutes != null && <Text style={styles.meta}>Response ETA: {entry.responseEtaMinutes} min</Text>}
                 {entry.responseOrganizations ? <Text style={styles.meta}>Organizations: {entry.responseOrganizations}</Text> : null}
-                {entry.responseNotes ? <View style={styles.section}><Text style={styles.sectionTitle}>RESPONSE NOTES</Text><Text style={styles.bodyText}>{entry.responseNotes}</Text></View> : null}
-                {entry.photoUris.length > 0 && <View style={styles.section}><Text style={styles.sectionTitle}>SCENE PHOTOS</Text><PhotoGallery uris={entry.photoUris} style={styles.photos} thumbnailStyle={styles.photo} /></View>}
-              </View>
+                {entry.responseNotes ? <ThemeAwareView style={styles.section}><Text style={styles.sectionTitle}>RESPONSE NOTES</Text><Text style={styles.bodyText}>{entry.responseNotes}</Text></ThemeAwareView> : null}
+                {entry.photoUris.length > 0 && <ThemeAwareView style={styles.section}><Text style={styles.sectionTitle}>SCENE PHOTOS</Text><PhotoGallery uris={entry.photoUris} style={styles.photos} thumbnailStyle={styles.photo} /></ThemeAwareView>}
+              </ThemeAwareView>
             </Reveal>
           ))}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ThemeAwareView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

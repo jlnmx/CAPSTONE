@@ -1,3 +1,4 @@
+import { ThemeAwareView } from '@components/ThemeAware';
 /**
  * HANDA Logo Component
  */
@@ -24,7 +25,7 @@ export function HandaLogo({ size = 'medium', showTagline = false }: LogoProps) {
   const style = sizeStyles[size];
 
   return (
-    <View style={styles.container}>
+    <ThemeAwareView style={styles.container}>
       <Image
         source={logoSource}
         style={{ width: style.iconSize, height: style.iconSize, marginBottom: Spacing.md }}
@@ -33,7 +34,7 @@ export function HandaLogo({ size = 'medium', showTagline = false }: LogoProps) {
       />
       <Text style={[styles.logoText, { fontSize: style.fontSize }]}>HANDA</Text>
       {showTagline && <Text style={styles.tagline}>Ready When Connectivity Isn't.</Text>}
-    </View>
+    </ThemeAwareView>
   );
 }
 
@@ -45,27 +46,27 @@ interface LogoBadgeProps {
 /** HANDA mark on a white circle so the logo stays visible on colored headers. */
 export function HandaLogoBadge({ size = 44, style }: LogoBadgeProps) {
   return (
-    <View style={[styles.badge, { width: size, height: size, borderRadius: size / 2 }, style]}>
+    <ThemeAwareView style={[styles.badge, { width: size, height: size, borderRadius: size / 2 }, style]}>
       <Image
         source={logoSource}
         style={{ width: size * 0.78, height: size * 0.78 }}
         resizeMode="contain"
         accessibilityLabel="HANDA logo"
       />
-    </View>
+    </ThemeAwareView>
   );
 }
 
 export function HandaLogoMark({ size = 44, style }: LogoBadgeProps) {
   return (
-    <View style={[styles.mark, { width: size, height: size }, style]}>
+    <ThemeAwareView style={[styles.mark, { width: size, height: size }, style]}>
       <Image
         source={logoSource}
         style={[styles.markImage, { width: size, height: size }]}
         resizeMode="contain"
         accessibilityLabel="HANDA logo"
       />
-    </View>
+    </ThemeAwareView>
   );
 }
 

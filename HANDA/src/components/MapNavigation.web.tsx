@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareScrollView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -262,16 +263,16 @@ export default function MapNavigation({ target, onClose }: Props) {
 
   if (!target) return null;
   return (
-    <View style={styles.container}>
-      <View ref={mapElement as never} style={styles.map} />
-      <View style={styles.header}>
-        <Pressable onPress={onClose} style={styles.close} accessibilityRole="button" accessibilityLabel="Close navigation">
+    <ThemeAwareView style={styles.container}>
+      <ThemeAwareView ref={mapElement as never} style={styles.map} />
+      <ThemeAwareView style={styles.header}>
+        <ThemeAwarePressable onPress={onClose} style={styles.close} accessibilityRole="button" accessibilityLabel="Close navigation">
           <MaterialCommunityIcons name="close" size={23} color={Colors.text} />
-        </Pressable>
-        <View style={styles.headerCopy}><Text style={styles.eyebrow}>ROUTE TO</Text><Text numberOfLines={1} style={styles.title}>{target.title}</Text></View>
-      </View>
-      <View style={styles.mapControls}>
-        <Pressable
+        </ThemeAwarePressable>
+        <ThemeAwareView style={styles.headerCopy}><Text style={styles.eyebrow}>ROUTE TO</Text><Text numberOfLines={1} style={styles.title}>{target.title}</Text></ThemeAwareView>
+      </ThemeAwareView>
+      <ThemeAwareView style={styles.mapControls}>
+        <ThemeAwarePressable
           onPress={toggle3dView}
           style={styles.mapControl}
           accessibilityRole="button"
@@ -279,19 +280,19 @@ export default function MapNavigation({ target, onClose }: Props) {
         >
           <MaterialCommunityIcons name={is3dView ? 'cube-outline' : 'cube-scan'} size={19} color={Colors.text} />
           <Text style={styles.mapControlLabel}>{is3dView ? '2D' : '3D'}</Text>
-        </Pressable>
-        <Pressable
+        </ThemeAwarePressable>
+        <ThemeAwarePressable
           onPress={recenter}
           style={styles.mapControl}
           accessibilityRole="button"
           accessibilityLabel="Recenter map on your location"
         >
           <MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} />
-        </Pressable>
-      </View>
-      <View style={styles.panel}>
-        <View style={styles.modeRow}>
-          {(['WALK', 'TWO_WHEELER', 'DRIVE'] as const).map((travelMode) => <Pressable
+        </ThemeAwarePressable>
+      </ThemeAwareView>
+      <ThemeAwareView style={styles.panel}>
+        <ThemeAwareView style={styles.modeRow}>
+          {(['WALK', 'TWO_WHEELER', 'DRIVE'] as const).map((travelMode) => <ThemeAwarePressable
             key={travelMode}
             accessibilityLabel={travelMode === 'DRIVE' ? 'Four wheels' : travelMode === 'TWO_WHEELER' ? 'Two wheels' : 'Walking'}
             onPress={() => {
@@ -310,12 +311,12 @@ export default function MapNavigation({ target, onClose }: Props) {
             <Text style={[styles.modeLabel, mode === travelMode && styles.modeLabelSelected]}>
               {travelMode === 'DRIVE' ? '4 wheels' : travelMode === 'TWO_WHEELER' ? '2 wheels' : 'Walk'}
             </Text>
-          </Pressable>)}
-        </View>
-        {loading ? <View style={styles.loading}><ActivityIndicator color={Colors.primary} /><Text style={styles.muted}>{rerouting ? 'Recalculating route…' : 'Finding routes…'}</Text></View> : null}
+          </ThemeAwarePressable>)}
+        </ThemeAwareView>
+        {loading ? <ThemeAwareView style={styles.loading}><ActivityIndicator color={Colors.primary} /><Text style={styles.muted}>{rerouting ? 'Recalculating route…' : 'Finding routes…'}</Text></ThemeAwareView> : null}
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-        {!loading && routes.length > 0 && !navigating && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.routeList}>
-          {routes.map((route, index) => <Pressable
+        {!loading && routes.length > 0 && !navigating && <ThemeAwareScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.routeList}>
+          {routes.map((route, index) => <ThemeAwarePressable
             key={route.id}
             onPress={() => { setSelectedRouteIndex(index); setStepIndex(0); }}
             style={[styles.routeOption, index === selectedRouteIndex && styles.routeOptionSelected]}
@@ -324,21 +325,21 @@ export default function MapNavigation({ target, onClose }: Props) {
           >
             <Text style={styles.routeTime}>{formatDuration(route.durationSeconds)}</Text>
             <Text style={styles.routeDistance}>{index === 0 ? 'Recommended · ' : 'Alternate · '}{formatDistance(route.distanceMeters)}</Text>
-          </Pressable>)}
-        </ScrollView>}
-        {navigating && <View style={styles.instruction}>
+          </ThemeAwarePressable>)}
+        </ThemeAwareScrollView>}
+        {navigating && <ThemeAwareView style={styles.instruction}>
           <MaterialCommunityIcons name="navigation" size={22} color={Colors.primary} />
-          <View style={styles.instructionCopy}>
+          <ThemeAwareView style={styles.instructionCopy}>
             <Text style={styles.instructionTitle}>{rerouting ? 'Recalculating route…' : step?.instruction ?? 'Continue to your destination'}</Text>
             {step ? <Text style={styles.muted}>{formatDistance(step.distanceMeters)} · {formatDuration(selectedRoute?.durationSeconds ?? 0)} trip</Text> : null}
-          </View>
-        </View>}
-        <Pressable onPress={navigating ? () => setNavigating(false) : startNavigation} disabled={!selectedRoute || loading || !currentLocation} style={[styles.primaryButton, (!selectedRoute || loading || !currentLocation) && styles.buttonDisabled, navigating && styles.stopButton]} accessibilityRole="button">
+          </ThemeAwareView>
+        </ThemeAwareView>}
+        <ThemeAwarePressable onPress={navigating ? () => setNavigating(false) : startNavigation} disabled={!selectedRoute || loading || !currentLocation} style={[styles.primaryButton, (!selectedRoute || loading || !currentLocation) && styles.buttonDisabled, navigating && styles.stopButton]} accessibilityRole="button">
           <Text style={styles.primaryButtonText}>{navigating ? 'End navigation' : 'Navigate'}</Text>
-        </Pressable>
+        </ThemeAwarePressable>
         <Text style={styles.disclaimer}>Routes need an internet connection and browser location access.</Text>
-      </View>
-    </View>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 

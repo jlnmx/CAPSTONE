@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwarePressable, ThemeAwareTextInput } from '@components/ThemeAware';
 import React, { useRef, useState } from 'react';
 import { Animated, ColorValue, Easing, Image, ImageSourcePropType, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -122,35 +123,35 @@ export default function PreparednessGuideScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <ThemeAwareSafeAreaView style={styles.safeArea}>
+      <ThemeAwareScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <GradientHeader title="Preparedness Guide" subtitle="Know what to do before, during and after" icon="book-open-page-variant" showBack />
         {selectedGuide ? <GuideDetail guide={selectedGuide} openSection={openSection} setOpenSection={setOpenSection} onBack={() => setSelectedGuide(null)} /> : <>
-          <View style={styles.listHeading}>
-            <View>
+          <ThemeAwareView style={styles.listHeading}>
+            <ThemeAwareView>
               <Text style={styles.listTitle}>Explore guides</Text>
               <Text style={styles.listSubtitle}>Practical steps for you and your household</Text>
-            </View>
-            <View style={styles.countBadge}><Text style={styles.countBadgeText}>{visibleGuides.length}</Text></View>
-          </View>
-          <View style={styles.search}>
+            </ThemeAwareView>
+            <ThemeAwareView style={styles.countBadge}><Text style={styles.countBadgeText}>{visibleGuides.length}</Text></ThemeAwareView>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.search}>
             <MaterialCommunityIcons name="magnify" size={20} color={Colors.primary} />
-            <TextInput value={search} onChangeText={setSearch} placeholder="Search guides or supplies" placeholderTextColor="#8996A3" style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search preparedness guides" />
-            {search.length > 0 && <Pressable onPress={() => setSearch('')} accessibilityRole="button" accessibilityLabel="Clear guide search"><MaterialCommunityIcons name="close-circle" size={19} color="#8996A3" /></Pressable>}
-          </View>
-          <View style={styles.sortRow}>
+            <ThemeAwareTextInput value={search} onChangeText={setSearch} placeholder="Search guides or supplies" placeholderTextColor="#8996A3" style={styles.searchInput} returnKeyType="search" accessibilityLabel="Search preparedness guides" />
+            {search.length > 0 && <ThemeAwarePressable onPress={() => setSearch('')} accessibilityRole="button" accessibilityLabel="Clear guide search"><MaterialCommunityIcons name="close-circle" size={19} color="#8996A3" /></ThemeAwarePressable>}
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.sortRow}>
             <Text style={styles.sortLabel}>SORT BY</Text>
-            <View style={styles.sortOptions}>
+            <ThemeAwareView style={styles.sortOptions}>
               <SortOption label="Recommended" icon="star-four-points" selected={sortMode === 'recommended'} onPress={() => setSortMode('recommended')} />
               <SortOption label="A–Z" icon="sort-alphabetical-ascending" selected={sortMode === 'alphabetical'} onPress={() => setSortMode('alphabetical')} />
-            </View>
-          </View>
+            </ThemeAwareView>
+          </ThemeAwareView>
           {visibleGuides.length > 0
-            ? <View style={styles.list}>{visibleGuides.map((guide, index) => <Reveal key={guide.title} index={index}><GuideCard guide={guide} onPress={() => openGuide(guide)} /></Reveal>)}</View>
-            : <View style={styles.emptyState}><View style={styles.emptyIcon}><MaterialCommunityIcons name="book-search-outline" size={25} color={Colors.primary} /></View><Text style={styles.emptyTitle}>No matching guides</Text><Text style={styles.emptyText}>Try a different disaster type or search for “GO bag”.</Text></View>}
+            ? <ThemeAwareView style={styles.list}>{visibleGuides.map((guide, index) => <Reveal key={guide.title} index={index}><GuideCard guide={guide} onPress={() => openGuide(guide)} /></Reveal>)}</ThemeAwareView>
+            : <ThemeAwareView style={styles.emptyState}><ThemeAwareView style={styles.emptyIcon}><MaterialCommunityIcons name="book-search-outline" size={25} color={Colors.primary} /></ThemeAwareView><Text style={styles.emptyTitle}>No matching guides</Text><Text style={styles.emptyText}>Try a different disaster type or search for “GO bag”.</Text></ThemeAwareView>}
         </>}
-      </ScrollView>
-    </SafeAreaView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 
@@ -167,10 +168,10 @@ const cardThemes: Record<string, { accent: string; tag: string; subtitle: string
 
 function SortOption({ label, icon, selected, onPress }: { label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; selected: boolean; onPress: () => void }) {
   return (
-    <Pressable style={[styles.sortOption, selected && styles.sortOptionSelected]} onPress={onPress} accessibilityRole="button" accessibilityState={{ selected }}>
+    <ThemeAwarePressable style={[styles.sortOption, selected && styles.sortOptionSelected]} onPress={onPress} accessibilityRole="button" accessibilityState={{ selected }}>
       <MaterialCommunityIcons name={icon} size={14} color={selected ? '#FFFFFF' : '#667085'} />
       <Text style={[styles.sortOptionText, selected && styles.sortOptionTextSelected]}>{label}</Text>
-    </Pressable>
+    </ThemeAwarePressable>
   );
 }
 
@@ -184,7 +185,7 @@ function GuideCard({ guide, onPress }: { guide: Guide; onPress: () => void }) {
   const stepCount = guide.before.length + guide.during.length + guide.after.length;
 
   return (
-    <Pressable
+    <ThemeAwarePressable
       onPress={onPress}
       onPressIn={() => animateTo(1)}
       onPressOut={() => animateTo(0)}
@@ -194,24 +195,24 @@ function GuideCard({ guide, onPress }: { guide: Guide; onPress: () => void }) {
       accessibilityLabel={`${guideCardTitle(guide)} preparedness guide`}
     >
       <Animated.View style={[styles.guideCard, { borderColor: `${theme.accent}30`, transform: [{ translateY: lift }, { scale }] }]}>
-        <View style={[styles.guideAccent, { backgroundColor: theme.accent }]} />
+        <ThemeAwareView style={[styles.guideAccent, { backgroundColor: theme.accent }]} />
         <Animated.View style={[styles.guideIcon, { backgroundColor: theme.iconBg, transform: [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] }) }] }]}>
           <MaterialCommunityIcons name={guide.icon} size={25} color={theme.iconColor} />
         </Animated.View>
-        <View style={styles.guideCopy}>
+        <ThemeAwareView style={styles.guideCopy}>
           <Text style={[styles.guideChipText, { color: theme.accent }]}>{theme.tag}</Text>
           <Text style={styles.guideTitle} numberOfLines={2}>{guideCardTitle(guide)}</Text>
           <Text style={styles.guideSubtitle} numberOfLines={2}>{theme.subtitle}</Text>
-          <View style={styles.guideMeta}>
+          <ThemeAwareView style={styles.guideMeta}>
             <MaterialCommunityIcons name="format-list-checks" size={13} color="#7B8794" />
             <Text style={styles.guideMetaText}>{stepCount} quick steps</Text>
-          </View>
-        </View>
-        <View style={[styles.guideChevron, { backgroundColor: theme.iconBg }]}>
+          </ThemeAwareView>
+        </ThemeAwareView>
+        <ThemeAwareView style={[styles.guideChevron, { backgroundColor: theme.iconBg }]}>
           <MaterialCommunityIcons name="arrow-up-right" size={18} color={theme.iconColor} />
-        </View>
+        </ThemeAwareView>
       </Animated.View>
-    </Pressable>
+    </ThemeAwarePressable>
   );
 }
 
@@ -227,16 +228,16 @@ function AccordionBody({ tips, color }: { tips: string[]; color: string }) {
     Animated.timing(enter, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
   }, [enter]);
   return <Animated.View style={[styles.accordionBody, { opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }] }]}>
-    {tips.map((tip, index) => <View key={tip} style={styles.tipRow}><View style={[styles.tipNumber, { backgroundColor: `${color}1A` }]}><Text style={[styles.tipNumberText, { color }]}>{index + 1}</Text></View><Text style={styles.tip}>{tip}</Text></View>)}
+    {tips.map((tip, index) => <ThemeAwareView key={tip} style={styles.tipRow}><ThemeAwareView style={[styles.tipNumber, { backgroundColor: `${color}1A` }]}><Text style={[styles.tipNumberText, { color }]}>{index + 1}</Text></ThemeAwareView><Text style={styles.tip}>{tip}</Text></ThemeAwareView>)}
   </Animated.View>;
 }
 
 function GuideDetail({ guide, openSection, setOpenSection, onBack }: { guide: Guide; openSection: 'before' | 'during' | 'after' | null; setOpenSection: (section: 'before' | 'during' | 'after' | null) => void; onBack: () => void }) {
   const sections = { before: guide.before, during: guide.during, after: guide.after };
-  return <View style={styles.detail}>
-    <Pressable style={styles.backButton} onPress={onBack}><MaterialCommunityIcons name="arrow-left" size={18} color={Colors.primary} /><Text style={styles.backText}>All guides</Text></Pressable>
+  return <ThemeAwareView style={styles.detail}>
+    <ThemeAwarePressable style={styles.backButton} onPress={onBack}><MaterialCommunityIcons name="arrow-left" size={18} color={Colors.primary} /><Text style={styles.backText}>All guides</Text></ThemeAwarePressable>
     <Reveal index={0}>
-      <View style={styles.hero}>
+      <ThemeAwareView style={styles.hero}>
         {guide.image ? <>
           <Image source={guide.image} style={styles.disasterImage} />
           <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.72)']} style={styles.heroShade} />
@@ -244,27 +245,27 @@ function GuideDetail({ guide, openSection, setOpenSection, onBack }: { guide: Gu
           <LinearGradient colors={['#D45B92', '#765C91']} style={StyleSheet.absoluteFill} />
           <MaterialCommunityIcons name="bag-personal-outline" size={150} color="rgba(255,255,255,0.12)" style={styles.heroWatermark} />
         </>}
-        <View style={styles.heroCopy}>
-          <View style={styles.heroIcon}><MaterialCommunityIcons name={guide.icon} size={22} color="#FFFFFF" /></View>
-          <View style={styles.heroText}><Text style={styles.detailTitle}>{guideCardTitle(guide)}</Text><Text style={styles.heroSub}>{guide.before.length + guide.during.length + guide.after.length} practical steps</Text></View>
-        </View>
-      </View>
+        <ThemeAwareView style={styles.heroCopy}>
+          <ThemeAwareView style={styles.heroIcon}><MaterialCommunityIcons name={guide.icon} size={22} color="#FFFFFF" /></ThemeAwareView>
+          <ThemeAwareView style={styles.heroText}><Text style={styles.detailTitle}>{guideCardTitle(guide)}</Text><Text style={styles.heroSub}>{guide.before.length + guide.during.length + guide.after.length} practical steps</Text></ThemeAwareView>
+        </ThemeAwareView>
+      </ThemeAwareView>
     </Reveal>
-    <View style={styles.accordionList}>{(['before', 'during', 'after'] as const).map((section, index) => {
+    <ThemeAwareView style={styles.accordionList}>{(['before', 'during', 'after'] as const).map((section, index) => {
       const meta = phaseMeta[section];
       const open = openSection === section;
       return <Reveal key={section} index={index + 1}>
-        <View style={[styles.accordion, open && { borderColor: meta.color }]}>
-          <Pressable style={styles.accordionHeader} onPress={() => setOpenSection(open ? null : section)} accessibilityRole="button" accessibilityState={{ expanded: open }}>
-            <View style={[styles.phaseIcon, { backgroundColor: `${meta.color}1A` }]}><MaterialCommunityIcons name={meta.icon} size={20} color={meta.color} /></View>
-            <View style={styles.phaseCopy}><Text style={styles.accordionTitle}>{guide.sectionTitles?.[section] ?? meta.label}</Text><Text style={styles.phaseHint}>{meta.hint} · {sections[section].length} steps</Text></View>
+        <ThemeAwareView style={[styles.accordion, open && { borderColor: meta.color }]}>
+          <ThemeAwarePressable style={styles.accordionHeader} onPress={() => setOpenSection(open ? null : section)} accessibilityRole="button" accessibilityState={{ expanded: open }}>
+            <ThemeAwareView style={[styles.phaseIcon, { backgroundColor: `${meta.color}1A` }]}><MaterialCommunityIcons name={meta.icon} size={20} color={meta.color} /></ThemeAwareView>
+            <ThemeAwareView style={styles.phaseCopy}><Text style={styles.accordionTitle}>{guide.sectionTitles?.[section] ?? meta.label}</Text><Text style={styles.phaseHint}>{meta.hint} · {sections[section].length} steps</Text></ThemeAwareView>
             <MaterialCommunityIcons name={open ? 'chevron-up' : 'chevron-down'} size={24} color={meta.color} />
-          </Pressable>
+          </ThemeAwarePressable>
           {open && <AccordionBody tips={sections[section]} color={meta.color} />}
-        </View>
+        </ThemeAwareView>
       </Reveal>;
-    })}</View>
-  </View>;
+    })}</ThemeAwareView>
+  </ThemeAwareView>;
 }
 
 function titleCase(value: string) {

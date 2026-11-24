@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
@@ -34,7 +35,7 @@ interface LeafletMapProps {
 }
 
 function MapMessage({ children }: { children: string }) {
-  return <View style={styles.message}><Text style={styles.messageText}>{children}</Text></View>;
+  return <ThemeAwareView style={styles.message}><Text style={styles.messageText}>{children}</Text></ThemeAwareView>;
 }
 
 export default function LeafletMap({ centers = [], onSelectCenter, navigationTarget = null, onNavigationTargetChange }: LeafletMapProps) {
@@ -121,7 +122,7 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
   };
 
   return (
-    <View style={styles.container}>
+    <ThemeAwareView style={styles.container}>
       <MapView
         ref={mapRef}
         provider={PROVIDER_GOOGLE}
@@ -159,21 +160,21 @@ export default function LeafletMap({ centers = [], onSelectCenter, navigationTar
         accessibilityLabel="Search evacuation centers or places"
       />
 
-      <View style={styles.controls}>
-        <Pressable onPress={() => void recenter()} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map">
+      <ThemeAwareView style={styles.controls}>
+        <ThemeAwarePressable onPress={() => void recenter()} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter map">
           <MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} />
-        </Pressable>
-        <Pressable onPress={toggle3d} style={[styles.control, show3d && styles.controlActive]} accessibilityRole="button" accessibilityLabel="Toggle 3D map">
+        </ThemeAwarePressable>
+        <ThemeAwarePressable onPress={toggle3d} style={[styles.control, show3d && styles.controlActive]} accessibilityRole="button" accessibilityLabel="Toggle 3D map">
           <Text style={styles.controlLabel}>{show3d ? '2D' : '3D'}</Text>
-        </Pressable>
-      </View>
+        </ThemeAwarePressable>
+      </ThemeAwareView>
       <HazardAreaControls
         visibility={hazardAreas.visibility}
         onToggleFlood={hazardAreas.toggleFlood}
         onToggleEarthquake={hazardAreas.toggleEarthquake}
       />
       {navigationTarget && <MapNavigation target={navigationTarget} onClose={() => onNavigationTargetChange?.(null)} />}
-    </View>
+    </ThemeAwareView>
   );
 }
 

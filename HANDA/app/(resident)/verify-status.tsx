@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView } from '@components/ThemeAware';
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -58,8 +59,8 @@ export default function VerifyStatusScreen() {
   const statusTone = status?.status === 'evacuated' || status?.status === 'checked_in' ? Colors.success : '#56705A';
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
-      <ScrollView
+    <ThemeAwareSafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+      <ThemeAwareScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => void loadStatus(true)} tintColor={GREEN} colors={[GREEN]} />}
@@ -67,60 +68,60 @@ export default function VerifyStatusScreen() {
         <GradientHeader title="My evacuation status" subtitle="Updates from evacuation personnel" icon="shield-check" showBack />
 
         {isLoading && !status ? (
-          <View style={styles.state}><ActivityIndicator color={GREEN} /><Text style={[styles.stateText, { color: palette.textMuted }]}>Loading your latest status...</Text></View>
+          <ThemeAwareView style={styles.state}><ActivityIndicator color={GREEN} /><Text style={[styles.stateText, { color: palette.textMuted }]}>Loading your latest status...</Text></ThemeAwareView>
         ) : error && !status ? (
-          <View style={[styles.stateCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+          <ThemeAwareView style={[styles.stateCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <MaterialCommunityIcons name="clock-alert-outline" size={30} color={Colors.emergency} />
             <Text style={[styles.stateTitle, { color: palette.text }]}>Status unavailable</Text>
             <Text style={[styles.stateText, { color: palette.textMuted }]}>{error}</Text>
             <AnimatedPressable style={styles.primaryButton} onPress={() => void loadStatus(true)} accessibilityRole="button">
               <MaterialCommunityIcons name="refresh" size={17} color={Colors.white} /><Text style={styles.primaryText}>Try again</Text>
             </AnimatedPressable>
-          </View>
+          </ThemeAwareView>
         ) : !assigned ? (
           <Reveal index={0}>
-            <View style={[styles.guidanceCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-              <View style={styles.guidanceIcon}><MaterialCommunityIcons name="account-clock-outline" size={27} color={GREEN} /></View>
+            <ThemeAwareView style={[styles.guidanceCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+              <ThemeAwareView style={styles.guidanceIcon}><MaterialCommunityIcons name="account-clock-outline" size={27} color={GREEN} /></ThemeAwareView>
               <Text style={[styles.guidanceTitle, { color: palette.text }]}>SAFE · no active assignment</Text>
               <Text style={[styles.guidanceText, { color: palette.textMuted }]}>
                 Your household has no active evacuation registration. You do not need to choose a center in the app; City Social Welfare and Development personnel manage evacuation records and center assignments.
               </Text>
-              <View style={[styles.guidanceNote, { backgroundColor: palette.background }]}>
+              <ThemeAwareView style={[styles.guidanceNote, { backgroundColor: palette.background }]}>
                 <MaterialCommunityIcons name="bell-outline" size={18} color={GREEN} />
                 <Text style={[styles.guidanceNoteText, { color: palette.textMuted }]}>If an assigned center becomes full, responders will provide updated instructions.</Text>
-              </View>
-            </View>
+              </ThemeAwareView>
+            </ThemeAwareView>
           </Reveal>
         ) : status ? (
           <>
             <Reveal index={0}>
-              <View style={[styles.statusCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-                <View style={styles.statusHeading}>
-                  <View style={styles.statusIcon}><MaterialCommunityIcons name="home-city-outline" size={23} color={GREEN} /></View>
-                  <View style={styles.statusCopy}>
+              <ThemeAwareView style={[styles.statusCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+                <ThemeAwareView style={styles.statusHeading}>
+                  <ThemeAwareView style={styles.statusIcon}><MaterialCommunityIcons name="home-city-outline" size={23} color={GREEN} /></ThemeAwareView>
+                  <ThemeAwareView style={styles.statusCopy}>
                     <Text style={[styles.cardEyebrow, { color: palette.textMuted }]}>CURRENT ASSIGNMENT</Text>
                     <Text style={[styles.centerName, { color: palette.text }]}>{status.center?.name || 'Evacuation center'}</Text>
-                  </View>
-                  <View style={[styles.statusPill, { backgroundColor: `${statusTone}18` }]}>
-                    <View style={[styles.statusDot, { backgroundColor: statusTone }]} />
+                  </ThemeAwareView>
+                  <ThemeAwareView style={[styles.statusPill, { backgroundColor: `${statusTone}18` }]}>
+                    <ThemeAwareView style={[styles.statusDot, { backgroundColor: statusTone }]} />
                     <Text style={[styles.statusLabel, { color: statusTone }]}>{statusLabel}</Text>
-                  </View>
-                </View>
-                <View style={[styles.divider, { backgroundColor: palette.border }]} />
+                  </ThemeAwareView>
+                </ThemeAwareView>
+                <ThemeAwareView style={[styles.divider, { backgroundColor: palette.border }]} />
                 <InfoRow icon="map-marker-outline" label="LOCATION" value={status.center?.location || 'Location not provided'} palette={palette} />
                 <InfoRow icon="account-group-outline" label="HOUSEHOLD" value={`${Math.max(1, status.householdCount)} ${status.householdCount === 1 ? 'person' : 'people'}`} palette={palette} />
                 <InfoRow icon="calendar-clock-outline" label="RECORDED" value={formatDate(status.registeredAt)} palette={palette} />
                 {status.checkedInAt && <InfoRow icon="check-circle-outline" label="CHECKED IN" value={`${formatDate(status.checkedInAt)}${status.checkedInBy ? ` · ${status.checkedInBy}` : ''}`} palette={palette} />}
-              </View>
+              </ThemeAwareView>
             </Reveal>
 
             {status.evacuee && (
               <Reveal index={1}>
-                <View style={[styles.householdCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+                <ThemeAwareView style={[styles.householdCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
                   <Text style={[styles.sectionTitle, { color: palette.text }]}>Household record</Text>
                   <PersonRow name={status.evacuee.name} relationship="Household lead" palette={palette} />
                   {status.members.map((member) => <PersonRow key={member.id} name={member.name} relationship={member.relationship} palette={palette} />)}
-                </View>
+                </ThemeAwareView>
               </Reveal>
             )}
           </>
@@ -128,40 +129,40 @@ export default function VerifyStatusScreen() {
 
         <Reveal index={assigned ? 2 : 1}>
           <AnimatedPressable style={[styles.directoryButton, { backgroundColor: palette.surface, borderColor: palette.border }]} onPress={() => router.push('/(resident)/center-status')} accessibilityRole="button">
-            <View style={styles.directoryIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={20} color={GREEN} /></View>
-            <View style={styles.directoryCopy}>
+            <ThemeAwareView style={styles.directoryIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={20} color={GREEN} /></ThemeAwareView>
+            <ThemeAwareView style={styles.directoryCopy}>
               <Text style={[styles.directoryTitle, { color: palette.text }]}>View center availability</Text>
               <Text style={[styles.directorySubtitle, { color: palette.textMuted }]}>See live capacity information for local centers</Text>
-            </View>
+            </ThemeAwareView>
             <MaterialCommunityIcons name="chevron-right" size={20} color={palette.textMuted} />
           </AnimatedPressable>
         </Reveal>
-      </ScrollView>
-    </SafeAreaView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 
 function InfoRow({ icon, label, value, palette }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string; palette: ReturnType<typeof useTheme>['palette'] }) {
   return (
-    <View style={styles.infoRow}>
+    <ThemeAwareView style={styles.infoRow}>
       <MaterialCommunityIcons name={icon} size={17} color={GREEN} />
-      <View style={styles.infoCopy}>
+      <ThemeAwareView style={styles.infoCopy}>
         <Text style={[styles.cardEyebrow, { color: palette.textMuted }]}>{label}</Text>
         <Text style={[styles.infoValue, { color: palette.text }]}>{value}</Text>
-      </View>
-    </View>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 
 function PersonRow({ name, relationship, palette }: { name: string; relationship: string; palette: ReturnType<typeof useTheme>['palette'] }) {
   return (
-    <View style={[styles.personRow, { borderBottomColor: palette.border }]}>
-      <View style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={18} color={GREEN} /></View>
-      <View style={styles.personCopy}>
+    <ThemeAwareView style={[styles.personRow, { borderBottomColor: palette.border }]}>
+      <ThemeAwareView style={styles.personIcon}><MaterialCommunityIcons name="account-outline" size={18} color={GREEN} /></ThemeAwareView>
+      <ThemeAwareView style={styles.personCopy}>
         <Text style={[styles.personName, { color: palette.text }]}>{name}</Text>
         <Text style={[styles.personRelation, { color: palette.textMuted }]}>{relationship}</Text>
-      </View>
-    </View>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 

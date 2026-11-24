@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwarePressable } from '@components/ThemeAware';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -67,22 +68,22 @@ export default function CurrentLocationMap({ coordinate }: CurrentLocationMapPro
   };
 
   return (
-    <View style={styles.container}>
-      <View ref={mapElement as never} style={styles.map} />
-      <View style={styles.controls}>
-        <Pressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter on current location">
+    <ThemeAwareView style={styles.container}>
+      <ThemeAwareView ref={mapElement as never} style={styles.map} />
+      <ThemeAwareView style={styles.controls}>
+        <ThemeAwarePressable onPress={recenter} style={styles.control} accessibilityRole="button" accessibilityLabel="Recenter on current location">
           <MaterialCommunityIcons name="crosshairs-gps" size={19} color={Colors.primary} />
-        </Pressable>
-        <Pressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map">
+        </ThemeAwarePressable>
+        <ThemeAwarePressable onPress={toggle3d} style={styles.control} accessibilityRole="button" accessibilityLabel="Toggle 3D map">
           <Text style={styles.controlText}>{show3d ? '2D' : '3D'}</Text>
-        </Pressable>
-      </View>
-    </View>
+        </ThemeAwarePressable>
+      </ThemeAwareView>
+    </ThemeAwareView>
   );
 }
 
 function MapState({ label }: { label: string }) {
-  return <View style={styles.state}><ActivityIndicator color={Colors.primary} /><Text style={styles.stateText}>{label}</Text></View>;
+  return <ThemeAwareView style={styles.state}><ActivityIndicator color={Colors.primary} /><Text style={styles.stateText}>{label}</Text></ThemeAwareView>;
 }
 
 const styles = StyleSheet.create({

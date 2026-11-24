@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView } from '@components/ThemeAware';
 /**
  * Responder Dashboard / Home Screen
  */
@@ -31,14 +32,14 @@ export default function ResponderDashboard() {
   const { resolvedTheme } = useTheme();
   const { user } = useAuth();
   const { width, height } = useWindowDimensions();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ThemeAwareScrollView>(null);
   const scrollOffsetRef = useRef(0);
-  const notificationsTargetRef = useRef<View>(null);
-  const evacueesTargetRef = useRef<View>(null);
-  const incidentsTargetRef = useRef<View>(null);
-  const centersTargetRef = useRef<View>(null);
-  const historyTargetRef = useRef<View>(null);
-  const weatherTargetRef = useRef<View>(null);
+  const notificationsTargetRef = useRef<ThemeAwareView>(null);
+  const evacueesTargetRef = useRef<ThemeAwareView>(null);
+  const incidentsTargetRef = useRef<ThemeAwareView>(null);
+  const centersTargetRef = useRef<ThemeAwareView>(null);
+  const historyTargetRef = useRef<ThemeAwareView>(null);
+  const weatherTargetRef = useRef<ThemeAwareView>(null);
   const tutorialTargets: TutorialTargetRefs = {
     notifications: notificationsTargetRef,
     evacuees: evacueesTargetRef,
@@ -86,8 +87,8 @@ export default function ResponderDashboard() {
   const displayedResponses = responseCount ?? 'N/A';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
+    <ThemeAwareSafeAreaView style={styles.safeArea}>
+      <ThemeAwareScrollView
         ref={scrollRef}
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
@@ -95,28 +96,28 @@ export default function ResponderDashboard() {
         onScroll={(event) => { scrollOffsetRef.current = event.nativeEvent.contentOffset.y; }}
         scrollEventThrottle={16}
       >
-        <View style={styles.header}>
-          <View style={styles.headerBrand}>
+        <ThemeAwareView style={styles.header}>
+          <ThemeAwareView style={styles.headerBrand}>
             <HandaLogoMark size={42} />
-            <View style={styles.headerBrandCopy}>
+            <ThemeAwareView style={styles.headerBrandCopy}>
               <Text style={styles.headerLogo}>HANDA</Text>
               <Text style={styles.headerBrandSubtitle}>FIELD RESPONSE</Text>
-            </View>
-          </View>
-          <View ref={notificationsTargetRef} collapsable={false}><NotificationBell /></View>
-        </View>
+            </ThemeAwareView>
+          </ThemeAwareView>
+          <ThemeAwareView ref={notificationsTargetRef} collapsable={false}><NotificationBell /></ThemeAwareView>
+        </ThemeAwareView>
 
-        <View style={styles.greeting}>
-          <View>
+        <ThemeAwareView style={styles.greeting}>
+          <ThemeAwareView>
             <Text style={styles.greetingEyebrow}>YOUR RESPONSE DASHBOARD</Text>
             <Text style={styles.greetingTitle}>{getGreeting()}, {getFirstName(user, 'Responder')}!</Text>
             <Text style={styles.greetingDate}>{formattedDate}</Text>
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
 
-        <View ref={weatherTargetRef} collapsable={false}>
+        <ThemeAwareView ref={weatherTargetRef} collapsable={false}>
           <ResponderWeatherCard disasterActive={disasterIsActive} scale={heightScale} />
-        </View>
+        </ThemeAwareView>
 
         {disasterIsActive && activeDisaster && (
           <ActiveDisasterCard
@@ -128,33 +129,33 @@ export default function ResponderDashboard() {
           />
         )}
 
-        <View style={styles.section}>
+        <ThemeAwareView style={styles.section}>
           <Text style={styles.sectionTitle}>QUICK ACTIONS</Text>
-        </View>
+        </ThemeAwareView>
 
-        <View style={[styles.statsContainer, { minHeight: 112 * heightScale }]}>
-          <View ref={evacueesTargetRef} collapsable={false} style={styles.statTarget}>
+        <ThemeAwareView style={[styles.statsContainer, { minHeight: 112 * heightScale }]}>
+          <ThemeAwareView ref={evacueesTargetRef} collapsable={false} style={styles.statTarget}>
             <StatTile scale={fontScale} tone="forest" icon="account-group-outline" mark="account-group-outline" value={isLoading ? '...' : displayedEvacuees} label="Total Evacuees" onPress={() => router.push('/evacuees')} />
-          </View>
-          <View ref={incidentsTargetRef} collapsable={false} style={styles.statTarget}>
+          </ThemeAwareView>
+          <ThemeAwareView ref={incidentsTargetRef} collapsable={false} style={styles.statTarget}>
             <StatTile scale={fontScale} tone="clay" icon="alert-outline" mark="alert-octagon-outline" value={isLoading ? '...' : displayedIncidents} label="Active Incidents" onPress={() => router.push('/incidents')} />
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
 
-        <View style={[styles.statsContainer, { minHeight: 112 * heightScale }]}>
-          <View ref={centersTargetRef} collapsable={false} style={styles.statTarget}>
+        <ThemeAwareView style={[styles.statsContainer, { minHeight: 112 * heightScale }]}>
+          <ThemeAwareView ref={centersTargetRef} collapsable={false} style={styles.statTarget}>
             <StatTile scale={fontScale} tone="teal" icon="home-city-outline" mark="home-city-outline" value={isLoading ? '...' : displayedCenters} label="Evacuation Centers" onPress={() => router.push('/responder-center-status')} />
-          </View>
-          <View ref={historyTargetRef} collapsable={false} style={styles.statTarget}>
+          </ThemeAwareView>
+          <ThemeAwareView ref={historyTargetRef} collapsable={false} style={styles.statTarget}>
             <StatTile scale={fontScale} tone="sand" icon="history" mark="clipboard-text-clock-outline" value={isLoading ? '...' : displayedResponses} label="Response History" onPress={() => router.push('/response-history')} />
-          </View>
-        </View>
+          </ThemeAwareView>
+        </ThemeAwareView>
 
         <Text style={styles.dataSource}>{isLoading ? 'Loading live server data...' : dataUnavailable ? `Partial live data · unavailable: ${data.unavailableSources.join(', ')}` : 'Live server data · refreshes every 15 seconds'}</Text>
 
-      </ScrollView>
+      </ThemeAwareScrollView>
       <QuickTutorial role="responder" userId={user?.id} targets={tutorialTargets} scrollRef={scrollRef} scrollOffsetRef={scrollOffsetRef} />
-    </SafeAreaView>
+    </ThemeAwareSafeAreaView>
   );
 }
 
@@ -183,14 +184,14 @@ function StatTile({ icon, mark, value, label, tone, scale, onPress }: StatTilePr
   return (
     <AnimatedPressable style={[styles.statTile, { backgroundColor: t.bg, padding: 14 * scale, transform }]} onPress={onPress} onHoverIn={() => to(1)} onHoverOut={() => to(0)} accessibilityRole="button" accessibilityLabel={`${label}: ${value}. Open related records`}>
       <MaterialCommunityIcons name={mark} size={96 * scale} color={t.mark} style={styles.statMark} />
-      <View style={[styles.statBadge, { backgroundColor: t.badgeBg, width: 38 * scale, height: 38 * scale, borderRadius: 19 * scale }]}><MaterialCommunityIcons name={icon} size={21 * scale} color={t.badgeFg} /></View>
-      <View style={styles.statFooter}>
-        <View style={styles.statCopy}>
+      <ThemeAwareView style={[styles.statBadge, { backgroundColor: t.badgeBg, width: 38 * scale, height: 38 * scale, borderRadius: 19 * scale }]}><MaterialCommunityIcons name={icon} size={21 * scale} color={t.badgeFg} /></ThemeAwareView>
+      <ThemeAwareView style={styles.statFooter}>
+        <ThemeAwareView style={styles.statCopy}>
           <Text style={[styles.statValue, { color: t.fg, fontSize: 20 * scale }]}>{value}</Text>
           <Text style={[styles.statLabel, { color: t.fg, fontSize: 10 * scale }]} numberOfLines={1}>{label}</Text>
-        </View>
+        </ThemeAwareView>
         <MaterialCommunityIcons name="chevron-right" size={18} color={t.fg} />
-      </View>
+      </ThemeAwareView>
     </AnimatedPressable>
   );
 }

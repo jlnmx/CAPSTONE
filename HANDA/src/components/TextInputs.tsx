@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareTouchableOpacity } from '@components/ThemeAware';
 /**
  * Input Components
  */
@@ -39,7 +40,7 @@ export function TextInput({
   const [focused, setFocused] = useState(false);
 
   return (
-    <View style={containerStyle}>
+    <ThemeAwareView style={containerStyle}>
       {label && <Text style={styles.label}>{label}</Text>}
       <RNTextInput
         style={[
@@ -63,7 +64,7 @@ export function TextInput({
         onBlur={() => setFocused(false)}
       />
       {error && <Text style={styles.errorText}>{error}</Text>}
-    </View>
+    </ThemeAwareView>
   );
 }
 
@@ -94,9 +95,9 @@ export function PasswordInput({
   const [focused, setFocused] = useState(false);
 
   return (
-    <View style={containerStyle}>
+    <ThemeAwareView style={containerStyle}>
       {label && <Text style={styles.label}>{label}</Text>}
-      <View style={styles.passwordContainer}>
+      <ThemeAwareView style={styles.passwordContainer}>
         <RNTextInput
           style={[
             styles.input,
@@ -119,7 +120,7 @@ export function PasswordInput({
           onBlur={() => setFocused(false)}
         />
         {showVisibilityToggle && (
-          <TouchableOpacity
+          <ThemeAwareTouchableOpacity
             style={styles.visibilityToggle}
             onPress={() => setShowPassword(!showPassword)}
             accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
@@ -130,11 +131,11 @@ export function PasswordInput({
               size={20 * scale}
               color={Colors.textMuted}
             />
-          </TouchableOpacity>
+          </ThemeAwareTouchableOpacity>
         )}
-      </View>
+      </ThemeAwareView>
       {error && <Text style={styles.errorText}>{error}</Text>}
-    </View>
+    </ThemeAwareView>
   );
 }
 

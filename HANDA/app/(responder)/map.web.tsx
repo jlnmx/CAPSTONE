@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView } from '@components/ThemeAware';
 import React from 'react';
 import { SafeAreaView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -9,17 +10,17 @@ const GREEN = '#D45B92';
 
 export default function MapScreen() {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <View style={styles.header}>
+    <ThemeAwareSafeAreaView style={styles.safeArea}>
+      <ThemeAwareView style={styles.content}>
+        <ThemeAwareView style={styles.header}>
           <AppBackArrow />
-          <View style={styles.headerCopy}><Text style={styles.headerTitle}>MAP</Text><Text style={styles.headerSubtitle}>Biñan City, Laguna</Text></View>
-        </View>
-        <View style={styles.webMap}>
+          <ThemeAwareView style={styles.headerCopy}><Text style={styles.headerTitle}>MAP</Text><Text style={styles.headerSubtitle}>Biñan City, Laguna</Text></ThemeAwareView>
+        </ThemeAwareView>
+        <ThemeAwareView style={styles.webMap}>
           <ResponderLiveMap />
-        </View>
-      </View>
-    </SafeAreaView>
+        </ThemeAwareView>
+      </ThemeAwareView>
+    </ThemeAwareSafeAreaView>
   );
 }
 

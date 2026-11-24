@@ -1,3 +1,4 @@
+import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView } from '@components/ThemeAware';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
@@ -28,12 +29,12 @@ export default function AccountHub() {
     if (!isLoading && !isAuthenticated) router.replace('/(auth)/login');
   }, [isAuthenticated, isLoading, router]);
 
-  if (isLoading || !isAuthenticated) return <View style={[styles.loading, { backgroundColor: palette.background }]}><ActivityIndicator color={Colors.secondary} /></View>;
+  if (isLoading || !isAuthenticated) return <ThemeAwareView style={[styles.loading, { backgroundColor: palette.background }]}><ActivityIndicator color={Colors.secondary} /></ThemeAwareView>;
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
-        <View style={{ marginHorizontal: -gutter }}>
+    <ThemeAwareSafeAreaView style={[styles.safeArea, { backgroundColor: palette.background }]}>
+      <ThemeAwareScrollView contentContainerStyle={[styles.content, { paddingHorizontal: gutter }]} showsVerticalScrollIndicator={false}>
+        <ThemeAwareView style={{ marginHorizontal: -gutter }}>
           <GradientHeader
             title="Account"
             subtitle="Your profile and account security"
@@ -41,32 +42,32 @@ export default function AccountHub() {
             showBack
             fallbackHref={user?.role === 'responder' ? '/(responder)/more' : user?.role === 'resident' ? '/(resident)/more' : '/'}
           />
-        </View>
+        </ThemeAwareView>
 
         <Reveal index={0}>
-          <View style={[styles.profileCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
-            <View style={styles.avatarRing}>
+          <ThemeAwareView style={[styles.profileCard, { backgroundColor: palette.surface, borderColor: palette.border }]}>
+            <ThemeAwareView style={styles.avatarRing}>
               <Avatar uri={user?.profilePicture} name={user?.name} size={58} />
-            </View>
-            <View style={styles.profileCopy}>
+            </ThemeAwareView>
+            <ThemeAwareView style={styles.profileCopy}>
               <Text numberOfLines={1} style={[styles.name, { color: palette.text }]}>{user?.name || 'HANDA User'}</Text>
               <Text numberOfLines={1} style={[styles.email, { color: palette.textMuted }]}>{user?.email || 'No email available'}</Text>
-              <View style={styles.verifiedRow}>
+              <ThemeAwareView style={styles.verifiedRow}>
                 <MaterialCommunityIcons name="shield-check" size={14} color="#D45B92" />
                 <Text style={styles.verifiedText}>Account profile</Text>
-              </View>
-            </View>
-          </View>
+              </ThemeAwareView>
+            </ThemeAwareView>
+          </ThemeAwareView>
         </Reveal>
 
-        <View style={styles.sectionHeader}>
-          <View>
+        <ThemeAwareView style={styles.sectionHeader}>
+          <ThemeAwareView>
             <Text style={[styles.sectionHeading, { color: palette.text }]}>Account settings</Text>
             <Text style={[styles.sectionCaption, { color: palette.textMuted }]}>Manage your information and sign-in security</Text>
-          </View>
-          <View style={styles.sectionBadge}><MaterialCommunityIcons name="account-edit-outline" size={18} color="#D45B92" /></View>
-        </View>
-        <View style={styles.sectionList}>
+          </ThemeAwareView>
+          <ThemeAwareView style={styles.sectionBadge}><MaterialCommunityIcons name="account-edit-outline" size={18} color="#D45B92" /></ThemeAwareView>
+        </ThemeAwareView>
+        <ThemeAwareView style={styles.sectionList}>
           {accountSections.map((section, index) => {
             const value = section.path === 'contact-number'
               ? user?.mobileNumber || 'Not set'
@@ -83,22 +84,22 @@ export default function AccountHub() {
                   accessibilityRole="button"
                   accessibilityLabel={`${section.title}. ${section.detail}. ${value}`}
                 >
-                  <View style={styles.sectionIcon}><MaterialCommunityIcons name={section.icon} size={21} color="#D45B92" /></View>
-                  <View style={styles.sectionCopy}>
+                  <ThemeAwareView style={styles.sectionIcon}><MaterialCommunityIcons name={section.icon} size={21} color="#D45B92" /></ThemeAwareView>
+                  <ThemeAwareView style={styles.sectionCopy}>
                     <Text style={[styles.sectionTitle, { color: palette.text }]}>{section.title}</Text>
                     <Text style={[styles.sectionDetail, { color: palette.textMuted }]}>{section.detail}</Text>
                     <Text style={styles.sectionValue} numberOfLines={1}>{value}</Text>
-                  </View>
-                  <View style={[styles.chevron, { backgroundColor: palette.background }]}>
+                  </ThemeAwareView>
+                  <ThemeAwareView style={[styles.chevron, { backgroundColor: palette.background }]}>
                     <MaterialCommunityIcons name="chevron-right" size={19} color={palette.textMuted} />
-                  </View>
+                  </ThemeAwareView>
                 </AnimatedPressable>
               </Reveal>
             );
           })}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ThemeAwareView>
+      </ThemeAwareScrollView>
+    </ThemeAwareSafeAreaView>
   );
 }
 
