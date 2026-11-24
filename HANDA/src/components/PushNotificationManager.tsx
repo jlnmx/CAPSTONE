@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Alert, AppState, Linking, Platform } from 'react-native';
+import { Alert, AppState, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@hooks/useAuth';
 import { registerPushDevice } from '@services/pushNotifications';
@@ -15,20 +15,12 @@ export default function PushNotificationManager() {
     let active = true;
     let warned = false;
     let removeListeners = () => {};
+    let shouldRequestPermission = true;
     const register = () => {
-      void registerPushDevice().then((result) => {
-        if (result === 'permission-denied' && active && !warned) {
-          warned = true;
-          Alert.alert(
-            'Notifications are turned off',
-            'Allow HANDA notifications in your phone settings to receive incident, dispatch, weather, and evacuation updates.',
-            [
-              { text: 'Not now', style: 'cancel' },
-              { text: 'Open settings', onPress: () => { void Linking.openSettings(); } },
-            ],
-          );
-        }
-      }).catch((error: unknown) => {
+      const requestPermission = shouldRequestPermission;
+      shouldRequestPermission = false;
+      void registerPushDevice({ requestPermission }).catch((error: unknown) => {
+        if (requestPermission) shouldRequestPermission = true;
         console.error('Push notification registration failed:', error);
         if (active && !warned) {
           warned = true;

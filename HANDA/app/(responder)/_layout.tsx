@@ -222,7 +222,7 @@ export default function ResponderLayout() {
       <Tabs.Screen name="chatbot" options={{ href: null }} />
       <Tabs.Screen name="weather" options={{ href: null }} />
     </Tabs>
-    <StartupLocationPermission onPermissionGranted={() => setLocationPermissionGranted(true)} />
+    {isAuthenticated && user?.role === 'responder' && <StartupLocationPermission onPermissionGranted={() => setLocationPermissionGranted(true)} />}
     </>
   );
 }

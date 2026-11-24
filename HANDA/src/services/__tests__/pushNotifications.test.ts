@@ -82,6 +82,11 @@ it('removes a previous token when permission is denied', async () => {
   expect(Notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
 });
 
+it('does not show the native permission prompt during a background registration check', async () => {
+  await expect(registerPushDevice({ requestPermission: false })).resolves.toBe('permission-denied');
+  expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+});
+
 it('keeps the saved token if removal fails during sign-out', async () => {
   storedToken.mockResolvedValue('ExpoPushToken[abc123]');
   fetchMock.mockResolvedValue({ ok: false, status: 503 } as Response);

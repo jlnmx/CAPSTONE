@@ -158,7 +158,7 @@ export default function ResidentLayout() {
       <Tabs.Screen name="chatbot" options={{ href: null }} />
       <Tabs.Screen name="weather" options={{ href: null }} />
     </Tabs>
-    <StartupLocationPermission />
+    {isAuthenticated && user?.role === 'resident' && <StartupLocationPermission />}
     </>
   );
 }

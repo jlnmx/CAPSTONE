@@ -4,6 +4,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import * as SecureStore from 'expo-secure-store';
 import { authenticatedFetch } from './apiClient';
+import { queueDevicePermissionPrompt } from './devicePermissionPrompt';
 
 const TOKEN_KEY = 'handa.pushToken';
 export type PushRegistrationResult = 'registered' | 'permission-denied' | 'unsupported';
@@ -18,7 +19,7 @@ async function updateDevice(path: string, token: string, notificationChannelVers
   if (!response.ok) throw new Error(`Notification registration failed (HTTP ${response.status}).`);
 }
 
-export async function registerPushDevice(): Promise<PushRegistrationResult> {
+export async function registerPushDevice({ requestPermission = true }: { requestPermission?: boolean } = {}): Promise<PushRegistrationResult> {
   if (Platform.OS === 'web' || !Device.isDevice) return 'unsupported';
   if (pendingRegistration) return pendingRegistration;
   pendingRegistration = (async () => {
@@ -57,7 +58,9 @@ export async function registerPushDevice(): Promise<PushRegistrationResult> {
       });
     }
     let permission = await Notifications.getPermissionsAsync();
-    if (!permission.granted && permission.canAskAgain) permission = await Notifications.requestPermissionsAsync();
+    if (!permission.granted && permission.canAskAgain && requestPermission) {
+      permission = await queueDevicePermissionPrompt(() => Notifications.requestPermissionsAsync());
+    }
     if (!permission.granted) {
       const oldToken = await SecureStore.getItemAsync(TOKEN_KEY);
       if (oldToken) {
