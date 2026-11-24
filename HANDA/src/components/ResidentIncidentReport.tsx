@@ -18,8 +18,10 @@ import { prepareIncidentPhoto } from '@services/incidentPhoto';
 import { syncPendingLocalData } from '@services/syncService';
 import AppBackArrow from '@components/AppBackArrow';
 import { PhotoViewer } from '@components/PhotoGallery';
+import { BINAN_BARANGAYS, BINAN_CITY, findBinanBarangay, isBinanCity } from '@utils/currentAddress';
 
 const GREEN = '#D45B92';
+const OUTSIDE_BINAN_LABEL = 'Outside Biñan / barangay unknown';
 const INCIDENT_TYPES = ['Fire', 'Flooding', 'Earthquake', 'Landslide', 'Typhoon', 'Severe storm', 'Strong winds', 'Road accident', 'Road obstruction', 'Building collapse', 'Power outage', 'Gas leak', 'Water emergency', 'Medical emergency', 'Missing person', 'Crime or security threat', 'Hazardous spill', 'Other emergency'];
 type Photo = { uri: string; name: string };
 
@@ -29,10 +31,13 @@ export default function ResidentIncidentReport() {
   const [incidentType, setIncidentType] = useState('');
   const [description, setDescription] = useState('');
   const [coordinate, setCoordinate] = useState<LocationCoordinate | undefined>();
+  const [locationCity, setLocationCity] = useState('');
+  const [hasReverseGeocodedCity, setHasReverseGeocodedCity] = useState(false);
+  const [barangay, setBarangay] = useState('');
   const [locationLabel, setLocationLabel] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
-  const [picker, setPicker] = useState<'type' | null>(null);
+  const [picker, setPicker] = useState<'type' | 'barangay' | null>(null);
   const [isConfirmationVisible, setIsConfirmationVisible] = useState(false);
   const [isSuccessVisible, setIsSuccessVisible] = useState(false);
   const [successTitle, setSuccessTitle] = useState('Incident reported successfully');
@@ -40,10 +45,16 @@ export default function ResidentIncidentReport() {
   const [isGettingLocation, setIsGettingLocation] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const isOutsideBinan = Boolean((locationCity && !isBinanCity(locationCity)) || barangay === OUTSIDE_BINAN_LABEL);
 
   const loadLocation = async () => {
     setIsGettingLocation(true);
     setError('');
+    setCoordinate(undefined);
+    setLocationCity('');
+    setHasReverseGeocodedCity(false);
+    setBarangay('');
+    setLocationLabel('');
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== 'granted') throw new Error('Location permission is required to place your report on the map.');
@@ -54,11 +65,21 @@ export default function ResidentIncidentReport() {
         const address = await Location.reverseGeocodeAsync(nextCoordinate);
         const place = address[0];
         const streetAddress = [place?.streetNumber, place?.street].filter(Boolean).join(' ');
-        const barangay = place?.district ? `Brgy. ${place.district}` : place?.subregion;
-        const locationParts = [streetAddress, barangay, place?.city, place?.region].filter((part): part is string => !!part);
-        setLocationLabel([...new Set(locationParts)].join(', ') || `Biñan City · ${nextCoordinate.latitude.toFixed(6)}, ${nextCoordinate.longitude.toFixed(6)}`);
+        const city = place?.city?.trim() || '';
+        setLocationCity(city);
+        setHasReverseGeocodedCity(Boolean(city));
+        setBarangay(city && !isBinanCity(city)
+          ? OUTSIDE_BINAN_LABEL
+          : findBinanBarangay(place?.district) ?? '');
+        const areaParts = [streetAddress, city || 'City unavailable']
+          .filter((part): part is string => !!part);
+        const coordinates = `${nextCoordinate.latitude.toFixed(6)}, ${nextCoordinate.longitude.toFixed(6)}`;
+        setLocationLabel(`${[...new Set(areaParts)].join(', ')} · ${coordinates}`);
       } catch {
-        setLocationLabel(`Biñan City · ${nextCoordinate.latitude.toFixed(6)}, ${nextCoordinate.longitude.toFixed(6)}`);
+        setLocationCity('');
+        setHasReverseGeocodedCity(false);
+        setBarangay('');
+        setLocationLabel(`City unavailable · ${nextCoordinate.latitude.toFixed(6)}, ${nextCoordinate.longitude.toFixed(6)}`);
       }
     } catch (locationError) {
       setError(locationError instanceof Error ? locationError.message : 'Unable to get your current location.');
@@ -98,9 +119,49 @@ export default function ResidentIncidentReport() {
     }
   };
 
+  const updateManualCity = (value: string) => {
+    const city = value.trimStart();
+    setError('');
+    setLocationCity(city);
+    if (coordinate) {
+      setLocationLabel(`${city.trim() || 'City unavailable'} · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`);
+    }
+    if (isBinanCity(city)) setBarangay('');
+    else if (city) setBarangay(OUTSIDE_BINAN_LABEL);
+  };
+
+  const choosePickerOption = (option: string) => {
+    if (picker === 'type') {
+      setIncidentType(option);
+    } else if (option === OUTSIDE_BINAN_LABEL) {
+      setBarangay(option);
+      setLocationCity('');
+      setHasReverseGeocodedCity(false);
+      if (coordinate) {
+        setLocationLabel(`City unavailable · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`);
+      }
+    } else {
+      setBarangay(option);
+      if (!locationCity && coordinate) {
+        setLocationCity(BINAN_CITY);
+        setLocationLabel(`${BINAN_CITY} · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`);
+      }
+    }
+    setError('');
+    setPicker(null);
+  };
+
   const requestSubmit = () => {
     if (!incidentType || !description.trim() || !coordinate) {
       setError('Choose an incident type, describe what happened, and allow location access.');
+      return;
+    }
+    if (!isOutsideBinan && !barangay) {
+      setError('Select the incident barangay or choose the outside-Biñan option before submitting.');
+      return;
+    }
+    if (isOutsideBinan && !locationCity.trim()) {
+      setError('Enter the city or municipality where the incident occurred.');
       return;
     }
     if (!user?.id) {
@@ -116,6 +177,14 @@ export default function ResidentIncidentReport() {
       setError('Choose an incident type, describe what happened, and allow location access.');
       return;
     }
+    if (!isOutsideBinan && !barangay) {
+      setError('Select the incident barangay or choose the outside-Biñan option before submitting.');
+      return;
+    }
+    if (isOutsideBinan && !locationCity.trim()) {
+      setError('Enter the city or municipality where the incident occurred.');
+      return;
+    }
     const ownerUserId = user?.id;
     if (!ownerUserId) {
       setError('Sign in before saving an incident report.');
@@ -125,7 +194,9 @@ export default function ResidentIncidentReport() {
     setError('');
     const id = `incident-${Date.now()}`;
     const createdAt = new Date().toISOString();
-    const payload = { id, type: incidentType, description: description.trim(), location: locationLabel || `Biñan City · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`, latitude: coordinate.latitude, longitude: coordinate.longitude, photoUris: photos.map((photo) => photo.uri), createdAt };
+    const locationDetails = locationLabel || `City unavailable · ${coordinate.latitude.toFixed(6)}, ${coordinate.longitude.toFixed(6)}`;
+    const location = isOutsideBinan ? locationDetails : `Brgy. ${barangay}, ${locationDetails}`;
+    const payload = { id, type: incidentType, description: description.trim(), location, latitude: coordinate.latitude, longitude: coordinate.longitude, photoUris: photos.map((photo) => photo.uri), createdAt };
     const abortController = new AbortController();
     const requestTimeout = setTimeout(() => abortController.abort(), 30000);
     try {
@@ -176,6 +247,8 @@ export default function ResidentIncidentReport() {
       setIsSubmitting(false);
     }
   };
+
+  const pickerOptions = picker === 'barangay' ? [...BINAN_BARANGAYS, OUTSIDE_BINAN_LABEL] : INCIDENT_TYPES;
 
   return (
     <ThemeAwareSafeAreaView style={styles.container}>
@@ -234,6 +307,39 @@ export default function ResidentIncidentReport() {
                 <Text style={styles.locationText}>{isGettingLocation ? 'Getting your current location...' : locationLabel || 'Location unavailable'}</Text>
                 {!isGettingLocation && coordinate ? <MaterialCommunityIcons name="check-circle" size={17} color={GREEN} /> : null}
               </ThemeAwareView>
+              {isOutsideBinan && !hasReverseGeocodedCity && (
+                <>
+                  <FieldLabel label="City or municipality" required />
+                  <ThemeAwareTextInput
+                    style={styles.cityInput}
+                    value={locationCity}
+                    onChangeText={updateManualCity}
+                    placeholder="Enter the city or municipality"
+                    placeholderTextColor={Colors.textMuted}
+                    accessibilityLabel="Incident city or municipality"
+                  />
+                </>
+              )}
+              {!isOutsideBinan && (
+                <>
+                  <AnimatedPressable
+                    style={[styles.select, styles.barangaySelect]}
+                    onPress={() => setPicker('barangay')}
+                    disabled={!coordinate || isGettingLocation}
+                    accessibilityRole="button"
+                    accessibilityLabel={barangay ? `Incident barangay: ${barangay}. Change barangay` : 'Select incident barangay'}
+                  >
+                    <ThemeAwareView style={styles.selectCopy}>
+                      <MaterialCommunityIcons name="map-marker-radius-outline" size={18} color={GREEN} />
+                      <Text style={barangay ? styles.selectValue : styles.selectPlaceholder}>
+                        {barangay ? `Brgy. ${barangay}` : 'Select the incident barangay'}
+                      </Text>
+                    </ThemeAwareView>
+                    <MaterialCommunityIcons name="chevron-down" size={21} color="#5B735F" />
+                  </AnimatedPressable>
+                  <Text style={styles.barangayHint}>Confirm the detected barangay or select it if it could not be identified.</Text>
+                </>
+              )}
             </ThemeAwareView>
           </Reveal>
 
@@ -276,7 +382,7 @@ export default function ResidentIncidentReport() {
               <Text style={styles.error}>{error}</Text>
             </ThemeAwareView>
           )}
-          <AnimatedPressable style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]} onPress={requestSubmit} disabled={isSubmitting} accessibilityRole="button">
+          <AnimatedPressable style={[styles.submitButton, (isSubmitting || isGettingLocation) && styles.submitButtonDisabled]} onPress={requestSubmit} disabled={isSubmitting || isGettingLocation} accessibilityRole="button">
             {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <><MaterialCommunityIcons name="send-check-outline" size={20} color="#FFFFFF" /><Text style={styles.submitText}>Review and submit report</Text></>}
           </AnimatedPressable>
         </ThemeAwareView>
@@ -285,23 +391,26 @@ export default function ResidentIncidentReport() {
         <ThemeAwarePressable style={styles.modalBackdrop} onPress={() => setPicker(null)}>
           <ThemeAwarePressable style={styles.optionsCard} onPress={(event) => event.stopPropagation()}>
             <ThemeAwareView style={styles.optionsHeading}>
-              <ThemeAwareView style={styles.optionsIcon}><MaterialCommunityIcons name="alert-circle-outline" size={22} color={GREEN} /></ThemeAwareView>
+              <ThemeAwareView style={styles.optionsIcon}><MaterialCommunityIcons name={picker === 'barangay' ? 'map-marker-radius-outline' : 'alert-circle-outline'} size={22} color={GREEN} /></ThemeAwareView>
               <ThemeAwareView style={styles.optionsTitleCopy}>
-                <Text style={styles.optionsTitle}>Choose incident type</Text>
-                <Text style={styles.optionsSubtitle}>Select the closest match.</Text>
+                <Text style={styles.optionsTitle}>{picker === 'barangay' ? 'Choose incident barangay' : 'Choose incident type'}</Text>
+                <Text style={styles.optionsSubtitle}>{picker === 'barangay' ? 'Confirm where the incident occurred.' : 'Select the closest match.'}</Text>
               </ThemeAwareView>
-              <AnimatedPressable onPress={() => setPicker(null)} style={styles.optionsClose} accessibilityRole="button" accessibilityLabel="Close incident type picker">
+              <AnimatedPressable onPress={() => setPicker(null)} style={styles.optionsClose} accessibilityRole="button" accessibilityLabel="Close selection">
                 <MaterialCommunityIcons name="close" size={19} color={Colors.textMuted} />
               </AnimatedPressable>
             </ThemeAwareView>
             <ThemeAwareScrollView style={styles.optionsScroll} showsVerticalScrollIndicator={false}>
-              {INCIDENT_TYPES.map((option) => (
-                <AnimatedPressable key={option} style={[styles.option, incidentType === option && styles.optionSelected]} onPress={() => { setIncidentType(option); setPicker(null); }}>
-                  <ThemeAwareView style={styles.optionIcon}><MaterialCommunityIcons name={incidentTypeIcon(option)} size={18} color={incidentType === option ? GREEN : Colors.textMuted} /></ThemeAwareView>
-                  <Text style={[styles.optionText, incidentType === option && styles.optionTextSelected]}>{option}</Text>
-                  {incidentType === option ? <MaterialCommunityIcons name="check-circle" size={19} color={GREEN} /> : <MaterialCommunityIcons name="chevron-right" size={19} color="#AAB6AC" />}
-                </AnimatedPressable>
-              ))}
+              {pickerOptions.map((option) => {
+                const selected = picker === 'type' ? incidentType === option : barangay === option;
+                return (
+                  <AnimatedPressable key={option} style={[styles.option, selected && styles.optionSelected]} onPress={() => choosePickerOption(option)}>
+                    <ThemeAwareView style={styles.optionIcon}><MaterialCommunityIcons name={picker === 'type' ? incidentTypeIcon(option) : 'map-marker-outline'} size={18} color={selected ? GREEN : Colors.textMuted} /></ThemeAwareView>
+                    <Text style={[styles.optionText, selected && styles.optionTextSelected]}>{option}</Text>
+                    {selected ? <MaterialCommunityIcons name="check-circle" size={19} color={GREEN} /> : <MaterialCommunityIcons name="chevron-right" size={19} color="#AAB6AC" />}
+                  </AnimatedPressable>
+                );
+              })}
             </ThemeAwareScrollView>
           </ThemeAwarePressable>
         </ThemeAwarePressable>
@@ -389,6 +498,9 @@ const styles = StyleSheet.create({
   mapFrame: { height: 240, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, borderRadius: 17, backgroundColor: Colors.surfaceMuted },
   locationReadout: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 9, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 13, backgroundColor: '#F1F8F1' },
   locationText: { flex: 1, color: Colors.text, fontFamily: kitFonts.medium, fontSize: 11, lineHeight: 16 },
+  cityInput: { minHeight: 48, paddingHorizontal: 13, borderWidth: 1, borderColor: '#D6E3D6', borderRadius: 14, backgroundColor: '#FBFDFC', color: Colors.text, fontFamily: kitFonts.medium, fontSize: 13 },
+  barangaySelect: { marginTop: 8 },
+  barangayHint: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 10, lineHeight: 14, marginTop: 6 },
   photoHeading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 13 },
   photoCountBadge: { minWidth: 43, alignItems: 'center', paddingHorizontal: 9, paddingVertical: 6, borderRadius: 999, backgroundColor: '#EEF5EE' },
   photoCount: { color: GREEN, fontFamily: kitFonts.bold, fontSize: 11 },

@@ -1,6 +1,18 @@
-import { formatCurrentAddress, isCurrentAddressComplete, parseCurrentAddress } from '../currentAddress';
+import { findBinanBarangay, formatCurrentAddress, isBinanCity, isCurrentAddressComplete, parseCurrentAddress } from '../currentAddress';
 
 describe('current address formatting', () => {
+  it('resolves a known barangay from reverse-geocoded district labels only', () => {
+    expect(findBinanBarangay('Barangay Canlalay, Biñan City')).toBe('Canlalay');
+    expect(findBinanBarangay('Biñan City', 'Laguna')).toBeUndefined();
+  });
+
+  it('distinguishes Biñan from surrounding cities', () => {
+    expect(isBinanCity('Biñan City')).toBe(true);
+    expect(isBinanCity('Biñan')).toBe(true);
+    expect(isBinanCity('Santa Rosa City')).toBe(false);
+    expect(isBinanCity('Cabuyao')).toBe(false);
+  });
+
   it('formats the address fields with Biñan City and omits an empty village', () => {
     const address = {
       houseNumber: '12A',

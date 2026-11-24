@@ -50,6 +50,24 @@ function normalizeBarangay(value: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
+export function isBinanCity(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const normalized = normalizeBarangay(value);
+  return normalized === 'binan' || normalized === 'binancity' || normalized === 'cityofbinan';
+}
+
+export function findBinanBarangay(...values: Array<string | null | undefined>): string | undefined {
+  for (const value of values) {
+    if (!value) continue;
+    for (const part of value.split(',')) {
+      const normalized = normalizeBarangay(part);
+      const match = BINAN_BARANGAYS.find((barangay) => normalizeBarangay(barangay) === normalized);
+      if (match) return match;
+    }
+  }
+  return undefined;
+}
+
 export function formatCurrentAddress(parts: CurrentAddressParts): string {
   return [
     parts.houseNumber.trim(),
