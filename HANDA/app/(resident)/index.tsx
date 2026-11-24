@@ -54,6 +54,7 @@ export default function ResidentDashboard() {
   const householdTargetRef = useRef<View>(null);
   const centersTargetRef = useRef<View>(null);
   const hotlineTargetRef = useRef<View>(null);
+  const preparednessGuideTargetRef = useRef<View>(null);
   const tutorialTargets: TutorialTargetRefs = {
     notifications: notificationsTargetRef,
     status: statusTargetRef,
@@ -62,6 +63,7 @@ export default function ResidentDashboard() {
     household: householdTargetRef,
     centers: centersTargetRef,
     hotline: hotlineTargetRef,
+    preparednessGuide: preparednessGuideTargetRef,
   };
   const [activeDisaster, setActiveDisaster] = useState<ActiveDisaster | null>(null);
   const [disasterError, setDisasterError] = useState(false);
@@ -222,7 +224,7 @@ export default function ResidentDashboard() {
               onPress={() => router.push('/(resident)/emergency-contacts')}
             />
           </View>
-          <View style={styles.resourceTarget}>
+          <View ref={preparednessGuideTargetRef} collapsable={false} style={styles.resourceTarget}>
             <ResourceButton
               tone="sand"
               icon="book-open-page-variant-outline"

@@ -43,6 +43,12 @@ const TUTORIALS: Record<TutorialRole, TutorialStep[]> = {
       message: 'Open this guide for practical steps before, during, and after an evacuation.',
     },
     {
+      icon: 'book-open-page-variant-outline',
+      target: 'preparednessGuide',
+      title: 'Preparedness Guide',
+      message: 'Open the Preparedness Guide for practical advice on preparing for and responding to emergencies.',
+    },
+    {
       icon: 'account-group-outline',
       target: 'household',
       title: 'Your household',
