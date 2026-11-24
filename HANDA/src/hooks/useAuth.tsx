@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthUser, AuthContextType, UserRole } from '@/types/index';
 import { AuthService } from '@services/authService';
 import { clearAccessToken, createPersistentRefreshToken, getAccessToken, getRefreshToken, refreshAccessToken, setAccessToken, setRefreshToken, storeBiometricRefreshToken, subscribeToUnauthorized } from '@services/apiClient';
-import { disableBiometricLogin as disableDeviceBiometrics, enableBiometricLogin as enableDeviceBiometrics, getBiometricLoginToken, isBiometricLoginEnrolled } from '@services/biometricAuth';
+import { disableBiometricLogin as disableDeviceBiometrics, enableBiometricLogin as enableDeviceBiometrics, getBiometricLoginToken, isBiometricCancellationError, isBiometricLoginEnrolled } from '@services/biometricAuth';
 import { disposeRealtime } from '@services/realtimeClient';
 import { clearOfflineCache } from '@services/offlineCache';
 import { unregisterPushDevice } from '@services/pushNotifications';
@@ -175,7 +175,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       await finishLogin(authUser);
     } catch (biometricError) {
-      setError(biometricError instanceof Error ? biometricError.message : 'Biometric sign-in failed. Use your password instead.');
+      setError(isBiometricCancellationError(biometricError)
+        ? 'Biometric sign-in was canceled. Try again or use your password.'
+        : biometricError instanceof Error ? biometricError.message : 'Biometric sign-in failed. Use your password instead.');
     } finally {
       setIsLoading(false);
     }

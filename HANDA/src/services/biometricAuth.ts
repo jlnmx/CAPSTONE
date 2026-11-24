@@ -16,6 +16,17 @@ export interface BiometricAvailability {
   reason?: string;
 }
 
+export function isBiometricCancellationError(error: unknown): boolean {
+  const details = typeof error === 'object' && error !== null ? error : null;
+  const message = error instanceof Error
+    ? error.message
+    : details && 'message' in details
+      ? String(details.message)
+      : String(error);
+  const code = details && 'code' in details ? String(details.code) : '';
+  return /user[\s_-]*cancel(?:ed|led)|authentication[\s_-]*cancel(?:ed|led)/i.test(`${code} ${message}`);
+}
+
 export async function getBiometricAvailability(): Promise<BiometricAvailability> {
   if (Platform.OS === 'web') {
     return {

@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { createPersistentRefreshToken, getAccessToken, storeBiometricRefreshToken } from '../apiClient';
-import { enableBiometricLogin, getBiometricAvailability } from '../biometricAuth';
+import { enableBiometricLogin, getBiometricAvailability, isBiometricCancellationError } from '../biometricAuth';
 
 jest.mock('expo-local-authentication', () => ({
   AuthenticationType: { FINGERPRINT: 1, FACIAL_RECOGNITION: 2 },
@@ -30,6 +30,14 @@ describe('biometric sign-in', () => {
 
   afterAll(() => {
     Object.defineProperty(Platform, 'OS', { configurable: true, value: originalPlatform });
+  });
+
+  it('recognizes cancellation from the secure-store authentication prompt', () => {
+    expect(isBiometricCancellationError(new Error(
+      "Call to function 'ExpoSecureStore.getValueWithKeyAsync' has been rejected. - Caused by: Could not Authenticate the User: User canceled the authentication.",
+    ))).toBe(true);
+    expect(isBiometricCancellationError({ message: 'User canceled the authentication', code: 'ERR_SECURESTORE_AUTHENTICATION' })).toBe(true);
+    expect(isBiometricCancellationError(new Error('Biometric authentication failed.'))).toBe(false);
   });
 
   it('reports the enrolled biometric method available on the device', async () => {
