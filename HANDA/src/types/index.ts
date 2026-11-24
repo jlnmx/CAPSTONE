@@ -10,6 +10,8 @@ export interface ResidentHouseholdMember {
   firstName?: string;
   middleName?: string;
   lastName?: string;
+  suffix?: string;
+  profilePicture?: string;
   age?: number | null;
   sex?: string;
   contactNumber?: string;

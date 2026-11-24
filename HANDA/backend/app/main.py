@@ -519,28 +519,31 @@ HOUSEHOLD_MEMBER_EXTRA_COLUMNS = (
     ("first_name", "TEXT NOT NULL DEFAULT ''"),
     ("middle_name", "TEXT NOT NULL DEFAULT ''"),
     ("last_name", "TEXT NOT NULL DEFAULT ''"),
+    ("suffix", "TEXT NOT NULL DEFAULT ''"),
     ("age", "INTEGER"),
     ("sex", "TEXT NOT NULL DEFAULT ''"),
     ("contact_number", "TEXT NOT NULL DEFAULT ''"),
+    ("profile_picture", "TEXT NOT NULL DEFAULT ''"),
 )
 
 HOUSEHOLD_MEMBER_SELECT = (
     'name, relationship, first_name AS "firstName", middle_name AS "middleName", '
-    'last_name AS "lastName", age, sex, contact_number AS "contactNumber"'
+    'last_name AS "lastName", suffix, age, sex, contact_number AS "contactNumber", '
+    'profile_picture AS "profilePicture"'
 )
 
 
 def household_member_values(member) -> tuple:
     return (
         member.name.strip(), member.relationship.strip(), (member.firstName or "").strip(),
-        (member.middleName or "").strip(), (member.lastName or "").strip(), member.age,
-        member.sex or "", (member.contactNumber or "").strip(),
+            (member.middleName or "").strip(), (member.lastName or "").strip(), (member.suffix or "").strip(),
+            member.age, member.sex or "", (member.contactNumber or "").strip(), (member.profilePicture or "").strip(),
     )
 
 
 def insert_household_member(connection: psycopg.Connection, table: str, owner_column: str, member_id: str, owner_id: str, member) -> None:
     connection.execute(
-        f"INSERT INTO {table} (id, {owner_column}, name, relationship, first_name, middle_name, last_name, age, sex, contact_number) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        f"INSERT INTO {table} (id, {owner_column}, name, relationship, first_name, middle_name, last_name, suffix, age, sex, contact_number, profile_picture) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
         (member_id, owner_id, *household_member_values(member)),
     )
 

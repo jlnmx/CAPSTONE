@@ -5,12 +5,19 @@ import { authenticatedFetch } from './apiClient';
 const AVATAR_SIZE = 320;
 
 /** Lets the user choose a photo and returns it as a square, compressed JPEG data URI. Returns null when cancelled. */
-export async function pickProfilePicture(): Promise<string | null> {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!permission.granted && permission.accessPrivileges !== 'limited') {
-    throw new Error('Allow photo access to choose a profile picture.');
+export async function pickProfilePicture(source: 'library' | 'camera' = 'library'): Promise<string | null> {
+  if (source === 'camera') {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) throw new Error('Allow camera access to take a profile picture.');
+  } else {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted && permission.accessPrivileges !== 'limited') {
+      throw new Error('Allow photo access to choose a profile picture.');
+    }
   }
-  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+  const result = source === 'camera'
+    ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 })
+    : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
   if (result.canceled || !result.assets[0]) return null;
   const asset = result.assets[0];
   const shortestSide = Math.min(asset.width, asset.height);

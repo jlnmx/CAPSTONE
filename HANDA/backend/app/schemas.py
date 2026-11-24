@@ -94,6 +94,8 @@ class HouseholdMemberInput(BaseModel):
     firstName: str | None = Field(default=None, max_length=120)
     middleName: str | None = Field(default=None, max_length=120)
     lastName: str | None = Field(default=None, max_length=120)
+    suffix: str | None = Field(default=None, max_length=30)
+    profilePicture: str | None = Field(default=None, max_length=800000)
     age: int | None = Field(default=None, ge=0, le=150)
     sex: Literal["Male", "Female"] | None = None
     contactNumber: str | None = Field(default=None, max_length=40)
@@ -106,7 +108,7 @@ class HouseholdMemberInput(BaseModel):
 
     @model_validator(mode="after")
     def compose_name(self):
-        parts = (self.firstName, self.middleName, self.lastName)
+        parts = (self.firstName, self.middleName, self.lastName, self.suffix)
         composed = " ".join(part.strip() for part in parts if part and part.strip())
         self.name = composed or self.name.strip()
         if not self.name:

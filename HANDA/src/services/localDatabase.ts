@@ -388,7 +388,7 @@ export interface LocalRegistrationInput {
   contactNumber: string;
   address: string;
   householdSize: number;
-  members: Array<{ name: string; relationship: string; firstName?: string; middleName?: string; lastName?: string; age?: number | null; sex?: string; contactNumber?: string }>;
+  members: Array<{ name: string; relationship: string; firstName?: string; middleName?: string; lastName?: string; suffix?: string; profilePicture?: string; age?: number | null; sex?: string; contactNumber?: string }>;
 }
 
 export interface QueuedRegistration {
