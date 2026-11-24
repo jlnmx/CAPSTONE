@@ -35,12 +35,12 @@ beforeEach(() => {
 it('requests permission, creates the high-importance channel and registers the token', async () => {
   await registerPushDevice();
   expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('incidents', expect.objectContaining({ importance: 4 }));
-  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('dispatch_siren_v2', expect.objectContaining({
+  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('dispatch_siren_v3', expect.objectContaining({
     name: 'Responder dispatch siren',
     importance: 5,
     sound: 'dispatch_siren.wav',
   }));
-  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('dispatch_silent_v2', expect.objectContaining({
+  expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith('dispatch_silent_v3', expect.objectContaining({
     name: 'Responder dispatch (silent)',
     importance: 5,
     sound: null,

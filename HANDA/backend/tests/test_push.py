@@ -264,7 +264,7 @@ class PushDeliveryTests(unittest.TestCase):
             self.assertTrue(push.process_one())
         payload = request.call_args.args[1]
         self.assertEqual(payload["sound"], "dispatch_siren.wav")
-        self.assertEqual(payload["channelId"], "dispatch_siren_v2")
+        self.assertEqual(payload["channelId"], "dispatch_siren_v3")
         self.assertEqual(payload["data"], {"type": "dispatch", "incidentId": "incident-1"})
 
     def test_dispatch_payload_can_be_silenced_by_responder_preference(self):
@@ -274,7 +274,7 @@ class PushDeliveryTests(unittest.TestCase):
             self.assertTrue(push.process_one())
         payload = request.call_args.args[1]
         self.assertIsNone(payload["sound"])
-        self.assertEqual(payload["channelId"], "dispatch_silent_v2")
+        self.assertEqual(payload["channelId"], "dispatch_silent_v3")
 
     def test_successful_receipt_removes_delivery(self):
         self.delivery["receipt_id"] = "receipt-1"

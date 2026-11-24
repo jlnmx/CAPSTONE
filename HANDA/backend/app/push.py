@@ -163,7 +163,7 @@ def process_one() -> bool:
                     ) if is_dispatch else "default",
                     "priority": "high",
                     "channelId": (
-                        ("dispatch_siren_v2" if dispatch_siren_enabled else "dispatch_silent_v2")
+                        ("dispatch_siren_v3" if dispatch_siren_enabled else "dispatch_silent_v3")
                         if is_dispatch
                         else "weather" if notification_type == "weather" else "incidents"
                     ),
