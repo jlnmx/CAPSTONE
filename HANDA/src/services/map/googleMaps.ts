@@ -1,7 +1,7 @@
 import { authenticatedFetch } from '../apiClient';
 
 export type MapCoordinate = { latitude: number; longitude: number };
-export type MapTravelMode = 'DRIVE' | 'WALK';
+export type MapTravelMode = 'DRIVE' | 'WALK' | 'TWO_WHEELER';
 
 export type SearchedPlace = MapCoordinate & {
   id: string;
@@ -97,6 +97,42 @@ export function distanceToRouteMeters(point: MapCoordinate, route: MapCoordinate
   return minimum;
 }
 
+export function getNearestRouteSegmentIndex(point: MapCoordinate, route: MapCoordinate[], startSegment = 0): number {
+  if (route.length < 2) return 0;
+  let minimum = Number.POSITIVE_INFINITY;
+  let closestSegment = 0;
+  for (let index = Math.max(1, startSegment + 1); index < route.length; index += 1) {
+    const projection = projectPointToSegment(point, route[index - 1], route[index]);
+    if (projection.distance < minimum) {
+      minimum = projection.distance;
+      closestSegment = index - 1;
+    }
+  }
+  return closestSegment;
+}
+
+export function getRemainingRouteCoordinates(
+  point: MapCoordinate,
+  route: MapCoordinate[],
+  startSegment = 0,
+): MapCoordinate[] {
+  if (route.length < 2) return route;
+  const segment = getNearestRouteSegmentIndex(point, route, startSegment);
+  const projection = projectPointToSegment(point, route[segment], route[segment + 1]).coordinate;
+  return [projection, ...route.slice(segment + 1)];
+}
+
+export function bearingDegrees(from: MapCoordinate, to: MapCoordinate): number {
+  const radians = Math.PI / 180;
+  const latitude1 = from.latitude * radians;
+  const latitude2 = to.latitude * radians;
+  const longitudeDelta = (to.longitude - from.longitude) * radians;
+  const y = Math.sin(longitudeDelta) * Math.cos(latitude2);
+  const x = Math.cos(latitude1) * Math.sin(latitude2)
+    - Math.sin(latitude1) * Math.cos(latitude2) * Math.cos(longitudeDelta);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
 export function distanceMeters(a: MapCoordinate, b: MapCoordinate): number {
   const radians = Math.PI / 180;
   const latitudeDelta = (b.latitude - a.latitude) * radians;
@@ -109,6 +145,14 @@ export function distanceMeters(a: MapCoordinate, b: MapCoordinate): number {
 }
 
 function distanceToSegmentMeters(point: MapCoordinate, start: MapCoordinate, end: MapCoordinate): number {
+  return projectPointToSegment(point, start, end).distance;
+}
+
+function projectPointToSegment(
+  point: MapCoordinate,
+  start: MapCoordinate,
+  end: MapCoordinate,
+): { coordinate: MapCoordinate; distance: number } {
   const scale = Math.PI / 180 * 6_371_000;
   const referenceLatitude = point.latitude * Math.PI / 180;
   const project = (coordinate: MapCoordinate) => ({
@@ -120,7 +164,13 @@ function distanceToSegmentMeters(point: MapCoordinate, start: MapCoordinate, end
   const segmentX = b.x - a.x;
   const segmentY = b.y - a.y;
   const lengthSquared = segmentX * segmentX + segmentY * segmentY;
-  if (!lengthSquared) return Math.hypot(a.x, a.y);
-  const fraction = Math.max(0, Math.min(1, -(a.x * segmentX + a.y * segmentY) / lengthSquared));
-  return Math.hypot(a.x + fraction * segmentX, a.y + fraction * segmentY);
+  const fraction = lengthSquared
+    ? Math.max(0, Math.min(1, -(a.x * segmentX + a.y * segmentY) / lengthSquared))
+    : 0;
+  const coordinate = {
+    latitude: start.latitude + (end.latitude - start.latitude) * fraction,
+    longitude: start.longitude + (end.longitude - start.longitude) * fraction,
+  };
+  const projected = project(coordinate);
+  return { coordinate, distance: Math.hypot(projected.x, projected.y) };
 }

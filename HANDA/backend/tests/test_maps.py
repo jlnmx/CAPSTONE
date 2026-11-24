@@ -90,6 +90,21 @@ class GoogleMapsProxyTests(unittest.TestCase):
         self.assertEqual(error.exception.status_code, 503)
         self.assertIn("not enabled", error.exception.detail)
 
+    @patch("app.maps.urlopen")
+    def test_two_wheeler_routes_use_motorcycle_mode_and_traffic_aware_routing(self, urlopen):
+        urlopen.return_value = FakeResponse({"routes": []})
+        request = MapRouteRequest(
+            origin={"latitude": 14.3, "longitude": 121.07},
+            destination={"latitude": 14.31, "longitude": 121.08},
+            travelMode="TWO_WHEELER",
+        )
+
+        compute_routes(request, "server-key")
+
+        body = json.loads(urlopen.call_args.args[0].data)
+        self.assertEqual(body["travelMode"], "TWO_WHEELER")
+        self.assertEqual(body["routingPreference"], "TRAFFIC_AWARE")
+
 
 if __name__ == "__main__":
     unittest.main()

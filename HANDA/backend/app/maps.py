@@ -88,7 +88,7 @@ def compute_routes(route_request: MapRouteRequest, api_key: str) -> dict:
         "languageCode": "en",
         "units": "METRIC",
     }
-    if route_request.travelMode == "DRIVE":
+    if route_request.travelMode in ("DRIVE", "TWO_WHEELER"):
         body["routingPreference"] = "TRAFFIC_AWARE"
     result = _google_post(
         ROUTES_COMPUTE_URL,

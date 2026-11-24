@@ -5,7 +5,7 @@ import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
-import { distanceMeters, distanceToRouteMeters, getMapRoutes, decodeRoutePolyline, MapCoordinate, MapRoute, MapTravelMode } from '@services/map/googleMaps';
+import { bearingDegrees, distanceMeters, distanceToRouteMeters, getMapRoutes, decodeRoutePolyline, getNearestRouteSegmentIndex, getRemainingRouteCoordinates, MapCoordinate, MapRoute, MapTravelMode } from '@services/map/googleMaps';
 import type { MapNavigationTarget } from './MapNavigation.types';
 
 type Props = {
@@ -19,6 +19,7 @@ export default function MapNavigation({ target, onClose }: Props) {
   const selectedRouteRef = useRef<MapRoute | null>(null);
   const offRouteCount = useRef(0);
   const lastRerouteAt = useRef(0);
+  const passedRouteSegment = useRef(0);
   const [origin, setOrigin] = useState<MapCoordinate | null>(null);
   const [currentLocation, setCurrentLocation] = useState<MapCoordinate | null>(null);
   const [routes, setRoutes] = useState<MapRoute[]>([]);
@@ -27,6 +28,7 @@ export default function MapNavigation({ target, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [rerouting, setRerouting] = useState(false);
+  const [is3dView, setIs3dView] = useState(false);
   const [error, setError] = useState('');
   const [stepIndex, setStepIndex] = useState(0);
   const [rerouteRevision, setRerouteRevision] = useState(0);
@@ -80,6 +82,8 @@ export default function MapNavigation({ target, onClose }: Props) {
     void getMapRoutes(origin, target, mode).then((result) => {
       if (!active) return;
       setRoutes(result);
+      passedRouteSegment.current = 0;
+      offRouteCount.current = 0;
       setSelectedRouteIndex(0);
       setStepIndex(0);
       setRerouting(false);
@@ -124,7 +128,21 @@ export default function MapNavigation({ target, onClose }: Props) {
       setCurrentLocation(current);
       const route = selectedRouteRef.current;
       if (!route) return;
+      const stepEndForHeading = route.steps[Math.min(stepIndex, route.steps.length - 1)]?.endLocation ?? target;
+      const heading = position.coords.heading !== null && position.coords.heading >= 0
+        ? position.coords.heading
+        : bearingDegrees(current, stepEndForHeading);
+      mapRef.current?.animateCamera({
+        center: current,
+        heading,
+        pitch: is3dView ? 55 : 0,
+        zoom: 18,
+      }, { duration: 900 });
       const distanceFromRoute = distanceToRouteMeters(current, decodeRoutePolyline(route.encodedPolyline));
+      passedRouteSegment.current = Math.max(
+        passedRouteSegment.current,
+        getNearestRouteSegmentIndex(current, decodeRoutePolyline(route.encodedPolyline), passedRouteSegment.current),
+      );
       offRouteCount.current = distanceFromRoute > 65 ? offRouteCount.current + 1 : 0;
       if (offRouteCount.current >= 2 && Date.now() - lastRerouteAt.current > 15_000) {
         offRouteCount.current = 0;
@@ -157,10 +175,10 @@ export default function MapNavigation({ target, onClose }: Props) {
       subscription?.remove();
       if (locationSubscription.current === subscription) locationSubscription.current = null;
     };
-  }, [navigating, stepIndex, target]);
+  }, [navigating, stepIndex, target, is3dView]);
 
   const startNavigation = async () => {
-    if (!currentLocation || !selectedRoute) return;
+    if (!currentLocation || !selectedRoute || !target) return;
     let permission = await Location.getForegroundPermissionsAsync();
     if (!permission.granted) permission = await Location.requestForegroundPermissionsAsync();
     if (!permission.granted) {
@@ -170,9 +188,27 @@ export default function MapNavigation({ target, onClose }: Props) {
     setOrigin(currentLocation);
     setNavigating(true);
     setError('');
+    mapRef.current?.animateCamera({
+      center: currentLocation,
+      heading: bearingDegrees(currentLocation, selectedRoute.steps[0]?.endLocation ?? target),
+      pitch: is3dView ? 55 : 0,
+      zoom: 18,
+    }, { duration: 700 });
   };
 
   const step = selectedRoute?.steps[stepIndex];
+  const navigationHeading = currentLocation && step?.endLocation
+    ? bearingDegrees(currentLocation, step.endLocation)
+    : 0;
+  const recenter = () => {
+    if (!currentLocation) return;
+    mapRef.current?.animateCamera({
+      center: currentLocation,
+      heading: navigating ? navigationHeading : 0,
+      pitch: is3dView ? 55 : 0,
+      zoom: navigating ? 18 : 15,
+    }, { duration: 600 });
+  };
 
   return (
     <Modal visible={Boolean(target)} animationType="slide" onRequestClose={onClose}>
@@ -182,14 +218,33 @@ export default function MapNavigation({ target, onClose }: Props) {
           provider={PROVIDER_GOOGLE}
           style={StyleSheet.absoluteFill}
           initialRegion={region}
-          showsUserLocation={Boolean(currentLocation)}
-          followsUserLocation={navigating}
+          showsUserLocation={Boolean(currentLocation) && !navigating}
+          followsUserLocation={false}
           showsCompass
           toolbarEnabled={false}
+          pitchEnabled
+          rotateEnabled
+          showsBuildings={is3dView}
         >
           {target && <Marker coordinate={target} title={target.title} pinColor="#D83B36" />}
+          {navigating && currentLocation && <Marker
+            coordinate={currentLocation}
+            anchor={{ x: 0.5, y: 0.5 }}
+            flat
+            rotation={navigationHeading}
+            tracksViewChanges={false}
+            zIndex={5}
+          >
+            <View style={styles.navigationArrow}>
+              <MaterialCommunityIcons name="navigation" size={25} color={Colors.white} />
+            </View>
+          </Marker>}
           {routes.map((route, index) => {
-            const coordinates = routeCoordinates[index];
+            if (navigating && index !== selectedRouteIndex) return null;
+            const fullCoordinates = routeCoordinates[index] ?? [];
+            const coordinates = navigating && currentLocation
+              ? getRemainingRouteCoordinates(currentLocation, fullCoordinates, passedRouteSegment.current)
+              : fullCoordinates;
             return coordinates?.length ? <Polyline
               key={route.id}
               coordinates={coordinates}
@@ -208,10 +263,31 @@ export default function MapNavigation({ target, onClose }: Props) {
           <View style={styles.headerCopy}><Text style={styles.eyebrow}>ROUTE TO</Text><Text numberOfLines={1} style={styles.title}>{target?.title}</Text></View>
         </View>
 
+        <View style={styles.mapControls}>
+          <Pressable
+            onPress={() => setIs3dView((value) => !value)}
+            style={styles.mapControl}
+            accessibilityRole="button"
+            accessibilityLabel={is3dView ? 'Switch to 2D map view' : 'Switch to 3D map view'}
+          >
+            <MaterialCommunityIcons name={is3dView ? 'cube-outline' : 'cube-scan'} size={19} color={Colors.text} />
+            <Text style={styles.mapControlLabel}>{is3dView ? '2D' : '3D'}</Text>
+          </Pressable>
+          <Pressable
+            onPress={recenter}
+            style={styles.mapControl}
+            accessibilityRole="button"
+            accessibilityLabel="Recenter map on your location"
+          >
+            <MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} />
+          </Pressable>
+        </View>
+
         <View style={styles.panel}>
           <View style={styles.modeRow}>
-            {(['DRIVE', 'WALK'] as const).map((travelMode) => <Pressable
+            {(['WALK', 'TWO_WHEELER', 'DRIVE'] as const).map((travelMode) => <Pressable
               key={travelMode}
+              accessibilityLabel={travelMode === 'DRIVE' ? 'Four wheels' : travelMode === 'TWO_WHEELER' ? 'Two wheels' : 'Walking'}
               onPress={() => {
                 if (navigating && currentLocation) setOrigin(currentLocation);
                 setMode(travelMode);
@@ -220,8 +296,14 @@ export default function MapNavigation({ target, onClose }: Props) {
               accessibilityRole="button"
               accessibilityState={{ selected: mode === travelMode }}
             >
-              <MaterialCommunityIcons name={travelMode === 'DRIVE' ? 'car' : 'walk'} size={18} color={mode === travelMode ? Colors.primary : Colors.textMuted} />
-              <Text style={[styles.modeLabel, mode === travelMode && styles.modeLabelSelected]}>{travelMode === 'DRIVE' ? 'Driving' : 'Walking'}</Text>
+              <MaterialCommunityIcons
+                name={travelMode === 'DRIVE' ? 'car' : travelMode === 'TWO_WHEELER' ? 'motorbike' : 'walk'}
+                size={18}
+                color={mode === travelMode ? Colors.primary : Colors.textMuted}
+              />
+              <Text style={[styles.modeLabel, mode === travelMode && styles.modeLabelSelected]}>
+                {travelMode === 'DRIVE' ? '4 wheels' : travelMode === 'TWO_WHEELER' ? '2 wheels' : 'Walk'}
+              </Text>
             </Pressable>)}
           </View>
 
@@ -242,7 +324,7 @@ export default function MapNavigation({ target, onClose }: Props) {
           </ScrollView>}
 
           {navigating && <View style={styles.instruction}>
-            <MaterialCommunityIcons name={mode === 'DRIVE' ? 'navigation' : 'walk'} size={22} color={Colors.primary} />
+            <MaterialCommunityIcons name="navigation" size={22} color={Colors.primary} />
             <View style={styles.instructionCopy}>
               <Text style={styles.instructionTitle}>{rerouting ? 'Recalculating route…' : step?.instruction ?? 'Continue to your destination'}</Text>
               {step ? <Text style={styles.muted}>{formatDistance(step.distanceMeters)} · {formatDuration(selectedRoute?.durationSeconds ?? 0)} trip</Text> : null}
@@ -276,6 +358,10 @@ function formatDuration(seconds: number) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#E8ECEA' },
   header: { position: 'absolute', top: 12, left: 12, right: 12, minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 16, backgroundColor: Colors.white, elevation: 7 },
+  mapControls: { position: 'absolute', top: 90, right: 12, alignItems: 'flex-end', gap: 8 },
+  mapControl: { minWidth: 44, height: 44, paddingHorizontal: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5, borderRadius: 13, backgroundColor: Colors.white, elevation: 6 },
+  mapControlLabel: { color: Colors.text, fontSize: 11, fontWeight: '800' },
+  navigationArrow: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 20, backgroundColor: Colors.primary, borderColor: Colors.white, borderWidth: 2, elevation: 5 },
   close: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#F1F4F1' },
   headerCopy: { flex: 1 },
   eyebrow: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },

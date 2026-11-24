@@ -36,7 +36,7 @@ class MapPlaceSearch(BaseModel):
 class MapRouteRequest(BaseModel):
     origin: MapCoordinate
     destination: MapCoordinate
-    travelMode: Literal["DRIVE", "WALK"]
+    travelMode: Literal["DRIVE", "WALK", "TWO_WHEELER"]
 
 
 class IncidentCreate(BaseModel):

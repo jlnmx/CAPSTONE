@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ThemedText as Text } from '@components/ThemedText';
 import { Colors } from '@constants/colors';
-import { distanceMeters, distanceToRouteMeters, getMapRoutes, decodeRoutePolyline, MapCoordinate, MapRoute, MapTravelMode } from '@services/map/googleMaps';
+import { bearingDegrees, distanceMeters, distanceToRouteMeters, getMapRoutes, decodeRoutePolyline, getNearestRouteSegmentIndex, getRemainingRouteCoordinates, MapCoordinate, MapRoute, MapTravelMode } from '@services/map/googleMaps';
 import { loadGoogleMapsApi } from '@services/map/googleMapsWeb';
 import type { MapNavigationTarget } from './MapNavigation.types';
 
@@ -21,6 +21,7 @@ export default function MapNavigation({ target, onClose }: Props) {
   const selectedRouteRef = useRef<MapRoute | null>(null);
   const offRouteCount = useRef(0);
   const lastRerouteAt = useRef(0);
+  const passedRouteSegment = useRef(0);
   const [origin, setOrigin] = useState<MapCoordinate | null>(null);
   const [currentLocation, setCurrentLocation] = useState<MapCoordinate | null>(null);
   const [routes, setRoutes] = useState<MapRoute[]>([]);
@@ -29,6 +30,7 @@ export default function MapNavigation({ target, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [navigating, setNavigating] = useState(false);
   const [rerouting, setRerouting] = useState(false);
+  const [is3dView, setIs3dView] = useState(false);
   const [error, setError] = useState('');
   const [stepIndex, setStepIndex] = useState(0);
   const [rerouteRevision, setRerouteRevision] = useState(0);
@@ -83,13 +85,36 @@ export default function MapNavigation({ target, onClose }: Props) {
     }
     let active = true;
     const watchId = navigator.geolocation.watchPosition(({ coords }) => {
-      if (!active) return;
+      if (!active || !target) return;
       const coordinate = { latitude: coords.latitude, longitude: coords.longitude };
       setCurrentLocation(coordinate);
       setOrigin((previous) => previous ?? coordinate);
       const route = selectedRouteRef.current;
       if (!navigating || !route) return;
+      const stepEndForHeading = route.steps[Math.min(stepIndex, route.steps.length - 1)]?.endLocation ?? target;
+      const heading = typeof coords.heading === 'number' && coords.heading >= 0
+        ? coords.heading
+        : bearingDegrees(coordinate, stepEndForHeading);
+      if (mapRef.current) {
+        currentMarker.current?.setIcon({
+          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: Colors.primary,
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2,
+          rotation: heading,
+        });
+        mapRef.current.setZoom(18);
+        mapRef.current.setHeading(heading);
+        mapRef.current.setTilt(is3dView ? 45 : 0);
+        mapRef.current.panTo({ lat: coordinate.latitude, lng: coordinate.longitude });
+      }
       const distanceFromRoute = distanceToRouteMeters(coordinate, decodeRoutePolyline(route.encodedPolyline));
+      passedRouteSegment.current = Math.max(
+        passedRouteSegment.current,
+        getNearestRouteSegmentIndex(coordinate, decodeRoutePolyline(route.encodedPolyline), passedRouteSegment.current),
+      );
       offRouteCount.current = distanceFromRoute > 65 ? offRouteCount.current + 1 : 0;
       if (offRouteCount.current >= 2 && Date.now() - lastRerouteAt.current > 15_000) {
         offRouteCount.current = 0;
@@ -113,18 +138,43 @@ export default function MapNavigation({ target, onClose }: Props) {
       active = false;
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [target, navigating, stepIndex]);
+  }, [target, navigating, stepIndex, is3dView]);
 
   useEffect(() => {
-    if (!mapReady || !currentLocation || !mapRef.current) return;
+    if (!mapReady || !currentLocation || !mapRef.current || !target) return;
+    const route = selectedRouteRef.current;
+    const stepEnd = route?.steps[Math.min(stepIndex, route.steps.length - 1)]?.endLocation ?? target;
+    const heading = navigating ? bearingDegrees(currentLocation, stepEnd) : 0;
+    const icon = navigating
+      ? {
+          path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+          scale: 6,
+          fillColor: Colors.primary,
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2,
+          rotation: heading,
+        }
+      : {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 7,
+          fillColor: '#1769AA',
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 2,
+        };
     if (!currentMarker.current) currentMarker.current = new google.maps.Marker({
       map: mapRef.current,
       position: { lat: currentLocation.latitude, lng: currentLocation.longitude },
-      title: 'Your location',
-      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 7, fillColor: '#1769AA', fillOpacity: 1, strokeColor: '#FFFFFF', strokeWeight: 2 },
+      title: navigating ? 'Navigation direction' : 'Your location',
+      icon,
     });
-    else currentMarker.current.setPosition({ lat: currentLocation.latitude, lng: currentLocation.longitude });
-  }, [mapReady, currentLocation]);
+    else {
+      currentMarker.current.setPosition({ lat: currentLocation.latitude, lng: currentLocation.longitude });
+      currentMarker.current.setTitle(navigating ? 'Navigation direction' : 'Your location');
+      currentMarker.current.setIcon(icon);
+    }
+  }, [mapReady, currentLocation, navigating, stepIndex, target]);
 
   useEffect(() => {
     if (!origin || !target) return;
@@ -134,6 +184,8 @@ export default function MapNavigation({ target, onClose }: Props) {
     void getMapRoutes(origin, target, mode).then((result) => {
       if (!active) return;
       setRoutes(result);
+      passedRouteSegment.current = 0;
+      offRouteCount.current = 0;
       setSelectedRouteIndex(0);
       setStepIndex(0);
       setRerouting(false);
@@ -154,9 +206,14 @@ export default function MapNavigation({ target, onClose }: Props) {
     const map = mapReady ? mapRef.current : null;
     if (!map || !target) return;
     lines.current.forEach((line) => line.setMap(null));
-    lines.current = routes.map((route, index) => {
-      const path = routeCoordinates[index].map((point) => ({ lat: point.latitude, lng: point.longitude }));
-      return new google.maps.Polyline({
+    lines.current = [];
+    routes.forEach((route, index) => {
+      if (navigating && index !== selectedRouteIndex) return;
+      const coordinates = navigating && currentLocation
+        ? getRemainingRouteCoordinates(currentLocation, routeCoordinates[index] ?? [], passedRouteSegment.current)
+        : routeCoordinates[index] ?? [];
+      const path = coordinates.map((point) => ({ lat: point.latitude, lng: point.longitude }));
+      lines.current.push(new google.maps.Polyline({
         map,
         path,
         clickable: false,
@@ -164,15 +221,15 @@ export default function MapNavigation({ target, onClose }: Props) {
         strokeOpacity: index === selectedRouteIndex ? 0.9 : 0.65,
         strokeWeight: index === selectedRouteIndex ? 6 : 3,
         zIndex: index === selectedRouteIndex ? 2 : 1,
-      });
+      }));
     });
-    if (routes.length && routeCoordinates[selectedRouteIndex]?.length) {
+    if (!navigating && routes.length && routeCoordinates[selectedRouteIndex]?.length) {
       const bounds = new google.maps.LatLngBounds();
       routeCoordinates[selectedRouteIndex].forEach((point) => bounds.extend({ lat: point.latitude, lng: point.longitude }));
       bounds.extend({ lat: target.latitude, lng: target.longitude });
       map.fitBounds(bounds, { top: 100, right: 35, bottom: navigating ? 270 : 245, left: 35 });
     }
-  }, [mapReady, routes, routeCoordinates, selectedRouteIndex, target, navigating]);
+  }, [mapReady, routes, routeCoordinates, selectedRouteIndex, target, navigating, currentLocation]);
 
   const startNavigation = () => {
     if (!currentLocation || !selectedRoute) {
@@ -182,8 +239,26 @@ export default function MapNavigation({ target, onClose }: Props) {
     setOrigin(currentLocation);
     setNavigating(true);
     setError('');
+    mapRef.current?.panTo({ lat: currentLocation.latitude, lng: currentLocation.longitude });
+    mapRef.current?.setZoom(18);
   };
   const step = selectedRoute?.steps[stepIndex];
+  const navigationHeading = currentLocation && step?.endLocation
+    ? bearingDegrees(currentLocation, step.endLocation)
+    : 0;
+  const recenter = () => {
+    if (!currentLocation || !mapRef.current) return;
+    mapRef.current.setZoom(navigating ? 18 : 15);
+    mapRef.current.setHeading(navigating ? navigationHeading : 0);
+    mapRef.current.setTilt(is3dView ? 45 : 0);
+    mapRef.current.panTo({ lat: currentLocation.latitude, lng: currentLocation.longitude });
+  };
+  const toggle3dView = () => {
+    const next = !is3dView;
+    setIs3dView(next);
+    mapRef.current?.setMapTypeId(next ? google.maps.MapTypeId.SATELLITE : google.maps.MapTypeId.ROADMAP);
+    mapRef.current?.setTilt(next ? 45 : 0);
+  };
 
   if (!target) return null;
   return (
@@ -195,10 +270,30 @@ export default function MapNavigation({ target, onClose }: Props) {
         </Pressable>
         <View style={styles.headerCopy}><Text style={styles.eyebrow}>ROUTE TO</Text><Text numberOfLines={1} style={styles.title}>{target.title}</Text></View>
       </View>
+      <View style={styles.mapControls}>
+        <Pressable
+          onPress={toggle3dView}
+          style={styles.mapControl}
+          accessibilityRole="button"
+          accessibilityLabel={is3dView ? 'Switch to 2D map view' : 'Switch to 3D map view'}
+        >
+          <MaterialCommunityIcons name={is3dView ? 'cube-outline' : 'cube-scan'} size={19} color={Colors.text} />
+          <Text style={styles.mapControlLabel}>{is3dView ? '2D' : '3D'}</Text>
+        </Pressable>
+        <Pressable
+          onPress={recenter}
+          style={styles.mapControl}
+          accessibilityRole="button"
+          accessibilityLabel="Recenter map on your location"
+        >
+          <MaterialCommunityIcons name="crosshairs-gps" size={20} color={Colors.primary} />
+        </Pressable>
+      </View>
       <View style={styles.panel}>
         <View style={styles.modeRow}>
-          {(['DRIVE', 'WALK'] as const).map((travelMode) => <Pressable
+          {(['WALK', 'TWO_WHEELER', 'DRIVE'] as const).map((travelMode) => <Pressable
             key={travelMode}
+            accessibilityLabel={travelMode === 'DRIVE' ? 'Four wheels' : travelMode === 'TWO_WHEELER' ? 'Two wheels' : 'Walking'}
             onPress={() => {
               if (navigating && currentLocation) setOrigin(currentLocation);
               setMode(travelMode);
@@ -207,8 +302,14 @@ export default function MapNavigation({ target, onClose }: Props) {
             accessibilityRole="button"
             accessibilityState={{ selected: mode === travelMode }}
           >
-            <MaterialCommunityIcons name={travelMode === 'DRIVE' ? 'car' : 'walk'} size={18} color={mode === travelMode ? Colors.primary : Colors.textMuted} />
-            <Text style={[styles.modeLabel, mode === travelMode && styles.modeLabelSelected]}>{travelMode === 'DRIVE' ? 'Driving' : 'Walking'}</Text>
+            <MaterialCommunityIcons
+              name={travelMode === 'DRIVE' ? 'car' : travelMode === 'TWO_WHEELER' ? 'motorbike' : 'walk'}
+              size={18}
+              color={mode === travelMode ? Colors.primary : Colors.textMuted}
+            />
+            <Text style={[styles.modeLabel, mode === travelMode && styles.modeLabelSelected]}>
+              {travelMode === 'DRIVE' ? '4 wheels' : travelMode === 'TWO_WHEELER' ? '2 wheels' : 'Walk'}
+            </Text>
           </Pressable>)}
         </View>
         {loading ? <View style={styles.loading}><ActivityIndicator color={Colors.primary} /><Text style={styles.muted}>{rerouting ? 'Recalculating route…' : 'Finding routes…'}</Text></View> : null}
@@ -226,7 +327,7 @@ export default function MapNavigation({ target, onClose }: Props) {
           </Pressable>)}
         </ScrollView>}
         {navigating && <View style={styles.instruction}>
-          <MaterialCommunityIcons name={mode === 'DRIVE' ? 'navigation' : 'walk'} size={22} color={Colors.primary} />
+          <MaterialCommunityIcons name="navigation" size={22} color={Colors.primary} />
           <View style={styles.instructionCopy}>
             <Text style={styles.instructionTitle}>{rerouting ? 'Recalculating route…' : step?.instruction ?? 'Continue to your destination'}</Text>
             {step ? <Text style={styles.muted}>{formatDistance(step.distanceMeters)} · {formatDuration(selectedRoute?.durationSeconds ?? 0)} trip</Text> : null}
@@ -254,6 +355,9 @@ const styles = StyleSheet.create({
   container: { ...StyleSheet.absoluteFillObject, zIndex: 50, backgroundColor: '#E8ECEA' },
   map: { ...StyleSheet.absoluteFillObject },
   header: { position: 'absolute', top: 12, left: 12, right: 12, minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 16, backgroundColor: Colors.white, elevation: 7, shadowColor: '#142418', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
+  mapControls: { position: 'absolute', top: 90, right: 12, alignItems: 'flex-end', gap: 8 },
+  mapControl: { minWidth: 44, height: 44, paddingHorizontal: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5, borderRadius: 13, backgroundColor: Colors.white, elevation: 6, shadowColor: '#142418', shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  mapControlLabel: { color: Colors.text, fontSize: 11, fontWeight: '800' },
   close: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#F1F4F1' },
   headerCopy: { flex: 1 },
   eyebrow: { color: Colors.textMuted, fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
