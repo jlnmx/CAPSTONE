@@ -30,6 +30,7 @@ export default function UsersView() {
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All roles');
   const [statusFilter, setStatusFilter] = useState('All statuses');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [editing, setEditing] = useState<UserRecord | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
@@ -55,7 +56,14 @@ export default function UsersView() {
   const visible = useMemo(() => users.filter((user) => {
     const matchesSearch = `${user.name} ${user.email} ${user.role}`.toLowerCase().includes(query.toLowerCase());
     return matchesSearch && (roleFilter === 'All roles' || user.role === roleFilter) && (statusFilter === 'All statuses' || user.status === statusFilter);
-  }), [users, query, roleFilter, statusFilter]);
+  }).sort((left, right) => {
+    const leftCreated = Date.parse(left.createdAt);
+    const rightCreated = Date.parse(right.createdAt);
+    const leftValid = Number.isFinite(leftCreated);
+    const rightValid = Number.isFinite(rightCreated);
+    if (!leftValid || !rightValid) return leftValid === rightValid ? 0 : leftValid ? -1 : 1;
+    return sortOrder === 'newest' ? rightCreated - leftCreated : leftCreated - rightCreated;
+  }), [users, query, roleFilter, statusFilter, sortOrder]);
   const responders = users.filter((user) => user.role === 'Responder').length;
   const pending = users.filter((user) => user.status === 'Pending').length;
 
@@ -144,6 +152,10 @@ export default function UsersView() {
         <label className="search-field"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name or email" /></label>
         <select className="select-control" aria-label="Filter role" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option>All roles</option>{roles.map((role) => <option key={role}>{role}</option>)}</select>
         <select className="select-control" aria-label="Filter status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select>
+        <select className="select-control" aria-label="Sort accounts by creation date" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as 'newest' | 'oldest')}>
+          <option value="newest">Newest accounts first</option>
+          <option value="oldest">Oldest accounts first</option>
+        </select>
         <span className="results-count">{visible.length} of {users.length}</span>
       </div>
       {loading ? <LoadingState label="Loading user accounts" /> : visible.length === 0 ? <EmptyState title="No accounts found" detail="Adjust your filters or create a new account." /> : (

@@ -25,6 +25,15 @@ export default function RegistrationRoleScreen() {
         <View style={styles.card}>
           <GradientHeader title="Create your account" subtitle="Choose how you will use HANDA" icon="account-plus-outline" />
           <View style={styles.cardBody}>
+            <AnimatedPressable
+              style={styles.backButton}
+              onPress={() => router.replace('/(auth)/login')}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Login"
+            >
+              <MaterialCommunityIcons name="arrow-left" size={18} color="#D45B92" />
+              <Text style={styles.backText}>Back to Login</Text>
+            </AnimatedPressable>
             <View style={styles.intro}>
               <HandaLogoBadge size={48} />
               <View style={styles.introCopy}>
@@ -85,11 +94,13 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, width: '100%', maxWidth: 760, alignSelf: 'center', justifyContent: 'center', paddingHorizontal: 18, paddingVertical: 24 },
   card: { width: '100%', maxWidth: 560, alignSelf: 'center', borderRadius: 26, overflow: 'hidden', backgroundColor: Colors.surface, borderWidth: 1, borderColor: '#E0EAE0', shadowColor: '#123A1C', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 24, elevation: 7 },
   cardBody: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 22 },
-  intro: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 19 },
-  introCopy: { flex: 1 },
+  backButton: { minHeight: 36, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, marginBottom: 16, borderWidth: 1, borderColor: '#E0EAE0', borderRadius: 12, backgroundColor: '#FFFFFF' },
+  backText: { color: '#D45B92', fontFamily: kitFonts.bold, fontSize: 11 },
+  intro: { alignItems: 'center', gap: 10, marginBottom: 19 },
+  introCopy: { width: '100%', alignItems: 'center' },
   eyebrow: { color: '#D45B92', fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 1 },
-  title: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 21, marginTop: 4 },
-  subtitle: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  title: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 21, marginTop: 4, textAlign: 'center' },
+  subtitle: { color: Colors.textMuted, fontFamily: kitFonts.medium, fontSize: 12, lineHeight: 18, marginTop: 3, textAlign: 'center' },
   options: { gap: 11 },
   groupLabel: { color: Colors.textMuted, fontFamily: kitFonts.bold, fontSize: 9, letterSpacing: 1, marginTop: 4, marginBottom: -3 },
   option: { minHeight: 110, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#E2E9E3', borderRadius: 18, backgroundColor: '#FFFFFF', shadowColor: '#163B20', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 1 },
