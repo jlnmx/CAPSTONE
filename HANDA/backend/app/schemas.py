@@ -2,7 +2,7 @@ from datetime import date, datetime
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 PROFILE_PICTURE_MAX_CHARS = 400_000
 
@@ -302,12 +302,13 @@ class AdminUserCreate(BaseModel):
 
 
 class AdminUserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = Field(default=None, min_length=1, max_length=240)
     email: str | None = Field(default=None, pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$", max_length=255)
     birthday: date | None = None
     mobileNumber: str | None = Field(default=None, pattern=r"^(09\d{9}|\+639\d{9}|639\d{9})$")
     currentAddress: str | None = Field(default=None, min_length=1, max_length=500)
-    password: str | None = Field(default=None, min_length=8, max_length=128)
     role: Literal["Responder", "Resident", "Administrator"] | None = None
     status: Literal["Active", "Inactive", "Pending"] | None = None
     adminCategory: Literal["BCDRRMO", "CSWD"] | None = None

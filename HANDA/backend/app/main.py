@@ -2625,13 +2625,17 @@ def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depen
 @app.patch("/api/v1/users/{user_id}")
 def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depends(require_superadmin), connection: psycopg.Connection = Depends(get_connection)):
     changes = {field: value for field, value in update.model_dump(exclude_unset=True).items() if value is not None}
-    if not changes:
-        raise HTTPException(status_code=400, detail="Provide at least one account field to update.")
-    if user_id == user.id and any(field in changes for field in ("password", "role", "status")):
-        raise HTTPException(status_code=400, detail="You cannot change your own password, role, or status here.")
-    target = connection.execute("SELECT role, is_superadmin, admin_category FROM users WHERE id = %s FOR UPDATE", (user_id,)).fetchone()
+    target = connection.execute("SELECT email, role, status, is_superadmin, admin_category FROM users WHERE id = %s FOR UPDATE", (user_id,)).fetchone()
     if not target:
         raise HTTPException(status_code=404, detail="User account not found.")
+    if "email" in changes:
+        requested_email = changes.pop("email").strip().lower()
+        if requested_email != target["email"].strip().lower():
+            raise HTTPException(status_code=422, detail="Email changes must be verified by the account owner in their account settings.")
+    if not changes:
+        raise HTTPException(status_code=400, detail="Provide at least one account field to update.")
+    if user_id == user.id and any(field in changes for field in ("role", "status")):
+        raise HTTPException(status_code=400, detail="You cannot change your own role or status here.")
     if target["is_superadmin"] and any(field in changes for field in ("role", "status")):
         raise HTTPException(status_code=400, detail="The superadmin role and status cannot be changed here.")
     if target["is_superadmin"] and "adminCategory" in changes:
@@ -2649,26 +2653,20 @@ def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depen
     ):
         raise HTTPException(status_code=422, detail="Choose BCDRRMO or CSWD for a sub-admin account.")
 
-    password = changes.pop("password", None)
-    assert_unique_contact(connection, changes.get("email"), changes.get("mobileNumber"), user_id)
-    if password:
-        validate_account_password(password)
-        changes["password_hash"] = hash_password(password)
+    assert_unique_contact(connection, None, changes.get("mobileNumber"), user_id)
 
     column_names = {
         "name": "name",
-        "email": "email",
         "birthday": "birthday",
         "mobileNumber": "mobile_number",
         "currentAddress": "current_address",
         "role": "role",
         "status": "status",
         "adminCategory": "admin_category",
-        "password_hash": "password_hash",
     }
     assignments = [f"{column_names[field]} = %s" for field in changes]
-    values = [value.strip().lower() if field == "email" else value.strip() if field in ("name", "currentAddress") else value for field, value in changes.items()]
-    if any(field in changes for field in ("password_hash", "role", "status", "adminCategory")):
+    values = [value.strip() if field in ("name", "currentAddress") else value for field, value in changes.items()]
+    if any(field in changes for field in ("role", "status", "adminCategory")):
         assignments.append("token_version = token_version + 1")
     assignments.append("updated_at = NOW()")
 
@@ -2679,9 +2677,22 @@ def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depen
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User account not found.")
-        if any(field in changes for field in ("password_hash", "role", "status", "adminCategory")):
+        if any(field in changes for field in ("role", "status", "adminCategory")):
             connection.execute("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = %s AND revoked_at IS NULL", (user_id,))
-        write_log(connection, "audit", "update", user.id, "user", user_id, f"Updated account fields: {', '.join(changes.keys())}.")
+        access_labels = {
+            "role": ("role", target["role"]),
+            "status": ("status", target["status"]),
+            "adminCategory": ("admin category", target.get("admin_category")),
+        }
+        access_changes = [
+            f"{label} {old or 'none'} → {changes[field] or 'none'}"
+            for field, (label, old) in access_labels.items()
+            if field in changes and old != changes[field]
+        ]
+        details = f"Updated account fields: {', '.join(changes.keys())}."
+        if access_changes:
+            details += f" Access changes: {'; '.join(access_changes)}."
+        write_log(connection, "audit", "update", user.id, "user", user_id, details)
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()
@@ -2689,20 +2700,9 @@ def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depen
     return row
 
 
-@app.delete("/api/v1/users/{user_id}", status_code=204)
-def delete_user(user_id: str, user: CurrentUser = Depends(require_superadmin), connection: psycopg.Connection = Depends(get_connection)):
-    if user_id == user.id:
-        raise HTTPException(status_code=400, detail="You cannot delete your own administrator account.")
-    target = connection.execute("SELECT is_superadmin FROM users WHERE id = %s FOR UPDATE", (user_id,)).fetchone()
-    if not target:
-        raise HTTPException(status_code=404, detail="User account not found.")
-    if target["is_superadmin"]:
-        raise HTTPException(status_code=400, detail="The superadmin account cannot be deleted.")
-    cursor = connection.execute("DELETE FROM users WHERE id = %s", (user_id,))
-    if cursor.rowcount == 0:
-        raise HTTPException(status_code=404, detail="User account not found.")
-    write_log(connection, "audit", "delete", user.id, "user", user_id, "Deleted a user account.")
-    connection.commit()
+@app.delete("/api/v1/users/{user_id}")
+def delete_user(_: CurrentUser = Depends(require_superadmin)):
+    raise HTTPException(status_code=405, detail="Permanent account deletion is disabled. Set the account status to Inactive instead.")
 
 
 def household_members_for_user(connection: psycopg.Connection, user_id: str) -> list[dict]:

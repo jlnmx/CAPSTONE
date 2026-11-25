@@ -3,10 +3,11 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import ValidationError
 
 from app.auth import CurrentUser, create_access_token, get_current_user, require_admin_category, require_roles, require_roles_or_admin_categories, require_superadmin
-from app.main import app, create_user, list_users, login_user, logout_user, mobile_login_candidates, refresh_user_session
-from app.schemas import AdminUserCreate, LogoutRequest, RefreshTokenInput, UserLogin
+from app.main import app, create_user, delete_user, list_users, login_user, logout_user, mobile_login_candidates, refresh_user_session, update_user
+from app.schemas import AdminUserCreate, AdminUserUpdate, LogoutRequest, RefreshTokenInput, UserLogin
 
 
 class FakeResult:
@@ -146,6 +147,81 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(result[0]["household_members"], members)
         self.assertIn("resident_household_members", connection.query)
         self.assertIn("jsonb_agg", connection.query)
+
+    def test_admin_user_update_rejects_password_fields(self):
+        with self.assertRaises(ValidationError):
+            AdminUserUpdate.model_validate({"password": "NewStrongPass1!"})
+
+    def test_admin_user_update_requires_owner_verified_email_change(self):
+        connection = FakeConnection({
+            "email": "resident@example.com",
+            "role": "Resident",
+            "status": "Active",
+            "is_superadmin": False,
+            "admin_category": None,
+        })
+
+        with self.assertRaises(HTTPException) as error:
+            update_user(
+                "resident-1",
+                AdminUserUpdate(email="changed@example.com"),
+                CurrentUser("admin-1", "admin@example.com", "Admin", "admin", 0, True),
+                connection,
+            )
+
+        self.assertEqual(error.exception.status_code, 422)
+        self.assertIn("verified by the account owner", error.exception.detail)
+        self.assertFalse(any(query.startswith("UPDATE users") for query, _ in connection.queries))
+
+    def test_admin_cannot_change_own_status(self):
+        connection = FakeConnection({
+            "email": "admin@example.com",
+            "role": "Administrator",
+            "status": "Active",
+            "is_superadmin": True,
+            "admin_category": None,
+        })
+
+        with self.assertRaises(HTTPException) as error:
+            update_user(
+                "admin-1",
+                AdminUserUpdate(status="Inactive"),
+                CurrentUser("admin-1", "admin@example.com", "Admin", "admin", 0, True),
+                connection,
+            )
+
+        self.assertEqual(error.exception.status_code, 400)
+        self.assertFalse(any(query.startswith("UPDATE users") for query, _ in connection.queries))
+
+    def test_deactivation_revokes_sessions_and_audits_access_change(self):
+        connection = FakeConnection({
+            "email": "resident@example.com",
+            "role": "Resident",
+            "status": "Active",
+            "is_superadmin": False,
+            "admin_category": None,
+        })
+
+        update_user(
+            "resident-1",
+            AdminUserUpdate(status="Inactive"),
+            CurrentUser("admin-1", "admin@example.com", "Admin", "admin", 0, True),
+            connection,
+        )
+
+        self.assertTrue(any("token_version = token_version + 1" in query for query, _ in connection.queries))
+        self.assertTrue(any("UPDATE refresh_tokens SET revoked_at" in query for query, _ in connection.queries))
+        audit = next(params for query, params in connection.queries if "INSERT INTO application_logs" in query)
+        self.assertIn("status Active → Inactive", audit[5])
+
+    def test_permanent_user_deletion_is_disabled(self):
+        connection = FakeConnection(None)
+
+        with self.assertRaises(HTTPException) as error:
+            delete_user(CurrentUser("admin-1", "admin@example.com", "Admin", "admin", 0, True))
+
+        self.assertEqual(error.exception.status_code, 405)
+        self.assertFalse(connection.executed)
 
     def test_login_rejects_mobile_number_shared_by_multiple_accounts(self):
         connection = FakeConnection([{"id": "resident-1"}, {"id": "resident-2"}])

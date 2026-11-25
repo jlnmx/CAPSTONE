@@ -301,10 +301,6 @@ export function updateUser(id: string, input: Partial<UserInput>) {
   return apiRequest<UserRecord>(`/api/v1/users/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
 }
 
-export function deleteUser(id: string) {
-  return apiRequest<void>(`/api/v1/users/${encodeURIComponent(id)}`, { method: 'DELETE' });
-}
-
 export function getLogs(category: 'sync' | 'audit') {
   return records<LogRecord>(`/api/v1/logs/${category}`);
 }

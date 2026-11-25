@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Eye, Mail, MapPin, Pencil, Phone, Plus, RotateCcw, Search, ShieldCheck, Trash2, UserRoundPlus, Users, X } from 'lucide-react';
-import { createUser, deleteUser, getResponderVerificationDocument, getUsers, reviewResponderApplication, updateUser } from '../api';
+import { CalendarDays, Eye, Mail, MapPin, Pencil, Phone, Plus, RotateCcw, Search, ShieldCheck, UserRoundPlus, UserRoundX, Users, X } from 'lucide-react';
+import { createUser, getResponderVerificationDocument, getUsers, reviewResponderApplication, updateUser } from '../api';
 import type { UserInput, UserRecord } from '../types';
 import type { ResponderVerificationDocument } from '../api';
 import { EmptyState, InlineNotice, LoadingState, MetricCard, PageHeading } from '../components/UI';
@@ -47,7 +47,7 @@ export default function UsersView() {
   const [editing, setEditing] = useState<UserRecord | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{ user: UserRecord; status: 'Active' | 'Inactive' } | null>(null);
   const [reviewTarget, setReviewTarget] = useState<UserRecord | null>(null);
   const [reviewDocument, setReviewDocument] = useState<ResponderVerificationDocument | null>(null);
   const [reviewError, setReviewError] = useState('');
@@ -119,9 +119,11 @@ export default function UsersView() {
       const payload = { ...form, name: form.name.trim(), email: form.email.trim().toLowerCase(), mobileNumber: phone };
       if (editing) {
         const changes: Partial<UserInput> = {};
-        (Object.keys(payload) as Array<keyof UserInput>).forEach((key) => {
-          if (key === 'password' && !payload.password) return;
-          if (payload[key] !== formValue(editing, key)) changes[key] = payload[key] as never;
+        const editableFields: Array<keyof UserInput> = ['name', 'role', 'birthday', 'mobileNumber', 'currentAddress', 'adminCategory'];
+        editableFields.forEach((key) => {
+          const currentValue = key === 'adminCategory' ? editing.adminCategory ?? null : formValue(editing, key);
+          const nextValue = key === 'adminCategory' ? payload.adminCategory ?? null : payload[key];
+          if (nextValue !== currentValue) changes[key] = nextValue as never;
         });
         if (!Object.keys(changes).length) { setFormError('No account details have changed.'); return; }
         await updateUser(editing.id, changes);
@@ -137,11 +139,11 @@ export default function UsersView() {
     return user[key as keyof UserRecord] ?? '';
   }
 
-  async function confirmDelete() {
-    if (!deleteTarget) return;
+  async function confirmStatusChange() {
+    if (!statusTarget) return;
     setSaving(true);
-    try { await deleteUser(deleteTarget.id); setDeleteTarget(null); await refresh(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'The account could not be deleted.'); }
+    try { await updateUser(statusTarget.user.id, { status: statusTarget.status }); setStatusTarget(null); await refresh(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'The account status could not be changed.'); }
     finally { setSaving(false); }
   }
 
@@ -210,7 +212,8 @@ export default function UsersView() {
                 {activeUser?.isSuperAdmin && <button className="button-secondary user-view-button" aria-label={`View profile for ${user.name}`} onClick={() => openUserOverview(user)}><Eye size={14} /><span>View</span></button>}
                 {user.role === 'Responder' && user.status === 'Pending' && user.hasVerificationDocument && <button className="button-secondary" onClick={() => void openResponderReview(user)}>Review ID &amp; face</button>}
                 <button className="icon-button action-edit" aria-label={`Edit ${user.name}`} onClick={() => openEdit(user)} disabled={!!user.isSuperAdmin && user.id !== activeUser?.id}><Pencil size={16} /></button>
-                {!user.isSuperAdmin && user.id !== activeUser?.id && <button className="icon-button action-delete" aria-label={`Delete ${user.name}`} onClick={() => setDeleteTarget(user)}><Trash2 size={16} /></button>}
+                {!user.isSuperAdmin && user.id !== activeUser?.id && user.status === 'Active' && <button className="button-secondary user-deactivate-button" aria-label={`Deactivate ${user.name}`} onClick={() => setStatusTarget({ user, status: 'Inactive' })}><UserRoundX size={15} /><span>Deactivate</span></button>}
+                {!user.isSuperAdmin && user.id !== activeUser?.id && user.status === 'Inactive' && <button className="button-secondary user-activate-button" aria-label={`Reactivate ${user.name}`} onClick={() => setStatusTarget({ user, status: 'Active' })}><ShieldCheck size={15} /><span>Reactivate</span></button>}
               </div></td>
             </tr>)}</tbody>
           </table>
@@ -220,15 +223,16 @@ export default function UsersView() {
 
     {formOpen && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeForm(); }}><section className="modal-card modal-wide" role="dialog" aria-modal="true"><div className="modal-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h2>{editing ? 'Edit account' : 'Create account'}</h2></div><button className="icon-button" onClick={closeForm} aria-label="Close">×</button></div><form className="form-grid" onSubmit={(event) => void submit(event)}>
       <label className="form-field"><span>Full name *</span><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
-      <label className="form-field"><span>Email address *</span><input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
+      <label className="form-field"><span>Email address *</span><input type="email" required readOnly={!!editing} value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />{editing && <small className="user-email-help">Email changes must be verified by the account owner in their account settings.</small>}</label>
       <label className="form-field"><span>Role *</span><select disabled={editing?.id === activeUser?.id || editing?.isSuperAdmin} value={form.role} onChange={(event) => { const role = event.target.value as UserInput['role']; setForm({ ...form, role, adminCategory: role === 'Administrator' ? form.adminCategory : null, isSuperAdmin: role === 'Administrator' && form.isSuperAdmin }); }}>{roles.map((role) => <option key={role}>{role}</option>)}</select></label>
-      <label className="form-field"><span>Account status *</span><select disabled={editing?.id === activeUser?.id || editing?.isSuperAdmin || (!editing && !!form.isSuperAdmin)} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as UserInput['status'] })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
-      {form.role === 'Administrator' && !form.isSuperAdmin && <label className="form-field"><span>Sub-admin category *</span><select required={!form.isSuperAdmin} value={form.adminCategory ?? ''} onChange={(event) => setForm({ ...form, adminCategory: (event.target.value || null) as UserInput['adminCategory'] })}><option value="">Select category</option><option value="BCDRRMO">BCDRRMO · Dispatch and incidents</option><option value="CSWD">CSWD · Evacuation and centers</option></select></label>}
+      {editing ? <div className="form-field"><span>Account status</span><div className="user-edit-status"><span className={`status-pill status-${editing.status === 'Active' ? 'good' : editing.status === 'Pending' ? 'pending' : 'neutral'}`}><i />{editing.status}</span><small>Change access using the confirmed status action on the account list.</small></div></div> : <label className="form-field"><span>Account status *</span><select disabled={!editing && !!form.isSuperAdmin} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as UserInput['status'] })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>}
+      {form.role === 'Administrator' && !form.isSuperAdmin && <label className="form-field"><span>Sub-admin category *</span><select disabled={editing?.id === activeUser?.id} required={!form.isSuperAdmin} value={form.adminCategory ?? ''} onChange={(event) => setForm({ ...form, adminCategory: (event.target.value || null) as UserInput['adminCategory'] })}><option value="">Select category</option><option value="BCDRRMO">BCDRRMO · Dispatch and incidents</option><option value="CSWD">CSWD · Evacuation and centers</option></select></label>}
       {!editing && <label className="superadmin-option form-field-wide"><input type="checkbox" checked={!!form.isSuperAdmin} onChange={(event) => setForm({ ...form, isSuperAdmin: event.target.checked, adminCategory: event.target.checked ? null : form.adminCategory, role: event.target.checked ? 'Administrator' : form.role, status: event.target.checked ? 'Active' : form.status })} /><span><strong>Create as superadmin</strong><small>{form.role === 'Administrator' ? 'Full Command Center access, including user management. Leave unchecked to create a sub-admin.' : 'Grants full Command Center access, including user management and account administration.'}</small></span></label>}
       <label className="form-field"><span>Birthday</span><input type="date" value={form.birthday} onChange={(event) => setForm({ ...form, birthday: event.target.value })} /></label>
       <label className="form-field"><span>Mobile number</span><input value={form.mobileNumber} onChange={(event) => setForm({ ...form, mobileNumber: event.target.value })} placeholder="09XXXXXXXXX" /></label>
       <label className="form-field form-field-wide"><span>Current address</span><input value={form.currentAddress} onChange={(event) => setForm({ ...form, currentAddress: event.target.value })} /></label>
-      <label className="form-field form-field-wide"><span>{editing ? 'New password (leave blank to keep current)' : 'Initial password *'}</span><input type="password" required={!editing} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} autoComplete="new-password" /></label>
+      {!editing && <label className="form-field form-field-wide"><span>Initial password *</span><input type="password" required value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} autoComplete="new-password" /></label>}
+      {editing && <p className="user-password-help form-field-wide">Password changes are handled through the account’s secure password reset process.</p>}
       {formError && <InlineNotice tone="error">{formError}</InlineNotice>}
       <div className="modal-actions form-field-wide"><button type="button" className="button-secondary" onClick={closeForm}>Cancel</button><button type="submit" className="button-primary" disabled={saving}>{saving && <span className="button-spinner" />}{editing ? 'Save changes' : 'Create account'}</button></div>
     </form></section></div>}
@@ -309,6 +313,6 @@ export default function UsersView() {
       <div className="modal-actions"><button className="button-secondary" onClick={() => setReviewTarget(null)} disabled={reviewSaving}>Close</button><button className="button-danger" onClick={() => void decideResponderApplication('rejected')} disabled={!reviewDocument || !reviewIdLoaded || (!!reviewDocument.faceBase64 && !reviewFaceLoaded) || reviewSaving}>{reviewSaving ? 'Saving…' : 'Reject'}</button><button className="button-primary" onClick={() => void decideResponderApplication('approved')} disabled={!reviewDocument || !reviewIdLoaded || (!!reviewDocument.faceBase64 && !reviewFaceLoaded) || reviewSaving}>{reviewSaving ? 'Saving…' : 'Approve'}</button></div>
     </section></div>}
 
-    {deleteTarget && <div className="modal-backdrop"><section className="modal-card confirm-modal" role="alertdialog" aria-modal="true"><p className="eyebrow">REMOVE ACCESS</p><h2>Delete this account?</h2><p className="modal-copy"><strong>{deleteTarget.name}</strong> will immediately lose access to HANDA. This action cannot be undone.</p>{error && <InlineNotice tone="error">{error}</InlineNotice>}<div className="modal-actions"><button className="button-secondary" onClick={() => setDeleteTarget(null)}>Cancel</button><button className="button-danger" onClick={() => void confirmDelete()} disabled={saving}>{saving ? 'Deleting…' : 'Delete account'}</button></div></section></div>}
+    {statusTarget && <div className="modal-backdrop"><section className="modal-card confirm-modal" role="alertdialog" aria-modal="true"><p className="eyebrow">ACCESS CONTROL</p><h2>{statusTarget.status === 'Inactive' ? 'Deactivate this account?' : 'Reactivate this account?'}</h2><p className="modal-copy"><strong>{statusTarget.user.name}</strong>{statusTarget.status === 'Inactive' ? ' will lose access to HANDA and active sessions will be signed out. Their account and records will be retained.' : ' will regain access to HANDA and can sign in again.'}</p>{error && <InlineNotice tone="error">{error}</InlineNotice>}<div className="modal-actions"><button className="button-secondary" onClick={() => setStatusTarget(null)}>Cancel</button>{statusTarget.status === 'Inactive' ? <button className="button-danger" onClick={() => void confirmStatusChange()} disabled={saving}>{saving ? 'Deactivating…' : 'Deactivate account'}</button> : <button className="button-primary" onClick={() => void confirmStatusChange()} disabled={saving}>{saving ? 'Reactivating…' : 'Reactivate account'}</button>}</div></section></div>}
   </div>;
 }
