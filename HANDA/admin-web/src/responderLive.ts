@@ -166,14 +166,25 @@ export function useResponderLive() {
     let channel: RealtimeChannel | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let tokenTimer: ReturnType<typeof setTimeout> | undefined;
+    let suspended = false;
+    let connectionEpoch = 0;
+
+    const clearConnectionTimers = () => {
+      if (retryTimer) clearTimeout(retryTimer);
+      if (tokenTimer) clearTimeout(tokenTimer);
+      retryTimer = undefined;
+      tokenTimer = undefined;
+    };
 
     const scheduleTokenRefresh = () => {
+      if (!active || suspended) return;
       if (tokenTimer) clearTimeout(tokenTimer);
       const refreshIn = Math.max(10_000, (tokenExpiresAt - Date.now()) * 0.75);
       tokenTimer = setTimeout(() => {
         void refreshRealtimeAuth(true)
           .then(scheduleTokenRefresh)
           .catch((error: unknown) => {
+            if (!active || suspended) return;
             setStatus('AUTH_ERROR');
             setErrorMessage(getErrorSummary(error));
           });
@@ -181,9 +192,11 @@ export function useResponderLive() {
     };
 
     const connect = async () => {
+      if (!active || suspended) return;
+      const epoch = ++connectionEpoch;
       try {
         await refreshRealtimeAuth();
-        if (!active) return;
+        if (!active || suspended || epoch !== connectionEpoch) return;
         if (channel) void supabase.removeChannel(channel);
         const nextChannel = supabase.channel('responders:live', {
           config: { private: true, broadcast: { self: false } },
@@ -210,7 +223,7 @@ export function useResponderLive() {
             if (location) setLocations((current) => ({ ...current, [location.user_id]: location }));
           })
           .subscribe((nextStatus, error) => {
-            if (!active) return;
+            if (!active || suspended || epoch !== connectionEpoch) return;
             setStatus(nextStatus);
             if (nextStatus === 'SUBSCRIBED') setErrorMessage('');
             else if (error) setErrorMessage(getErrorSummary(error));
@@ -228,7 +241,7 @@ export function useResponderLive() {
         channel = nextChannel;
         scheduleTokenRefresh();
       } catch {
-        if (!active) return;
+        if (!active || suspended || epoch !== connectionEpoch) return;
         setStatus('AUTH_ERROR');
         setErrorMessage('Could not obtain a Realtime access token.');
         if (!retryTimer) retryTimer = setTimeout(() => {
@@ -238,14 +251,34 @@ export function useResponderLive() {
       }
     };
 
+    const handlePageHide = () => {
+      suspended = true;
+      connectionEpoch += 1;
+      clearConnectionTimers();
+      if (channel) {
+        void supabase.removeChannel(channel);
+        channel = null;
+      }
+    };
+    const handlePageShow = () => {
+      if (!active || !suspended) return;
+      suspended = false;
+      setStatus('connecting');
+      void connect();
+    };
+
+    window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('pageshow', handlePageShow);
     void connect();
     const clock = setInterval(() => setNow(Date.now()), 5000);
     return () => {
       active = false;
+      connectionEpoch += 1;
+      window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('pageshow', handlePageShow);
       clearInterval(clock);
       window.clearInterval(apiTimer);
-      if (retryTimer) clearTimeout(retryTimer);
-      if (tokenTimer) clearTimeout(tokenTimer);
+      clearConnectionTimers();
       if (channel) void supabase.removeChannel(channel);
     };
   }, []);

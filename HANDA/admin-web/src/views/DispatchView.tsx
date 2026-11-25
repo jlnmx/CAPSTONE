@@ -40,6 +40,9 @@ export default function DispatchView() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [incidentSort, setIncidentSort] = useState('newest');
+  const [responderSearch, setResponderSearch] = useState('');
+  const [responderStatusFilter, setResponderStatusFilter] = useState('all');
+  const [responderSort, setResponderSort] = useState('nearest');
   const [selectedResponderIds, setSelectedResponderIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,13 +125,34 @@ export default function DispatchView() {
       : null;
     return { responder, live, distance };
   }).sort((a, b) => {
+    if (responderSort === 'name') return a.responder.name.localeCompare(b.responder.name);
+    if (responderSort === 'online') {
+      const onlineDelta = Number(Boolean(b.live)) - Number(Boolean(a.live));
+      if (onlineDelta) return onlineDelta;
+    }
     if (a.distance != null && b.distance != null) return a.distance - b.distance || a.responder.name.localeCompare(b.responder.name);
     if (a.distance != null) return -1;
     if (b.distance != null) return 1;
     if (a.live?.location && !b.live?.location) return -1;
     if (b.live?.location && !a.live?.location) return 1;
     return a.responder.name.localeCompare(b.responder.name);
-  }), [responders, liveResponders, incident]);
+  }), [responders, liveResponders, incident, responderSort]);
+  const filteredResponders = useMemo(() => {
+    const query = responderSearch.trim().toLowerCase();
+    return sortedResponders.filter(({ responder, live }) => {
+      if (responderStatusFilter === 'online' && !live) return false;
+      if (responderStatusFilter === 'offline' && live) return false;
+      if (!query) return true;
+      return [
+        responder.name,
+        responder.responder_organization,
+        responder.responder_barangay,
+        live?.location?.city,
+        live?.location?.barangay,
+      ].some((value) => value?.toLowerCase().includes(query));
+    });
+  }, [sortedResponders, responderSearch, responderStatusFilter]);
+  const onlineResponderCount = responders.filter((responder) => liveResponders[responder.id]).length;
 
   const toggleResponder = (responderId: string) => {
     setSelectedResponderIds((current) => current.includes(responderId)
@@ -203,89 +227,137 @@ export default function DispatchView() {
       {apiStatus === 'error' && <small>{apiErrorMessage || realtimeError}</small>}
     </div>
 
-    {loading ? <LoadingState label="Loading incidents and active responders" /> : <div className="dispatch-layout">
+    {loading ? <LoadingState label="Loading incidents and active responders" /> : <div className="dispatch-workspace">
+      <section className="surface-panel dispatch-incident-panel">
+        <div className="panel-heading">
+          <div><p className="eyebrow">INCIDENT CONTROL</p><h2>Active incidents</h2><p className="panel-subtitle">Select an incident to review its details and dispatch responders.</p></div>
+          <span className="dispatch-count"><Activity size={15} /> {filteredIncidents.length} / {incidents.length}</span>
+        </div>
+        <div className="dispatch-incident-filters">
+          <label className="form-field dispatch-search-field"><span>Search incidents</span><span className="dispatch-search-input"><Search size={15} /><input type="search" placeholder="Type, location, or details" value={incidentSearch} onChange={(event) => setIncidentSearch(event.target.value)} /></span></label>
+          <label className="form-field"><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="all">All active statuses</option>
+            <option value="reported">Reported</option>
+            <option value="acknowledged">Acknowledged</option>
+            <option value="in_progress">In progress</option>
+          </select></label>
+          <label className="form-field"><span>Severity</span><select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}>
+            <option value="all">All severity levels</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select></label>
+          <label className="form-field"><span>Sort by</span><select value={incidentSort} onChange={(event) => setIncidentSort(event.target.value)}>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="severity">Highest severity</option>
+            <option value="status">Status</option>
+          </select></label>
+          {(incidentSearch || statusFilter !== 'all' || severityFilter !== 'all' || incidentSort !== 'newest') && <button className="button-secondary dispatch-clear-filters" onClick={() => { setIncidentSearch(''); setStatusFilter('all'); setSeverityFilter('all'); setIncidentSort('newest'); }}>Clear filters</button>}
+        </div>
+
+        {incidents.length === 0
+          ? <EmptyState title="No active incidents" detail="New reports will appear here for response planning." />
+          : filteredIncidents.length === 0
+            ? <EmptyState title="No incidents match these filters" detail="Try changing your search or clearing one or more filters." />
+            : <div className="dispatch-incident-grid">
+              {filteredIncidents.map((item) => {
+                const selected = incident?.id === item.id;
+                const severity = (item.severity || 'medium').toLowerCase();
+                return <button
+                  type="button"
+                  className={`dispatch-incident-card ${selected ? 'is-selected' : ''} severity-${severity}`}
+                  key={item.id}
+                  onClick={() => { setSelectedIncidentId(item.id); setSelectedResponderIds([]); setNotice(''); }}
+                  aria-pressed={selected}
+                >
+                  <span className="dispatch-card-topline">
+                    <span className={`dispatch-status-pill status-${item.status.toLowerCase()}`}>{item.status.replace(/_/g, ' ')}</span>
+                    <span className={`dispatch-severity severity-text-${severity}`}>{severity}</span>
+                  </span>
+                  <strong className="dispatch-card-title">{item.type}</strong>
+                  <span className="dispatch-card-location"><MapPin size={14} />{locationLabel(item)}</span>
+                  <span className="dispatch-card-description">{item.description || 'No additional details provided.'}</span>
+                  <span className="dispatch-card-time"><Clock3 size={13} />{item.createdAt ? new Date(item.createdAt).toLocaleString() : 'Time unavailable'}</span>
+                </button>;
+              })}
+            </div>}
+
+        {incident && <div className="dispatch-selected-incident">
+          <div className="dispatch-selected-heading">
+            <div><p className="eyebrow">SELECTED INCIDENT</p><h3>{incident.type}</h3></div>
+            <div className="dispatch-selected-actions">
+              {incident.status === 'acknowledged' && assigned.length > 0 && <button className="button-secondary" onClick={() => void markIncidentInProgress()} disabled={busy}><Activity size={15} /> Mark in progress</button>}
+              {incident.status === 'in_progress' && <button className="button-danger" onClick={() => void resolveIncident()} disabled={busy}><Check size={15} /> Mark resolved</button>}
+            </div>
+          </div>
+          <p className="dispatch-incident-location"><MapPin size={15} /> {locationLabel(incident)}</p>
+          {incident.latitude != null && incident.longitude != null && <small className="dispatch-coordinates">{incident.latitude.toFixed(5)}, {incident.longitude.toFixed(5)}</small>}
+          <p className="dispatch-description">{incident.description || 'No additional details provided.'}</p>
+          <div className="dispatch-assignment-section">
+            <div className="dispatch-assignment-heading"><strong>Currently dispatched</strong><span>{assigned.length}</span></div>
+            {assigned.length ? assigned.map((assignment) => <div className="dispatch-assignment-row" key={assignment.responder_id}><span className="dispatch-assignment-mark"><Check size={13} /></span><span><strong>{assignment.name}</strong><small>{assignment.responder_organization || 'Responder'}</small></span><span className="dispatch-assignment-status">Deployed</span></div>) : <p className="dispatch-no-assignment">No responders deployed to this incident yet.</p>}
+          </div>
+        </div>}
+      </section>
+
       <section className="surface-panel dispatch-roster-panel">
         <div className="panel-heading">
-          <div><p className="eyebrow">AVAILABLE PERSONNEL</p><h2>Active responders</h2><p className="panel-subtitle">Only administrator-approved active accounts can be selected.</p></div>
-          <span className="dispatch-count"><Users size={15} /> {responders.length}</span>
+          <div><p className="eyebrow">AVAILABLE PERSONNEL</p><h2>Active responders</h2><p className="panel-subtitle">Online status and the latest shared location are shown below.</p></div>
+          <div className="dispatch-responder-summary"><span className="dispatch-count"><Users size={15} /> {filteredResponders.length} / {responders.length}</span><span className="dispatch-online-summary"><i /> {onlineResponderCount} online</span></div>
         </div>
-        {incident && incident.latitude != null && incident.longitude != null && <p className="dispatch-sort-note"><MapPin size={14} /> Sorted by distance to {incident.type}; responders without fresh GPS are listed last.</p>}
-        {incident && (incident.latitude == null || incident.longitude == null) && <p className="dispatch-sort-note"><MapPin size={14} /> This incident has no GPS pin; responders with fresh locations are listed first, then by name.</p>}
-        {!incident && <p className="dispatch-sort-note">Choose an active incident to rank responders by proximity.</p>}
-        {responders.length === 0 ? <EmptyState title="No active responders" detail="Active responder accounts will appear here when available." /> : <div className="dispatch-responder-list">
-          {sortedResponders.map(({ responder, live, distance }) => {
-            const alreadyAssigned = assignedIds.has(responder.id);
-            const checked = selectedResponderIds.includes(responder.id);
-            const currentArea = live?.location?.barangay
-              ? `Barangay ${live.location.barangay}`
-              : live?.location?.city;
-            return <label className={`dispatch-responder ${checked ? 'dispatch-responder-selected' : ''}`} key={responder.id}>
-              <input type="checkbox" checked={checked} onChange={() => toggleResponder(responder.id)} disabled={busy || alreadyAssigned} />
-              <span className="dispatch-avatar">{responder.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?'}</span>
-              <span className="dispatch-responder-copy">
-                <strong>{responder.name}</strong>
-                <small>{responder.responder_organization || 'Responder'}{currentArea ? ` · Now: ${currentArea}` : responder.responder_barangay ? ` · Registered: ${responder.responder_barangay}` : ''}</small>
-              </span>
-              <span className="dispatch-responder-meta">
-                {alreadyAssigned ? <span className="dispatch-assigned-tag"><Check size={12} /> Assigned</span> : <span className={`dispatch-presence ${live ? 'is-online' : ''}`}>{live ? 'Online' : 'Offline'}</span>}
-                <small>{formatDistance(distance, live)}</small>
-              </span>
-            </label>;
-          })}
-        </div>}
+        {incident && incident.latitude != null && incident.longitude != null && <p className="dispatch-sort-note"><MapPin size={14} /> Distances are measured from the selected incident. Responders without fresh GPS appear last.</p>}
+        <div className="dispatch-responder-filters">
+          <label className="form-field dispatch-search-field"><span>Search responders</span><span className="dispatch-search-input"><Search size={15} /><input type="search" placeholder="Name, organization, or location" value={responderSearch} onChange={(event) => setResponderSearch(event.target.value)} /></span></label>
+          <label className="form-field"><span>Availability</span><select value={responderStatusFilter} onChange={(event) => setResponderStatusFilter(event.target.value)}>
+            <option value="all">Online and offline</option>
+            <option value="online">Online only</option>
+            <option value="offline">Offline only</option>
+          </select></label>
+          <label className="form-field"><span>Sort by</span><select value={responderSort} onChange={(event) => setResponderSort(event.target.value)}>
+            <option value="nearest">Nearest to incident</option>
+            <option value="online">Online first</option>
+            <option value="name">Name A–Z</option>
+          </select></label>
+          {(responderSearch || responderStatusFilter !== 'all' || responderSort !== 'nearest') && <button className="button-secondary dispatch-clear-filters" onClick={() => { setResponderSearch(''); setResponderStatusFilter('all'); setResponderSort('nearest'); }}>Clear filters</button>}
+        </div>
+        {responders.length === 0
+          ? <EmptyState title="No active responders" detail="Active responder accounts will appear here when available." />
+          : filteredResponders.length === 0
+            ? <EmptyState title="No responders match these filters" detail="Try changing your search or availability filter." />
+            : <div className="dispatch-responder-grid">
+              {filteredResponders.map(({ responder, live, distance }) => {
+                const alreadyAssigned = assignedIds.has(responder.id);
+                const checked = selectedResponderIds.includes(responder.id);
+                const currentArea = live?.location?.barangay
+                  ? `Brgy. ${live.location.barangay}${live.location.city ? `, ${live.location.city}` : ''}`
+                  : live?.location?.city || responder.responder_barangay || '';
+                const coordinates = live?.location
+                  ? `${live.location.latitude.toFixed(5)}, ${live.location.longitude.toFixed(5)}`
+                  : '';
+                return <label className={`dispatch-responder-card ${checked ? 'is-selected' : ''}`} key={responder.id}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleResponder(responder.id)} disabled={busy || alreadyAssigned} aria-label={`Select ${responder.name} for dispatch`} />
+                  <span className="dispatch-avatar">{responder.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?'}</span>
+                  <span className="dispatch-responder-card-main">
+                    <span className="dispatch-responder-card-heading"><strong>{responder.name}</strong><span className={`dispatch-presence ${live ? 'is-online' : ''}`}><i />{live ? 'Online' : 'Offline'}</span></span>
+                    <small>{responder.responder_organization || 'Responder'}</small>
+                    <span className="dispatch-responder-location"><MapPin size={13} />{currentArea ? `Current: ${currentArea}` : 'Current location unavailable'}</span>
+                    {coordinates && <span className="dispatch-responder-coordinates">{coordinates}</span>}
+                    <span className="dispatch-responder-card-footer">
+                      <span>{formatDistance(distance, live)}</span>
+                      {alreadyAssigned && <span className="dispatch-assigned-tag"><Check size={12} /> Assigned</span>}
+                    </span>
+                  </span>
+                </label>;
+              })}
+            </div>}
         <div className="dispatch-roster-footer">
           <span>{selectedResponderIds.length} selected</span>
           <button className="button-primary" onClick={() => void submitDispatch()} disabled={!incident || selectedResponderIds.length === 0 || busy}>
             <Send size={15} /> {busy ? 'Dispatching…' : `Dispatch ${selectedResponderIds.length || ''} responder${selectedResponderIds.length === 1 ? '' : 's'}`}
           </button>
         </div>
-      </section>
-
-      <section className="surface-panel dispatch-incident-panel">
-        <div className="panel-heading"><div><p className="eyebrow">INCIDENT CONTROL</p><h2>Select an incident</h2><p className="panel-subtitle">Dispatch acknowledges responders. Their first scene photo records arrival and moves the incident in progress.</p></div><span className="dispatch-count"><Activity size={15} /> {filteredIncidents.length} / {incidents.length}</span></div>
-        {incidents.length === 0 ? <EmptyState title="No active incidents" detail="New reports will appear here for response planning." /> : <>
-          <div className="dispatch-incident-filters">
-            <label className="form-field dispatch-search-field"><span>Search incidents</span><span className="dispatch-search-input"><Search size={15} /><input type="search" placeholder="Type, location, or details" value={incidentSearch} onChange={(event) => setIncidentSearch(event.target.value)} /></span></label>
-            <label className="form-field"><span>Status</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="all">All active statuses</option>
-              <option value="reported">Reported</option>
-              <option value="acknowledged">Acknowledged</option>
-              <option value="in_progress">In progress</option>
-            </select></label>
-            <label className="form-field"><span>Severity</span><select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}>
-              <option value="all">All severity levels</option>
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium">Medium</option>
-              <option value="low">Low</option>
-            </select></label>
-            <label className="form-field"><span>Sort by</span><select value={incidentSort} onChange={(event) => setIncidentSort(event.target.value)}>
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="severity">Highest severity</option>
-              <option value="status">Status</option>
-            </select></label>
-            {(incidentSearch || statusFilter !== 'all' || severityFilter !== 'all' || incidentSort !== 'newest') && <button className="button-secondary dispatch-clear-filters" onClick={() => { setIncidentSearch(''); setStatusFilter('all'); setSeverityFilter('all'); setIncidentSort('newest'); }}>Clear filters</button>}
-          </div>
-          {filteredIncidents.length === 0 ? <EmptyState title="No incidents match these filters" detail="Try changing your search or clearing one or more filters." /> : <>
-          <label className="form-field dispatch-incident-select"><span>Active incident</span><select value={selectedIncidentId} onChange={(event) => { setSelectedIncidentId(event.target.value); setSelectedResponderIds([]); setNotice(''); }}>
-            {filteredIncidents.map((item) => <option value={item.id} key={item.id}>{item.type} · {item.status.replace(/_/g, ' ').toUpperCase()} · {locationLabel(item)}</option>)}
-          </select></label>
-          {incident && <div className="dispatch-incident-detail">
-            <div className="dispatch-incident-heading"><div><span className="dispatch-status-pill">{incident.status.replace(/_/g, ' ')}</span><h3>{incident.type}</h3></div><span className="dispatch-severity">{incident.severity || 'medium'} severity</span></div>
-            <p className="dispatch-incident-location"><MapPin size={15} /> {locationLabel(incident)}</p>
-            {incident.latitude != null && incident.longitude != null && <small className="dispatch-coordinates">{incident.latitude.toFixed(5)}, {incident.longitude.toFixed(5)}</small>}
-            <p className="dispatch-description">{incident.description}</p>
-            <div className="dispatch-incident-meta"><Clock3 size={14} /> Reported {incident.createdAt ? new Date(incident.createdAt).toLocaleString() : 'time unavailable'}</div>
-          </div>}
-          <div className="dispatch-assignment-section">
-            <div className="dispatch-assignment-heading"><strong>Currently dispatched</strong><span>{assigned.length}</span></div>
-            {assigned.length ? assigned.map((assignment) => <div className="dispatch-assignment-row" key={assignment.responder_id}><span className="dispatch-assignment-mark"><Check size={13} /></span><span><strong>{assignment.name}</strong><small>{assignment.responder_organization || 'Responder'}</small></span><span className="dispatch-assignment-status">Deployed</span></div>) : <p className="dispatch-no-assignment">No responders deployed to this incident yet.</p>}
-          </div>
-          {incident?.status === 'acknowledged' && assigned.length > 0 && <button className="button-secondary dispatch-resolve" onClick={() => void markIncidentInProgress()} disabled={busy}><Activity size={15} /> Mark in progress</button>}
-          {incident?.status === 'in_progress' && <button className="button-danger dispatch-resolve" onClick={() => void resolveIncident()} disabled={busy}><Check size={15} /> Mark incident resolved</button>}
-          </>}
-        </>}
       </section>
     </div>}
     <div className="dispatch-footnote"><Radio size={14} /> Live GPS updates while responders are signed in, online, and have granted location permission. The roster refreshes every 15 seconds.</div>
