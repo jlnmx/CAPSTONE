@@ -175,6 +175,7 @@ export interface UserInput {
   mobileNumber?: string;
   currentAddress?: string;
   password?: string;
+  isSuperAdmin?: boolean;
 }
 
 export interface LogRecord {

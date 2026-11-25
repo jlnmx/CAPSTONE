@@ -689,7 +689,8 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS dispatch_siren_enabled BOOLEAN NOT NULL DEFAULT TRUE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN NOT NULL DEFAULT FALSE")
-        connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_one_superadmin_idx ON users (is_superadmin) WHERE is_superadmin")
+        connection.execute("DROP INDEX IF EXISTS users_one_superadmin_idx")
+        connection.execute("CREATE INDEX IF NOT EXISTS users_superadmin_idx ON users (id) WHERE is_superadmin")
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS responder_live_presence (
@@ -2558,29 +2559,35 @@ def assert_unique_contact(connection: psycopg.Connection, email: str | None, mob
 @app.post("/api/v1/users", status_code=201)
 def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_superadmin)):
     validate_account_password(account.password)
+    if account.isSuperAdmin and account.role != "Administrator":
+        raise HTTPException(status_code=422, detail="Superadmin access can only be granted to administrator accounts.")
+    if account.isSuperAdmin and account.status != "Active":
+        raise HTTPException(status_code=422, detail="A superadmin account must be active.")
     assert_unique_contact(connection, account.email, account.mobileNumber)
     user_id = f"user-{uuid4()}"
     try:
         row = connection.execute(
             """
             INSERT INTO users
-              (id, name, email, birthday, mobile_number, current_address, password_hash, role, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, name, email, birthday, mobile_number, current_address, role, status, created_at, updated_at
+              (id, name, email, birthday, mobile_number, current_address, password_hash, role, status, is_superadmin)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, name, email, birthday, mobile_number, current_address, role, status, is_superadmin, created_at, updated_at
             """,
-                        (
-                                user_id,
-                                account.name.strip(),
-                                account.email.strip().lower(),
-                                account.birthday,
-                                account.mobileNumber,
-                                account.currentAddress.strip(),
-                                hash_password(account.password),
-                                account.role,
-                                account.status,
-                        ),
+            (
+                user_id,
+                account.name.strip(),
+                account.email.strip().lower(),
+                account.birthday,
+                account.mobileNumber,
+                account.currentAddress.strip(),
+                hash_password(account.password),
+                account.role,
+                account.status,
+                account.isSuperAdmin,
+            ),
         ).fetchone()
-        write_log(connection, "audit", "create", user.id, "user", user_id, f"Created {account.role.lower()} account {account.email.strip().lower()}.")
+        account_kind = "superadmin" if account.isSuperAdmin else account.role.lower()
+        write_log(connection, "audit", "create", user.id, "user", user_id, f"Created {account_kind} account {account.email.strip().lower()}.")
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
         connection.rollback()

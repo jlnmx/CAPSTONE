@@ -5,8 +5,8 @@ from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.auth import CurrentUser, create_access_token, get_current_user, require_roles, require_superadmin
-from app.main import app, list_users, login_user, logout_user, mobile_login_candidates, refresh_user_session
-from app.schemas import LogoutRequest, RefreshTokenInput, UserLogin
+from app.main import app, create_user, list_users, login_user, logout_user, mobile_login_candidates, refresh_user_session
+from app.schemas import AdminUserCreate, LogoutRequest, RefreshTokenInput, UserLogin
 
 
 class FakeResult:
@@ -220,6 +220,55 @@ class AuthTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as error:
             require_superadmin(admin)
         self.assertEqual(error.exception.status_code, 403)
+
+    @patch("app.main.assert_unique_contact")
+    @patch("app.main.validate_account_password")
+    @patch("app.main.hash_password", return_value="password-hash")
+    def test_superadmin_can_create_another_active_superadmin(self, _hash, _validate, _unique):
+        account = AdminUserCreate(
+            name="Second Superadmin",
+            email="second@example.com",
+            birthday="1990-01-01",
+            mobileNumber="09171234567",
+            currentAddress="Biñan",
+            password="StrongPass1!",
+            role="Administrator",
+            status="Active",
+            isSuperAdmin=True,
+        )
+        connection = FakeConnection({"id": "admin-2", "is_superadmin": True})
+
+        result = create_user(
+            account,
+            connection,
+            CurrentUser("admin-1", "root@example.com", "Root", "admin", 0, True),
+        )
+
+        self.assertTrue(result["is_superadmin"])
+        self.assertIn("is_superadmin", connection.queries[0][0])
+        self.assertTrue(connection.queries[0][1][-1])
+
+    def test_superadmin_cannot_be_created_with_non_admin_role(self):
+        account = AdminUserCreate(
+            name="Invalid Superadmin",
+            email="invalid@example.com",
+            birthday="1990-01-01",
+            mobileNumber="09171234567",
+            currentAddress="Biñan",
+            password="StrongPass1!",
+            role="Responder",
+            status="Active",
+            isSuperAdmin=True,
+        )
+
+        with self.assertRaises(HTTPException) as error:
+            create_user(
+                account,
+                FakeConnection(None),
+                CurrentUser("admin-1", "root@example.com", "Root", "admin", 0, True),
+            )
+
+        self.assertEqual(error.exception.status_code, 422)
 
     def test_authenticated_user_loads_superadmin_flag_from_database(self):
         token, _ = create_access_token("root-1", "admin", 0)

@@ -287,6 +287,7 @@ class AdminUserCreate(BaseModel):
     password: str = Field(min_length=8, max_length=128)
     role: Literal["Responder", "Resident", "Administrator"]
     status: Literal["Active", "Inactive", "Pending"] = "Active"
+    isSuperAdmin: bool = False
 
 
 class AdminUserUpdate(BaseModel):

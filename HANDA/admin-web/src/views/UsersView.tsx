@@ -6,7 +6,7 @@ import type { ResponderVerificationDocument } from '../api';
 import { EmptyState, InlineNotice, LoadingState, MetricCard, PageHeading } from '../components/UI';
 import { useAuth } from '../auth';
 
-const blankUser: UserInput = { name: '', email: '', role: 'Responder', status: 'Active', birthday: '', mobileNumber: '', currentAddress: '', password: '' };
+const blankUser: UserInput = { name: '', email: '', role: 'Responder', status: 'Active', birthday: '', mobileNumber: '', currentAddress: '', password: '', isSuperAdmin: false };
 const roles: UserRecord['role'][] = ['Responder', 'Resident', 'Administrator'];
 const statuses: UserRecord['status'][] = ['Active', 'Inactive', 'Pending'];
 
@@ -71,7 +71,7 @@ export default function UsersView() {
   function openEdit(user: UserRecord) {
     setEditing(user);
     setFormOpen(true);
-    setForm({ name: user.name, email: user.email, role: user.role, status: user.status, birthday: user.birthday?.slice(0, 10) || '', mobileNumber: user.mobileNumber || '', currentAddress: user.currentAddress || '', password: '' });
+    setForm({ name: user.name, email: user.email, role: user.role, status: user.status, birthday: user.birthday?.slice(0, 10) || '', mobileNumber: user.mobileNumber || '', currentAddress: user.currentAddress || '', password: '', isSuperAdmin: user.isSuperAdmin ?? false });
     setFormError('');
   }
   function closeForm() { setFormOpen(false); setEditing(null); }
@@ -86,6 +86,8 @@ export default function UsersView() {
     if (phone && !/^(09\d{9}|\+639\d{9}|639\d{9})$/.test(phone)) { setFormError('Enter a valid Philippine mobile number.'); return; }
     if (!editing && !strongPassword(form.password || '')) { setFormError('Password needs 8+ characters with uppercase, lowercase, number, and symbol.'); return; }
     if (!editing && (!form.birthday || !phone || !form.currentAddress?.trim())) { setFormError('Birthday, mobile number, and current address are required for new accounts.'); return; }
+    if (!editing && form.isSuperAdmin && form.role !== 'Administrator') { setFormError('Superadmin access requires the Administrator role.'); return; }
+    if (!editing && form.isSuperAdmin && form.status !== 'Active') { setFormError('A superadmin account must be active.'); return; }
 
     setSaving(true);
     try {
@@ -186,8 +188,9 @@ export default function UsersView() {
     {formOpen && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeForm(); }}><section className="modal-card modal-wide" role="dialog" aria-modal="true"><div className="modal-heading"><div><p className="eyebrow">ACCESS CONTROL</p><h2>{editing ? 'Edit account' : 'Create account'}</h2></div><button className="icon-button" onClick={closeForm} aria-label="Close">×</button></div><form className="form-grid" onSubmit={(event) => void submit(event)}>
       <label className="form-field"><span>Full name *</span><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
       <label className="form-field"><span>Email address *</span><input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
-      <label className="form-field"><span>Role *</span><select disabled={editing?.id === activeUser?.id || editing?.isSuperAdmin} value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as UserInput['role'] })}>{roles.map((role) => <option key={role}>{role}</option>)}</select></label>
-      <label className="form-field"><span>Account status *</span><select disabled={editing?.id === activeUser?.id || editing?.isSuperAdmin} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as UserInput['status'] })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
+      <label className="form-field"><span>Role *</span><select disabled={editing?.id === activeUser?.id || editing?.isSuperAdmin} value={form.role} onChange={(event) => { const role = event.target.value as UserInput['role']; setForm({ ...form, role, isSuperAdmin: role === 'Administrator' && form.isSuperAdmin }); }}>{roles.map((role) => <option key={role}>{role}</option>)}</select></label>
+      <label className="form-field"><span>Account status *</span><select disabled={editing?.id === activeUser?.id || editing?.isSuperAdmin || (!editing && !!form.isSuperAdmin)} value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as UserInput['status'] })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
+      {!editing && <label className="superadmin-option form-field-wide"><input type="checkbox" checked={!!form.isSuperAdmin} onChange={(event) => setForm({ ...form, isSuperAdmin: event.target.checked, role: event.target.checked ? 'Administrator' : form.role, status: event.target.checked ? 'Active' : form.status })} /><span><strong>Create as superadmin</strong><small>{form.role === 'Administrator' ? 'Full Command Center access, including user management. Leave unchecked to create a sub-admin.' : 'Grants full Command Center access, including user management and account administration.'}</small></span></label>}
       <label className="form-field"><span>Birthday</span><input type="date" value={form.birthday} onChange={(event) => setForm({ ...form, birthday: event.target.value })} /></label>
       <label className="form-field"><span>Mobile number</span><input value={form.mobileNumber} onChange={(event) => setForm({ ...form, mobileNumber: event.target.value })} placeholder="09XXXXXXXXX" /></label>
       <label className="form-field form-field-wide"><span>Current address</span><input value={form.currentAddress} onChange={(event) => setForm({ ...form, currentAddress: event.target.value })} /></label>

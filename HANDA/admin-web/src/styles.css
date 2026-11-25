@@ -613,6 +613,11 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .dispatch-workspace .form-field { margin: 0; }
 .dispatch-workspace .form-field > span:first-child { margin-bottom: 6px; font-size: 10px; }
 .dispatch-workspace .form-field select { min-height: 39px; }
+.superadmin-option { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--brand-line); border-radius: 8px; background: var(--brand-pale); cursor: pointer; }
+.superadmin-option input { width: 16px; height: 16px; flex: 0 0 16px; margin: 2px 0 0; accent-color: var(--brand); }
+.superadmin-option > span { display: grid; gap: 4px; }
+.superadmin-option strong { color: var(--ink); font-size: 11px; font-weight: 850; }
+.superadmin-option small { color: var(--muted); font-size: 10px; line-height: 1.5; }
 .dispatch-incident-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 275px), 1fr)); gap: 11px; }
 .dispatch-incident-card { display: flex; min-width: 0; min-height: 188px; flex-direction: column; align-items: stretch; gap: 9px; padding: 15px; border: 1px solid var(--line); border-left: 4px solid var(--line-strong); border-radius: 10px; color: var(--ink); background: var(--surface); cursor: pointer; text-align: left; transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
 .dispatch-incident-card:hover { border-color: var(--brand-line); box-shadow: var(--shadow-sm); transform: translateY(-2px); }

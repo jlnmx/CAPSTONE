@@ -114,7 +114,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_barangay TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN NOT NULL DEFAULT FALSE;
-CREATE UNIQUE INDEX IF NOT EXISTS users_one_superadmin_idx ON users (is_superadmin) WHERE is_superadmin;
+CREATE INDEX IF NOT EXISTS users_superadmin_idx ON users (id) WHERE is_superadmin;
 UPDATE users
 SET is_superadmin = TRUE
 WHERE id = (
