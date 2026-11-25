@@ -158,6 +158,8 @@ export interface UserRecord {
   isSuperAdmin?: boolean;
   adminCategory?: AdminCategory | null;
   responderType?: 'Official' | 'Volunteer' | null;
+  responderOrganization?: string | null;
+  responderBarangay?: string | null;
   hasVerificationDocument?: boolean;
   birthday?: string;
   sex?: 'Male' | 'Female' | 'Other' | null;

@@ -260,6 +260,8 @@ export async function getUsers(options: { includeHouseholdMembers?: boolean } = 
     isSuperAdmin: Boolean(user.is_superadmin ?? user.isSuperAdmin),
     adminCategory: user.admin_category ?? user.adminCategory ?? null,
     responderType: user.responder_type ?? user.responderType ?? null,
+    responderOrganization: user.responder_organization ?? user.responderOrganization ?? null,
+    responderBarangay: user.responder_barangay ?? user.responderBarangay ?? null,
     hasVerificationDocument: Boolean(user.has_verification_document ?? user.hasVerificationDocument),
     birthday: user.birthday, sex: user.sex, mobileNumber: user.mobile_number ?? user.mobileNumber,
     currentAddress: user.current_address ?? user.currentAddress,
