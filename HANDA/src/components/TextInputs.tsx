@@ -53,7 +53,7 @@ export function TextInput({
           !editable && styles.inputDisabled,
         ]}
         placeholder={placeholder}
-        placeholderTextColor="#667085"
+        placeholderTextColor={palette.textMuted}
         value={value}
         onChangeText={onChangeText}
         editable={editable}
@@ -109,7 +109,7 @@ export function PasswordInput({
             error && styles.inputError,
           ]}
           placeholder={placeholder}
-          placeholderTextColor="#667085"
+          placeholderTextColor={palette.textMuted}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={!showPassword}
@@ -129,7 +129,7 @@ export function PasswordInput({
             <MaterialCommunityIcons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={20 * scale}
-              color={Colors.textMuted}
+              color={palette.textMuted}
             />
           </ThemeAwareTouchableOpacity>
         )}

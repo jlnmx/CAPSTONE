@@ -12,7 +12,7 @@ docker compose up --build
 
 The API is available at `http://localhost:8000`. OpenAPI documentation is at `http://localhost:8000/docs`.
 
-Login sessions normally expire after 8 hours. Selecting **Keep me signed in** stores the token persistently and extends its lifetime to 30 days; without it, web sessions remain tab-only.
+Access tokens normally expire after 8 hours. Selecting **Keep me signed in** stores a persistent refresh credential and enables automatic renewal with 30-day access tokens; the remembered session remains active until sign-out or an account-access change revokes it. Without it, web sessions remain tab-only and mobile sessions end when the app is restarted.
 
 ## Model-backed chatbot
 

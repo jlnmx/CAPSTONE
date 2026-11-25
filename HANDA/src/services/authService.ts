@@ -4,7 +4,20 @@
  */
 
 import { AuthUser, UserRole } from '@/types/index';
-import { API_BASE_URL, ApiReadinessError, authenticatedFetch, clearAccessToken, fetchWithRetry, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken, warmUpServer } from './apiClient';
+import {
+  API_BASE_URL,
+  ApiReadinessError,
+  authenticatedFetch,
+  clearAccessToken,
+  clearRefreshToken,
+  createPersistentRefreshToken,
+  fetchWithRetry,
+  getAccessToken,
+  getRefreshToken,
+  setAccessToken,
+  setRefreshToken,
+  warmUpServer,
+} from './apiClient';
 
 const MOCK_USERS = {
   admin: {
@@ -84,13 +97,17 @@ export class AuthService {
       if (response.ok) {
         const result = await response.json() as { accessToken?: string; refreshToken?: string; user?: AuthUser };
         if (result.accessToken && result.user) {
-            if (allowedRoles && !allowedRoles.includes(result.user.role)) {
-              throw new Error(allowedRoles.includes('admin')
-                ? 'Only administrator accounts can sign in to the Command Center.'
-                : 'Administrator accounts must sign in through the HANDA Command Center.');
-            }
+          if (allowedRoles && !allowedRoles.includes(result.user.role)) {
+            throw new Error(allowedRoles.includes('admin')
+              ? 'Only administrator accounts can sign in to the Command Center.'
+              : 'Administrator accounts must sign in through the HANDA Command Center.');
+          }
+          const refreshToken = keepLoggedIn
+            ? result.refreshToken || await createPersistentRefreshToken(result.accessToken)
+            : null;
+          if (refreshToken) await setRefreshToken(refreshToken);
+          else await clearRefreshToken();
           await setAccessToken(result.accessToken, keepLoggedIn);
-          if (result.refreshToken) await setRefreshToken(result.refreshToken);
           return result.user;
         }
       }

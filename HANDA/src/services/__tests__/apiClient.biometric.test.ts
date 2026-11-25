@@ -124,4 +124,41 @@ describe('biometric refresh-token storage', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     fetchMock.mockRestore();
   });
+
+  it('shares an in-flight refresh and retries requests that receive a late stale 401', async () => {
+    await setAccessToken('expired-access-token');
+    await setRefreshToken('persistent-refresh-token');
+    let oldTokenRequestCount = 0;
+    let resolveLateResponse: ((response: Response) => void) | undefined;
+    let markLateRequestStarted: (() => void) | undefined;
+    const lateRequestStarted = new Promise<void>((resolve) => {
+      markLateRequestStarted = resolve;
+    });
+    const fetchMock = jest.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const requestUrl = String(input);
+      if (requestUrl.endsWith('/api/v1/auth/refresh')) {
+        return { ok: true, status: 200, json: async () => ({ accessToken: 'renewed-access-token' }) } as Response;
+      }
+      const headerValue = new Headers(init?.headers).get('Authorization');
+      if (headerValue === 'Bearer expired-access-token') {
+        oldTokenRequestCount += 1;
+        if (oldTokenRequestCount === 1) return { ok: false, status: 401 } as Response;
+        markLateRequestStarted?.();
+        return new Promise((resolve) => { resolveLateResponse = resolve; });
+      }
+      return { ok: true, status: 200 } as Response;
+    });
+
+    const firstRequest = authenticatedFetch('/api/v1/protected');
+    const lateRequest = authenticatedFetch('/api/v1/protected');
+    await lateRequestStarted;
+    const firstResponse = await firstRequest;
+    resolveLateResponse?.({ ok: false, status: 401 } as Response);
+    const lateResponse = await lateRequest;
+
+    expect(firstResponse.status).toBe(200);
+    expect(lateResponse.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    fetchMock.mockRestore();
+  });
 });

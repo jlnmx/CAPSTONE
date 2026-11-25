@@ -16,6 +16,7 @@ import { TextInput, PasswordInput } from '@components/TextInputs';
 import { PrimaryButton } from '@components/Buttons';
 import RescueMascot from '@components/RescueMascot';
 import { getBiometricAvailability, isBiometricLoginEnrolled } from '@services/biometricAuth';
+import { useTheme } from '@hooks/useTheme';
 
 const kayaMessages = [
   "Hi! I'm Kaya. Welcome back to HANDA.",
@@ -26,6 +27,8 @@ const kayaMessages = [
 
 export default function LoginScreen() {
   const { login, loginWithBiometrics, error, isLoading } = useAuth();
+  const { palette, resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -81,11 +84,11 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.keyboardAvoidingView}
+      style={[styles.keyboardAvoidingView, { backgroundColor: palette.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: palette.background }]}
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -118,8 +121,8 @@ export default function LoginScreen() {
               <View style={styles.heroWelcomeCopy}>
                 <Text style={styles.heroTitle}>Welcome back</Text>
                 <Text style={styles.heroSubtitle}>Sign in to stay connected and ready.</Text>
-                <View style={styles.dialogueBubble}>
-                  <View pointerEvents="none" style={styles.dialogueTail} />
+                <View style={[styles.dialogueBubble, isDark && { backgroundColor: palette.surfaceMuted }]}>
+                  <View pointerEvents="none" style={[styles.dialogueTail, isDark && { backgroundColor: palette.surfaceMuted }]} />
                   <MaterialCommunityIcons name="chat-processing-outline" size={16} color="#D45B92" />
                   <Animated.View key={kayaMessageIndex} entering={FadeInDown.duration(260)} style={styles.dialogueCopy}>
                     <Text style={styles.dialogueText}>{kayaMessages[kayaMessageIndex]}</Text>
@@ -134,7 +137,7 @@ export default function LoginScreen() {
         </LinearGradient>
 
         <View style={styles.formArea}>
-          <Animated.View entering={FadeInUp.duration(500).delay(100)} style={styles.formSection}>
+          <Animated.View entering={FadeInUp.duration(500).delay(100)} style={[styles.formSection, { backgroundColor: palette.surface, borderColor: palette.border }]}>
             <View style={styles.cardHeading}>
               <Text style={styles.cardTitle}>Sign in to HANDA</Text>
               <Text style={styles.cardSubtitle}>Use your email or mobile number to continue.</Text>
@@ -142,13 +145,13 @@ export default function LoginScreen() {
 
             {biometricLoginEnabled && (
               <Pressable
-                style={styles.biometricButton}
+                style={[styles.biometricButton, { backgroundColor: isDark ? palette.surfaceMuted : '#FFF7FA', borderColor: palette.border }]}
                 onPress={() => void loginWithBiometrics()}
                 disabled={isLoading}
                 accessibilityRole="button"
                 accessibilityLabel="Biometric sign-in"
               >
-                <MaterialCommunityIcons name={biometricIcon} size={22} color="#A84F7D" />
+                <MaterialCommunityIcons name={biometricIcon} size={22} color={Colors.primary} />
                 <Text style={styles.biometricButtonText}>Biometric sign-in</Text>
               </Pressable>
             )}
@@ -195,11 +198,11 @@ export default function LoginScreen() {
               </Pressable>
             </View>
             {stayLoggedIn && (
-              <Text style={styles.stayInfo}>Your session renews automatically until you sign out or change your password.</Text>
+              <Text style={styles.stayInfo}>Your session renews automatically. You may need to sign in again if you sign out or your account access changes.</Text>
             )}
 
             {(validationError || error || biometricCheckError) && (
-              <View style={styles.errorContainer} accessibilityRole="alert">
+              <View style={[styles.errorContainer, isDark && { backgroundColor: '#3B2428', borderColor: '#71434A' }]} accessibilityRole="alert">
                 <MaterialCommunityIcons name="alert-circle-outline" size={19} color={Colors.emergency} />
                 <Text style={styles.errorMessage}>{validationError || error || biometricCheckError}</Text>
               </View>
@@ -214,7 +217,7 @@ export default function LoginScreen() {
               textStyle={styles.referenceButtonText}
             />
 
-            <View style={styles.divider} />
+            <View style={[styles.divider, isDark && { backgroundColor: palette.border }]} />
 
             <View style={styles.createPromptRow}>
               <Text style={styles.createPrompt}>New to HANDA?</Text>
@@ -225,7 +228,7 @@ export default function LoginScreen() {
           </Animated.View>
 
           <Animated.View entering={FadeInUp.duration(500).delay(220)} style={styles.securityNote}>
-            <MaterialCommunityIcons name="shield-check-outline" size={17} color="#A84F7D" />
+            <MaterialCommunityIcons name="shield-check-outline" size={17} color={Colors.primary} />
             <Text style={styles.securityText}>Your community response starts here.</Text>
           </Animated.View>
         </View>

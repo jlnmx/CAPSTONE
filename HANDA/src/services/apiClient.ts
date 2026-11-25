@@ -89,6 +89,8 @@ const unauthorizedListeners = new Set<() => void>();
 let unauthorizedHandled = false;
 let accessTokenCache: string | null = null;
 let refreshTokenCache: string | null = null;
+let lastRefreshedAccessToken: string | null = null;
+let refreshPromise: Promise<string | null> | null = null;
 
 export function subscribeToUnauthorized(listener: () => void): () => void {
   unauthorizedListeners.add(listener);
@@ -114,6 +116,7 @@ export async function getAccessToken(): Promise<string | null> {
 
 export async function setAccessToken(token: string, keepLoggedIn = true): Promise<void> {
   unauthorizedHandled = false;
+  lastRefreshedAccessToken = null;
   if (Platform.OS === 'web') {
     if (keepLoggedIn) {
       globalThis.localStorage?.setItem(ACCESS_TOKEN_KEY, token);
@@ -156,6 +159,15 @@ export async function setRefreshToken(token: string): Promise<void> {
   }
 }
 
+export async function clearRefreshToken(): Promise<void> {
+  refreshTokenCache = null;
+  if (Platform.OS === 'web') {
+    globalThis.localStorage?.removeItem(REFRESH_TOKEN_KEY);
+    return;
+  }
+  await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+}
+
 export async function isBiometricLoginEnabled(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   return (await SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY)) === '1';
@@ -192,6 +204,7 @@ export async function disableBiometricAccessToken(): Promise<void> {
 export async function clearAccessToken(preserveBiometric = false): Promise<void> {
   accessTokenCache = null;
   refreshTokenCache = null;
+  lastRefreshedAccessToken = null;
   if (Platform.OS === 'web') {
     globalThis.localStorage?.removeItem(ACCESS_TOKEN_KEY);
     globalThis.sessionStorage?.removeItem(ACCESS_TOKEN_KEY);
@@ -220,6 +233,17 @@ export async function getBiometricRefreshToken(): Promise<string | null> {
 }
 
 export async function refreshAccessToken(refreshToken?: string): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+  const pending = requestAccessTokenRefresh(refreshToken);
+  refreshPromise = pending;
+  try {
+    return await pending;
+  } finally {
+    if (refreshPromise === pending) refreshPromise = null;
+  }
+}
+
+async function requestAccessTokenRefresh(refreshToken?: string): Promise<string | null> {
   const token = refreshToken ?? await getRefreshToken();
   if (!token) return null;
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
@@ -237,6 +261,7 @@ export async function refreshAccessToken(refreshToken?: string): Promise<string 
   const result = await response.json() as { accessToken?: string };
   if (!result.accessToken) throw new Error('Session refresh did not return an access token.');
   await setAccessToken(result.accessToken);
+  lastRefreshedAccessToken = result.accessToken;
   return result.accessToken;
 }
 
@@ -258,7 +283,15 @@ export async function authenticatedFetch(path: string, init: RequestInit = {}): 
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  if (response.status !== 401 || !token || token !== await getAccessToken() || unauthorizedHandled) return response;
+  if (response.status !== 401 || !token || unauthorizedHandled) return response;
+
+  const currentToken = await getAccessToken();
+  if (token !== currentToken) {
+    if (!currentToken || currentToken !== lastRefreshedAccessToken) return response;
+    const retryHeaders = new Headers(init.headers);
+    retryHeaders.set('Authorization', `Bearer ${currentToken}`);
+    return fetch(`${API_BASE_URL}${path}`, { ...init, headers: retryHeaders });
+  }
 
   const refreshedToken = await refreshAccessToken();
   if (!refreshedToken) {
