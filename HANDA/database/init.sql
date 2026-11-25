@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('Responder', 'Resident', 'Administrator')),
   status TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive', 'Pending')),
   is_superadmin BOOLEAN NOT NULL DEFAULT FALSE,
+  admin_category TEXT CHECK (admin_category IS NULL OR admin_category IN ('BCDRRMO', 'CSWD')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -114,6 +115,26 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS responder_barangay TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_category TEXT;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'users_admin_category_check'
+      AND conrelid = 'users'::regclass
+  ) THEN
+    ALTER TABLE users ADD CONSTRAINT users_admin_category_check
+      CHECK (admin_category IS NULL OR admin_category IN ('BCDRRMO', 'CSWD'));
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'users_admin_category_role_check'
+      AND conrelid = 'users'::regclass
+  ) THEN
+    ALTER TABLE users ADD CONSTRAINT users_admin_category_role_check
+      CHECK (admin_category IS NULL OR role = 'Administrator');
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS users_superadmin_idx ON users (id) WHERE is_superadmin;
 UPDATE users
 SET is_superadmin = TRUE

@@ -1,4 +1,4 @@
-import type { ActiveResponderRecord, AdminSnapshot, CenterRecord, EvacuationRegistrationInput, EvacuationRegistrationRecord, EvacueeRecord, IncidentAssignment, IncidentRecord, LogRecord, UserInput, UserRecord } from './types';
+import type { ActiveResponderRecord, AdminCategory, AdminSnapshot, CenterRecord, EvacuationRegistrationInput, EvacuationRegistrationRecord, EvacueeRecord, IncidentAssignment, IncidentRecord, LogRecord, UserInput, UserRecord } from './types';
 
 const API_BASE = (import.meta.env.VITE_API_URL?.trim() || 'http://localhost:8000').replace(/\/$/, '');
 export const ACCESS_TOKEN_KEY = 'handa.accessToken';
@@ -92,13 +92,16 @@ async function records<T>(path: string): Promise<T[]> {
   return apiRequest<T[]>(path);
 }
 
-export async function getCommandMapSnapshot() {
+export async function getCommandMapSnapshot(adminCategory?: AdminCategory | null) {
   const [incidents, centers, reporters] = await Promise.all([
-    records<Record<string, any>>('/api/v1/incidents'),
-    records<Record<string, any>>('/api/v1/centers'),
-    getReporterContacts(),
+    adminCategory === 'CSWD' ? Promise.resolve([]) : records<Record<string, any>>('/api/v1/incidents'),
+    adminCategory === 'BCDRRMO' || adminCategory === null ? Promise.resolve([]) : records<Record<string, any>>('/api/v1/centers'),
+    adminCategory === 'BCDRRMO' || adminCategory === undefined ? getReporterContacts() : Promise.resolve(new Map()),
   ]);
-  return { incidents: incidents.map((record) => withReporter(normalizeIncident(record), reporters)), centers: centers.map(normalizeCenter) };
+  return {
+    incidents: incidents.map((record) => withReporter(normalizeIncident(record), reporters)),
+    centers: centers.map(normalizeCenter),
+  };
 }
 
 export async function getDispatchData() {
@@ -148,17 +151,34 @@ function withReporter(incident: IncidentRecord, reporters: Map<string, { name: s
   return reporter ? { ...incident, reporterName: reporter.name, reporterContact: reporter.mobile_number, reporterPicture: reporter.profile_picture ?? null } : incident;
 }
 
-export async function getAdminSnapshot(): Promise<AdminSnapshot> {
-  const results = await Promise.allSettled([
-    records<Record<string, any>>('/api/v1/incidents'),
-    records<Record<string, any>>('/api/v1/evacuees'),
-    records<Record<string, any>>('/api/v1/evacuation-registrations'),
-    records<Record<string, any>>('/api/v1/centers'),
-    records<ActiveResponderRecord>('/api/v1/responders/active'),
-  ]);
-  const reporters = await getReporterContacts();
-  const value = <T,>(index: number): T[] => results[index].status === 'fulfilled' ? results[index].value as T[] : [];
-  const registrations = value<Record<string, any>>(2);
+export async function getAdminSnapshot(adminCategory?: AdminCategory | null): Promise<AdminSnapshot> {
+  const scopedRequests: Array<[string, Promise<unknown[]>]> = adminCategory === null ? [] : adminCategory === 'BCDRRMO'
+    ? [
+      ['incidents', records<Record<string, any>>('/api/v1/incidents')],
+      ['activePersonnel', records<ActiveResponderRecord>('/api/v1/responders/active')],
+    ]
+    : adminCategory === 'CSWD'
+      ? [
+        ['evacuees', records<Record<string, any>>('/api/v1/evacuees')],
+        ['registrations', records<Record<string, any>>('/api/v1/evacuation-registrations')],
+        ['centers', records<Record<string, any>>('/api/v1/centers')],
+      ]
+      : [
+        ['incidents', records<Record<string, any>>('/api/v1/incidents')],
+        ['evacuees', records<Record<string, any>>('/api/v1/evacuees')],
+        ['registrations', records<Record<string, any>>('/api/v1/evacuation-registrations')],
+        ['centers', records<Record<string, any>>('/api/v1/centers')],
+        ['activePersonnel', records<ActiveResponderRecord>('/api/v1/responders/active')],
+      ];
+  const settled = await Promise.all(scopedRequests.map(([, request]) => Promise.allSettled([request]).then(([result]) => result)));
+  const resultByKey = new Map(scopedRequests.map(([key], index) => [key, settled[index]]));
+  const value = <T,>(key: string): T[] => {
+    const result = resultByKey.get(key);
+    return result?.status === 'fulfilled' ? result.value as T[] : [];
+  };
+  const incidents = value<Record<string, any>>('incidents');
+  const reporters = adminCategory === 'CSWD' || adminCategory === null ? new Map() : await getReporterContacts();
+  const registrations = value<Record<string, any>>('registrations');
   const registeredPeople = registrations.flatMap((registration) => {
     const shared = {
       barangay: registration.address || '',
@@ -183,11 +203,11 @@ export async function getAdminSnapshot(): Promise<AdminSnapshot> {
     return [head, ...members];
   });
   return {
-    incidents: value<Record<string, any>>(0).map((record) => withReporter(normalizeIncident(record), reporters)),
-    evacuees: [...value<Record<string, any>>(1).map(normalizeEvacuee), ...registeredPeople],
-    centers: value<Record<string, any>>(3).map(normalizeCenter),
-    activePersonnel: value<ActiveResponderRecord>(4).length,
-    source: results.every((result) => result.status === 'fulfilled') ? 'remote' : 'unavailable',
+    incidents: incidents.map((record) => withReporter(normalizeIncident(record), reporters)),
+    evacuees: [...value<Record<string, any>>('evacuees').map(normalizeEvacuee), ...registeredPeople],
+    centers: value<Record<string, any>>('centers').map(normalizeCenter),
+    activePersonnel: value<ActiveResponderRecord>('activePersonnel').length,
+    source: settled.every((result) => result.status === 'fulfilled') ? 'remote' : 'unavailable',
   };
 }
 
@@ -238,6 +258,7 @@ export async function getUsers(options: { includeHouseholdMembers?: boolean } = 
   return users.map((user): UserRecord => ({
     id: String(user.id), name: user.name, email: user.email, role: user.role, status: user.status,
     isSuperAdmin: Boolean(user.is_superadmin ?? user.isSuperAdmin),
+    adminCategory: user.admin_category ?? user.adminCategory ?? null,
     responderType: user.responder_type ?? user.responderType ?? null,
     hasVerificationDocument: Boolean(user.has_verification_document ?? user.hasVerificationDocument),
     birthday: user.birthday, sex: user.sex, mobileNumber: user.mobile_number ?? user.mobileNumber,

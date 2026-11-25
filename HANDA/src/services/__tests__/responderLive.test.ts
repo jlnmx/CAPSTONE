@@ -47,6 +47,13 @@ describe('resolveResponderLocationArea', () => {
     expect(resolveResponderLocationArea({ city: 'Santa Rosa', district: 'Balibago', subregion: 'Laguna' }))
       .toEqual({ city: 'Santa Rosa' });
   });
+
+  it('resolves San Francisco (Halang) from its boundary when reverse geocoding omits the barangay', () => {
+    expect(resolveResponderLocationArea(
+      { city: 'Biñan City' },
+      { latitude: 14.3357, longitude: 121.06368 },
+    )).toEqual({ city: 'Biñan City', barangay: 'San Francisco (Halang)' });
+  });
 });
 
 describe('isRealtimeEnabledForUser', () => {

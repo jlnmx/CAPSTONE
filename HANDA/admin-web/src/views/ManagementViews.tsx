@@ -9,12 +9,16 @@ import { EmptyState, InlineNotice, LoadingState, MetricCard, PageHeading } from 
 const blankSnapshot: AdminSnapshot = { incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' };
 
 export function AnalyticsView() {
+  const { user } = useAuth();
   const [data, setData] = useState(blankSnapshot);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   useEffect(() => {
-    void getAdminSnapshot().then((snapshot) => { setData(snapshot); setError(snapshot.source === 'remote' ? '' : 'Some statistics are incomplete because one or more data sources are unavailable.'); }).catch((cause) => setError(cause instanceof Error ? cause.message : 'Analytics could not be loaded.')).finally(() => setLoading(false));
-  }, []);
+    void getAdminSnapshot(user?.isSuperAdmin ? undefined : user?.adminCategory ?? null).then((snapshot) => { setData(snapshot); setError(snapshot.source === 'remote' ? '' : 'Some statistics are incomplete because one or more data sources are unavailable.'); }).catch((cause) => setError(cause instanceof Error ? cause.message : 'Analytics could not be loaded.')).finally(() => setLoading(false));
+  }, [user?.id, user?.adminCategory, user?.isSuperAdmin]);
+  const canSeeIncidents = !!user?.isSuperAdmin || user?.adminCategory === 'BCDRRMO';
+  const canSeeEvacuation = !!user?.isSuperAdmin || user?.adminCategory === 'CSWD';
+  const hasScope = !!user?.isSuperAdmin || Boolean(user?.adminCategory);
   const week = useMemo(() => Array.from({ length: 7 }, (_, offset) => {
     const date = new Date(); date.setDate(date.getDate() - (6 - offset));
     const key = date.toISOString().slice(0, 10);
@@ -29,18 +33,19 @@ export function AnalyticsView() {
   const capacity = openCenters.reduce((total, center) => total + center.capacity, 0);
   const occupied = openCenters.reduce((total, center) => total + center.currentOccupancy, 0);
   return <div className="page-content">
-    <PageHeading eyebrow="DECISION SUPPORT" title="Analytics" description="A clear summary of registration, response, and shelter capacity." action={<button className="button-secondary" onClick={() => window.print()}><Download size={16} /> Print report</button>} />
+    <PageHeading eyebrow="DECISION SUPPORT" title="Analytics" description="Operational metrics for the services assigned to your department." action={<button className="button-secondary" onClick={() => window.print()}><Download size={16} /> Print report</button>} />
+    {!hasScope && <InlineNotice>Your sub-admin category has not been assigned. Contact a superadmin to enable department access.</InlineNotice>}
     {error && <InlineNotice>{error}</InlineNotice>}
     {loading ? <LoadingState label="Calculating operational metrics" /> : <>
-      <div className="metric-grid"><MetricCard label="Evacuees registered" value={data.evacuees.length} detail="All available records" icon={Activity} /><MetricCard label="Incidents reported" value={data.incidents.length} detail={`${data.incidents.filter((item) => item.status !== 'resolved').length} active`} icon={AlertTriangle} tone="red" /><MetricCard label="Resolution rate" value={`${resolution}%`} detail={`${resolved} resolved incidents`} icon={Check} tone="green" /><MetricCard label="Center utilization" value={capacity ? `${Math.round(occupied / capacity * 100)}%` : '—'} detail={`${occupied} of ${capacity} places`} icon={Cloud} tone="blue" /></div>
+      <div className="metric-grid">{canSeeEvacuation && <MetricCard label="Evacuees registered" value={data.evacuees.length} detail="Assigned evacuation records" icon={Activity} />}{canSeeIncidents && <MetricCard label="Incidents reported" value={data.incidents.length} detail={`${data.incidents.filter((item) => item.status !== 'resolved').length} active`} icon={AlertTriangle} tone="red" />}{canSeeIncidents && <MetricCard label="Resolution rate" value={`${resolution}%`} detail={`${resolved} resolved incidents`} icon={Check} tone="green" />}{canSeeEvacuation && <MetricCard label="Center utilization" value={capacity ? `${Math.round(occupied / capacity * 100)}%` : '—'} detail={`${occupied} of ${capacity} places`} icon={Cloud} tone="blue" />}</div>
       <div className="dashboard-grid analytics-grid">
-        <section className="surface-panel activity-panel analytics-registration-panel">
+        {canSeeEvacuation && <section className="surface-panel activity-panel analytics-registration-panel">
           <div className="panel-heading"><div><p className="eyebrow">REGISTRATION TREND</p><h2>Evacuees by day</h2><p className="panel-subtitle">New records during the last seven days</p></div></div>
           <div className="chart-area" role="img" aria-label="Evacuee registrations during the last seven days">
             {week.map((item) => <div className="chart-column" key={item.label}><span className="chart-count">{item.value}</span><div className="chart-track"><span className="chart-bar" style={{ height: `${Math.max(item.value ? 12 : 4, item.value / max * 100)}%` }} /></div><span className="chart-label">{item.label}</span></div>)}
           </div>
-        </section>
-        <section className="surface-panel pie-panel">
+        </section>}
+        {canSeeIncidents && <section className="surface-panel pie-panel">
           <p className="eyebrow">RESPONSE STATUS</p><h2>Incident breakdown</h2><p className="panel-subtitle">Active and resolved reports</p>
           <div className="incident-pie-layout">
             <div className="incident-pie" role="img" aria-label={`${active} active and ${resolved} resolved incidents`} style={{ background: `conic-gradient(var(--red) 0deg ${activeDegrees}deg, #929f94 ${activeDegrees}deg 360deg)` }}>
@@ -51,13 +56,13 @@ export function AnalyticsView() {
               <div><i className="pie-resolved" /><span>Resolved</span><strong>{resolved}</strong></div>
             </div>
           </div>
-        </section>
-        <section className="surface-panel utilization-panel">
+        </section>}
+        {canSeeEvacuation && <section className="surface-panel utilization-panel">
           <p className="eyebrow">SHELTER READINESS</p><h2>Center capacity</h2><p className="panel-subtitle">Occupancy in centers not marked closed</p>
           <div className="utilization-number">{capacity ? `${Math.round(occupied / capacity * 100)}%` : '—'}</div>
           <div className="capacity-track"><span className="capacity-good" style={{ width: `${capacity ? Math.min(occupied / capacity * 100, 100) : 0}%` }} /></div>
           <div className="utilization-meta"><span>Occupied <strong>{occupied}</strong></span><span>Available <strong>{Math.max(0, capacity - occupied)}</strong></span></div>
-        </section>
+        </section>}
       </div>
     </>}
   </div>;

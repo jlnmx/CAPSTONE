@@ -4,6 +4,8 @@
 
 import type { ChannelLike } from './realtimeChannel';
 import { LOCATION_EVENT, ResponderAvailability, ResponderLive, ResponderLocation, ResponderPresence } from './realtimeTopics';
+import { BINAN_HAZARD_AREAS } from './map/hazardAreas';
+import { findBinanBarangay, isBinanCity } from '../utils/currentAddress';
 
 export const LOCATION_MIN_INTERVAL_MS = 5000;
 export const LOCATION_STALE_MS = 60_000;
@@ -11,6 +13,8 @@ export interface ResponderLocationArea {
   city?: string;
   barangay?: string;
 }
+
+type Coordinates = { latitude: number; longitude: number };
 
 function cleanAreaName(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
@@ -22,17 +26,47 @@ function normalizeAreaName(value: string): string {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+function containsPoint(ring: number[][], point: Coordinates): boolean {
+  let inside = false;
+  for (let current = 0, previous = ring.length - 1; current < ring.length; previous = current++) {
+    const [currentLongitude, currentLatitude] = ring[current];
+    const [previousLongitude, previousLatitude] = ring[previous];
+    const crossesLatitude = (currentLatitude > point.latitude) !== (previousLatitude > point.latitude);
+    if (crossesLatitude
+      && point.longitude < (previousLongitude - currentLongitude)
+        * (point.latitude - currentLatitude) / (previousLatitude - currentLatitude)
+        + currentLongitude) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function findBinanBarangayAtCoordinates(point?: Coordinates): string | undefined {
+  if (!point || !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)) return undefined;
+  for (const feature of BINAN_HAZARD_AREAS) {
+    const [outerRing, ...holes] = feature.geometry.coordinates;
+    if (containsPoint(outerRing, point) && !holes.some((ring) => containsPoint(ring, point))) {
+      return findBinanBarangay(feature.properties.name);
+    }
+  }
+  return undefined;
+}
+
 export function resolveResponderLocationArea(address?: {
   city?: string | null;
   district?: string | null;
   subregion?: string | null;
-}): ResponderLocationArea {
+}, coordinates?: Coordinates): ResponderLocationArea {
   const city = cleanAreaName(address?.city) ?? cleanAreaName(address?.subregion);
   const isBinan = [address?.city, address?.subregion]
     .map(cleanAreaName)
     .some((value) => value !== undefined && normalizeAreaName(value).includes('binan'));
-  const district = cleanAreaName(address?.district)?.replace(/^(?:barangay|brgy\.?)\s*/i, '').trim();
-  const barangay = district && normalizeAreaName(district) !== normalizeAreaName(city ?? '') ? district : undefined;
+  const district = cleanAreaName(address?.district);
+  const barangay = isBinan
+    ? findBinanBarangayAtCoordinates(coordinates)
+      ?? (district && !isBinanCity(district) ? findBinanBarangay(district) : undefined)
+    : undefined;
   return {
     ...(city ? { city } : {}),
     ...(isBinan && barangay ? { barangay } : {}),

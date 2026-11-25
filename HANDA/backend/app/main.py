@@ -24,7 +24,7 @@ from fastapi.responses import JSONResponse
 from starlette.datastructures import MutableHeaders
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_roles, require_superadmin
+from .auth import CurrentUser, create_access_token, get_current_user, normalize_role, require_admin_category, require_roles, require_roles_or_admin_categories, require_superadmin
 from .config import settings
 from .realtime import RealtimeNotConfigured, create_realtime_token
 from .db import CONNECT_TIMEOUT_SECONDS, close_connection_pool, get_connection, open_connection_pool
@@ -689,6 +689,30 @@ def ensure_operational_schema() -> None:
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_alerts_enabled BOOLEAN NOT NULL DEFAULT FALSE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS dispatch_siren_enabled BOOLEAN NOT NULL DEFAULT TRUE")
         connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin BOOLEAN NOT NULL DEFAULT FALSE")
+        connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS admin_category TEXT")
+        connection.execute(
+            """
+            DO $$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'users_admin_category_check'
+                  AND conrelid = 'users'::regclass
+              ) THEN
+                ALTER TABLE users ADD CONSTRAINT users_admin_category_check
+                  CHECK (admin_category IS NULL OR admin_category IN ('BCDRRMO', 'CSWD'));
+              END IF;
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'users_admin_category_role_check'
+                  AND conrelid = 'users'::regclass
+              ) THEN
+                ALTER TABLE users ADD CONSTRAINT users_admin_category_role_check
+                  CHECK (admin_category IS NULL OR role = 'Administrator');
+              END IF;
+            END $$
+            """
+        )
         connection.execute("DROP INDEX IF EXISTS users_one_superadmin_idx")
         connection.execute("CREATE INDEX IF NOT EXISTS users_superadmin_idx ON users (id) WHERE is_superadmin")
         connection.execute(
@@ -1203,7 +1227,7 @@ def get_weather_forecast(_: CurrentUser = Depends(require_roles("resident", "res
 
 
 @app.post("/api/v1/incidents", status_code=201)
-def create_incident(incident: IncidentCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+def create_incident(incident: IncidentCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles_or_admin_categories(("BCDRRMO",), "resident", "responder"))):
     is_new = not incident.id or connection.execute("SELECT 1 FROM incidents WHERE id = %s", (incident.id,)).fetchone() is None
     result = write_incident(connection, incident, user.id if user.role == "resident" else None)
     if is_new:
@@ -1216,12 +1240,12 @@ def create_incident(incident: IncidentCreate, connection: psycopg.Connection = D
 
 
 @app.post("/api/v1/evacuees", status_code=201)
-def create_evacuee(evacuee: EvacueeCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+def create_evacuee(evacuee: EvacueeCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles_or_admin_categories(("CSWD",), "resident", "responder"))):
     return write_evacuee(connection, evacuee)
 
 
 @app.post("/api/v1/sync", status_code=207)
-def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+def sync_batch(batch: SyncBatch, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder"))):
     results = []
     for event in batch.events:
         try:
@@ -1264,7 +1288,7 @@ def list_logs(category: str, connection: psycopg.Connection = Depends(get_connec
 
 
 @app.get("/api/v1/incidents")
-def list_incidents(connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+def list_incidents(connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles_or_admin_categories(("BCDRRMO",), "resident", "responder"))):
     if user.role == "resident":
         return connection.execute(
             """
@@ -1330,7 +1354,7 @@ def get_resident_active_sos(
 
 
 @app.post("/api/v1/incidents/{incident_id}/response-photos", status_code=201)
-def add_incident_response_photo(incident_id: str, photo: IncidentResponsePhotoCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("responder", "admin"))):
+def add_incident_response_photo(incident_id: str, photo: IncidentResponsePhotoCreate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles_or_admin_categories(("BCDRRMO",), "responder"))):
     if not RESPONSE_PHOTO_PATTERN.match(photo.photoUri):
         raise HTTPException(status_code=422, detail="The photo must be a JPEG, PNG or WebP image.")
     incident = connection.execute(
@@ -1459,7 +1483,7 @@ def my_response_history(connection: psycopg.Connection = Depends(get_connection)
 
 
 @app.get("/api/v1/incidents/reporters")
-def list_incident_reporters(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
+def list_incident_reporters(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles_or_admin_categories(("BCDRRMO",), "responder"))):
     # Contact details are personal data, so they stay out of the public incident list.
     return connection.execute(
         """
@@ -1472,7 +1496,7 @@ def list_incident_reporters(connection: psycopg.Connection = Depends(get_connect
 
 
 @app.get("/api/v1/incidents/responders")
-def list_incident_responders(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
+def list_incident_responders(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles_or_admin_categories(("BCDRRMO",), "responder"))):
     # Only current deployments appear in the responder roster; assignment history remains stored separately.
     return connection.execute(
         """
@@ -1489,7 +1513,7 @@ def list_incident_responders(connection: psycopg.Connection = Depends(get_connec
 
 
 @app.get("/api/v1/responders/active")
-def list_active_responders(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
+def list_active_responders(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_admin_category("BCDRRMO"))):
     return connection.execute(
         """
         SELECT id, name, responder_organization, responder_barangay
@@ -1536,7 +1560,7 @@ def update_responder_presence(
 @app.get("/api/v1/responders/live")
 def list_live_responders(
     connection: psycopg.Connection = Depends(get_connection),
-    _: CurrentUser = Depends(require_roles("admin")),
+    _: CurrentUser = Depends(require_admin_category("BCDRRMO")),
 ):
     rows = connection.execute(
         """
@@ -1591,7 +1615,7 @@ def dispatch_incident_responders(
     incident_id: str,
     dispatch: IncidentDispatch,
     connection: psycopg.Connection = Depends(get_connection),
-    user: CurrentUser = Depends(require_roles("admin")),
+    user: CurrentUser = Depends(require_admin_category("BCDRRMO")),
 ):
     incident = connection.execute(
         "SELECT id, type, location_text, status, reporter_user_id, severity FROM incidents WHERE id = %s FOR UPDATE",
@@ -1784,6 +1808,8 @@ def incident_notification_message(status: str, update: IncidentStatusUpdate, inc
 
 @app.patch("/api/v1/incidents/{incident_id}/status")
 def update_incident_status(incident_id: str, update: IncidentStatusUpdate, connection: psycopg.Connection = Depends(get_connection), user: CurrentUser = Depends(require_roles("admin", "responder"))):
+    if user.role == "admin" and not (user.is_superadmin or user.admin_category == "BCDRRMO"):
+        raise HTTPException(status_code=403, detail="Only BCDRRMO administrators can manage incident response status.")
     current = connection.execute(
         "SELECT status, verified_by FROM incidents WHERE id = %s FOR UPDATE",
         (incident_id,),
@@ -1987,7 +2013,7 @@ def remove_push_device(device: PushDeviceInput, connection: psycopg.Connection =
 @app.post("/api/v1/realtime/token")
 def issue_realtime_token(user: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
     try:
-        token, expires_in = create_realtime_token(user.id, user.role)
+        token, expires_in = create_realtime_token(user.id, user.role, user.admin_category, user.is_superadmin)
     except RealtimeNotConfigured:
         raise HTTPException(status_code=503, detail="Realtime is not available.") from None
     return {"token": token, "expires_in": expires_in}
@@ -2065,7 +2091,7 @@ def mark_notification_read(notification_id: str, connection: psycopg.Connection 
 
 
 @app.get("/api/v1/evacuees")
-def list_evacuees(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
+def list_evacuees(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles_or_admin_categories(("CSWD",), "responder"))):
     rows = connection.execute(
         "SELECT id, first_name, middle_name, last_name, age, sex, contact_number, address, household_size, barangay, latitude, longitude, evacuation_status, verified_by, verified_at, created_at FROM evacuees ORDER BY created_at DESC"
     ).fetchall()
@@ -2073,7 +2099,7 @@ def list_evacuees(connection: psycopg.Connection = Depends(get_connection), _: C
 
 
 @app.patch("/api/v1/evacuees/{evacuee_id}/status")
-def update_evacuee_status(evacuee_id: str, update: EvacueeStatusUpdate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("responder", "admin"))):
+def update_evacuee_status(evacuee_id: str, update: EvacueeStatusUpdate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles_or_admin_categories(("CSWD",), "responder"))):
     row = connection.execute(
         """
         UPDATE evacuees
@@ -2090,7 +2116,7 @@ def update_evacuee_status(evacuee_id: str, update: EvacueeStatusUpdate, connecti
 
 
 @app.get("/api/v1/centers")
-def list_centers(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("resident", "responder", "admin"))):
+def list_centers(connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles_or_admin_categories(("CSWD",), "resident", "responder"))):
     rows = connection.execute(
         "SELECT id, name, location_text AS location, capacity, current_occupancy, status, coordinator_name, contact_number, notes, latitude, longitude, updated_at FROM evacuation_centers ORDER BY name"
     ).fetchall()
@@ -2104,7 +2130,7 @@ def list_centers(connection: psycopg.Connection = Depends(get_connection), _: Cu
 
 
 @app.post("/api/v1/centers", status_code=201)
-def create_center(center: CenterCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_roles("admin"))):
+def create_center(center: CenterCreate, connection: psycopg.Connection = Depends(get_connection), _: CurrentUser = Depends(require_admin_category("CSWD"))):
     center_id = f"center-{uuid4()}"
     status = evacuation_center_status(center.capacity, center.currentOccupancy, center.status)
     row = connection.execute(
@@ -2137,7 +2163,7 @@ def update_center_capacity(
     center_id: str,
     update: CenterCapacityUpdate,
     connection: psycopg.Connection = Depends(get_connection),
-    _: CurrentUser = Depends(require_roles("admin")),
+    _: CurrentUser = Depends(require_admin_category("CSWD")),
 ):
     current = connection.execute(
         "SELECT id, name, status FROM evacuation_centers WHERE id = %s FOR UPDATE",
@@ -2171,7 +2197,7 @@ def update_center_details(
     center_id: str,
     update: CenterDetailsUpdate,
     connection: psycopg.Connection = Depends(get_connection),
-    _: CurrentUser = Depends(require_roles("admin")),
+    _: CurrentUser = Depends(require_admin_category("CSWD")),
 ):
     current = connection.execute(
         "SELECT id, name, status, current_occupancy FROM evacuation_centers WHERE id = %s FOR UPDATE",
@@ -2279,7 +2305,7 @@ def get_resident_evacuation_status(
 def create_evacuation_registration(
     registration: AdminEvacuationRegistrationCreate,
     connection: psycopg.Connection = Depends(get_connection),
-    user: CurrentUser = Depends(require_roles("admin")),
+    user: CurrentUser = Depends(require_admin_category("CSWD")),
 ):
     if registration.residentUserId:
         resident = connection.execute(
@@ -2355,7 +2381,7 @@ def list_evacuation_registrations(
     include_released: bool = False,
     center_id: str | None = None,
     connection: psycopg.Connection = Depends(get_connection),
-    _: CurrentUser = Depends(require_roles("responder", "admin")),
+    _: CurrentUser = Depends(require_roles_or_admin_categories(("CSWD",), "responder")),
 ):
     filters = []
     parameters = []
@@ -2398,7 +2424,7 @@ def list_evacuation_registrations(
 def update_evacuation_registration_status(
     registration_id: str,
     update: EvacuationRegistrationStatusUpdate,
-    user: CurrentUser = Depends(require_roles("responder", "admin")),
+    user: CurrentUser = Depends(require_roles_or_admin_categories(("CSWD",), "responder")),
     connection: psycopg.Connection = Depends(get_connection),
 ):
     registration = connection.execute(
@@ -2474,7 +2500,7 @@ def list_users(
     rows = connection.execute(
         f"""
         SELECT users.id, users.name, users.email, users.birthday, users.sex, users.mobile_number,
-               users.current_address, users.role, users.status, users.is_superadmin,
+               users.current_address, users.role, users.status, users.is_superadmin, users.admin_category,
                users.responder_type, users.responder_organization, users.responder_barangay,
                users.profile_picture,
                EXISTS (SELECT 1 FROM responder_verification_documents AS document WHERE document.user_id = users.id) AS has_verification_document,
@@ -2569,9 +2595,9 @@ def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depen
         row = connection.execute(
             """
             INSERT INTO users
-              (id, name, email, birthday, mobile_number, current_address, password_hash, role, status, is_superadmin)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING id, name, email, birthday, mobile_number, current_address, role, status, is_superadmin, created_at, updated_at
+              (id, name, email, birthday, mobile_number, current_address, password_hash, role, status, is_superadmin, admin_category)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id, name, email, birthday, mobile_number, current_address, role, status, is_superadmin, admin_category, created_at, updated_at
             """,
             (
                 user_id,
@@ -2584,9 +2610,10 @@ def create_user(account: AdminUserCreate, connection: psycopg.Connection = Depen
                 account.role,
                 account.status,
                 account.isSuperAdmin,
+                account.adminCategory,
             ),
         ).fetchone()
-        account_kind = "superadmin" if account.isSuperAdmin else account.role.lower()
+        account_kind = "superadmin" if account.isSuperAdmin else f"{account.adminCategory} sub-admin" if account.adminCategory else account.role.lower()
         write_log(connection, "audit", "create", user.id, "user", user_id, f"Created {account_kind} account {account.email.strip().lower()}.")
         connection.commit()
     except psycopg.errors.UniqueViolation as error:
@@ -2602,11 +2629,25 @@ def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depen
         raise HTTPException(status_code=400, detail="Provide at least one account field to update.")
     if user_id == user.id and any(field in changes for field in ("password", "role", "status")):
         raise HTTPException(status_code=400, detail="You cannot change your own password, role, or status here.")
-    target = connection.execute("SELECT is_superadmin FROM users WHERE id = %s FOR UPDATE", (user_id,)).fetchone()
+    target = connection.execute("SELECT role, is_superadmin, admin_category FROM users WHERE id = %s FOR UPDATE", (user_id,)).fetchone()
     if not target:
         raise HTTPException(status_code=404, detail="User account not found.")
     if target["is_superadmin"] and any(field in changes for field in ("role", "status")):
         raise HTTPException(status_code=400, detail="The superadmin role and status cannot be changed here.")
+    if target["is_superadmin"] and "adminCategory" in changes:
+        raise HTTPException(status_code=400, detail="Superadmin accounts do not use a sub-admin category.")
+
+    next_role = changes.get("role", target["role"])
+    next_category = changes.get("adminCategory", target.get("admin_category"))
+    if next_role != "Administrator" and next_category is not None:
+        if "role" in changes and "adminCategory" not in changes:
+            changes["adminCategory"] = None
+        else:
+            raise HTTPException(status_code=422, detail="Only administrator accounts can have a sub-admin category.")
+    elif next_role == "Administrator" and not target["is_superadmin"] and next_category is None and (
+        "role" in changes or "adminCategory" in changes
+    ):
+        raise HTTPException(status_code=422, detail="Choose BCDRRMO or CSWD for a sub-admin account.")
 
     password = changes.pop("password", None)
     assert_unique_contact(connection, changes.get("email"), changes.get("mobileNumber"), user_id)
@@ -2622,22 +2663,23 @@ def update_user(user_id: str, update: AdminUserUpdate, user: CurrentUser = Depen
         "currentAddress": "current_address",
         "role": "role",
         "status": "status",
+        "adminCategory": "admin_category",
         "password_hash": "password_hash",
     }
     assignments = [f"{column_names[field]} = %s" for field in changes]
     values = [value.strip().lower() if field == "email" else value.strip() if field in ("name", "currentAddress") else value for field, value in changes.items()]
-    if any(field in changes for field in ("password_hash", "role", "status")):
+    if any(field in changes for field in ("password_hash", "role", "status", "adminCategory")):
         assignments.append("token_version = token_version + 1")
     assignments.append("updated_at = NOW()")
 
     try:
         row = connection.execute(
-            f"UPDATE users SET {', '.join(assignments)} WHERE id = %s RETURNING id, name, email, birthday, mobile_number, current_address, role, status, created_at, updated_at",
+            f"UPDATE users SET {', '.join(assignments)} WHERE id = %s RETURNING id, name, email, birthday, mobile_number, current_address, role, status, admin_category, created_at, updated_at",
             (*values, user_id),
         ).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User account not found.")
-        if any(field in changes for field in ("password_hash", "role", "status")):
+        if any(field in changes for field in ("password_hash", "role", "status", "adminCategory")):
             connection.execute("UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = %s AND revoked_at IS NULL", (user_id,))
         write_log(connection, "audit", "update", user.id, "user", user_id, f"Updated account fields: {', '.join(changes.keys())}.")
         connection.commit()
@@ -2691,6 +2733,7 @@ def resident_profile_payload(row: dict, members: list[dict] | None = None) -> di
         "name": row["name"],
         "email": row["email"],
         "role": normalize_role(row["role"]),
+        "adminCategory": row.get("admin_category"),
         "firstName": first_name,
         "middleName": middle_name,
         "lastName": last_name,
@@ -3185,12 +3228,12 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
     mobile_candidates = mobile_login_candidates(credentials.email.strip())
     if mobile_candidates:
         rows = connection.execute(
-            "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE regexp_replace(mobile_number, '[^0-9]', '', 'g') = ANY(%s) LIMIT 2",
+            "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, admin_category, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE regexp_replace(mobile_number, '[^0-9]', '', 'g') = ANY(%s) LIMIT 2",
             (mobile_candidates,),
         ).fetchall()
     else:
         rows = connection.execute(
-            "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s) LIMIT 2",
+            "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, status, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, admin_category, password_hash, token_version, failed_login_attempts, locked_until FROM users WHERE LOWER(email) = LOWER(%s) LIMIT 2",
             (credentials.email.strip(),),
         ).fetchall()
     if len(rows) != 1:
@@ -3227,6 +3270,7 @@ def login_user(credentials: UserLogin, connection: psycopg.Connection = Depends(
     profile = resident_profile_payload(row, household_members_for_user(connection, row["id"]))
     profile["role"] = role
     profile["isSuperAdmin"] = bool(row.get("is_superadmin", False))
+    profile["adminCategory"] = row.get("admin_category")
     return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "refreshToken": refresh_token, "user": profile}
 
 
@@ -3239,7 +3283,7 @@ def refresh_user_session(request: RefreshTokenInput, connection: psycopg.Connect
                users.suffix, users.job_position,
                users.email, users.birthday, users.sex, users.mobile_number, users.current_address,
                users.role, users.status, users.responder_type, users.responder_organization,
-               users.responder_barangay, users.profile_picture, users.is_superadmin, users.token_version
+               users.responder_barangay, users.profile_picture, users.is_superadmin, users.admin_category, users.token_version
         FROM refresh_tokens
         JOIN users ON users.id = refresh_tokens.user_id
         WHERE refresh_tokens.token_hash = %s AND refresh_tokens.revoked_at IS NULL
@@ -3254,6 +3298,7 @@ def refresh_user_session(request: RefreshTokenInput, connection: psycopg.Connect
     profile = resident_profile_payload(row, household_members_for_user(connection, row["id"]))
     profile["role"] = role
     profile["isSuperAdmin"] = bool(row.get("is_superadmin", False))
+    profile["adminCategory"] = row.get("admin_category")
     return {"accessToken": access_token, "tokenType": "bearer", "expiresIn": expires_in, "user": profile}
 
 
@@ -3267,11 +3312,12 @@ def remember_user_session(user: CurrentUser = Depends(get_current_user), connect
 @app.get("/api/v1/auth/me")
 def current_user(user: CurrentUser = Depends(get_current_user), connection: psycopg.Connection = Depends(get_connection)):
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, responder_type, responder_organization, responder_barangay, profile_picture, is_superadmin, admin_category FROM users WHERE id = %s",
         (user.id,),
     ).fetchone()
     profile = resident_profile_payload(row, household_members_for_user(connection, user.id))
     profile["isSuperAdmin"] = user.is_superadmin
+    profile["adminCategory"] = user.admin_category
     return profile
 
 
@@ -3339,7 +3385,7 @@ def update_resident_profile(
         insert_household_member(connection, "resident_household_members", "resident_user_id", f"resident-household-{uuid4()}", resident.id, member)
     connection.commit()
     row = connection.execute(
-        "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, profile_picture FROM users WHERE id = %s",
+        "SELECT id, name, first_name, middle_name, last_name, suffix, job_position, email, birthday, sex, mobile_number, current_address, role, profile_picture, admin_category FROM users WHERE id = %s",
         (resident.id,),
     ).fetchone()
     return resident_profile_payload(row, household_members_for_user(connection, resident.id))

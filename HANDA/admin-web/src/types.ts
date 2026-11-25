@@ -1,4 +1,5 @@
 export type UserRole = 'admin' | 'resident' | 'responder';
+export type AdminCategory = 'BCDRRMO' | 'CSWD';
 
 export interface AuthUser {
   id: string;
@@ -6,6 +7,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   isSuperAdmin: boolean;
+  adminCategory?: AdminCategory | null;
   firstName?: string;
   middleName?: string;
   lastName?: string;
@@ -154,6 +156,7 @@ export interface UserRecord {
   role: 'Responder' | 'Resident' | 'Administrator';
   status: 'Active' | 'Inactive' | 'Pending';
   isSuperAdmin?: boolean;
+  adminCategory?: AdminCategory | null;
   responderType?: 'Official' | 'Volunteer' | null;
   hasVerificationDocument?: boolean;
   birthday?: string;
@@ -176,6 +179,7 @@ export interface UserInput {
   currentAddress?: string;
   password?: string;
   isSuperAdmin?: boolean;
+  adminCategory?: AdminCategory | null;
 }
 
 export interface LogRecord {

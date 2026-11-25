@@ -4,6 +4,7 @@ import { getCommandMapSnapshot } from '../api';
 import type { CenterRecord, IncidentRecord } from '../types';
 import { BINAN_HAZARD_AREAS } from '../../../src/services/map/hazardAreas';
 import { isActiveIncidentStatus } from '../../../src/constants/incidentStatus';
+import { useAuth } from '../auth';
 
 const BINAN: [number, number] = [14.3036, 121.0781];
 const GOOGLE_MAPS_CALLBACK = '__handaGoogleMapsReady';
@@ -42,9 +43,9 @@ function formatTime(value: string) {
   return Number.isNaN(date.getTime()) ? 'Time unavailable' : date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function readCachedMapSnapshot(): CachedMapSnapshot | null {
+function readCachedMapSnapshot(storageKey: string): CachedMapSnapshot | null {
   try {
-    const raw = localStorage.getItem(MAP_SNAPSHOT_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     if (!raw) return null;
     const cached = JSON.parse(raw) as CachedMapSnapshot;
     if (!Array.isArray(cached.data?.incidents) || !Array.isArray(cached.data?.centers)
@@ -191,6 +192,11 @@ function popupContent(record: CenterRecord | IncidentRecord, center: boolean) {
 }
 
 export default function MapView() {
+  const { user } = useAuth();
+  const adminCategory = user?.isSuperAdmin ? undefined : user?.adminCategory ?? null;
+  const canSeeCenters = !!user?.isSuperAdmin || user?.adminCategory === 'CSWD';
+  const canSeeIncidents = !!user?.isSuperAdmin || user?.adminCategory === 'BCDRRMO';
+  const snapshotStorageKey = `${MAP_SNAPSHOT_STORAGE_KEY}.${user?.isSuperAdmin ? 'superadmin' : user?.adminCategory ?? 'unassigned'}`;
   const mapElement = useRef<HTMLDivElement | null>(null);
   const mapFrame = useRef<HTMLElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -199,14 +205,14 @@ export default function MapView() {
   const centerMarkers = useRef<any[]>([]);
   const hazardPolygons = useRef<any[]>([]);
   const googleInfoWindow = useRef<any>(null);
-  const [cachedMapSnapshot] = useState(readCachedMapSnapshot);
+  const [cachedMapSnapshot] = useState(() => readCachedMapSnapshot(snapshotStorageKey));
   const [data, setData] = useState<MapSnapshot>(() => cachedMapSnapshot?.data ?? { incidents: [], centers: [] });
   const [loading, setLoading] = useState(() => navigator.onLine && !cachedMapSnapshot);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(() => cachedMapSnapshot ? new Date(cachedMapSnapshot.savedAt) : null);
-  const [showCenters, setShowCenters] = useState(true);
-  const [showIncidents, setShowIncidents] = useState(true);
+  const [showCenters, setShowCenters] = useState(canSeeCenters);
+  const [showIncidents, setShowIncidents] = useState(canSeeIncidents);
   const [showFloodHazards, setShowFloodHazards] = useState(true);
   const [showEarthquakeHazards, setShowEarthquakeHazards] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -227,13 +233,13 @@ export default function MapView() {
     if (quiet) setRefreshing(true);
     else setLoading(true);
     try {
-      const snapshot = await getCommandMapSnapshot();
+      const snapshot = await getCommandMapSnapshot(adminCategory);
       setData(snapshot);
       const savedAt = new Date();
       setLastUpdated(savedAt);
       let storageFailed = false;
       try {
-        localStorage.setItem(MAP_SNAPSHOT_STORAGE_KEY, JSON.stringify(createCachedMapSnapshot(snapshot, savedAt)));
+        localStorage.setItem(snapshotStorageKey, JSON.stringify(createCachedMapSnapshot(snapshot, savedAt)));
       } catch {
         storageFailed = true;
       }
@@ -244,7 +250,7 @@ export default function MapView() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [adminCategory, snapshotStorageKey]);
 
   useEffect(() => {
     if (!online) {
@@ -524,8 +530,8 @@ export default function MapView() {
           </button>
         </div>}
         <div className="map-layer-control" aria-label="Map layers">
-          <label><input type="checkbox" checked={showIncidents} onChange={(event) => setShowIncidents(event.target.checked)} /><i className="map-legend-dot legend-incident" /><span>Incidents</span><strong>{activeIncidents.length}</strong></label>
-          <label><input type="checkbox" checked={showCenters} onChange={(event) => setShowCenters(event.target.checked)} /><i className="map-legend-dot legend-center" /><span>Evacuation centers</span><strong>{data.centers.length}</strong></label>
+          {canSeeIncidents && <label><input type="checkbox" checked={showIncidents} onChange={(event) => setShowIncidents(event.target.checked)} /><i className="map-legend-dot legend-incident" /><span>Incidents</span><strong>{activeIncidents.length}</strong></label>}
+          {canSeeCenters && <label><input type="checkbox" checked={showCenters} onChange={(event) => setShowCenters(event.target.checked)} /><i className="map-legend-dot legend-center" /><span>Evacuation centers</span><strong>{data.centers.length}</strong></label>}
           <label title={!online ? 'Hazard overlays are unavailable while offline.' : undefined}><input type="checkbox" checked={showFloodHazards} onChange={(event) => setShowFloodHazards(event.target.checked)} disabled={!online} /><i className="map-hazard-swatch map-hazard-flood" /><span>Flood-prone barangays</span></label>
           <label title={!online ? 'Hazard overlays are unavailable while offline.' : undefined}><input type="checkbox" checked={showEarthquakeHazards} onChange={(event) => setShowEarthquakeHazards(event.target.checked)} disabled={!online} /><i className="map-hazard-swatch map-hazard-earthquake" /><span>Earthquake / fault zones</span></label>
           <div className="map-status-key"><span><i className="legend-incident" />Needs response</span><span><i className="legend-acknowledged" />Acknowledged</span><span><i className="legend-progress" />Responding</span></div>

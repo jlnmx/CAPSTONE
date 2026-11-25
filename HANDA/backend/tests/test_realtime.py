@@ -14,6 +14,7 @@ from app.main import issue_realtime_token
 from app.realtime import RealtimeNotConfigured, create_realtime_token
 
 MIGRATION = Path(__file__).resolve().parents[2] / "database" / "migrations" / "20261106_realtime_broadcast.sql"
+ADMIN_SCOPE_MIGRATION = Path(__file__).resolve().parents[2] / "database" / "migrations" / "20261126_admin_categories.sql"
 
 
 def make_jwk() -> tuple[str, object]:
@@ -36,7 +37,18 @@ class RealtimeTokenTests(unittest.TestCase):
         self.assertEqual(claims["app_role"], "responder")
         self.assertEqual(claims["exp"] - claims["iat"], expires_in)
         self.assertLessEqual(claims["exp"], int(time.time()) + expires_in)
-        self.assertEqual(set(claims), {"aud", "role", "sub", "app_role", "iat", "exp"})
+        self.assertEqual(set(claims), {"aud", "role", "sub", "app_role", "admin_category", "is_superadmin", "iat", "exp"})
+        self.assertIsNone(claims["admin_category"])
+        self.assertFalse(claims["is_superadmin"])
+
+    def test_admin_realtime_claims_include_department_scope(self):
+        raw_jwk, public_key = make_jwk()
+        with patch("app.realtime.settings.realtime_jwt_private_key", raw_jwk):
+            token, _ = create_realtime_token("admin-1", "admin", "BCDRRMO")
+
+        claims = jwt.decode(token, public_key, algorithms=["ES256"], audience="authenticated")
+        self.assertEqual(claims["admin_category"], "BCDRRMO")
+        self.assertFalse(claims["is_superadmin"])
 
     def test_missing_invalid_or_public_key_is_rejected(self):
         raw_jwk, _ = make_jwk()
@@ -83,6 +95,15 @@ class RealtimeMigrationTests(unittest.TestCase):
         self.assertNotIn("resident", receive)
         self.assertIn("= 'responder'", send)
         self.assertNotIn("admin", send)
+
+    def test_admin_realtime_policies_are_limited_to_department_scope(self):
+        sql = ADMIN_SCOPE_MIGRATION.read_text(encoding="utf-8").lower()
+        feeds = sql.split('create policy "handa_feeds_receive"')[1].split("drop policy")[0]
+        live = sql.split('create policy "handa_responders_live_receive"')[1].split("drop policy")[0]
+
+        self.assertIn("admin_category') = 'cswd'", feeds)
+        self.assertIn("admin_category') = 'bcdrrmo'", live)
+        self.assertIn("is_superadmin", feeds)
 
     def test_payloads_exclude_sensitive_columns(self):
         for column in ("description", "photo_uris", "reporter_user_id", "password", "coordinator_name", "contact_number", "action_notes", "user_id,"):

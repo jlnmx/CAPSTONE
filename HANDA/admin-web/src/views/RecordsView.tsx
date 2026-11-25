@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { createEvacuationRegistration, getAdminSnapshot, getCenters, getUsers } from '../api';
 import type { AdminSnapshot, CenterRecord, EvacuationHouseholdMemberInput, EvacuationRegistrationInput, EvacueeRecord, IncidentRecord, UserRecord } from '../types';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
+import { useAuth } from '../auth';
 
 const emptySnapshot: AdminSnapshot = { incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' };
 type RecordPeriod = 'all' | 'week' | 'month' | 'year';
@@ -36,7 +37,8 @@ function downloadCsv(filename: string, rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
-export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
+export default function RecordsView({ mode }: { mode: 'all' | 'incidents' | 'evacuees' }) {
+  const { user } = useAuth();
   const [data, setData] = useState(emptySnapshot);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -48,14 +50,17 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
   async function refresh() {
     setLoading(true);
     try {
-      setData(await getAdminSnapshot());
+      setData(await getAdminSnapshot(user?.isSuperAdmin ? undefined : user?.adminCategory ?? null));
       setError('');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Records could not be loaded.');
     } finally { setLoading(false); }
   }
-  useEffect(() => { void refresh(); }, []);
-  useEffect(() => { if (mode === 'evacuees') setTab('evacuees'); }, [mode]);
+  useEffect(() => { void refresh(); }, [user?.id, user?.adminCategory, user?.isSuperAdmin]);
+  useEffect(() => {
+    if (mode === 'evacuees') setTab('evacuees');
+    else if (mode === 'incidents') setTab('incidents');
+  }, [mode]);
 
   const incidents = useMemo(() => {
     const now = new Date();
@@ -77,7 +82,7 @@ export default function RecordsView({ mode }: { mode: 'all' | 'evacuees' }) {
     : downloadCsv('handa-evacuees.csv', [['Name', 'Age', 'Barangay', 'Center', 'Status', 'Registered'], ...evacuees.map((row) => [row.displayName, String(row.age), row.barangay, row.centerName, row.status, row.createdAt])]);
 
   return <div className="page-content records-page">
-    <PageHeading eyebrow={tab === 'incidents' ? 'FIELD RESPONSE' : 'COMMUNITY RECORDS'} title={mode === 'evacuees' ? 'Evacuee directory' : 'Operations records'} description="Search, review, and export records from across the response network." action={<div className="heading-actions">{(mode === 'evacuees' || tab === 'evacuees') && <button className="button-primary" onClick={() => setAddEvacueeOpen(true)}><Plus size={16} /> Add household</button>}<button className="button-secondary" onClick={exportRecords} disabled={loading}><Download size={16} /> Export CSV</button></div>} />
+    <PageHeading eyebrow={tab === 'incidents' ? 'FIELD RESPONSE' : 'COMMUNITY RECORDS'} title={mode === 'evacuees' ? 'Evacuee directory' : mode === 'incidents' ? 'Incident records' : 'Operations records'} description="Search, review, and export records assigned to your department." action={<div className="heading-actions">{(mode === 'evacuees' || mode === 'all' && tab === 'evacuees') && <button className="button-primary" onClick={() => setAddEvacueeOpen(true)}><Plus size={16} /> Add household</button>}<button className="button-secondary" onClick={exportRecords} disabled={loading}><Download size={16} /> Export CSV</button></div>} />
     {error && <InlineNotice onRetry={() => void refresh()}>{error}</InlineNotice>}
     <section className="surface-panel records-panel">
       <div className="records-toolbar">

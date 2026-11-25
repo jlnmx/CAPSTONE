@@ -109,7 +109,7 @@ function ResponderPresenceHeartbeat({ locationPermissionGranted }: { locationPer
           void Location.reverseGeocodeAsync(coordinates)
             .then((addresses) => {
               if (!active) return;
-              const area = resolveResponderLocationArea(addresses[0]);
+              const area = resolveResponderLocationArea(addresses[0], coordinates);
               currentArea.city = area.city;
               currentArea.barangay = area.barangay;
               publishLocation(latitude, longitude, accuracy ?? undefined, area);

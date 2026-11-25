@@ -24,6 +24,13 @@ function SuperAdminOnly({ children }: { children: ReactNode }) {
   return user?.isSuperAdmin ? <>{children}</> : <Navigate to="/" replace />;
 }
 
+function AdminCategoryOnly({ categories, children }: { categories: Array<'BCDRRMO' | 'CSWD'>; children: ReactNode }) {
+  const { user } = useAuth();
+  return user?.isSuperAdmin || (user?.adminCategory && categories.includes(user.adminCategory))
+    ? <>{children}</>
+    : <Navigate to="/" replace />;
+}
+
 export default function App() {
   const { user } = useAuth();
   return (
@@ -31,11 +38,11 @@ export default function App() {
       <Route path="/login" element={user?.role === 'admin' ? <Navigate to="/" replace /> : <LoginView />} />
       <Route element={<ProtectedLayout />}>
         <Route index element={<DashboardView />} />
-        <Route path="map" element={<MapView />} />
-        <Route path="operations" element={<RecordsView mode="all" />} />
-        <Route path="dispatch" element={<DispatchView />} />
-        <Route path="centers" element={<CentersView />} />
-        <Route path="centers/:centerId" element={<CenterDetailView />} />
+        <Route path="map" element={<AdminCategoryOnly categories={['BCDRRMO', 'CSWD']}><MapView /></AdminCategoryOnly>} />
+        <Route path="operations" element={<AdminCategoryOnly categories={['BCDRRMO']}><RecordsView mode="incidents" /></AdminCategoryOnly>} />
+        <Route path="dispatch" element={<AdminCategoryOnly categories={['BCDRRMO']}><DispatchView /></AdminCategoryOnly>} />
+        <Route path="centers" element={<AdminCategoryOnly categories={['CSWD']}><CentersView /></AdminCategoryOnly>} />
+        <Route path="centers/:centerId" element={<AdminCategoryOnly categories={['CSWD']}><CenterDetailView /></AdminCategoryOnly>} />
         <Route path="analytics" element={<AnalyticsView />} />
         <Route path="users" element={<SuperAdminOnly><UsersView /></SuperAdminOnly>} />
         <Route path="logs" element={<LogsView />} />

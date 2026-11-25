@@ -4,7 +4,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.auth import CurrentUser, create_access_token, get_current_user, require_roles, require_superadmin
+from app.auth import CurrentUser, create_access_token, get_current_user, require_admin_category, require_roles, require_roles_or_admin_categories, require_superadmin
 from app.main import app, create_user, list_users, login_user, logout_user, mobile_login_candidates, refresh_user_session
 from app.schemas import AdminUserCreate, LogoutRequest, RefreshTokenInput, UserLogin
 
@@ -221,6 +221,79 @@ class AuthTests(unittest.TestCase):
             require_superadmin(admin)
         self.assertEqual(error.exception.status_code, 403)
 
+    def test_admin_category_guards_allow_only_assigned_department_and_superadmin(self):
+        bc_admin = CurrentUser("bc-1", "bc@example.com", "BC Admin", "admin", 0, False, "BCDRRMO")
+        cswd_admin = CurrentUser("cswd-1", "cswd@example.com", "CSWD Admin", "admin", 0, False, "CSWD")
+        unassigned_admin = CurrentUser("none-1", "none@example.com", "Unassigned", "admin", 0)
+        superadmin = CurrentUser("root-1", "root@example.com", "Root", "admin", 0, True)
+        dispatch_guard = require_admin_category("BCDRRMO")
+        center_guard = require_admin_category("CSWD")
+
+        self.assertIs(dispatch_guard(bc_admin), bc_admin)
+        self.assertIs(dispatch_guard(superadmin), superadmin)
+        self.assertIs(center_guard(cswd_admin), cswd_admin)
+        for guard, denied in ((dispatch_guard, cswd_admin), (dispatch_guard, unassigned_admin), (center_guard, bc_admin), (center_guard, unassigned_admin)):
+            with self.subTest(denied=denied, guard=guard), self.assertRaises(HTTPException) as error:
+                guard(denied)
+            self.assertEqual(error.exception.status_code, 403)
+
+    def test_responder_routes_preserve_responder_access_but_scope_admins(self):
+        responder = CurrentUser("responder-1", "responder@example.com", "Responder", "responder", 0)
+        bc_admin = CurrentUser("bc-1", "bc@example.com", "BC Admin", "admin", 0, False, "BCDRRMO")
+        cswd_admin = CurrentUser("cswd-1", "cswd@example.com", "CSWD Admin", "admin", 0, False, "CSWD")
+        evacuation_guard = require_roles_or_admin_categories(("CSWD",), "responder")
+
+        self.assertIs(evacuation_guard(responder), responder)
+        self.assertIs(evacuation_guard(cswd_admin), cswd_admin)
+        with self.assertRaises(HTTPException) as error:
+            evacuation_guard(bc_admin)
+        self.assertEqual(error.exception.status_code, 403)
+
+    def test_subadmin_creation_requires_a_valid_category(self):
+        common = {
+            "name": "Department Admin",
+            "email": "department@example.com",
+            "birthday": "1990-01-01",
+            "mobileNumber": "09171234567",
+            "currentAddress": "Biñan",
+            "password": "StrongPass1!",
+            "role": "Administrator",
+            "status": "Active",
+        }
+        with self.assertRaises(ValueError):
+            AdminUserCreate(**common)
+        with self.assertRaises(ValueError):
+            AdminUserCreate(**common, adminCategory="Unknown")
+        account = AdminUserCreate(**common, adminCategory="CSWD")
+        self.assertEqual(account.adminCategory, "CSWD")
+
+    @patch("app.main.assert_unique_contact")
+    @patch("app.main.validate_account_password")
+    @patch("app.main.hash_password", return_value="password-hash")
+    def test_superadmin_can_create_categorized_subadmin(self, _hash, _validate, _unique):
+        account = AdminUserCreate(
+            name="BCDRRMO Admin",
+            email="bc@example.com",
+            birthday="1990-01-01",
+            mobileNumber="09171234567",
+            currentAddress="Biñan",
+            password="StrongPass1!",
+            role="Administrator",
+            status="Active",
+            adminCategory="BCDRRMO",
+        )
+        connection = FakeConnection({"id": "admin-2", "admin_category": "BCDRRMO"})
+
+        result = create_user(
+            account,
+            connection,
+            CurrentUser("root-1", "root@example.com", "Root", "admin", 0, True),
+        )
+
+        self.assertEqual(result["admin_category"], "BCDRRMO")
+        self.assertIn("admin_category", connection.queries[0][0])
+        self.assertEqual(connection.queries[0][1][-1], "BCDRRMO")
+
     @patch("app.main.assert_unique_contact")
     @patch("app.main.validate_account_password")
     @patch("app.main.hash_password", return_value="password-hash")
@@ -246,7 +319,8 @@ class AuthTests(unittest.TestCase):
 
         self.assertTrue(result["is_superadmin"])
         self.assertIn("is_superadmin", connection.queries[0][0])
-        self.assertTrue(connection.queries[0][1][-1])
+        self.assertTrue(connection.queries[0][1][-2])
+        self.assertIsNone(connection.queries[0][1][-1])
 
     def test_superadmin_cannot_be_created_with_non_admin_role(self):
         account = AdminUserCreate(
@@ -281,6 +355,7 @@ class AuthTests(unittest.TestCase):
             "status": "Active",
             "token_version": 0,
             "is_superadmin": True,
+            "admin_category": None,
         })
 
         user = get_current_user(credentials, connection)

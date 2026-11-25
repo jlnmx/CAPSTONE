@@ -288,6 +288,17 @@ class AdminUserCreate(BaseModel):
     role: Literal["Responder", "Resident", "Administrator"]
     status: Literal["Active", "Inactive", "Pending"] = "Active"
     isSuperAdmin: bool = False
+    adminCategory: Literal["BCDRRMO", "CSWD"] | None = None
+
+    @model_validator(mode="after")
+    def validate_admin_category(self):
+        if self.role == "Administrator" and not self.isSuperAdmin and self.adminCategory is None:
+            raise ValueError("Choose BCDRRMO or CSWD for a sub-admin account.")
+        if self.role != "Administrator" and self.adminCategory is not None:
+            raise ValueError("Only administrator accounts can have a sub-admin category.")
+        if self.isSuperAdmin and self.adminCategory is not None:
+            raise ValueError("Superadmin accounts do not use a sub-admin category.")
+        return self
 
 
 class AdminUserUpdate(BaseModel):
@@ -299,6 +310,7 @@ class AdminUserUpdate(BaseModel):
     password: str | None = Field(default=None, min_length=8, max_length=128)
     role: Literal["Responder", "Resident", "Administrator"] | None = None
     status: Literal["Active", "Inactive", "Pending"] | None = None
+    adminCategory: Literal["BCDRRMO", "CSWD"] | None = None
 
 
 class ResponderApplicationReview(BaseModel):

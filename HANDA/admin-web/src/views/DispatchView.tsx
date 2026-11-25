@@ -223,7 +223,7 @@ export default function DispatchView() {
     <div className={`dispatch-live-banner ${apiStatus === 'ready' ? 'dispatch-live-on' : ''}`}>
       <span className="dispatch-live-dot" />
       <span>{realtimeMessage}</span>
-      {apiStatus === 'ready' && <small>Online status expires after 45 seconds; GPS after 60 seconds</small>}
+      {apiStatus === 'ready' && <small>Heartbeat every 15s · offline after 45s without a check-in · GPS hidden when its fix is over 60s old</small>}
       {apiStatus === 'error' && <small>{apiErrorMessage || realtimeError}</small>}
     </div>
 

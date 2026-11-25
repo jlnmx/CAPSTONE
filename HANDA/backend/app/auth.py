@@ -24,6 +24,7 @@ class CurrentUser:
     role: str
     token_version: int
     is_superadmin: bool = False
+    admin_category: str | None = None
 
 
 def normalize_role(role: str) -> str:
@@ -82,13 +83,16 @@ def get_current_user(
 
     claims = decode_access_token(credentials.credentials)
     row = connection.execute(
-        "SELECT id, name, email, role, status, token_version, is_superadmin FROM users WHERE id = %s",
+        "SELECT id, name, email, role, status, token_version, is_superadmin, admin_category FROM users WHERE id = %s",
         (claims["sub"],),
     ).fetchone()
     if not row or row["status"] != "Active" or row["token_version"] != claims["ver"]:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session is no longer valid.", headers={"WWW-Authenticate": "Bearer"})
 
-    return CurrentUser(row["id"], row["email"], row["name"], normalize_role(row["role"]), row["token_version"], bool(row.get("is_superadmin", False)))
+    return CurrentUser(
+        row["id"], row["email"], row["name"], normalize_role(row["role"]),
+        row["token_version"], bool(row.get("is_superadmin", False)), row.get("admin_category"),
+    )
 
 
 def require_roles(*roles: str) -> Callable:
@@ -106,3 +110,29 @@ def require_superadmin(user: CurrentUser = Depends(get_current_user)) -> Current
     if user.role != "admin" or not user.is_superadmin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the superadmin can manage user accounts.")
     return user
+
+
+def require_admin_category(*categories: str) -> Callable:
+    allowed_categories = set(categories)
+
+    def dependency(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+        if user.role != "admin" or (not user.is_superadmin and user.admin_category not in allowed_categories):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your administrator account is not authorized for this section.")
+        return user
+
+    return dependency
+
+
+def require_roles_or_admin_categories(admin_categories: tuple[str, ...], *roles: str) -> Callable:
+    allowed_roles = set(roles)
+    allowed_categories = set(admin_categories)
+
+    def dependency(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
+        if user.role == "admin":
+            if user.is_superadmin or user.admin_category in allowed_categories:
+                return user
+        elif user.role in allowed_roles:
+            return user
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized for this action.")
+
+    return dependency

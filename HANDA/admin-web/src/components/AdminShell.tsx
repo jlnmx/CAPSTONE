@@ -42,7 +42,7 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [newUserCount, setNewUserCount] = useState(0);
-  const pageTitle = location.pathname.startsWith('/centers/') ? 'Center management' : pageNames[location.pathname] || 'Command Center';
+  const pageTitle = location.pathname.startsWith('/centers/') ? 'Center management' : location.pathname === '/operations' && user?.adminCategory ? `${user.adminCategory} operations` : pageNames[location.pathname] || 'Command Center';
   const initials = (user?.name || 'HA').split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
 
   useEffect(() => {
@@ -143,7 +143,14 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
 
         <nav className="sidebar-navigation" aria-label="Command center">
           {navigationGroups.map((group) => {
-            const items = group.items.filter(({ to }) => to !== '/users' || user?.isSuperAdmin);
+            const items = group.items.filter(({ to }) => {
+              if (to === '/users') return user?.isSuperAdmin;
+              if (to === '/dispatch') return user?.isSuperAdmin || user?.adminCategory === 'BCDRRMO';
+              if (to === '/centers') return user?.isSuperAdmin || user?.adminCategory === 'CSWD';
+              if (to === '/operations') return user?.isSuperAdmin || user?.adminCategory === 'BCDRRMO';
+              if (to === '/map' || to === '/analytics') return user?.isSuperAdmin || Boolean(user?.adminCategory);
+              return true;
+            });
             return items.length ? <section className="sidebar-nav-group" key={group.label}>
               <div className="sidebar-caption">{group.label}</div>
               <div className="primary-nav">
@@ -172,7 +179,7 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
           <div className="sidebar-caption">PREFERENCES</div>
           <NavLink to="/system" title="System status" data-label="System status" aria-label="System status" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Radio size={18} /><span className="nav-link-label">System status</span></NavLink>
           <NavLink to="/settings" title="Settings" data-label="Settings" aria-label="Settings" className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`} onClick={() => setMenuOpen(false)}><Settings size={18} /><span className="nav-link-label">Settings</span></NavLink>
-          <div className="sidebar-presence"><span className="presence-indicator" /><div><strong>Secure console</strong><small>Administrator session</small></div></div>
+          <div className="sidebar-presence"><span className="presence-indicator" /><div><strong>Secure console</strong><small>{user?.isSuperAdmin ? 'Superadmin session' : user?.adminCategory ? `${user.adminCategory} administrator` : 'Category unassigned'}</small></div></div>
         </div>
       </aside>
 

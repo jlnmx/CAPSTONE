@@ -31,8 +31,13 @@ def _load_private_jwk() -> tuple[object, str, str]:
     return key, kid, algorithm
 
 
-def create_realtime_token(user_id: str, app_role: str) -> tuple[str, int]:
-    """Short-lived JWT accepted by Supabase Realtime. `sub` is the text user id; `app_role` is resident, responder or admin."""
+def create_realtime_token(
+    user_id: str,
+    app_role: str,
+    admin_category: str | None = None,
+    is_superadmin: bool = False,
+) -> tuple[str, int]:
+    """Create a short-lived Realtime JWT with the user's administrator scope."""
     key, kid, algorithm = _load_private_jwk()
     now = int(time.time())
     lifetime = settings.realtime_token_minutes * 60
@@ -41,6 +46,8 @@ def create_realtime_token(user_id: str, app_role: str) -> tuple[str, int]:
         "role": "authenticated",
         "sub": user_id,
         "app_role": app_role,
+        "admin_category": admin_category,
+        "is_superadmin": is_superadmin,
         "iat": now,
         "exp": now + lifetime,
     }
