@@ -59,10 +59,11 @@ function normalizeIncident(record: Record<string, any>): IncidentRecord {
 function normalizeEvacuee(record: Record<string, any>): EvacueeRecord {
   const displayName = record.displayName
     ?? [record.firstName ?? record.first_name, record.middleName ?? record.middle_name, record.lastName ?? record.last_name].filter(Boolean).join(' ');
+  const parsedAge = record.age == null || record.age === '' ? null : Number(record.age);
   return {
     id: String(record.id),
     displayName: displayName || 'Unnamed evacuee',
-    age: Number(record.age || 0),
+    age: parsedAge != null && Number.isFinite(parsedAge) ? parsedAge : null,
     barangay: record.barangay || record.address || '',
     contactNumber: record.contactNumber ?? record.contact_number ?? '',
     centerName: record.centerName ?? record.center_name ?? '',
@@ -198,7 +199,7 @@ export async function getAdminSnapshot(adminCategory?: AdminCategory | null): Pr
       ...shared,
       id: `${registration.id}:member:${member.id}`,
       displayName: member.name,
-      age: 0,
+      age: member.age,
     })) : [];
     return [head, ...members];
   });

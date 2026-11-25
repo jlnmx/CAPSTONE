@@ -5,6 +5,7 @@ import { createEvacuationRegistration, getAdminSnapshot, getCenters, getUsers } 
 import type { AdminSnapshot, CenterRecord, EvacuationHouseholdMemberInput, EvacuationRegistrationInput, EvacueeRecord, IncidentRecord, UserRecord } from '../types';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
 import { useAuth } from '../auth';
+import { buildCsv, buildIncidentCsv, downloadReportFile } from '../reports';
 
 const emptySnapshot: AdminSnapshot = { incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' };
 type RecordPeriod = 'all' | 'week' | 'month' | 'year';
@@ -25,16 +26,6 @@ function inPeriod(value: string, start: Date | null, now: Date) {
   if (start === null) return true;
   const timestamp = new Date(value).getTime();
   return Number.isFinite(timestamp) && timestamp >= start.getTime() && timestamp <= now.getTime();
-}
-
-function downloadCsv(filename: string, rows: string[][]) {
-  const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 export default function RecordsView({ mode }: { mode: 'all' | 'incidents' | 'evacuees' }) {
@@ -77,12 +68,20 @@ export default function RecordsView({ mode }: { mode: 'all' | 'incidents' | 'eva
       && `${row.displayName} ${row.barangay} ${row.centerName} ${row.status}`.toLowerCase().includes(normalizedQuery));
   }, [data.evacuees, period, query]);
   const visibleCount = tab === 'incidents' ? incidents.length : evacuees.length;
-  const exportRecords = () => tab === 'incidents'
-    ? downloadCsv('handa-incidents.csv', [['Type', 'Location', 'Status', 'Created'], ...incidents.map((row) => [row.type, row.location, row.status, row.createdAt])])
-    : downloadCsv('handa-evacuees.csv', [['Name', 'Age', 'Barangay', 'Center', 'Status', 'Registered'], ...evacuees.map((row) => [row.displayName, String(row.age), row.barangay, row.centerName, row.status, row.createdAt])]);
+  const exportRecords = () => {
+    if (tab === 'incidents') {
+      downloadReportFile('handa-incidents.csv', buildIncidentCsv(incidents), 'text/csv;charset=utf-8');
+      return;
+    }
+    const rows: unknown[][] = [
+      ['Name', 'Age', 'Barangay / address', 'Center', 'Status', 'Registered at'],
+      ...evacuees.map((row) => [row.displayName, row.age, row.barangay, row.centerName, row.status, row.createdAt]),
+    ];
+    downloadReportFile('handa-evacuees.csv', buildCsv(rows), 'text/csv;charset=utf-8');
+  };
 
   return <div className="page-content records-page">
-    <PageHeading eyebrow={tab === 'incidents' ? 'FIELD RESPONSE' : 'COMMUNITY RECORDS'} title={mode === 'evacuees' ? 'Evacuee directory' : mode === 'incidents' ? 'Incident records' : 'Operations records'} description="Search, review, and export records assigned to your department." action={<div className="heading-actions">{(mode === 'evacuees' || mode === 'all' && tab === 'evacuees') && <button className="button-primary" onClick={() => setAddEvacueeOpen(true)}><Plus size={16} /> Add household</button>}<button className="button-secondary" onClick={exportRecords} disabled={loading}><Download size={16} /> Export CSV</button></div>} />
+    <PageHeading eyebrow={tab === 'incidents' ? 'FIELD RESPONSE' : 'COMMUNITY RECORDS'} title={mode === 'evacuees' ? 'Evacuee directory' : mode === 'incidents' ? 'Incident records' : 'Operations records'} description="Search, review, and export records assigned to your department." action={<div className="heading-actions">{(mode === 'evacuees' || mode === 'all' && tab === 'evacuees') && <button className="button-primary" onClick={() => setAddEvacueeOpen(true)}><Plus size={16} /> Add household</button>}<button className="button-secondary" onClick={exportRecords} disabled={loading}><Download size={16} /> {tab === 'incidents' ? 'Export detailed CSV' : 'Export CSV'}</button></div>} />
     {error && <InlineNotice onRetry={() => void refresh()}>{error}</InlineNotice>}
     <section className="surface-panel records-panel">
       <div className="records-toolbar">
@@ -415,7 +414,7 @@ function PhotoCell({ photos, title }: { photos: string[]; title: string }) {
 
 function EvacueeTable({ rows, filtered }: { rows: EvacueeRecord[]; filtered: boolean }) {
   if (!rows.length) return <EmptyState title={filtered ? 'No matching evacuees' : 'No evacuees found'} detail={filtered ? 'Try another search or time period.' : 'Registered evacuees will appear here.'} />;
-  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Person</th><th>Barangay</th><th>Center</th><th>Age</th><th>Registered</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td><div className="person-cell"><span className="avatar avatar-table" style={row.profilePicture ? { padding: 0, overflow: 'hidden' } : undefined}>{row.profilePicture ? <img src={row.profilePicture} alt={`${row.displayName} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : row.displayName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><strong>{row.displayName}</strong></div><small className="cell-subtitle">{row.contactNumber}</small></td><td>{row.barangay || 'Not provided'}</td><td>{row.centerName || 'Not assigned'}</td><td>{row.age || '—'}</td><td>{formatDate(row.createdAt)}</td><td><StatusPill value={row.status} /></td></tr>)}</tbody></table></div>;
+  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Person</th><th>Barangay</th><th>Center</th><th>Age</th><th>Registered</th><th>Status</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td><div className="person-cell"><span className="avatar avatar-table" style={row.profilePicture ? { padding: 0, overflow: 'hidden' } : undefined}>{row.profilePicture ? <img src={row.profilePicture} alt={`${row.displayName} profile`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} /> : row.displayName.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><strong>{row.displayName}</strong></div><small className="cell-subtitle">{row.contactNumber}</small></td><td>{row.barangay || 'Not provided'}</td><td>{row.centerName || 'Not assigned'}</td><td>{row.age == null ? '—' : row.age}</td><td>{formatDate(row.createdAt)}</td><td><StatusPill value={row.status} /></td></tr>)}</tbody></table></div>;
 }
 
 function StatusPill({ value }: { value: string }) {

@@ -5,6 +5,7 @@ import { ACCESS_TOKEN_KEY, apiRequest, getAdminSnapshot, getLogs } from '../api'
 import type { AdminSnapshot, LogRecord } from '../types';
 import { useAuth } from '../auth';
 import { EmptyState, InlineNotice, LoadingState, MetricCard, PageHeading } from '../components/UI';
+import { buildAnalyticsReportHtml, downloadReportFile } from '../reports';
 
 const blankSnapshot: AdminSnapshot = { incidents: [], evacuees: [], centers: [], activePersonnel: 0, source: 'unavailable' };
 
@@ -32,8 +33,15 @@ export function AnalyticsView() {
   const openCenters = data.centers.filter((center) => center.status !== 'closed');
   const capacity = openCenters.reduce((total, center) => total + center.capacity, 0);
   const occupied = openCenters.reduce((total, center) => total + center.currentOccupancy, 0);
+  const scope = user?.isSuperAdmin ? 'Full network' : user?.adminCategory ?? 'Unassigned';
+  const exportReport = () => {
+    const report = buildAnalyticsReportHtml(data, { scope, includeIncidents: canSeeIncidents, includeEvacuation: canSeeEvacuation });
+    const date = new Date().toISOString().slice(0, 10);
+    const scopeFileName = scope.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unassigned';
+    downloadReportFile(`handa-analytics-${scopeFileName}-${date}.html`, report, 'text/html;charset=utf-8');
+  };
   return <div className="page-content">
-    <PageHeading eyebrow="DECISION SUPPORT" title="Analytics" description="Operational metrics for the services assigned to your department." action={<button className="button-secondary" onClick={() => window.print()}><Download size={16} /> Print report</button>} />
+    <PageHeading eyebrow="DECISION SUPPORT" title="Analytics" description="Operational metrics for the services assigned to your department." action={<button className="button-secondary" onClick={exportReport} disabled={loading || !hasScope}><Download size={16} /> Export analytics report</button>} />
     {!hasScope && <InlineNotice>Your sub-admin category has not been assigned. Contact a superadmin to enable department access.</InlineNotice>}
     {error && <InlineNotice>{error}</InlineNotice>}
     {loading ? <LoadingState label="Calculating operational metrics" /> : <>

@@ -46,7 +46,7 @@ export interface IncidentRecord {
 export interface EvacueeRecord {
   id: string;
   displayName: string;
-  age: number;
+  age: number | null;
   barangay: string;
   contactNumber: string;
   centerName: string;
