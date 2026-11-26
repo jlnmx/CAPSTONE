@@ -9,6 +9,7 @@ import { useAuth } from '../auth';
 import { getUsers } from '../api';
 
 const NEW_USER_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+const USERS_LAST_VIEWED_KEY = 'handa.usersLastViewedAt';
 
 const navigationGroups = [
   { label: 'Command', items: [
@@ -56,27 +57,41 @@ export default function AdminShell({ children }: { children?: React.ReactNode })
       try {
         const users = await getUsers();
         if (!active) return;
-        const cutoff = Date.now() - NEW_USER_WINDOW_MS;
+        const now = Date.now();
+        const lastViewedAt = Number(window.localStorage.getItem(`${USERS_LAST_VIEWED_KEY}:${user.id}`));
+        const cutoff = Math.max(
+          now - NEW_USER_WINDOW_MS,
+          Number.isFinite(lastViewedAt) && lastViewedAt > 0 ? lastViewedAt : 0,
+        );
+        if (location.pathname === '/users') {
+          window.localStorage.setItem(`${USERS_LAST_VIEWED_KEY}:${user.id}`, String(now));
+          setNewUserCount(0);
+          return;
+        }
         setNewUserCount(users.filter((account) => {
           const createdAt = Date.parse(account.createdAt);
           return (account.role === 'Resident' || account.role === 'Responder')
             && (account.status === 'Active' || account.status === 'Pending')
             && Number.isFinite(createdAt)
             && createdAt >= cutoff
-            && createdAt <= Date.now();
+            && createdAt <= now;
         }).length);
       } catch (error) {
         console.error('The new-user navigation count could not be refreshed:', error);
       }
     };
 
+    if (location.pathname === '/users') {
+      window.localStorage.setItem(`${USERS_LAST_VIEWED_KEY}:${user.id}`, String(Date.now()));
+      setNewUserCount(0);
+    }
     void refreshNewUserCount();
     const interval = window.setInterval(() => { void refreshNewUserCount(); }, 60_000);
     return () => {
       active = false;
       window.clearInterval(interval);
     };
-  }, [user?.id, user?.isSuperAdmin]);
+  }, [location.pathname, user?.id, user?.isSuperAdmin]);
 
   useEffect(() => {
     const mobileBreakpoint = window.matchMedia('(max-width: 820px)');
