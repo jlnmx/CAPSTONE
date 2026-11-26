@@ -192,7 +192,17 @@ function popupContent(record: CenterRecord | IncidentRecord, center: boolean) {
   return popup;
 }
 
-function IncidentOverviewModal({ incident, onClose, offline }: { incident: IncidentRecord; onClose: () => void; offline: boolean }) {
+function IncidentOverviewModal({
+  incident,
+  onClose,
+  onViewPhoto,
+  offline,
+}: {
+  incident: IncidentRecord;
+  onClose: () => void;
+  onViewPhoto: (uri: string, title: string) => void;
+  offline: boolean;
+}) {
   const statusHistory = [
     { status: 'reported', at: incident.createdAt, actorName: incident.reporterName || 'Resident' },
     ...(incident.statusHistory ?? []),
@@ -254,12 +264,24 @@ function IncidentOverviewModal({ incident, onClose, offline }: { incident: Incid
         {photoGroups.map((group) => <section className="incident-overview-section" key={group.title}>
           <div className="incident-overview-section-heading"><h3>{group.title}</h3><span>{group.photos.length}</span></div>
           {group.photos.length ? <div className="incident-overview-photos">
-            {group.photos.map((uri, index) => <a href={uri} target="_blank" rel="noreferrer" key={`${group.title}-${index}`} aria-label={`Open ${group.title.toLowerCase()} photo ${index + 1} in a new tab`}>
+            {group.photos.map((uri, index) => <button type="button" key={`${group.title}-${index}`} onClick={() => onViewPhoto(uri, `${group.title} ${index + 1}`)} aria-label={`View ${group.title.toLowerCase()} photo ${index + 1}`}>
               <img src={uri} alt={`${group.title} ${index + 1}`} loading="lazy" />
-            </a>)}
+            </button>)}
           </div> : <p className="incident-overview-empty">No {group.title.toLowerCase()} uploaded.</p>}
         </section>)}
       </div>
+    </section>
+  </div>, document.body);
+}
+
+function IncidentPhotoViewer({ photo, onClose }: { photo: { uri: string; title: string }; onClose: () => void }) {
+  return createPortal(<div className="photo-viewer-backdrop incident-photo-viewer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="photo-viewer incident-photo-viewer" role="dialog" aria-modal="true" aria-label={photo.title}>
+      <div className="photo-viewer-heading">
+        <div><p className="eyebrow">INCIDENT PHOTO</p><h2>{photo.title}</h2></div>
+        <button type="button" className="icon-button" onClick={onClose} aria-label="Close photo viewer"><X size={18} /></button>
+      </div>
+      <div className="incident-photo-viewer-stage"><img src={photo.uri} alt={photo.title} /></div>
     </section>
   </div>, document.body);
 }
@@ -296,6 +318,7 @@ export default function MapView() {
   const [isSatellite, setIsSatellite] = useState(false);
   const [focusedOfflineMarker, setFocusedOfflineMarker] = useState<string | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<IncidentRecord | null>(null);
+  const [selectedIncidentPhoto, setSelectedIncidentPhoto] = useState<{ uri: string; title: string } | null>(null);
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() || '';
 
   const refresh = useCallback(async (quiet = false) => {
@@ -351,11 +374,14 @@ export default function MapView() {
   useEffect(() => {
     if (!selectedIncident) return undefined;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelectedIncident(null);
+      if (event.key === 'Escape') {
+        if (selectedIncidentPhoto) setSelectedIncidentPhoto(null);
+        else setSelectedIncident(null);
+      }
     };
     window.addEventListener('keydown', closeOnEscape);
     return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [selectedIncident]);
+  }, [selectedIncident, selectedIncidentPhoto]);
 
   useEffect(() => {
     if (!online) {
@@ -647,6 +673,12 @@ export default function MapView() {
         <footer className="map-rail-footer"><Building2 size={14} /><span>{geolocatedCenters} of {data.centers.length} centers have map coordinates</span><span className="map-footer-divider" /><span>{geolocatedIncidents} of {data.incidents.length} incidents mapped</span></footer>
       </aside>
     </div>
-    {selectedIncident && <IncidentOverviewModal incident={selectedIncident} onClose={() => setSelectedIncident(null)} offline={!online} />}
+    {selectedIncident && <IncidentOverviewModal
+      incident={selectedIncident}
+      onClose={() => setSelectedIncident(null)}
+      onViewPhoto={(uri, title) => setSelectedIncidentPhoto({ uri, title })}
+      offline={!online}
+    />}
+    {selectedIncidentPhoto && <IncidentPhotoViewer photo={selectedIncidentPhoto} onClose={() => setSelectedIncidentPhoto(null)} />}
   </section>;
 }
