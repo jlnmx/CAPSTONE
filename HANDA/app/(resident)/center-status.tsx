@@ -12,6 +12,7 @@ import AppBackArrow from '@components/AppBackArrow';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppMediumFontFamily, AppSemiboldFontFamily } from '@constants/typography';
+import { useTheme } from '@hooks/useTheme';
 
 const GREEN = '#D45B92';
 const RED = '#B76565';
@@ -38,6 +39,8 @@ const CENTER_FILTERS: { key: CenterFilter; label: string }[] = [
 ];
 
 export default function CenterStatusScreen() {
+  const { palette, resolvedTheme } = useTheme();
+  const darkCardStyle = resolvedTheme === 'dark' ? { backgroundColor: palette.surface, borderColor: palette.border } : undefined;
   const [centers, setCenters] = useState<EvacuationCenter[]>([]);
   const [selectedCenter, setSelectedCenter] = useState<EvacuationCenter | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,7 +109,7 @@ export default function CenterStatusScreen() {
           </ThemeAwareTouchableOpacity>
         </LinearGradient>
 
-        <Animated.View entering={FadeInDown.duration(320)} style={styles.intro}>
+        <Animated.View entering={FadeInDown.duration(320)} style={[styles.intro, darkCardStyle]}>
           <ThemeAwareView style={styles.introCopy}>
             <Text style={styles.sectionTitle}>Find a safe place</Text>
             <Text style={styles.sectionSubtitle}>Check capacity, availability, and location before you travel.</Text>
@@ -114,7 +117,7 @@ export default function CenterStatusScreen() {
           <ThemeAwareView style={styles.introIcon}><MaterialCommunityIcons name="map-marker-radius-outline" size={23} color={GREEN} /></ThemeAwareView>
         </Animated.View>
 
-        {centers.length > 0 && <Animated.View entering={FadeInDown.delay(50).duration(320)} style={styles.overviewCard}>
+        {centers.length > 0 && <Animated.View entering={FadeInDown.delay(50).duration(320)} style={[styles.overviewCard, darkCardStyle]}>
           <ThemeAwareView style={styles.overviewLive}><ThemeAwareView style={styles.liveDot} /><Text style={styles.overviewLiveText}>LIVE CENTER UPDATES</Text></ThemeAwareView>
           <ThemeAwareView style={styles.overviewStats}>
             <ThemeAwareView style={styles.overviewStat}><Text style={styles.overviewValue}>{centers.length}</Text><Text style={styles.overviewLabel}>Centers</Text></ThemeAwareView>
@@ -204,6 +207,8 @@ export default function CenterStatusScreen() {
 }
 
 function CenterCard({ center, index, onDetails }: { center: EvacuationCenter; index: number; onDetails: () => void }) {
+  const { palette, resolvedTheme } = useTheme();
+  const darkCardStyle = resolvedTheme === 'dark' ? { backgroundColor: palette.surface, borderColor: palette.border } : undefined;
   const capacity = safeCapacity(center);
   const occupancy = safeOccupancy(center);
   const percentage = capacity > 0 ? Math.min(100, (occupancy / capacity) * 100) : 0;
@@ -219,7 +224,7 @@ function CenterCard({ center, index, onDetails }: { center: EvacuationCenter; in
   const statusLabel = statusKey === 'limited' ? 'Limited' : statusKey.charAt(0).toUpperCase() + statusKey.slice(1);
 
   return (
-    <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 55).duration(360)} style={styles.card}>
+    <Animated.View entering={FadeInDown.delay(Math.min(index, 6) * 55).duration(360)} style={[styles.card, darkCardStyle]}>
       <ThemeAwareView style={[styles.cardAccent, { backgroundColor: tone.accent }]} />
       <ThemeAwareView style={styles.cardBody}>
         <ThemeAwareView style={styles.cardTop}>

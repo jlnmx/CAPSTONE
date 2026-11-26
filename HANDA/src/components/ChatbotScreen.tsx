@@ -8,6 +8,7 @@ import { Colors } from '@constants/colors';
 import AppBackArrow from '@components/AppBackArrow';
 import RescueMascot from '@components/RescueMascot';
 import { answerQuestion, ChatbotTurn, getLiveQuestionContext, requestModelAnswer } from '@services/chatbotAnswers';
+import { useTheme } from '@hooks/useTheme';
 
 const CHAT_ACCENT = Colors.primary;
 const QUICK_PROMPTS = ['Any typhoons right now?', 'Will it rain in Biñan today?', 'How do I report an incident?', 'How do evacuation status updates work?'];
@@ -20,6 +21,7 @@ function isGoogleWeatherQuestion(question: string) {
 }
 
 export default function ChatbotScreen() {
+  const { palette } = useTheme();
   const segments = useSegments();
   const fallbackHref = segments[0] === '(responder)' ? '/(responder)/more' : '/(resident)/more';
   const [input, setInput] = useState('');
@@ -81,7 +83,7 @@ export default function ChatbotScreen() {
         </ThemeAwareView>
         <RescueMascot size={50} animated />
       </ThemeAwareView>
-      <KeyboardAvoidingView style={styles.body} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={[styles.body, { backgroundColor: palette.surface }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ThemeAwareScrollView
           ref={scrollRef}
           style={styles.messages}

@@ -13,6 +13,7 @@ import { authenticatedFetch } from '@services/apiClient';
 import { useAuth } from '@hooks/useAuth';
 import { useNotificationStream } from '@hooks/useRealtime';
 import { ACTIVE_INCIDENT_NOTIFICATIONS_CHANGED, notifyActiveIncidentNotificationsChanged } from '@services/incidentNotifications';
+import { useTheme } from '@hooks/useTheme';
 
 const GREEN = '#D45B92';
 const READ_IDS_KEY = 'handa.readNotificationIds';
@@ -36,6 +37,7 @@ function formatTime(value: string): string {
 }
 
 export function NotificationBell() {
+  const { palette, resolvedTheme } = useTheme();
   const { width, height } = useWindowDimensions();
   const horizontalPadding = width < 500 ? 14 : Math.max(18, (width - 900) / 2 + 18);
   const router = useRouter();
@@ -248,7 +250,14 @@ export function NotificationBell() {
                   <Animated.View
                     key={notification.id}
                     entering={FadeInDown.duration(220).delay(Math.min(index * 35, 180))}
-                    style={[styles.notification, !notification.read && styles.unreadNotification]}
+                    style={[
+                      styles.notification,
+                      !notification.read && styles.unreadNotification,
+                      resolvedTheme === 'dark' && {
+                        backgroundColor: notification.read ? palette.surface : palette.surfaceMuted,
+                        borderColor: palette.border,
+                      },
+                    ]}
                   >
                     <ThemeAwarePressable
                       style={styles.notificationOpen}

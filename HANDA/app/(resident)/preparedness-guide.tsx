@@ -7,6 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@constants/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GradientHeader, Reveal } from '@components/ScreenKit';
+import { useTheme } from '@hooks/useTheme';
 
 type Guide = {
   title: string;
@@ -176,6 +177,7 @@ function SortOption({ label, icon, selected, onPress }: { label: string; icon: R
 }
 
 function GuideCard({ guide, onPress }: { guide: Guide; onPress: () => void }) {
+  const { palette, resolvedTheme } = useTheme();
   const motion = useRef(new Animated.Value(0)).current;
   const theme = cardThemes[guide.title];
   const animateTo = (value: number) => Animated.spring(motion, { toValue: value, useNativeDriver: true, friction: 7, tension: 120 }).start();
@@ -194,7 +196,7 @@ function GuideCard({ guide, onPress }: { guide: Guide; onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel={`${guideCardTitle(guide)} preparedness guide`}
     >
-      <Animated.View style={[styles.guideCard, { borderColor: `${theme.accent}30`, transform: [{ translateY: lift }, { scale }] }]}>
+      <Animated.View style={[styles.guideCard, { borderColor: resolvedTheme === 'dark' ? palette.border : `${theme.accent}30`, backgroundColor: resolvedTheme === 'dark' ? palette.surface : '#FFFFFF', transform: [{ translateY: lift }, { scale }] }]}>
         <ThemeAwareView style={[styles.guideAccent, { backgroundColor: theme.accent }]} />
         <Animated.View style={[styles.guideIcon, { backgroundColor: theme.iconBg, transform: [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] }) }] }]}>
           <MaterialCommunityIcons name={guide.icon} size={25} color={theme.iconColor} />
