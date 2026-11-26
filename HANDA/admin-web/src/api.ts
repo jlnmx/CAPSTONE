@@ -1,4 +1,4 @@
-import type { ActiveResponderRecord, AdminCategory, AdminSnapshot, CenterRecord, EvacuationRegistrationInput, EvacuationRegistrationRecord, EvacueeRecord, IncidentAssignment, IncidentRecord, LogRecord, UserInput, UserRecord } from './types';
+import type { ActiveResponderRecord, AdminCategory, AdminSnapshot, CenterRecord, EvacuationRegistrationInput, EvacuationRegistrationRecord, EvacueeRecord, IncidentAssignment, IncidentRecord, IncidentStatusEvent, LogRecord, UserInput, UserRecord } from './types';
 
 const API_BASE = (import.meta.env.VITE_API_URL?.trim() || 'http://localhost:8000').replace(/\/$/, '');
 export const ACCESS_TOKEN_KEY = 'handa.accessToken';
@@ -53,14 +53,23 @@ function normalizeIncident(record: Record<string, any>): IncidentRecord {
     responseNotes: record.responseNotes ?? record.response_notes ?? '',
     photoUris: (Array.isArray(record.photoUris ?? record.photo_uris) ? (record.photoUris ?? record.photo_uris) : []).filter((uri: unknown) => typeof uri === 'string' && uri),
     responsePhotoUris: (Array.isArray(record.responsePhotoUris ?? record.response_photo_uris) ? (record.responsePhotoUris ?? record.response_photo_uris) : []).filter((uri: unknown) => typeof uri === 'string' && uri),
-    statusHistory: (Array.isArray(record.statusHistory ?? record.status_history) ? (record.statusHistory ?? record.status_history) : [])
-      .filter((event: Record<string, unknown>) => typeof event.status === 'string' && typeof event.at === 'string')
-      .map((event: Record<string, unknown>) => ({
-        status: event.status as string,
-        at: event.at as string,
-        actorName: typeof (event.actorName ?? event.actor_name) === 'string' ? event.actorName ?? event.actor_name as string : undefined,
-      })),
+    statusHistory: normalizeIncidentStatusHistory(record.statusHistory ?? record.status_history),
   };
+}
+
+function normalizeIncidentStatusHistory(value: unknown): IncidentStatusEvent[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item: unknown) => {
+    if (!item || typeof item !== 'object') return [];
+    const event = item as Record<string, unknown>;
+    if (typeof event.status !== 'string' || typeof event.at !== 'string') return [];
+    const actorName = event.actorName ?? event.actor_name;
+    return [{
+      status: event.status,
+      at: event.at,
+      actorName: typeof actorName === 'string' ? actorName : undefined,
+    }];
+  });
 }
 
 function normalizeEvacuee(record: Record<string, any>): EvacueeRecord {

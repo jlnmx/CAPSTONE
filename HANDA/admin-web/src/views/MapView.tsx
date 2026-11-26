@@ -192,7 +192,7 @@ function popupContent(record: CenterRecord | IncidentRecord, center: boolean) {
   return popup;
 }
 
-function IncidentOverviewModal({ incident, onClose }: { incident: IncidentRecord; onClose: () => void }) {
+function IncidentOverviewModal({ incident, onClose, offline }: { incident: IncidentRecord; onClose: () => void; offline: boolean }) {
   const statusHistory = [
     { status: 'reported', at: incident.createdAt, actorName: incident.reporterName || 'Resident' },
     ...(incident.statusHistory ?? []),
@@ -217,6 +217,7 @@ function IncidentOverviewModal({ incident, onClose }: { incident: IncidentRecord
         <button type="button" className="icon-button incident-overview-close" onClick={onClose} aria-label="Close incident overview"><X size={18} /></button>
       </header>
       <div className="incident-overview-body">
+        {offline && <p className="incident-overview-offline-note">Offline snapshot: some incident details, status history, and photos are not stored on this device.</p>}
         <section className="incident-overview-section">
           <h3>Report details</h3>
           <dl className="incident-overview-grid">
@@ -646,6 +647,6 @@ export default function MapView() {
         <footer className="map-rail-footer"><Building2 size={14} /><span>{geolocatedCenters} of {data.centers.length} centers have map coordinates</span><span className="map-footer-divider" /><span>{geolocatedIncidents} of {data.incidents.length} incidents mapped</span></footer>
       </aside>
     </div>
-    {selectedIncident && <IncidentOverviewModal incident={selectedIncident} onClose={() => setSelectedIncident(null)} />}
+    {selectedIncident && <IncidentOverviewModal incident={selectedIncident} onClose={() => setSelectedIncident(null)} offline={!online} />}
   </section>;
 }
