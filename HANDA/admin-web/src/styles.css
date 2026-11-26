@@ -643,6 +643,10 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .dispatch-selected-heading .eyebrow { margin-bottom: 4px; }
 .dispatch-selected-actions .button-secondary, .dispatch-selected-actions .button-danger { min-height: 35px; font-size: 10px; }
 .dispatch-selected-incident .dispatch-description { color: var(--muted); font-size: 11px; }
+.dispatch-incident-photo-section { margin-top: 14px; }
+.dispatch-incident-photo-section .incident-overview-section-heading { margin-bottom: 8px; }
+.dispatch-incident-photo-section .incident-overview-section-heading h3 { margin: 0; color: var(--ink); font-size: 11px; font-weight: 850; }
+.dispatch-no-photos { margin: 0; color: var(--muted); font-size: 10px; }
 .dispatch-responder-summary { display: flex; align-items: center; gap: 9px; }
 .dispatch-online-summary { display: inline-flex; align-items: center; gap: 6px; color: var(--success); font-size: 10px; font-weight: 800; }
 .dispatch-online-summary i, .dispatch-presence i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }

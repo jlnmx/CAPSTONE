@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, Check, Clock3, MapPin, Radio, RefreshCw, Search, Send, Users } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Activity, Check, Clock3, MapPin, Radio, RefreshCw, Search, Send, Users, X } from 'lucide-react';
 import { dispatchIncident, getDispatchData, updateIncidentStatus } from '../api';
 import { EmptyState, InlineNotice, LoadingState, PageHeading } from '../components/UI';
 import type { IncidentAssignment, IncidentRecord } from '../types';
@@ -31,6 +32,18 @@ function formatDistance(distance: number | null, live?: { location?: { latitude:
   return 'Incident pin unavailable';
 }
 
+function DispatchPhotoViewer({ photo, onClose }: { photo: { uri: string; title: string }; onClose: () => void }) {
+  return createPortal(<div className="photo-viewer-backdrop incident-photo-viewer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="photo-viewer incident-photo-viewer" role="dialog" aria-modal="true" aria-label={photo.title}>
+      <div className="photo-viewer-heading">
+        <div><p className="eyebrow">INCIDENT PHOTO</p><h2>{photo.title}</h2></div>
+        <button type="button" className="icon-button" onClick={onClose} aria-label="Close photo viewer"><X size={18} /></button>
+      </div>
+      <div className="incident-photo-viewer-stage"><img src={photo.uri} alt={photo.title} /></div>
+    </section>
+  </div>, document.body);
+}
+
 export default function DispatchView() {
   const [incidents, setIncidents] = useState<IncidentRecord[]>([]);
   const [responders, setResponders] = useState<Awaited<ReturnType<typeof getDispatchData>>['responders']>([]);
@@ -40,6 +53,7 @@ export default function DispatchView() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [severityFilter, setSeverityFilter] = useState('all');
   const [incidentSort, setIncidentSort] = useState('newest');
+  const [previewPhoto, setPreviewPhoto] = useState<{ uri: string; title: string } | null>(null);
   const [responderSearch, setResponderSearch] = useState('');
   const [responderStatusFilter, setResponderStatusFilter] = useState('all');
   const [responderSort, setResponderSort] = useState('nearest');
@@ -85,6 +99,15 @@ export default function DispatchView() {
   useEffect(() => {
     setSelectedResponderIds([]);
   }, [selectedIncidentId]);
+
+  useEffect(() => {
+    if (!previewPhoto) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewPhoto(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [previewPhoto]);
 
   const filteredIncidents = useMemo(() => {
     const query = incidentSearch.trim().toLowerCase();
@@ -295,6 +318,20 @@ export default function DispatchView() {
           <p className="dispatch-incident-location"><MapPin size={15} /> {locationLabel(incident)}</p>
           {incident.latitude != null && incident.longitude != null && <small className="dispatch-coordinates">{incident.latitude.toFixed(5)}, {incident.longitude.toFixed(5)}</small>}
           <p className="dispatch-description">{incident.description || 'No additional details provided.'}</p>
+          {[
+            { title: 'Resident photos', photos: incident.photoUris ?? [] },
+            { title: 'Responder photos', photos: incident.responsePhotoUris ?? [] },
+          ].map((group) => <section className="dispatch-incident-photo-section" key={group.title}>
+            <div className="incident-overview-section-heading"><h3>{group.title}</h3><span>{group.photos.length}</span></div>
+            {group.photos.length ? <div className="incident-overview-photos">
+              {group.photos.map((uri, index) => <button
+                type="button"
+                key={`${group.title}-${index}`}
+                onClick={() => setPreviewPhoto({ uri, title: `${incident.type} · ${group.title} ${index + 1}` })}
+                aria-label={`View ${group.title.toLowerCase()} photo ${index + 1}`}
+              ><img src={uri} alt={`${group.title} ${index + 1}`} loading="lazy" /></button>)}
+            </div> : <p className="dispatch-no-photos">No {group.title.toLowerCase()} uploaded.</p>}
+          </section>)}
           <div className="dispatch-assignment-section">
             <div className="dispatch-assignment-heading"><strong>Currently dispatched</strong><span>{assigned.length}</span></div>
             {assigned.length ? assigned.map((assignment) => <div className="dispatch-assignment-row" key={assignment.responder_id}><span className="dispatch-assignment-mark"><Check size={13} /></span><span><strong>{assignment.name}</strong><small>{assignment.responder_organization || 'Responder'}</small></span><span className="dispatch-assignment-status">Deployed</span></div>) : <p className="dispatch-no-assignment">No responders deployed to this incident yet.</p>}
@@ -360,6 +397,7 @@ export default function DispatchView() {
         </div>
       </section>
     </div>}
+    {previewPhoto && <DispatchPhotoViewer photo={previewPhoto} onClose={() => setPreviewPhoto(null)} />}
     <div className="dispatch-footnote"><Radio size={14} /> Live GPS updates while responders are signed in, online, and have granted location permission. The roster refreshes every 15 seconds.</div>
   </div>;
 }
