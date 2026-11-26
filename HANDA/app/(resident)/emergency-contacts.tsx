@@ -88,7 +88,7 @@ export default function EmergencyContactsScreen() {
       <ThemeAwareScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LinearGradient colors={[Colors.primary, Colors.brandBlueDeep]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>
           <MaterialCommunityIcons name="phone-in-talk" size={150} color="rgba(255,255,255,0.08)" style={styles.headerGlyph} />
-          <AppBackArrow />
+          <AppBackArrow onPress={() => router.replace('/(resident)')} />
           <Animated.View style={[styles.headerCopy, { opacity: headerIn, transform: [{ translateX: headerIn.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }] }]}>
             <Text style={styles.headerTitle}>Emergency</Text>
             <Text style={styles.headerSubtitle}>CONTACT LIST</Text>
