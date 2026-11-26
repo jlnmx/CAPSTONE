@@ -959,8 +959,8 @@ export function RegistrationForm({ role = 'Resident', responderType }: Registrat
               accessibilityLabel="6-digit account verification code"
             />
             {!!validationErrors.form && <Text style={styles.fieldError}>{validationErrors.form}</Text>}
-            <TouchableOpacity style={styles.submitButton} onPress={() => void verifyRegistrationOtp()} disabled={isSubmitting} accessibilityRole="button">
-              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Verify and create account</Text>}
+            <TouchableOpacity style={[styles.submitButton, styles.otpSubmitButton]} onPress={() => void verifyRegistrationOtp()} disabled={isSubmitting} accessibilityRole="button">
+              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={[styles.submitText, styles.otpSubmitText]}>Verify and create account</Text>}
             </TouchableOpacity>
             <TouchableOpacity style={styles.otpResendButton} onPress={() => void requestRegistrationOtp()} disabled={isSubmitting} accessibilityRole="button">
               <Text style={styles.otpResendText}>Send a new code</Text>
@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
   otpChannelOptionSelected: { borderColor: GREEN, backgroundColor: '#FFF1F6' },
   otpChannelOptionText: { color: TEXT, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
   otpCodeInput: { width: '100%', marginTop: 12, textAlign: 'center', letterSpacing: 8, fontSize: 22 },
-  otpResendButton: { paddingVertical: 12, alignItems: 'center' },
+  otpResendButton: { minHeight: 36, justifyContent: 'center', paddingVertical: 8, alignItems: 'center' },
   otpResendText: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
   row: { flexDirection: 'row', columnGap: 18 },
   rowStacked: { flexDirection: 'column', columnGap: 0 },
@@ -1236,6 +1236,8 @@ const styles = StyleSheet.create({
   backButtonText: { color: GREEN, fontFamily: FONT_FAMILY, fontSize: 13, fontWeight: '700' },
   nextButton: { minHeight: 52, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 16, borderRadius: 14, backgroundColor: GREEN },
   submitButton: { minHeight: 52, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 14, backgroundColor: GREEN },
+  otpSubmitButton: { flex: 0, minHeight: 44, paddingHorizontal: 12, borderRadius: 11 },
+  otpSubmitText: { fontSize: 12 },
   submitText: { color: '#FFFFFF', fontFamily: AppBoldFontFamily, fontSize: 14, fontWeight: '800' },
   modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: 'rgba(0, 0, 0, 0.35)' },
   sexOptions: { width: '100%', maxWidth: 300, padding: 18, borderRadius: 10, backgroundColor: SURFACE },
