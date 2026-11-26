@@ -221,7 +221,7 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .center-sort-control .select-control { min-height: 43px; padding: 0 11px; border-radius: 8px; color: var(--ink); background: var(--surface); font-size: 11px; }
 .center-filter-summary { display: flex; grid-column: 1 / -1; align-items: center; gap: 14px; color: var(--muted); font-size: 10px; }
 .center-filter-summary strong { color: var(--ink); font-weight: 850; }
-.center-filter-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.center-filter-status { min-width: 0; }
 .center-filter-empty-action { display: flex; justify-content: center; padding-bottom: 18px; }
 
 .center-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; }
@@ -499,7 +499,6 @@ button:disabled { cursor: not-allowed; opacity: .64; }
   .page-content { padding-right: 21px; padding-left: 21px; }
   .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .center-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .center-filter-groups { grid-template-columns: 1fr; }
   .analytics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .analytics-registration-panel { grid-column: 1 / -1; }
 }
@@ -544,8 +543,7 @@ button:disabled { cursor: not-allowed; opacity: .64; }
   .center-filter-toolbar { gap: 12px; padding: 12px; }
   .center-filter-controls { grid-template-columns: 1fr; gap: 10px; }
   .center-filter-summary { grid-column: 1; }
-  .center-filter-groups { gap: 11px; }
-  .center-filter-groups .user-filter-segmented button { flex: 0 0 auto; }
+  .center-filter-status .user-filter-segmented button { flex: 0 0 auto; }
   .data-table { min-width: 740px; }.user-table { min-width: 680px; }
   .form-grid { grid-template-columns: 1fr; }.form-field-wide { grid-column: auto; }.household-member-form { grid-template-columns: 1fr; }.household-member-title { grid-column: auto; }.modal-card { padding: 15px; }.modal-actions { flex-wrap: wrap; }.modal-actions > button { flex: 1; }
   .system-status-banner { flex-wrap: wrap; }.system-status-banner > .status-pill { margin-left: 48px; }

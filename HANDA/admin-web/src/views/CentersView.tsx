@@ -20,7 +20,6 @@ type CenterForm = {
 
 const blankForm: CenterForm = { name: '', location: '', capacity: '', status: 'available', coordinatorName: '', contactNumber: '', notes: '', latitude: '', longitude: '' };
 const centerStatuses: CenterRecord['status'][] = ['available', 'limited', 'full', 'closed'];
-type CapacityFilter = 'all' | 'many-spaces' | 'few-spaces' | 'no-spaces';
 type CenterSortOrder = 'name-asc' | 'name-desc' | 'spaces-desc' | 'spaces-asc' | 'occupancy-asc' | 'occupancy-desc';
 
 function remainingSpaces(center: CenterRecord) {
@@ -57,7 +56,6 @@ export default function CentersView() {
   const [actionError, setActionError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CenterRecord['status']>('all');
-  const [capacityFilter, setCapacityFilter] = useState<CapacityFilter>('all');
   const [sortOrder, setSortOrder] = useState<CenterSortOrder>('name-asc');
 
   async function refresh() {
@@ -78,14 +76,8 @@ export default function CentersView() {
         center.contactNumber,
         center.notes,
       ].some((value) => value.toLowerCase().includes(normalizedQuery));
-      const spaces = remainingSpaces(center);
-      const matchesCapacity = capacityFilter === 'all'
-        || (capacityFilter === 'many-spaces' && spaces >= 20)
-        || (capacityFilter === 'few-spaces' && spaces > 0 && spaces < 20)
-        || (capacityFilter === 'no-spaces' && spaces === 0);
       return matchesQuery
-        && (statusFilter === 'all' || center.status === statusFilter)
-        && matchesCapacity;
+        && (statusFilter === 'all' || center.status === statusFilter);
     }).sort((left, right) => {
       const spacesDifference = remainingSpaces(left) - remainingSpaces(right);
       const occupancyDifference = occupancyRatio(left) - occupancyRatio(right);
@@ -97,7 +89,7 @@ export default function CentersView() {
                 : -occupancyDifference;
       return comparison || left.name.localeCompare(right.name);
     });
-  }, [centers, query, statusFilter, capacityFilter, sortOrder]);
+  }, [centers, query, statusFilter, sortOrder]);
 
   const statusTabs = [
     { value: 'all' as const, label: 'All', count: centers.length },
@@ -107,21 +99,13 @@ export default function CentersView() {
       count: centers.filter((center) => center.status === status).length,
     })),
   ];
-  const capacityTabs: { value: CapacityFilter; label: string; count: number }[] = [
-    { value: 'all', label: 'Any spaces', count: centers.length },
-    { value: 'many-spaces', label: '20+ spaces', count: centers.filter((center) => remainingSpaces(center) >= 20).length },
-    { value: 'few-spaces', label: '1–19 spaces', count: centers.filter((center) => remainingSpaces(center) > 0 && remainingSpaces(center) < 20).length },
-    { value: 'no-spaces', label: 'No spaces', count: centers.filter((center) => remainingSpaces(center) === 0).length },
-  ];
   const filtersActive = Boolean(query.trim())
     || statusFilter !== 'all'
-    || capacityFilter !== 'all'
     || sortOrder !== 'name-asc';
 
   function resetFilters() {
     setQuery('');
     setStatusFilter('all');
-    setCapacityFilter('all');
     setSortOrder('name-asc');
   }
 
@@ -194,27 +178,17 @@ export default function CentersView() {
             </select></label>
             <div className="center-filter-summary"><span>Showing <strong>{visibleCenters.length}</strong> of {centers.length} centers</span>{filtersActive && <button type="button" className="user-reset-filters" onClick={resetFilters}><RotateCcw size={14} /> Clear filters</button>}</div>
           </div>
-          <div className="center-filter-groups">
-            <section className="user-filter-tab-group" aria-label="Filter centers by operating status">
-              <div className="user-filter-tab-heading"><span>Operating status</span><small>Choose one</small></div>
-              <div className="user-filter-segmented" role="group" aria-label="Operating status">
-                {statusTabs.map((tab) => <button key={tab.value} type="button" aria-pressed={statusFilter === tab.value} className={statusFilter === tab.value ? 'user-filter-tab-active' : ''} onClick={() => setStatusFilter(tab.value)}>
-                  <span>{tab.label}</span><span className="user-filter-count">{tab.count}</span>
-                </button>)}
-              </div>
-            </section>
-            <section className="user-filter-tab-group" aria-label="Filter centers by remaining capacity">
-              <div className="user-filter-tab-heading"><span>Remaining capacity</span><small>Based on occupancy</small></div>
-              <div className="user-filter-segmented" role="group" aria-label="Remaining capacity">
-                {capacityTabs.map((tab) => <button key={tab.value} type="button" aria-pressed={capacityFilter === tab.value} className={capacityFilter === tab.value ? 'user-filter-tab-active' : ''} onClick={() => setCapacityFilter(tab.value)}>
-                  <span>{tab.label}</span><span className="user-filter-count">{tab.count}</span>
-                </button>)}
-              </div>
-            </section>
-          </div>
+          <section className="user-filter-tab-group center-filter-status" aria-label="Filter centers by operating status">
+            <div className="user-filter-tab-heading"><span>Operating status</span><small>Filter centers by status</small></div>
+            <div className="user-filter-segmented" role="group" aria-label="Operating status">
+              {statusTabs.map((tab) => <button key={tab.value} type="button" aria-pressed={statusFilter === tab.value} className={statusFilter === tab.value ? 'user-filter-tab-active' : ''} onClick={() => setStatusFilter(tab.value)}>
+                <span>{tab.label}</span><span className="user-filter-count">{tab.count}</span>
+              </button>)}
+            </div>
+          </section>
         </div>
       </section>
-      {visibleCenters.length === 0 ? <section className="surface-panel"><EmptyState title="No centers match these filters" detail="Try another search or adjust the status and capacity filters." /><div className="center-filter-empty-action"><button type="button" className="user-reset-filters" onClick={resetFilters}><RotateCcw size={14} /> Clear filters</button></div></section> : <div className="center-grid">{visibleCenters.map((center) => {
+      {visibleCenters.length === 0 ? <section className="surface-panel"><EmptyState title="No centers match these filters" detail="Try another search or adjust the operating status." /><div className="center-filter-empty-action"><button type="button" className="user-reset-filters" onClick={resetFilters}><RotateCcw size={14} /> Clear filters</button></div></section> : <div className="center-grid">{visibleCenters.map((center) => {
       const occupancy = occupancyRatio(center);
       const fillTone = occupancy >= 0.9 ? 'capacity-danger' : occupancy >= 0.7 ? 'capacity-warning' : 'capacity-good';
       return <article
