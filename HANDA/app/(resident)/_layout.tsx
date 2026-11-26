@@ -122,7 +122,7 @@ export default function ResidentLayout() {
         name="incidents"
         options={{
           title: 'Incidents',
-          tabBarI con: ({ color, focused }) => <TabBarIcon name="alert-outline" color={color} size={tabIconSize} focused={focused} badgeCount={unreadIncidentCount} />,
+          tabBarIcon: ({ color, focused }) => <TabBarIcon name="alert-outline" color={color} size={tabIconSize} focused={focused} badgeCount={unreadIncidentCount} />,
         }}
       />
       <Tabs.Screen

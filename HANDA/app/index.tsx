@@ -7,7 +7,6 @@ import { ThemedText as Text } from '@components/ThemedText';
 import { HandaLogoMark } from '@components/HandaLogo';
 import { AppBoldFontFamily, AppFontFamily, AppHeadingFontFamily, AppMediumFontFamily } from '@constants/typography';
 import { useRouter } from 'expo-router';
-import { warmUpServer } from '@services/apiClient';
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -21,7 +20,6 @@ export default function SplashScreen() {
   });
 
   useEffect(() => {
-    void warmUpServer().catch((error: unknown) => console.warn('HANDA server warm-up did not complete:', error));
     const entranceAnimation = Animated.timing(entrance, {
       toValue: 1,
       duration: 720,

@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Eye, Mail, MapPin, Pencil, Phone, Plus, RotateCcw, Search, ShieldCheck, UserRoundPlus, UserRoundX, Users, X } from 'lucide-react';
-import { createUser, getResponderVerificationDocument, getUsers, reviewResponderApplication, updateUser } from '../api';
-import type { UserInput, UserRecord } from '../types';
+import { createUser, getLogs, getResponderVerificationDocument, getUsers, reviewResponderApplication, updateUser } from '../api';
+import type { LogRecord, UserInput, UserRecord } from '../types';
 import type { ResponderVerificationDocument } from '../api';
 import { EmptyState, InlineNotice, LoadingState, MetricCard, PageHeading } from '../components/UI';
 import { useAuth } from '../auth';
@@ -9,6 +9,7 @@ import { useAuth } from '../auth';
 const blankUser: UserInput = { name: '', email: '', role: 'Responder', status: 'Active', birthday: '', mobileNumber: '', currentAddress: '', password: '', isSuperAdmin: false, adminCategory: null };
 const roles: UserRecord['role'][] = ['Responder', 'Resident', 'Administrator'];
 const statuses: UserRecord['status'][] = ['Active', 'Inactive', 'Pending'];
+const RECENT_ACTIVITY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 function formatUserDate(value?: string, includeTime = false) {
   if (!value) return 'Not provided';
@@ -38,8 +39,11 @@ function strongPassword(value: string) {
 export default function UsersView() {
   const { user: activeUser } = useAuth();
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [auditLogs, setAuditLogs] = useState<LogRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activityError, setActivityError] = useState('');
+  const [now, setNow] = useState(() => Date.now());
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All roles');
   const [statusFilter, setStatusFilter] = useState('All statuses');
@@ -61,9 +65,24 @@ export default function UsersView() {
 
   async function refresh() {
     setLoading(true);
-    try { setUsers(await getUsers({ includeHouseholdMembers: activeUser?.isSuperAdmin === true })); setError(''); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'User accounts could not be loaded.'); }
-    finally { setLoading(false); }
+    const [usersResult, logsResult] = await Promise.allSettled([
+      getUsers({ includeHouseholdMembers: activeUser?.isSuperAdmin === true }),
+      getLogs('audit'),
+    ]);
+    setNow(Date.now());
+    if (usersResult.status === 'fulfilled') {
+      setUsers(usersResult.value);
+      setError('');
+    } else {
+      setError(usersResult.reason instanceof Error ? usersResult.reason.message : 'User accounts could not be loaded.');
+    }
+    if (logsResult.status === 'fulfilled') {
+      setAuditLogs(logsResult.value);
+      setActivityError('');
+    } else {
+      setActivityError(logsResult.reason instanceof Error ? logsResult.reason.message : 'Recent account activity could not be loaded.');
+    }
+    setLoading(false);
   }
   useEffect(() => { void refresh(); }, [activeUser?.id, activeUser?.isSuperAdmin]);
 
@@ -83,6 +102,34 @@ export default function UsersView() {
     if (!leftValid || !rightValid) return leftValid === rightValid ? 0 : leftValid ? -1 : 1;
     return sortOrder === 'newest' ? rightCreated - leftCreated : leftCreated - rightCreated;
   }), [users, query, roleFilter, statusFilter, sortOrder]);
+  const recentUsers = useMemo(() => users.filter((user) => {
+    const createdAt = Date.parse(user.createdAt);
+    return Number.isFinite(createdAt) && createdAt >= now - RECENT_ACTIVITY_WINDOW_MS && createdAt <= now;
+  }), [users, now]);
+  const recentStatusUserIds = useMemo(() => new Set(auditLogs.filter((log) => {
+    const changedAt = Date.parse(log.created_at);
+    const isStatusChange = (log.entity_type === 'user' && log.action === 'update' && /Access changes:.*\bstatus\b/i.test(log.details))
+      || (log.entity_type === 'responder_application' && ['approved', 'rejected'].includes(log.action.toLowerCase()));
+    return isStatusChange && Number.isFinite(changedAt) && changedAt >= now - RECENT_ACTIVITY_WINDOW_MS && changedAt <= now;
+  }).map((log) => log.entity_id).filter((id): id is string => Boolean(id))), [auditLogs, now]);
+  const roleTabs = [
+    { value: 'All roles', label: 'All roles', count: users.length, activityCount: recentUsers.length },
+    ...roles.map((role) => ({
+      value: role,
+      label: role === 'Administrator' ? 'Administrators' : `${role}s`,
+      count: users.filter((user) => user.role === role).length,
+      activityCount: recentUsers.filter((user) => user.role === role).length,
+    })),
+  ];
+  const statusTabs = [
+    { value: 'All statuses', label: 'All statuses', count: users.length, activityCount: users.filter((user) => recentStatusUserIds.has(user.id)).length },
+    ...statuses.map((status) => ({
+      value: status,
+      label: status,
+      count: users.filter((user) => user.status === status).length,
+      activityCount: users.filter((user) => user.status === status && recentStatusUserIds.has(user.id)).length,
+    })),
+  ];
   const responders = users.filter((user) => user.role === 'Responder').length;
   const pending = users.filter((user) => user.status === 'Pending').length;
   const filtersActive = Boolean(query.trim()) || roleFilter !== 'All roles' || statusFilter !== 'All statuses' || sortOrder !== 'newest';
@@ -178,17 +225,38 @@ export default function UsersView() {
     {error && <InlineNotice tone="error" onRetry={() => void refresh()}>{error}</InlineNotice>}
     <section className="surface-panel records-panel">
       <div className="user-filter-toolbar">
-        <label className="search-field user-search-field"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, email, phone, or location" aria-label="Search user accounts" />{query && <button type="button" className="user-search-clear" onClick={() => setQuery('')} aria-label="Clear search"><X size={15} /></button>}</label>
-        <label className="user-filter-control"><span>Role</span><select className="select-control" aria-label="Filter role" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}><option>All roles</option>{roles.map((role) => <option key={role}>{role}</option>)}</select></label>
-        <label className="user-filter-control"><span>Status</span><select className="select-control" aria-label="Filter status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option>All statuses</option>{statuses.map((status) => <option key={status}>{status}</option>)}</select></label>
-        <label className="user-filter-control"><span>Sort by</span><select className="select-control" aria-label="Sort user accounts" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}>
-          <option value="newest">Newest first</option>
-          <option value="oldest">Oldest first</option>
-          <option value="name-asc">Name A–Z</option>
-          <option value="name-desc">Name Z–A</option>
-        </select></label>
-        <div className="user-filter-summary"><span>Showing <strong>{visible.length}</strong> of {users.length} accounts</span>{filtersActive && <button type="button" className="user-reset-filters" onClick={resetFilters}><RotateCcw size={14} /> Clear filters</button>}</div>
+        <div className="user-filter-controls">
+          <label className="search-field user-search-field"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, email, phone, or location" aria-label="Search user accounts" />{query && <button type="button" className="user-search-clear" onClick={() => setQuery('')} aria-label="Clear search"><X size={15} /></button>}</label>
+          <label className="user-filter-control"><span>Sort accounts</span><select className="select-control" aria-label="Sort user accounts" value={sortOrder} onChange={(event) => setSortOrder(event.target.value as typeof sortOrder)}>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+          </select></label>
+          <div className="user-filter-summary"><span>Showing <strong>{visible.length}</strong> of {users.length} accounts</span>{filtersActive && <button type="button" className="user-reset-filters" onClick={resetFilters}><RotateCcw size={14} /> Clear filters</button>}</div>
+        </div>
+        <div className="user-filter-tab-groups">
+          <section className="user-filter-tab-group" aria-label="Filter accounts by role">
+            <div className="user-filter-tab-heading"><span>Role</span><small>New · last 7 days</small></div>
+            <div className="user-filter-segmented" role="group" aria-label="Roles">
+              {roleTabs.map((tab) => <button key={tab.value} type="button" aria-pressed={roleFilter === tab.value} className={roleFilter === tab.value ? 'user-filter-tab-active' : ''} onClick={() => setRoleFilter(tab.value)}>
+                <span>{tab.label}</span><span className="user-filter-count">{tab.count}</span>
+                {tab.activityCount > 0 && <span className="user-activity-count user-activity-new" title={`${tab.activityCount} new account${tab.activityCount === 1 ? '' : 's'} in the last 7 days`}>{tab.activityCount} new</span>}
+              </button>)}
+            </div>
+          </section>
+          <section className="user-filter-tab-group" aria-label="Filter accounts by status">
+            <div className="user-filter-tab-heading"><span>Status</span><small>Status changes · last 7 days</small></div>
+            <div className="user-filter-segmented" role="group" aria-label="Statuses">
+              {statusTabs.map((tab) => <button key={tab.value} type="button" aria-pressed={statusFilter === tab.value} className={statusFilter === tab.value ? 'user-filter-tab-active' : ''} onClick={() => setStatusFilter(tab.value)}>
+                <span>{tab.label}</span><span className="user-filter-count">{tab.count}</span>
+                {tab.activityCount > 0 && <span className="user-activity-count user-activity-updated" title={`${tab.activityCount} account${tab.activityCount === 1 ? '' : 's'} with status changes in the last 7 days`}>{tab.activityCount} updated</span>}
+              </button>)}
+            </div>
+          </section>
+        </div>
       </div>
+      {activityError && <div className="user-activity-notice" role="status">Status-change indicators unavailable: {activityError}</div>}
       {loading ? <LoadingState label="Loading user accounts" /> : visible.length === 0 ? <EmptyState title="No accounts found" detail="Adjust your filters or create a new account." /> : (
         <div className="table-scroll">
           <table className="data-table user-table">
