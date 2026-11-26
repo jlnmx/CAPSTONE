@@ -2,6 +2,7 @@ import { ThemeAwareView, ThemeAwareSafeAreaView, ThemeAwareScrollView, ThemeAwar
 import React, { useEffect, useState } from 'react';
 import { Colors } from '@constants/colors';
 import { ActivityIndicator, Image, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import type { ViewStyle } from 'react-native';
 import { ThemedText as Text } from '@components/ThemedText';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -296,7 +297,7 @@ export default function ResidentIncidentReport() {
           <Reveal index={1}>
             <ThemeAwareView style={styles.formCard}>
               <ThemeAwareView style={styles.locationHeading}>
-                <SectionHeading icon="map-marker-radius-outline" title="Where is it?" description="Your current location will be pinned on the map." />
+                <SectionHeading icon="map-marker-radius-outline" title="Where is it?" description="Your current location will be pinned on the map." style={styles.inlineSectionHeading} />
                 <AnimatedPressable onPress={() => void loadLocation()} style={styles.refreshButton} accessibilityRole="button" accessibilityLabel="Refresh current location">
                   <MaterialCommunityIcons name="crosshairs-gps" size={19} color={GREEN} />
                 </AnimatedPressable>
@@ -346,7 +347,7 @@ export default function ResidentIncidentReport() {
           <Reveal index={2}>
             <ThemeAwareView style={styles.formCard}>
               <ThemeAwareView style={styles.photoHeading}>
-                <SectionHeading icon="camera-outline" title="Add photos" description="Photos can help responders assess the situation." />
+                <SectionHeading icon="camera-outline" title="Add photos" description="Photos can help responders assess the situation." style={styles.inlineSectionHeading} />
                 <ThemeAwareView style={styles.photoCountBadge}><Text style={styles.photoCount}>{photos.length}/4</Text></ThemeAwareView>
               </ThemeAwareView>
               <ThemeAwareView style={styles.photoGrid}>
@@ -451,9 +452,9 @@ export default function ResidentIncidentReport() {
   );
 }
 
-function SectionHeading({ icon, title, description }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; description: string }) {
+function SectionHeading({ icon, title, description, style }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; title: string; description: string; style?: ViewStyle }) {
   return (
-    <ThemeAwareView style={styles.sectionHeading}>
+    <ThemeAwareView style={[styles.sectionHeading, style]}>
       <ThemeAwareView style={styles.sectionIcon}><MaterialCommunityIcons name={icon} size={19} color={GREEN} /></ThemeAwareView>
       <ThemeAwareView style={styles.sectionCopy}>
         <Text style={styles.sectionTitle}>{title}</Text>
@@ -479,6 +480,7 @@ const styles = StyleSheet.create({
   form: { gap: 14, paddingHorizontal: 14, paddingTop: 17 },
   formCard: { padding: 15, borderWidth: 1, borderColor: '#E2EAE2', borderRadius: 21, backgroundColor: Colors.surface, shadowColor: '#173A20', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 2 },
   sectionHeading: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 3 },
+  inlineSectionHeading: { flex: 1, minWidth: 0 },
   sectionIcon: { width: 39, height: 39, flexShrink: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: '#EAF5EA' },
   sectionCopy: { flex: 1, minWidth: 0 },
   sectionTitle: { color: Colors.text, fontFamily: kitFonts.heading, fontSize: 16, lineHeight: 21 },
