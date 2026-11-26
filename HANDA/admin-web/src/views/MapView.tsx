@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, Building2, Clock3, Expand, LocateFixed, MapPin, RefreshCw, Shrink, Satellite } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Activity, AlertTriangle, Building2, Clock3, Expand, LocateFixed, MapPin, RefreshCw, Shrink, Satellite, X } from 'lucide-react';
 import { getCommandMapSnapshot } from '../api';
 import type { CenterRecord, IncidentRecord } from '../types';
 import { BINAN_HAZARD_AREAS } from '../../../src/services/map/hazardAreas';
@@ -191,6 +192,77 @@ function popupContent(record: CenterRecord | IncidentRecord, center: boolean) {
   return popup;
 }
 
+function IncidentOverviewModal({ incident, onClose }: { incident: IncidentRecord; onClose: () => void }) {
+  const statusHistory = [
+    { status: 'reported', at: incident.createdAt, actorName: incident.reporterName || 'Resident' },
+    ...(incident.statusHistory ?? []),
+  ].sort((first, second) => Date.parse(first.at) - Date.parse(second.at));
+  const valueOrFallback = (value?: string | number | null) => value === undefined || value === null || value === '' ? 'Not provided' : String(value);
+  const photoGroups = [
+    { title: 'Resident photos', photos: incident.photoUris ?? [] },
+    { title: 'Responder photos', photos: incident.responsePhotoUris ?? [] },
+  ];
+
+  return createPortal(<div className="modal-backdrop incident-overview-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="modal-card incident-overview-modal" role="dialog" aria-modal="true" aria-labelledby="incident-overview-title">
+      <header className="incident-overview-heading">
+        <div>
+          <p className="eyebrow">INCIDENT OVERVIEW</p>
+          <h2 id="incident-overview-title">{incident.type}</h2>
+          <div className="incident-overview-badges">
+            <span className={`map-incident-status status-${incident.status.toLowerCase()}`}>{labelStatus(incident.status)}</span>
+            <span className={`incident-severity severity-${(incident.severity || 'medium').toLowerCase()}`}>{valueOrFallback(incident.severity || 'medium')} severity</span>
+          </div>
+        </div>
+        <button type="button" className="icon-button incident-overview-close" onClick={onClose} aria-label="Close incident overview"><X size={18} /></button>
+      </header>
+      <div className="incident-overview-body">
+        <section className="incident-overview-section">
+          <h3>Report details</h3>
+          <dl className="incident-overview-grid">
+            <div><dt>Reported</dt><dd>{formatTime(incident.createdAt)}</dd></div>
+            <div><dt>Location</dt><dd>{valueOrFallback(incident.location)}</dd></div>
+            <div className="incident-overview-wide"><dt>Description</dt><dd>{valueOrFallback(incident.description)}</dd></div>
+            {incident.latitude != null && incident.longitude != null && <div className="incident-overview-wide"><dt>Coordinates</dt><dd>{incident.latitude}, {incident.longitude}</dd></div>}
+            <div><dt>Reported by</dt><dd>{valueOrFallback(incident.reporterName)}</dd></div>
+            <div><dt>Contact</dt><dd>{valueOrFallback(incident.reporterContact)}</dd></div>
+          </dl>
+        </section>
+
+        <section className="incident-overview-section">
+          <h3>Response information</h3>
+          <dl className="incident-overview-grid">
+            <div><dt>Responders</dt><dd>{valueOrFallback(incident.responsePeople)}</dd></div>
+            <div><dt>Organizations</dt><dd>{valueOrFallback(incident.responseOrganizations)}</dd></div>
+            <div><dt>Estimated arrival</dt><dd>{incident.responseEtaMinutes == null ? 'Not provided' : `${incident.responseEtaMinutes} minutes`}</dd></div>
+            <div className="incident-overview-wide"><dt>Action notes</dt><dd>{valueOrFallback(incident.actionNotes)}</dd></div>
+            <div className="incident-overview-wide"><dt>Response updates</dt><dd>{valueOrFallback(incident.responseNotes)}</dd></div>
+          </dl>
+        </section>
+
+        <section className="incident-overview-section">
+          <h3>Status updates</h3>
+          {statusHistory.length ? <ol className="incident-status-timeline">
+            {statusHistory.map((event, index) => <li key={`${event.at}-${event.status}-${index}`}>
+              <span className="incident-status-timeline-dot" />
+              <div><strong>{labelStatus(event.status)}</strong><small>{formatTime(event.at)} · {event.actorName || 'System'}</small></div>
+            </li>)}
+          </ol> : <p className="incident-overview-empty">No status updates have been recorded.</p>}
+        </section>
+
+        {photoGroups.map((group) => <section className="incident-overview-section" key={group.title}>
+          <div className="incident-overview-section-heading"><h3>{group.title}</h3><span>{group.photos.length}</span></div>
+          {group.photos.length ? <div className="incident-overview-photos">
+            {group.photos.map((uri, index) => <a href={uri} target="_blank" rel="noreferrer" key={`${group.title}-${index}`} aria-label={`Open ${group.title.toLowerCase()} photo ${index + 1} in a new tab`}>
+              <img src={uri} alt={`${group.title} ${index + 1}`} loading="lazy" />
+            </a>)}
+          </div> : <p className="incident-overview-empty">No {group.title.toLowerCase()} uploaded.</p>}
+        </section>)}
+      </div>
+    </section>
+  </div>, document.body);
+}
+
 export default function MapView() {
   const { user } = useAuth();
   const adminCategory = user?.isSuperAdmin ? undefined : user?.adminCategory ?? null;
@@ -222,6 +294,7 @@ export default function MapView() {
   const [mapRetry, setMapRetry] = useState(0);
   const [isSatellite, setIsSatellite] = useState(false);
   const [focusedOfflineMarker, setFocusedOfflineMarker] = useState<string | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<IncidentRecord | null>(null);
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY?.trim() || '';
 
   const refresh = useCallback(async (quiet = false) => {
@@ -273,6 +346,15 @@ export default function MapView() {
       window.removeEventListener('offline', updateOnline);
     };
   }, []);
+
+  useEffect(() => {
+    if (!selectedIncident) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedIncident(null);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedIncident]);
 
   useEffect(() => {
     if (!online) {
@@ -397,8 +479,8 @@ export default function MapView() {
       const marker = new google.Marker({ map: showIncidents ? mapRef.current : null, position: { lat: incident.latitude, lng: incident.longitude },
         title: incident.type, icon: { path: google.SymbolPath.CIRCLE, scale: status === 'reported' ? 10 : 8, fillColor: incidentColors[status] || '#737f78', fillOpacity: 0.96, strokeColor: '#fff', strokeWeight: 2 } });
       marker.addListener('click', () => {
-        googleInfoWindow.current.setContent(popupContent(incident, false));
-        googleInfoWindow.current.open({ map: mapRef.current, anchor: marker });
+        googleInfoWindow.current?.close();
+        setSelectedIncident(incident);
       });
       incidentMarkers.current.set(incident.id, marker);
     });
@@ -479,6 +561,7 @@ export default function MapView() {
   }
 
   function focusIncident(incident: IncidentRecord) {
+    setSelectedIncident(incident);
     if (!online) {
       setFocusedOfflineMarker(`incident:${incident.id}`);
       return;
@@ -488,8 +571,6 @@ export default function MapView() {
     const position = marker.getPosition();
     mapRef.current.panTo(position);
     mapRef.current.setZoom(Math.max(mapRef.current.getZoom(), 16));
-    googleInfoWindow.current?.setContent(popupContent(data.incidents.find((item) => item.id === incident.id)!, false));
-    googleInfoWindow.current?.open({ map: mapRef.current, anchor: marker });
   }
 
   return <section className="command-map-view" ref={mapFrame} aria-label="Biñan City live operations map">
@@ -514,14 +595,18 @@ export default function MapView() {
             key={location.key}
             className={`map-offline-marker ${location.kind === 'center' ? 'map-offline-marker-center' : 'map-offline-marker-incident'} ${focusedOfflineMarker === location.key ? 'is-selected' : ''}`}
             style={{ left: `${location.x}%`, top: `${location.y}%`, '--marker-color': location.color } as React.CSSProperties}
-            onClick={() => setFocusedOfflineMarker(location.key)}
+            onClick={() => {
+              setFocusedOfflineMarker(location.key);
+              if (location.kind === 'incident') setSelectedIncident(location.record);
+            }}
             aria-label={`${location.kind === 'center' ? 'Evacuation center' : 'Incident'}: ${location.name}`}
             title={location.name}
           ><span /></button>)}
-          {focusedOfflineLocation && <div className="map-offline-popup" role="status">
+          {focusedOfflineLocation?.kind === 'center' && <div className="map-offline-popup" role="status">
             <button type="button" className="map-offline-popup-close" onClick={() => setFocusedOfflineMarker(null)} aria-label="Close marker details">×</button>
             <strong>{focusedOfflineLocation.name}</strong>
-            {focusedOfflineLocation.kind === 'center' ? <><span>{labelStatus(focusedOfflineLocation.record.status)}</span><span>{focusedOfflineLocation.record.currentOccupancy.toLocaleString()} / {focusedOfflineLocation.record.capacity.toLocaleString()} occupants</span></> : <><span>{labelStatus(focusedOfflineLocation.record.status).toUpperCase()} · {focusedOfflineLocation.record.severity || 'medium'} severity</span><span>{focusedOfflineLocation.record.location || 'Location not provided'}</span><span>{focusedOfflineLocation.record.actionNotes || focusedOfflineLocation.record.responseNotes || focusedOfflineLocation.record.description}</span></>}
+            <span>{labelStatus(focusedOfflineLocation.record.status)}</span>
+            <span>{focusedOfflineLocation.record.currentOccupancy.toLocaleString()} / {focusedOfflineLocation.record.capacity.toLocaleString()} occupants</span>
           </div>}
         </div>}
         {online && <div className="map-maptype-control">
@@ -551,7 +636,7 @@ export default function MapView() {
           {visibleIncidents.length ? visibleIncidents.map((incident) => {
             const status = incident.status.toLowerCase();
             const located = hasCoordinates(incident);
-            return <button type="button" className={`map-incident-row ${located ? '' : 'map-incident-unlocated'}`} key={incident.id} onClick={() => focusIncident(incident)} disabled={!located}>
+            return <button type="button" className={`map-incident-row ${located ? '' : 'map-incident-unlocated'}`} key={incident.id} onClick={() => focusIncident(incident)}>
               <span className="map-incident-marker" style={{ '--incident-color': incidentColors[status] || '#737f78' } as React.CSSProperties}><AlertTriangle size={15} /></span>
               <span className="map-incident-copy"><strong>{incident.type}</strong><small><MapPin size={11} />{incident.location || 'Location not provided'}</small><span><Clock3 size={11} />{formatTime(incident.createdAt)}</span></span>
               <span className={`map-incident-status status-${status}`}>{labelStatus(status)}</span>
@@ -561,5 +646,6 @@ export default function MapView() {
         <footer className="map-rail-footer"><Building2 size={14} /><span>{geolocatedCenters} of {data.centers.length} centers have map coordinates</span><span className="map-footer-divider" /><span>{geolocatedIncidents} of {data.incidents.length} incidents mapped</span></footer>
       </aside>
     </div>
+    {selectedIncident && <IncidentOverviewModal incident={selectedIncident} onClose={() => setSelectedIncident(null)} />}
   </section>;
 }

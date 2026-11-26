@@ -20,12 +20,15 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.handa.evacuation"
+      "bundleIdentifier": "com.handa.evacuation",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.handa.evacuation",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 41,
+      "versionCode": 42,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"

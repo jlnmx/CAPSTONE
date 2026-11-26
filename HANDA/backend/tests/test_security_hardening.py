@@ -57,10 +57,32 @@ class SecurityHardeningTests(unittest.TestCase):
                 connection = MagicMock()
                 connection.execute.return_value.fetchall.return_value = []
                 main.list_incidents(connection, CurrentUser(f"{role}-1", "", "", role, 0))
-                query = connection.execute.call_args.args[0]
+                query = connection.execute.call_args_list[0].args[0]
                 self.assertIn("incidents.description", query)
                 self.assertIn("incidents.photo_uris", query)
                 self.assertIn("latitude", query)
+
+    def test_admin_incident_list_includes_status_updates_with_actor_names(self):
+        connection = MagicMock()
+        incident_cursor = MagicMock()
+        incident_cursor.fetchall.return_value = [{"id": "incident-1", "status": "in_progress"}]
+        history_cursor = MagicMock()
+        history_cursor.fetchall.return_value = [{
+            "incident_id": "incident-1",
+            "status": "acknowledged",
+            "at": "2026-11-17T00:00:00Z",
+            "actor_name": "Dispatcher",
+        }]
+        connection.execute.side_effect = [incident_cursor, history_cursor]
+
+        result = main.list_incidents(connection, CurrentUser("admin-1", "", "", "admin", 0))
+
+        self.assertEqual(result[0]["status_history"], [{
+            "status": "acknowledged",
+            "at": "2026-11-17T00:00:00Z",
+            "actor_name": "Dispatcher",
+        }])
+        self.assertIn("LEFT JOIN users AS actor", connection.execute.call_args_list[1].args[0])
 
     def test_incident_feed_requires_authentication_and_resident_directory_access_is_removed(self):
         routes = {

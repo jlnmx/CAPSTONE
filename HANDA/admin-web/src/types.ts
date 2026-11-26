@@ -41,6 +41,13 @@ export interface IncidentRecord {
   reporterName?: string;
   reporterContact?: string;
   reporterPicture?: string | null;
+  statusHistory?: IncidentStatusEvent[];
+}
+
+export interface IncidentStatusEvent {
+  status: string;
+  at: string;
+  actorName?: string;
 }
 
 export interface EvacueeRecord {

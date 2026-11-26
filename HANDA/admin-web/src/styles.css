@@ -458,6 +458,15 @@ button:disabled { cursor: not-allowed; opacity: .64; }
 .modal-heading .icon-button { border-color: var(--line); font-size: 20px; }
 .responder-review-modal { width: min(100%, 880px); }.responder-review-content { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }.responder-review-document { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #f8faf8; }.responder-review-document h3 { margin: 0 0 9px; color: var(--ink); font-size: 12px; font-weight: 800; }.responder-review-content img { display: block; width: 100%; height: 260px; object-fit: contain; border: 1px solid var(--line); border-radius: 8px; background: #f3f5f3; }.responder-review-content .cell-subtitle { margin: 8px 0 0; overflow-wrap: anywhere; }.responder-review-guidance { grid-column: 1 / -1; margin: 0; }.responder-review-legacy { align-self: center; padding: 16px; border: 1px dashed var(--line); border-radius: 10px; }.responder-review-legacy strong { color: var(--ink); font-size: 12px; }
 @media (max-width: 680px) { .responder-review-content { grid-template-columns: minmax(0, 1fr); }.responder-review-guidance { grid-column: 1; }.responder-review-content img { height: 220px; } }
+@media (max-width: 600px) {
+  .incident-overview-backdrop { padding: 10px; }
+  .incident-overview-modal { max-height: 94dvh; }
+  .incident-overview-heading { padding: 17px 16px 14px; }
+  .incident-overview-heading h2 { font-size: 18px; }
+  .incident-overview-body { padding: 11px; }
+  .incident-overview-grid { grid-template-columns: minmax(0, 1fr); }
+  .incident-overview-grid .incident-overview-wide { grid-column: 1; }
+}
 .modal-card .form-grid { gap: 12px; }
 
 .login-screen { display: grid; min-height: 100vh; grid-template-columns: minmax(380px, .9fr) minmax(450px, 1.1fr); background: var(--surface); }
@@ -1135,6 +1144,40 @@ body { font-size: 14px; line-height: 1.5; letter-spacing: -.01em; }
 .user-overview-grid dd { overflow-wrap: anywhere; margin: 0; color: var(--ink); font-size: 11px; font-weight: 750; line-height: 1.5; }
 .user-overview-grid .user-overview-wide { grid-column: 1 / -1; }
 .user-overview-id { color: var(--muted) !important; font-family: 'IBM Plex Mono', monospace; font-size: 10px !important; }
+.incident-overview-backdrop { z-index: 1050; }
+.incident-overview-modal { display: flex; width: min(100%, 820px); max-height: min(92vh, 880px); flex-direction: column; overflow: hidden; padding: 0; border-radius: 14px; }
+.incident-overview-heading { display: flex; flex: 0 0 auto; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 21px 24px 17px; border-bottom: 1px solid var(--line); background: linear-gradient(120deg, #fff0ed, var(--surface) 72%); }
+.incident-overview-heading .eyebrow { margin: 0 0 5px; }
+.incident-overview-heading h2 { margin: 0 0 10px; overflow-wrap: anywhere; color: var(--ink); font-size: 21px; font-weight: 850; }
+.incident-overview-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.incident-overview-badges .map-incident-status { padding: 5px 8px; font-size: 9px; }
+.incident-severity { padding: 5px 8px; border-radius: 999px; color: #647166; background: #eff2ef; font-size: 9px; font-weight: 800; text-transform: capitalize; }
+.severity-critical, .severity-high { color: #a93530; background: #fff0ed; }
+.severity-medium { color: #a45b08; background: #fff4e3; }
+.incident-overview-close { flex: 0 0 auto; border-color: var(--line); }
+.incident-overview-body { display: grid; min-height: 0; gap: 11px; overflow-y: auto; padding: 15px 20px 20px; }
+.incident-overview-section { min-width: 0; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.incident-overview-section h3 { margin: 0 0 11px; color: var(--ink); font-size: 12px; font-weight: 850; }
+.incident-overview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 18px; margin: 0; }
+.incident-overview-grid > div { min-width: 0; }
+.incident-overview-grid dt { margin-bottom: 3px; color: var(--muted); font-size: 9px; font-weight: 750; }
+.incident-overview-grid dd { overflow-wrap: anywhere; margin: 0; color: var(--ink); font-size: 10px; font-weight: 700; line-height: 1.55; white-space: pre-wrap; }
+.incident-overview-grid .incident-overview-wide { grid-column: 1 / -1; }
+.incident-status-timeline { display: grid; gap: 0; padding: 0; margin: 0; list-style: none; }
+.incident-status-timeline li { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 9px; min-height: 43px; }
+.incident-status-timeline li:not(:last-child)::after { position: absolute; top: 12px; bottom: -1px; left: 5px; width: 1px; background: var(--line); content: ''; }
+.incident-status-timeline-dot { z-index: 1; width: 11px; height: 11px; margin-top: 2px; border: 2px solid #fff; border-radius: 50%; background: var(--brand); box-shadow: 0 0 0 1px var(--brand-line); }
+.incident-status-timeline li > div { display: grid; gap: 3px; padding-bottom: 9px; }
+.incident-status-timeline strong { color: var(--ink); font-size: 10px; font-weight: 800; text-transform: capitalize; }
+.incident-status-timeline small { color: var(--muted); font-size: 9px; }
+.incident-overview-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.incident-overview-section-heading h3 { margin-bottom: 11px; }
+.incident-overview-section-heading > span { display: grid; min-width: 24px; height: 24px; place-items: center; padding: 0 6px; margin-bottom: 10px; border-radius: 999px; color: var(--brand-deep); background: var(--brand-pale); font-size: 9px; font-weight: 850; }
+.incident-overview-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.incident-overview-photos a { display: block; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-soft); }
+.incident-overview-photos img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.incident-overview-photos a:focus-visible { outline: 3px solid rgb(201 80 134 / 28%); outline-offset: 2px; }
+.incident-overview-empty { margin: 0; color: var(--muted); font-size: 10px; }
 .user-overview-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .user-overview-section-heading h3 { margin-bottom: 12px; }
 .user-overview-section-heading > span { display: grid; min-width: 25px; height: 25px; place-items: center; padding: 0 6px; margin-bottom: 12px; border-radius: 999px; color: var(--brand-deep); background: var(--brand-pale); font-size: 10px; font-weight: 850; }

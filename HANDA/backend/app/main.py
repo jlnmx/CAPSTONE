@@ -1318,7 +1318,29 @@ def list_incidents(connection: psycopg.Connection = Depends(get_connection), use
         FROM incidents ORDER BY incidents.created_at DESC
         """
     ).fetchall()
-    return rows
+    incidents = [{**row, "status_history": []} for row in rows]
+    incident_ids = [incident["id"] for incident in incidents]
+    if incident_ids:
+        history_by_incident: dict[str, list[dict]] = {}
+        for event in connection.execute(
+            """
+            SELECT events.incident_id, events.status, events.created_at AS at,
+                   COALESCE(actor.name, 'System') AS actor_name
+            FROM incident_status_events AS events
+            LEFT JOIN users AS actor ON actor.id = events.actor_id
+            WHERE events.incident_id = ANY(%s)
+            ORDER BY events.created_at
+            """,
+            (incident_ids,),
+        ).fetchall():
+            history_by_incident.setdefault(event["incident_id"], []).append({
+                "status": event["status"],
+                "at": event["at"],
+                "actor_name": event["actor_name"],
+            })
+        for incident in incidents:
+            incident["status_history"] = history_by_incident.get(incident["id"], [])
+    return incidents
 
 
 @app.get("/api/v1/resident/sos")
